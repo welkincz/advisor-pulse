@@ -32,21 +32,35 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          # Include each job's inputs, not only its own directory — a skipped
+          # required check counts as passing, so missing inputs can hide breakage.
           filters: |
             python:
               - 'src/**'
               - 'tests/**'
+              - 'scripts/**'
+              - 'contracts/**'
+              - 'reference/**'
+              - 'fixtures/**'
               - 'pyproject.toml'
               - 'uv.lock'
               - 'Makefile'
-              - 'scripts/**'
               - '.github/workflows/ci.yml'
             dbt:
               - 'dbt/**'
               - 'fixtures/**'
+              - 'reference/**'
+              - 'contracts/**'
+              - 'src/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'Makefile'
               - '.github/workflows/ci.yml'
             web:
               - 'web/**'
+              - 'contracts/schemas/**'
+              - 'fixtures/**'
+              - 'Makefile'
               - '.github/workflows/ci.yml'
 
       - name: Gate on project files
