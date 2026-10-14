@@ -15,6 +15,7 @@ from pulse.contracts.base import (
     columns,
     duckdb_columns,
 )
+from pulse.contracts.defects import DEFECT_CONTRACTS
 from pulse.contracts.exports import EXPORT_DOCUMENT_CONTRACTS, EXPORT_TABLE_CONTRACTS
 from pulse.contracts.meta import META_CONTRACTS
 from pulse.contracts.raw import RAW_CONTRACTS, RawMetadata
@@ -27,6 +28,7 @@ ALL_CONTRACTS: tuple[type[Contract], ...] = (
     *META_CONTRACTS,
     *EXPORT_TABLE_CONTRACTS,
     *EXPORT_DOCUMENT_CONTRACTS,
+    *DEFECT_CONTRACTS,
 )
 
 REGISTRY: dict[str, type[Contract]] = {m.contract_name: m for m in ALL_CONTRACTS}

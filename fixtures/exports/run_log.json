@@ -1,0 +1,634 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-10-05T10:01:23.600000Z",
+  "runs": [
+    {
+      "run_id": "weekly-2026-W40-1",
+      "run_type": "WEEKLY",
+      "iso_week_id": "2026-W40",
+      "status": "WARN",
+      "started_at": "2026-10-05T10:00:00Z",
+      "ended_at": "2026-10-05T10:01:23.600000Z",
+      "duration_ms": 83600,
+      "git_sha": "88ee740d318c5856e32be2e58b7501e51b6724ff",
+      "stages": [
+        {
+          "stage": "restore_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:00:00Z",
+          "ended_at": "2026-10-05T10:00:04.200000Z",
+          "duration_ms": 4200,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Restored warehouse.duckdb and sources from R2."
+        },
+        {
+          "stage": "generate",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:00:04.350000Z",
+          "ended_at": "2026-10-05T10:00:13.450000Z",
+          "duration_ms": 9100,
+          "rows_in": null,
+          "rows_out": 163,
+          "rows_quarantined": null,
+          "message": "Generated 2026-W40 plus late arrivals."
+        },
+        {
+          "stage": "ingest",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:00:13.600000Z",
+          "ended_at": "2026-10-05T10:00:19.400000Z",
+          "duration_ms": 5800,
+          "rows_in": 180,
+          "rows_out": 177,
+          "rows_quarantined": 3,
+          "message": null
+        },
+        {
+          "stage": "dbt_build",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:00:19.550000Z",
+          "ended_at": "2026-10-05T10:00:49.750000Z",
+          "duration_ms": 30200,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "All models and tests passed."
+        },
+        {
+          "stage": "checks",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:00:49.900000Z",
+          "ended_at": "2026-10-05T10:00:51.700000Z",
+          "duration_ms": 1800,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "4 checks run."
+        },
+        {
+          "stage": "narrate",
+          "attempt": 1,
+          "status": "WARN",
+          "started_at": "2026-10-05T10:00:51.850000Z",
+          "ended_at": "2026-10-05T10:01:16.650000Z",
+          "duration_ms": 24800,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "1 of 5 narratives fell back to the template."
+        },
+        {
+          "stage": "export",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:01:16.800000Z",
+          "ended_at": "2026-10-05T10:01:19.400000Z",
+          "duration_ms": 2600,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Exported 5 tables and 4 documents."
+        },
+        {
+          "stage": "publish_sheets",
+          "attempt": 1,
+          "status": "SKIPPED",
+          "started_at": "2026-10-05T10:01:19.550000Z",
+          "ended_at": "2026-10-05T10:01:19.550000Z",
+          "duration_ms": 0,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "GSHEET_ID is not set."
+        },
+        {
+          "stage": "persist_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:01:19.700000Z",
+          "ended_at": "2026-10-05T10:01:23.600000Z",
+          "duration_ms": 3900,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Pushed state to R2; lock released."
+        }
+      ],
+      "checks": [
+        {
+          "check_id": "DQ030",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 2.0,
+          "expected": "<= 2 days before week end",
+          "message": "Latest activity date is within 2 days of week end."
+        },
+        {
+          "check_id": "DQ031",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": 0.15,
+          "expected": "|z| <= 3 vs trailing 8 weeks",
+          "message": "139 completed activities, z = 0.15."
+        },
+        {
+          "check_id": "DQ032",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 0.0167,
+          "expected": "<= 0.02",
+          "message": "Quarantine rate below the circuit breaker."
+        },
+        {
+          "check_id": "DQ033",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": 3.0,
+          "expected": "== 3 injected",
+          "message": "Quarantined rows match the defect manifest."
+        }
+      ]
+    },
+    {
+      "run_id": "weekly-2026-W39-1",
+      "run_type": "WEEKLY",
+      "iso_week_id": "2026-W39",
+      "status": "WARN",
+      "started_at": "2026-09-28T10:00:00Z",
+      "ended_at": "2026-09-28T10:01:24.850000Z",
+      "duration_ms": 84850,
+      "git_sha": "824b15cf34371782ed9b6424c62dc3d468db2d2d",
+      "stages": [
+        {
+          "stage": "restore_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:00:00Z",
+          "ended_at": "2026-09-28T10:00:04.200000Z",
+          "duration_ms": 4200,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Restored warehouse.duckdb and sources from R2."
+        },
+        {
+          "stage": "generate",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:00:04.350000Z",
+          "ended_at": "2026-09-28T10:00:13.450000Z",
+          "duration_ms": 9100,
+          "rows_in": null,
+          "rows_out": 159,
+          "rows_quarantined": null,
+          "message": "Generated 2026-W39 plus late arrivals."
+        },
+        {
+          "stage": "ingest",
+          "attempt": 1,
+          "status": "FAILED",
+          "started_at": "2026-09-28T10:00:13.600000Z",
+          "ended_at": "2026-09-28T10:00:15.900000Z",
+          "duration_ms": 2300,
+          "rows_in": 0,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "R2 read timed out (TransientError); retrying in 4 s."
+        },
+        {
+          "stage": "ingest",
+          "attempt": 2,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:00:16.050000Z",
+          "ended_at": "2026-09-28T10:00:22.150000Z",
+          "duration_ms": 6100,
+          "rows_in": 159,
+          "rows_out": 157,
+          "rows_quarantined": 2,
+          "message": null
+        },
+        {
+          "stage": "dbt_build",
+          "attempt": 1,
+          "status": "WARN",
+          "started_at": "2026-09-28T10:00:22.300000Z",
+          "ended_at": "2026-09-28T10:00:53.700000Z",
+          "duration_ms": 31400,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "DQ012 warn: 0.64% of activity rows map to the Unknown advisor (warn above 0.5%)."
+        },
+        {
+          "stage": "checks",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:00:53.850000Z",
+          "ended_at": "2026-09-28T10:00:55.650000Z",
+          "duration_ms": 1800,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "4 checks run."
+        },
+        {
+          "stage": "narrate",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:00:55.800000Z",
+          "ended_at": "2026-09-28T10:01:17.900000Z",
+          "duration_ms": 22100,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "5 narratives validated."
+        },
+        {
+          "stage": "export",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:01:18.050000Z",
+          "ended_at": "2026-09-28T10:01:20.650000Z",
+          "duration_ms": 2600,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Exported 5 tables and 4 documents."
+        },
+        {
+          "stage": "publish_sheets",
+          "attempt": 1,
+          "status": "SKIPPED",
+          "started_at": "2026-09-28T10:01:20.800000Z",
+          "ended_at": "2026-09-28T10:01:20.800000Z",
+          "duration_ms": 0,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "GSHEET_ID is not set."
+        },
+        {
+          "stage": "persist_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:01:20.950000Z",
+          "ended_at": "2026-09-28T10:01:24.850000Z",
+          "duration_ms": 3900,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Pushed state to R2; lock released."
+        }
+      ],
+      "checks": [
+        {
+          "check_id": "DQ030",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 0.0,
+          "expected": "<= 2 days before week end",
+          "message": "Latest activity date is within 2 days of week end."
+        },
+        {
+          "check_id": "DQ031",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": null,
+          "expected": "|z| <= 3 vs trailing 8 weeks",
+          "message": "Needs 3 prior weeks of history."
+        },
+        {
+          "check_id": "DQ032",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 0.0126,
+          "expected": "<= 0.02",
+          "message": "Quarantine rate below the circuit breaker."
+        },
+        {
+          "check_id": "DQ033",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": 2.0,
+          "expected": "== 2 injected",
+          "message": "Quarantined rows match the defect manifest."
+        }
+      ]
+    },
+    {
+      "run_id": "weekly-2026-W38-1",
+      "run_type": "WEEKLY",
+      "iso_week_id": "2026-W38",
+      "status": "SUCCESS",
+      "started_at": "2026-09-21T10:00:00Z",
+      "ended_at": "2026-09-21T10:01:20.900000Z",
+      "duration_ms": 80900,
+      "git_sha": "bf11c64452289711e90d4f2a6f12cda1d922b21b",
+      "stages": [
+        {
+          "stage": "restore_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:00:00Z",
+          "ended_at": "2026-09-21T10:00:04.200000Z",
+          "duration_ms": 4200,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Restored warehouse.duckdb and sources from R2."
+        },
+        {
+          "stage": "generate",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:00:04.350000Z",
+          "ended_at": "2026-09-21T10:00:13.450000Z",
+          "duration_ms": 9100,
+          "rows_in": null,
+          "rows_out": 167,
+          "rows_quarantined": null,
+          "message": "Generated 2026-W38 plus late arrivals."
+        },
+        {
+          "stage": "ingest",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:00:13.600000Z",
+          "ended_at": "2026-09-21T10:00:19.400000Z",
+          "duration_ms": 5800,
+          "rows_in": 167,
+          "rows_out": 165,
+          "rows_quarantined": 2,
+          "message": null
+        },
+        {
+          "stage": "dbt_build",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:00:19.550000Z",
+          "ended_at": "2026-09-21T10:00:49.750000Z",
+          "duration_ms": 30200,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "All models and tests passed."
+        },
+        {
+          "stage": "checks",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:00:49.900000Z",
+          "ended_at": "2026-09-21T10:00:51.700000Z",
+          "duration_ms": 1800,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "4 checks run."
+        },
+        {
+          "stage": "narrate",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:00:51.850000Z",
+          "ended_at": "2026-09-21T10:01:13.950000Z",
+          "duration_ms": 22100,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "5 narratives validated."
+        },
+        {
+          "stage": "export",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:01:14.100000Z",
+          "ended_at": "2026-09-21T10:01:16.700000Z",
+          "duration_ms": 2600,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Exported 5 tables and 4 documents."
+        },
+        {
+          "stage": "publish_sheets",
+          "attempt": 1,
+          "status": "SKIPPED",
+          "started_at": "2026-09-21T10:01:16.850000Z",
+          "ended_at": "2026-09-21T10:01:16.850000Z",
+          "duration_ms": 0,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "GSHEET_ID is not set."
+        },
+        {
+          "stage": "persist_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:01:17Z",
+          "ended_at": "2026-09-21T10:01:20.900000Z",
+          "duration_ms": 3900,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Pushed state to R2; lock released."
+        }
+      ],
+      "checks": [
+        {
+          "check_id": "DQ030",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 0.0,
+          "expected": "<= 2 days before week end",
+          "message": "Latest activity date is within 2 days of week end."
+        },
+        {
+          "check_id": "DQ031",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": null,
+          "expected": "|z| <= 3 vs trailing 8 weeks",
+          "message": "Needs 3 prior weeks of history."
+        },
+        {
+          "check_id": "DQ032",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 0.012,
+          "expected": "<= 0.02",
+          "message": "Quarantine rate below the circuit breaker."
+        },
+        {
+          "check_id": "DQ033",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": 2.0,
+          "expected": "== 2 injected",
+          "message": "Quarantined rows match the defect manifest."
+        }
+      ]
+    },
+    {
+      "run_id": "weekly-2026-W37-1",
+      "run_type": "WEEKLY",
+      "iso_week_id": "2026-W37",
+      "status": "SUCCESS",
+      "started_at": "2026-09-14T10:00:00Z",
+      "ended_at": "2026-09-14T10:01:20.900000Z",
+      "duration_ms": 80900,
+      "git_sha": "de0ad1f194b6abc20a4c3e367a6f2c0b7a20f7f8",
+      "stages": [
+        {
+          "stage": "restore_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:00:00Z",
+          "ended_at": "2026-09-14T10:00:04.200000Z",
+          "duration_ms": 4200,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Cold start: no state in R2."
+        },
+        {
+          "stage": "generate",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:00:04.350000Z",
+          "ended_at": "2026-09-14T10:00:13.450000Z",
+          "duration_ms": 9100,
+          "rows_in": null,
+          "rows_out": 152,
+          "rows_quarantined": null,
+          "message": "Generated 2026-W37 plus late arrivals."
+        },
+        {
+          "stage": "ingest",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:00:13.600000Z",
+          "ended_at": "2026-09-14T10:00:19.400000Z",
+          "duration_ms": 5800,
+          "rows_in": 410,
+          "rows_out": 407,
+          "rows_quarantined": 3,
+          "message": null
+        },
+        {
+          "stage": "dbt_build",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:00:19.550000Z",
+          "ended_at": "2026-09-14T10:00:49.750000Z",
+          "duration_ms": 30200,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "All models and tests passed."
+        },
+        {
+          "stage": "checks",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:00:49.900000Z",
+          "ended_at": "2026-09-14T10:00:51.700000Z",
+          "duration_ms": 1800,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "4 checks run."
+        },
+        {
+          "stage": "narrate",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:00:51.850000Z",
+          "ended_at": "2026-09-14T10:01:13.950000Z",
+          "duration_ms": 22100,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "5 narratives validated."
+        },
+        {
+          "stage": "export",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:01:14.100000Z",
+          "ended_at": "2026-09-14T10:01:16.700000Z",
+          "duration_ms": 2600,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Exported 5 tables and 4 documents."
+        },
+        {
+          "stage": "publish_sheets",
+          "attempt": 1,
+          "status": "SKIPPED",
+          "started_at": "2026-09-14T10:01:16.850000Z",
+          "ended_at": "2026-09-14T10:01:16.850000Z",
+          "duration_ms": 0,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "GSHEET_ID is not set."
+        },
+        {
+          "stage": "persist_state",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:01:17Z",
+          "ended_at": "2026-09-14T10:01:20.900000Z",
+          "duration_ms": 3900,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Pushed state to R2; lock released."
+        }
+      ],
+      "checks": [
+        {
+          "check_id": "DQ030",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 2.0,
+          "expected": "<= 2 days before week end",
+          "message": "Latest activity date is within 2 days of week end."
+        },
+        {
+          "check_id": "DQ031",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": null,
+          "expected": "|z| <= 3 vs trailing 8 weeks",
+          "message": "Needs 3 prior weeks of history."
+        },
+        {
+          "check_id": "DQ032",
+          "severity": "FAIL",
+          "status": "PASS",
+          "observed": 0.0073,
+          "expected": "<= 0.02",
+          "message": "Quarantine rate below the circuit breaker."
+        },
+        {
+          "check_id": "DQ033",
+          "severity": "WARN",
+          "status": "PASS",
+          "observed": 3.0,
+          "expected": "== 3 injected",
+          "message": "Quarantined rows match the defect manifest."
+        }
+      ]
+    }
+  ]
+}

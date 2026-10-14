@@ -1,0 +1,143 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "weekly-2026-W40-1",
+  "generated_at": "2026-10-05T10:01:19.400000Z",
+  "latest_week": "2026-W40",
+  "weeks_available": [
+    "2026-W37",
+    "2026-W38",
+    "2026-W39",
+    "2026-W40"
+  ],
+  "files": [
+    {
+      "name": "org_weekly.parquet",
+      "sha256": "d6c0e6ec2162b106589d3c32398e302a82b9af986033a18d00bf552deb07e9de",
+      "rows": 48,
+      "bytes": 9780
+    },
+    {
+      "name": "advisor_weekly.parquet",
+      "sha256": "5ba9014a73528a53f0d7b28a80c9940da95b90950dd005a1973a3c30749eed77",
+      "rows": 55,
+      "bytes": 6620
+    },
+    {
+      "name": "weekly_report.parquet",
+      "sha256": "69eb9aa2169e2ea7a092117b9f2d72b028c42ce8dd7c03d0cdc01a663b1981e9",
+      "rows": 488,
+      "bytes": 13907
+    },
+    {
+      "name": "geo_weekly.parquet",
+      "sha256": "3f63e0f5601f522870039381940c4486a139875e4da79c6f88dc3ba11e348e0f",
+      "rows": 80,
+      "bytes": 3242
+    },
+    {
+      "name": "dq_weekly.parquet",
+      "sha256": "5af8ecc9810c9f3368d50698e95ad5916c816b889156f6037c1f94153b00b5c1",
+      "rows": 32,
+      "bytes": 2905
+    },
+    {
+      "name": "pipeline_graph.json",
+      "sha256": "c2455cfefed4f3b88a1733998ff357c8a5d654ee231bda6899f8171d765b0741",
+      "rows": null,
+      "bytes": 5978
+    },
+    {
+      "name": "narratives/2026-W40.json",
+      "sha256": "7359735f32a2ab3b030cd7059fd1e047498afff0e2cea7d8c7c590dfaba8c2ae",
+      "rows": null,
+      "bytes": 14622
+    }
+  ],
+  "summary": [
+    {
+      "kpi_code": "ACT_PER_ADV",
+      "value": 10.69,
+      "prior_week_value": 9.79,
+      "wow_pct": 0.0919,
+      "flag": "UP"
+    },
+    {
+      "kpi_code": "CALLS_OUT",
+      "value": 97.0,
+      "prior_week_value": 92.0,
+      "wow_pct": 0.0543,
+      "flag": "UP"
+    },
+    {
+      "kpi_code": "APPT_BOOKED",
+      "value": 21.0,
+      "prior_week_value": 26.0,
+      "wow_pct": -0.1923,
+      "flag": "DOWN"
+    },
+    {
+      "kpi_code": "CALL_TO_APPT",
+      "value": 0.2062,
+      "prior_week_value": 0.2391,
+      "wow_pct": -0.1376,
+      "flag": "DOWN"
+    },
+    {
+      "kpi_code": "SHOW_RATE",
+      "value": 0.9524,
+      "prior_week_value": 0.7778,
+      "wow_pct": 0.2245,
+      "flag": "UP"
+    },
+    {
+      "kpi_code": "APPT_CONV",
+      "value": 0.45,
+      "prior_week_value": 0.4762,
+      "wow_pct": -0.055,
+      "flag": "DOWN"
+    },
+    {
+      "kpi_code": "CLIENTS_CONTACTED",
+      "value": 90.0,
+      "prior_week_value": 96.0,
+      "wow_pct": -0.0625,
+      "flag": "DOWN"
+    },
+    {
+      "kpi_code": "COVERAGE_13W",
+      "value": 0.9133,
+      "prior_week_value": 0.8718,
+      "wow_pct": 0.0476,
+      "flag": "UP"
+    },
+    {
+      "kpi_code": "AVG_MEET_MIN",
+      "value": 58.7,
+      "prior_week_value": 58.52,
+      "wow_pct": 0.0031,
+      "flag": "FLAT"
+    },
+    {
+      "kpi_code": "NO_SHOW_RATE",
+      "value": 0.0476,
+      "prior_week_value": 0.2222,
+      "wow_pct": -0.7858,
+      "flag": "ANOMALY"
+    },
+    {
+      "kpi_code": "LATE_RATE",
+      "value": 0.0311,
+      "prior_week_value": 0.0064,
+      "wow_pct": 3.8594,
+      "flag": "ANOMALY"
+    },
+    {
+      "kpi_code": "QUAR_RATE",
+      "value": 0.0167,
+      "prior_week_value": 0.0126,
+      "wow_pct": 0.3254,
+      "flag": "UP"
+    }
+  ],
+  "has_fsa_boundaries": false
+}

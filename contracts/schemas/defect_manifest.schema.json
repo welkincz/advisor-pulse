@@ -1,0 +1,223 @@
+{
+  "$defs": {
+    "Defect": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DqAction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected handling."
+        },
+        "column": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Source column the defect is in.",
+          "title": "Column"
+        },
+        "detail": {
+          "minLength": 1,
+          "title": "Detail",
+          "type": "string"
+        },
+        "expected_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the pipeline should produce: normalized postal code or 'UNK', final status, activity week of a late row, new branch or role.",
+          "title": "Expected Value"
+        },
+        "file": {
+          "description": "Path relative to the sources root.",
+          "minLength": 1,
+          "title": "File",
+          "type": "string"
+        },
+        "iso_week_id": {
+          "description": "Week of the batch that carries the defect.",
+          "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+          "title": "Iso Week Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/DefectKind"
+        },
+        "natural_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ACTIVITY_ID, CLNT_ID or ASGN_ID of the row, when it has one.",
+          "title": "Natural Key"
+        },
+        "raw_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The value as written, as text.",
+          "title": "Raw Value"
+        },
+        "row": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "0-based data row in the file (header excluded); null for SQLite tables.",
+          "title": "Row"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "pattern": "^DQ\\d{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DQ rule that must catch it.",
+          "title": "Rule Id"
+        },
+        "source": {
+          "description": "'snowflake' or 'teradata'.",
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "table_name": {
+          "description": "Source table, e.g. 'activity', 'CLNT'.",
+          "minLength": 1,
+          "title": "Table Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "iso_week_id",
+        "source",
+        "table_name",
+        "file",
+        "detail"
+      ],
+      "title": "Defect",
+      "type": "object"
+    },
+    "DefectKind": {
+      "enum": [
+        "EXACT_DUPLICATE",
+        "RESENT_UPDATE",
+        "NULL_ACTIVITY_ID",
+        "INVALID_ENUM",
+        "DURATION_OUT_OF_RANGE",
+        "ACTIVITY_TS_OUT_OF_RANGE",
+        "UNPARSEABLE_VALUE",
+        "UNKNOWN_ADVISOR",
+        "DIRTY_POSTAL_CODE",
+        "LATE_ARRIVING",
+        "ADVISOR_TRANSFER",
+        "ADVISOR_PROMOTION",
+        "ADVISOR_TERM",
+        "CLIENT_REASSIGNMENT"
+      ],
+      "title": "DefectKind",
+      "type": "string"
+    },
+    "DqAction": {
+      "enum": [
+        "QUARANTINE",
+        "FAIL_FILE",
+        "DEDUPE",
+        "NORMALIZE",
+        "MAP_UNKNOWN",
+        "KEEP_FLAGGED",
+        "TEST_ERROR",
+        "RUN_CHECK"
+      ],
+      "title": "DqAction",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/defect_manifest.schema.json",
+  "additionalProperties": false,
+  "description": "Ground truth of injected defects: defects/YYYY-Www.json from the generator, fixtures/defects.json for the fixtures.",
+  "properties": {
+    "defects": {
+      "items": {
+        "$ref": "#/$defs/Defect"
+      },
+      "title": "Defects",
+      "type": "array"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "iso_weeks": {
+      "items": {
+        "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Iso Weeks",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1.0.0",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "generated_at",
+    "seed",
+    "iso_weeks",
+    "defects"
+  ],
+  "title": "defect_manifest",
+  "type": "object",
+  "x-contract-kind": "document",
+  "x-schema-version": "1.0.0"
+}

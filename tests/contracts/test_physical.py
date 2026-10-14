@@ -43,6 +43,7 @@ def test_registry_covers_every_planned_contract() -> None:
         "run_log",
         "pipeline_graph",
         "narrative",
+        "defect_manifest",
     }
     assert set(REGISTRY) == expected
 
