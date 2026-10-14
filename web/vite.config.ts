@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from 'node:fs'
+import { createReadStream, existsSync, statSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -11,10 +11,28 @@ export default defineConfig({
     {
       name: 'fixture-data',
       configureServer(server) {
-        server.middlewares.use('/data', (request, response, next) => {
-          const path = resolve(fixtures, `.${decodeURIComponent(request.url ?? '/')}`)
-          if (!path.startsWith(`${fixtures}${sep}`) || !existsSync(path)) return next()
-          createReadStream(path).on('error', next).pipe(response)
+        server.middlewares.use('/data', (request, response) => {
+          let path: string
+          try {
+            const pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname)
+            path = resolve(fixtures, `.${pathname}`)
+          } catch {
+            response.statusCode = 400
+            response.end('Bad request')
+            return
+          }
+          if (!path.startsWith(`${fixtures}${sep}`) || !existsSync(path) || !statSync(path).isFile()) {
+            response.statusCode = 404
+            response.end('Not found')
+            return
+          }
+          createReadStream(path).on('error', () => {
+            if (response.headersSent) response.destroy()
+            else {
+              response.statusCode = 404
+              response.end('Not found')
+            }
+          }).pipe(response)
         })
       },
     },

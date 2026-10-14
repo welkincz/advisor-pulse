@@ -11,7 +11,7 @@ export async function findRawColors(root) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = resolve(dir, entry.name)
       if (entry.isDirectory()) await visit(path)
-      else if (/\.(css|ts|tsx)$/.test(entry.name) && entry.name !== 'tokens.css') {
+      else if (/\.(css|ts|tsx)$/.test(entry.name) && relative(root, path) !== 'theme/tokens.css') {
         const matches = (await readFile(path, 'utf8')).match(rawHex) ?? []
         for (const value of matches) violations.push(`${relative(root, path)}: ${value}`)
       }

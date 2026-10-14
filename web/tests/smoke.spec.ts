@@ -42,3 +42,15 @@ test('dev data path serves fixture exports', async ({ request }) => {
   expect(response.ok()).toBe(true)
   expect(await response.text()).toBe('fixture export probe\n')
 })
+
+test('fixture URLs accept query parameters', async ({ request }) => {
+  const response = await request.get('/data/probe.txt?v=1')
+  expect(response.ok()).toBe(true)
+  expect(await response.text()).toBe('fixture export probe\n')
+})
+
+test('missing fixture URLs return 404 instead of the app shell', async ({ request }) => {
+  const response = await request.get('/data/missing.json')
+  expect(response.status()).toBe(404)
+  expect(await response.text()).toBe('Not found')
+})
