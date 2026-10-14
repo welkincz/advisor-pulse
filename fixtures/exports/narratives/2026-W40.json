@@ -9,36 +9,36 @@
       "headline": "Ontario: activities per advisor rose 3.4% week over week to 10.4.",
       "bullets": [
         {
-          "text": "Outbound calls 63, from 68 the week before.",
+          "text": "Outbound calls 59, from 61 the week before.",
           "fact_ids": [
             "F2"
           ]
         },
         {
-          "text": "Show rate 93.8%, from 85.0% the week before.",
+          "text": "Show rate 83.3%, from 90.0% the week before.",
           "fact_ids": [
             "F3"
           ]
         },
         {
-          "text": "13-week coverage 92.8%, from 89.9% the week before.",
+          "text": "13-week coverage 88.6%, from 81.6% the week before.",
           "fact_ids": [
             "F4"
           ]
         },
         {
-          "text": "Eastern Ontario trails its peers on 13-week coverage at 91.7%.",
+          "text": "GTA trails its peers on 13-week coverage at 85.9%.",
           "fact_ids": [
-            "F6"
+            "F5"
           ]
         }
       ],
       "watchlist": [
         {
-          "node_id": "EON",
-          "reason": "Lowest 13-week coverage under Ontario (91.7%).",
+          "node_id": "GTA",
+          "reason": "Lowest 13-week coverage under Ontario (85.9%).",
           "fact_ids": [
-            "F6"
+            "F5"
           ]
         }
       ],
@@ -51,7 +51,7 @@
           "value": 10.44,
           "prior_week_value": 10.1,
           "wow_pct": 0.0337,
-          "trailing_13w_avg": 10.06,
+          "trailing_13w_avg": 10.135,
           "rank_in_parent": 2,
           "peer_count": 2
         },
@@ -60,10 +60,10 @@
           "node_id": "ON",
           "kpi_code": "CALLS_OUT",
           "iso_week_id": "2026-W40",
-          "value": 63.0,
-          "prior_week_value": 68.0,
-          "wow_pct": -0.0735,
-          "trailing_13w_avg": 64.5,
+          "value": 59.0,
+          "prior_week_value": 61.0,
+          "wow_pct": -0.0328,
+          "trailing_13w_avg": 63.5,
           "rank_in_parent": 1,
           "peer_count": 2
         },
@@ -72,10 +72,10 @@
           "node_id": "ON",
           "kpi_code": "SHOW_RATE",
           "iso_week_id": "2026-W40",
-          "value": 0.9375,
-          "prior_week_value": 0.85,
-          "wow_pct": 0.1029,
-          "trailing_13w_avg": 0.8367,
+          "value": 0.8333,
+          "prior_week_value": 0.9,
+          "wow_pct": -0.0741,
+          "trailing_13w_avg": 0.8056,
           "rank_in_parent": 2,
           "peer_count": 2
         },
@@ -84,11 +84,11 @@
           "node_id": "ON",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9281,
-          "prior_week_value": 0.8993,
-          "wow_pct": 0.032,
-          "trailing_13w_avg": 0.7536,
-          "rank_in_parent": 1,
+          "value": 0.8865,
+          "prior_week_value": 0.8156,
+          "wow_pct": 0.0869,
+          "trailing_13w_avg": 0.7146,
+          "rank_in_parent": 2,
           "peer_count": 2
         },
         {
@@ -96,11 +96,11 @@
           "node_id": "GTA",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9403,
-          "prior_week_value": 0.8955,
-          "wow_pct": 0.05,
-          "trailing_13w_avg": 0.7387,
-          "rank_in_parent": 1,
+          "value": 0.8592,
+          "prior_week_value": 0.7746,
+          "wow_pct": 0.1092,
+          "trailing_13w_avg": 0.6951,
+          "rank_in_parent": 2,
           "peer_count": 2
         },
         {
@@ -108,11 +108,11 @@
           "node_id": "EON",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9167,
-          "prior_week_value": 0.9028,
-          "wow_pct": 0.0154,
-          "trailing_13w_avg": 0.774,
-          "rank_in_parent": 2,
+          "value": 0.9143,
+          "prior_week_value": 0.8571,
+          "wow_pct": 0.0667,
+          "trailing_13w_avg": 0.7357,
+          "rank_in_parent": 1,
           "peer_count": 2
         }
       ],
@@ -124,22 +124,22 @@
     {
       "node_id": "QC",
       "level": "REGION",
-      "headline": "Quebec: activities per advisor rose 25.0% week over week to 11.2.",
+      "headline": "Quebec: activities per advisor rose 40.0% week over week to 14.",
       "bullets": [
         {
-          "text": "Outbound calls 34, from 24 the week before.",
+          "text": "Outbound calls 35, from 29 the week before.",
           "fact_ids": [
             "F2"
           ]
         },
         {
-          "text": "Show rate 100.0%, from 57.1% the week before.",
+          "text": "Show rate 85.7%, from 42.9% the week before.",
           "fact_ids": [
             "F3"
           ]
         },
         {
-          "text": "13-week coverage 87.7%, from 80.4% the week before.",
+          "text": "13-week coverage 92.9%, from 85.5% the week before.",
           "fact_ids": [
             "F4"
           ]
@@ -152,10 +152,10 @@
           "node_id": "QC",
           "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 11.25,
-          "prior_week_value": 9.0,
-          "wow_pct": 0.25,
-          "trailing_13w_avg": 10.0625,
+          "value": 14.0,
+          "prior_week_value": 10.0,
+          "wow_pct": 0.4,
+          "trailing_13w_avg": 10.9375,
           "rank_in_parent": 1,
           "peer_count": 2
         },
@@ -164,10 +164,10 @@
           "node_id": "QC",
           "kpi_code": "CALLS_OUT",
           "iso_week_id": "2026-W40",
-          "value": 34.0,
-          "prior_week_value": 24.0,
-          "wow_pct": 0.4167,
-          "trailing_13w_avg": 27.5,
+          "value": 35.0,
+          "prior_week_value": 29.0,
+          "wow_pct": 0.2069,
+          "trailing_13w_avg": 29.0,
           "rank_in_parent": 2,
           "peer_count": 2
         },
@@ -176,10 +176,10 @@
           "node_id": "QC",
           "kpi_code": "SHOW_RATE",
           "iso_week_id": "2026-W40",
-          "value": 1.0,
-          "prior_week_value": 0.5714,
-          "wow_pct": 0.7501,
-          "trailing_13w_avg": 0.8571,
+          "value": 0.8571,
+          "prior_week_value": 0.4286,
+          "wow_pct": 0.9998,
+          "trailing_13w_avg": 0.6443,
           "rank_in_parent": 1,
           "peer_count": 2
         },
@@ -188,11 +188,11 @@
           "node_id": "QC",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.8772,
-          "prior_week_value": 0.8036,
-          "wow_pct": 0.0916,
-          "trailing_13w_avg": 0.7371,
-          "rank_in_parent": 2,
+          "value": 0.9286,
+          "prior_week_value": 0.8545,
+          "wow_pct": 0.0867,
+          "trailing_13w_avg": 0.7458,
+          "rank_in_parent": 1,
           "peer_count": 2
         }
       ],
@@ -204,28 +204,28 @@
     {
       "node_id": "GTA",
       "level": "DISTRICT",
-      "headline": "GTA: activities per advisor held at 10.",
+      "headline": "GTA: activities per advisor rose 17.8% week over week to 10.6.",
       "bullets": [
         {
-          "text": "Outbound calls 36, from 35 the week before.",
+          "text": "Outbound calls 31, from 29 the week before.",
           "fact_ids": [
             "F2"
           ]
         },
         {
-          "text": "Show rate 100.0%, from 70.0% the week before.",
+          "text": "Show rate 78.6%, from 87.5% the week before.",
           "fact_ids": [
             "F3"
           ]
         },
         {
-          "text": "13-week coverage 94.0%, from 89.5% the week before.",
+          "text": "13-week coverage 85.9%, from 77.5% the week before.",
           "fact_ids": [
             "F4"
           ]
         },
         {
-          "text": "King & Bay Branch trails its peers on 13-week coverage at 93.1%.",
+          "text": "King & Bay Branch trails its peers on 13-week coverage at 82.8%.",
           "fact_ids": [
             "F5"
           ]
@@ -234,7 +234,7 @@
       "watchlist": [
         {
           "node_id": "BR-0101",
-          "reason": "Lowest 13-week coverage under GTA (93.1%).",
+          "reason": "Lowest 13-week coverage under GTA (82.8%).",
           "fact_ids": [
             "F5"
           ]
@@ -246,11 +246,11 @@
           "node_id": "GTA",
           "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 10.0,
-          "prior_week_value": 10.0,
-          "wow_pct": 0.0,
-          "trailing_13w_avg": 9.8575,
-          "rank_in_parent": 2,
+          "value": 10.6,
+          "prior_week_value": 9.0,
+          "wow_pct": 0.1778,
+          "trailing_13w_avg": 9.8,
+          "rank_in_parent": 1,
           "peer_count": 2
         },
         {
@@ -258,10 +258,10 @@
           "node_id": "GTA",
           "kpi_code": "CALLS_OUT",
           "iso_week_id": "2026-W40",
-          "value": 36.0,
-          "prior_week_value": 35.0,
-          "wow_pct": 0.0286,
-          "trailing_13w_avg": 35.25,
+          "value": 31.0,
+          "prior_week_value": 29.0,
+          "wow_pct": 0.069,
+          "trailing_13w_avg": 33.75,
           "rank_in_parent": 1,
           "peer_count": 2
         },
@@ -270,11 +270,11 @@
           "node_id": "GTA",
           "kpi_code": "SHOW_RATE",
           "iso_week_id": "2026-W40",
-          "value": 1.0,
-          "prior_week_value": 0.7,
-          "wow_pct": 0.4286,
-          "trailing_13w_avg": 0.7735,
-          "rank_in_parent": 1,
+          "value": 0.7857,
+          "prior_week_value": 0.875,
+          "wow_pct": -0.1021,
+          "trailing_13w_avg": 0.7402,
+          "rank_in_parent": 2,
           "peer_count": 2
         },
         {
@@ -282,11 +282,11 @@
           "node_id": "GTA",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9403,
-          "prior_week_value": 0.8955,
-          "wow_pct": 0.05,
-          "trailing_13w_avg": 0.7387,
-          "rank_in_parent": 1,
+          "value": 0.8592,
+          "prior_week_value": 0.7746,
+          "wow_pct": 0.1092,
+          "trailing_13w_avg": 0.6951,
+          "rank_in_parent": 2,
           "peer_count": 2
         },
         {
@@ -294,10 +294,10 @@
           "node_id": "BR-0101",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.931,
-          "prior_week_value": 0.8621,
-          "wow_pct": 0.0799,
-          "trailing_13w_avg": 0.7044,
+          "value": 0.8276,
+          "prior_week_value": 0.7241,
+          "wow_pct": 0.1429,
+          "trailing_13w_avg": 0.6379,
           "rank_in_parent": 2,
           "peer_count": 2
         },
@@ -306,10 +306,10 @@
           "node_id": "BR-0102",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9474,
-          "prior_week_value": 0.9211,
-          "wow_pct": 0.0286,
-          "trailing_13w_avg": 0.7788,
+          "value": 0.881,
+          "prior_week_value": 0.8095,
+          "wow_pct": 0.0883,
+          "trailing_13w_avg": 0.7546,
           "rank_in_parent": 1,
           "peer_count": 2
         }
@@ -322,28 +322,28 @@
     {
       "node_id": "EON",
       "level": "DISTRICT",
-      "headline": "Eastern Ontario: activities per advisor rose 7.8% week over week to 11.",
+      "headline": "Eastern Ontario: activities per advisor fell 8.5% week over week to 10.2.",
       "bullets": [
         {
-          "text": "Outbound calls 27, from 33 the week before.",
+          "text": "Outbound calls 28, from 32 the week before.",
           "fact_ids": [
             "F2"
           ]
         },
         {
-          "text": "Show rate 90.0%, from 100.0% the week before.",
+          "text": "Show rate 100.0%, from 91.7% the week before.",
           "fact_ids": [
             "F3"
           ]
         },
         {
-          "text": "13-week coverage 91.7%, from 90.3% the week before.",
+          "text": "13-week coverage 91.4%, from 85.7% the week before.",
           "fact_ids": [
             "F4"
           ]
         },
         {
-          "text": "ByWard Market Branch trails its peers on 13-week coverage at 88.6%.",
+          "text": "ByWard Market Branch trails its peers on 13-week coverage at 88.4%.",
           "fact_ids": [
             "F5"
           ]
@@ -352,7 +352,7 @@
       "watchlist": [
         {
           "node_id": "BR-0201",
-          "reason": "Lowest 13-week coverage under Eastern Ontario (88.6%).",
+          "reason": "Lowest 13-week coverage under Eastern Ontario (88.4%).",
           "fact_ids": [
             "F5"
           ]
@@ -364,11 +364,11 @@
           "node_id": "EON",
           "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 11.0,
-          "prior_week_value": 10.2,
-          "wow_pct": 0.0784,
-          "trailing_13w_avg": 10.3375,
-          "rank_in_parent": 1,
+          "value": 10.25,
+          "prior_week_value": 11.2,
+          "wow_pct": -0.0848,
+          "trailing_13w_avg": 10.5,
+          "rank_in_parent": 2,
           "peer_count": 2
         },
         {
@@ -376,10 +376,10 @@
           "node_id": "EON",
           "kpi_code": "CALLS_OUT",
           "iso_week_id": "2026-W40",
-          "value": 27.0,
-          "prior_week_value": 33.0,
-          "wow_pct": -0.1818,
-          "trailing_13w_avg": 29.25,
+          "value": 28.0,
+          "prior_week_value": 32.0,
+          "wow_pct": -0.125,
+          "trailing_13w_avg": 29.75,
           "rank_in_parent": 2,
           "peer_count": 2
         },
@@ -388,11 +388,11 @@
           "node_id": "EON",
           "kpi_code": "SHOW_RATE",
           "iso_week_id": "2026-W40",
-          "value": 0.9,
-          "prior_week_value": 1.0,
-          "wow_pct": -0.1,
-          "trailing_13w_avg": 0.9,
-          "rank_in_parent": 2,
+          "value": 1.0,
+          "prior_week_value": 0.9167,
+          "wow_pct": 0.0909,
+          "trailing_13w_avg": 0.8766,
+          "rank_in_parent": 1,
           "peer_count": 2
         },
         {
@@ -400,11 +400,11 @@
           "node_id": "EON",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9167,
-          "prior_week_value": 0.9028,
-          "wow_pct": 0.0154,
-          "trailing_13w_avg": 0.774,
-          "rank_in_parent": 2,
+          "value": 0.9143,
+          "prior_week_value": 0.8571,
+          "wow_pct": 0.0667,
+          "trailing_13w_avg": 0.7357,
+          "rank_in_parent": 1,
           "peer_count": 2
         },
         {
@@ -412,10 +412,10 @@
           "node_id": "BR-0201",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.8864,
-          "prior_week_value": 0.8636,
-          "wow_pct": 0.0264,
-          "trailing_13w_avg": 0.7314,
+          "value": 0.8837,
+          "prior_week_value": 0.7907,
+          "wow_pct": 0.1176,
+          "trailing_13w_avg": 0.7049,
           "rank_in_parent": 2,
           "peer_count": 2
         },
@@ -424,10 +424,10 @@
           "node_id": "BR-0202",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9643,
-          "prior_week_value": 0.9643,
+          "value": 0.963,
+          "prior_week_value": 0.963,
           "wow_pct": 0.0,
-          "trailing_13w_avg": 0.8304,
+          "trailing_13w_avg": 0.7871,
           "rank_in_parent": 1,
           "peer_count": 2
         }
@@ -440,22 +440,22 @@
     {
       "node_id": "MTL",
       "level": "DISTRICT",
-      "headline": "Activities per advisor rose 25.0% week over week to 11.2.",
+      "headline": "Activities per advisor rose 40.0% week over week to 14.",
       "bullets": [
         {
-          "text": "Outbound calls 34, from 24 the week before.",
+          "text": "Outbound calls 35, from 29 the week before.",
           "fact_ids": [
             "F2"
           ]
         },
         {
-          "text": "Show rate 100.0%, from 57.1% the week before.",
+          "text": "Show rate 85.7%, from 42.9% the week before.",
           "fact_ids": [
             "F3"
           ]
         },
         {
-          "text": "13-week coverage 87.7%, from 80.4% the week before.",
+          "text": "13-week coverage 92.9%, from 85.5% the week before.",
           "fact_ids": [
             "F4"
           ]
@@ -464,7 +464,7 @@
       "watchlist": [
         {
           "node_id": "BR-0501",
-          "reason": "Lowest 13-week coverage under Greater Montréal (83.3%).",
+          "reason": "Lowest 13-week coverage under Greater Montréal (89.7%).",
           "fact_ids": [
             "F5"
           ]
@@ -476,10 +476,10 @@
           "node_id": "MTL",
           "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 11.25,
-          "prior_week_value": 9.0,
-          "wow_pct": 0.25,
-          "trailing_13w_avg": 10.0625,
+          "value": 14.0,
+          "prior_week_value": 10.0,
+          "wow_pct": 0.4,
+          "trailing_13w_avg": 10.9375,
           "rank_in_parent": 1,
           "peer_count": 1
         },
@@ -488,10 +488,10 @@
           "node_id": "MTL",
           "kpi_code": "CALLS_OUT",
           "iso_week_id": "2026-W40",
-          "value": 34.0,
-          "prior_week_value": 24.0,
-          "wow_pct": 0.4167,
-          "trailing_13w_avg": 27.5,
+          "value": 35.0,
+          "prior_week_value": 29.0,
+          "wow_pct": 0.2069,
+          "trailing_13w_avg": 29.0,
           "rank_in_parent": 1,
           "peer_count": 1
         },
@@ -500,10 +500,10 @@
           "node_id": "MTL",
           "kpi_code": "SHOW_RATE",
           "iso_week_id": "2026-W40",
-          "value": 1.0,
-          "prior_week_value": 0.5714,
-          "wow_pct": 0.7501,
-          "trailing_13w_avg": 0.8571,
+          "value": 0.8571,
+          "prior_week_value": 0.4286,
+          "wow_pct": 0.9998,
+          "trailing_13w_avg": 0.6443,
           "rank_in_parent": 1,
           "peer_count": 1
         },
@@ -512,10 +512,10 @@
           "node_id": "MTL",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.8772,
-          "prior_week_value": 0.8036,
-          "wow_pct": 0.0916,
-          "trailing_13w_avg": 0.7371,
+          "value": 0.9286,
+          "prior_week_value": 0.8545,
+          "wow_pct": 0.0867,
+          "trailing_13w_avg": 0.7458,
           "rank_in_parent": 1,
           "peer_count": 1
         },
@@ -524,10 +524,10 @@
           "node_id": "BR-0501",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.8333,
-          "prior_week_value": 0.8276,
-          "wow_pct": 0.0069,
-          "trailing_13w_avg": 0.7169,
+          "value": 0.8966,
+          "prior_week_value": 0.8929,
+          "wow_pct": 0.0041,
+          "trailing_13w_avg": 0.7777,
           "rank_in_parent": 2,
           "peer_count": 2
         },
@@ -536,10 +536,10 @@
           "node_id": "BR-0502",
           "kpi_code": "COVERAGE_13W",
           "iso_week_id": "2026-W40",
-          "value": 0.9259,
-          "prior_week_value": 0.7778,
-          "wow_pct": 0.1904,
-          "trailing_13w_avg": 0.7592,
+          "value": 0.963,
+          "prior_week_value": 0.8148,
+          "wow_pct": 0.1819,
+          "trailing_13w_avg": 0.7129,
           "rank_in_parent": 1,
           "peer_count": 2
         }

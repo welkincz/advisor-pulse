@@ -122,14 +122,6 @@ APPOINTMENT_LIKE = {ActivityType.APPOINTMENT, ActivityType.REVIEW}
 CONVERTING = {Outcome.PLAN_CREATED, Outcome.PRODUCT_OPENED}
 LOWER_IS_BETTER = {KpiCode.NO_SHOW_RATE, KpiCode.LATE_RATE, KpiCode.QUAR_RATE}
 LDU_LETTERS = "ABCEGHJKLMNPRSTVWXYZ"
-NEARBY_FSAS = {
-    "BR-0101": ("M5H", "M5J", "M5V"),
-    "BR-0102": ("M6K", "M6J", "M5V"),
-    "BR-0201": ("K1N", "K1M", "K1P"),
-    "BR-0202": ("K2P", "K1R", "K1S"),
-    "BR-0501": ("H3B", "H3A", "H2Z"),
-    "BR-0502": ("H2X", "H2W", "H2T"),
-}
 ACTIVITY_DIR = "snowflake/activity"
 TERADATA_DIR = "teradata"
 SQLITE_NAME = "edw.sqlite"
@@ -420,8 +412,18 @@ def _province(branch_id: str) -> str:
     return org().placement(branch_id).branch.province.value
 
 
+def fsa_pool(branch_id: str) -> tuple[str, ...]:
+    """Client FSAs for a branch: its own (twice as likely) or another branch's in the district.
+
+    The same rule as the generator (#13), so every client FSA is a branch FSA with a boundary.
+    """
+    p = org().placement(branch_id)
+    others = [b.fsa_code for b in p.district.branches if b.branch_id != branch_id][:2]
+    return (p.branch.fsa_code, p.branch.fsa_code, *others)
+
+
 def _postal(rng: random.Random, branch_id: str) -> str:
-    fsa = rng.choice(NEARBY_FSAS[branch_id])
+    fsa = rng.choice(fsa_pool(branch_id))
     return f"{fsa} {rng.randint(0, 9)}{rng.choice(LDU_LETTERS)}{rng.randint(0, 9)}"
 
 
@@ -524,7 +526,7 @@ class _Builder:
 
         # d1: two new clients (one with a dirty postal code), a move, one malformed line.
         d1.add(_client_text(new_client(201, "ADV-10006", d1, "M6K 2B7")))
-        dirty = new_client(202, "ADV-10019", d1, "h2w-1y4")
+        dirty = new_client(202, "ADV-10019", d1, "h2x-1y4")
         self._postal_defect(dirty, "lowercase, hyphen", d1)
         d1.add(_client_text(dirty))
         mover = snap["CLI-00000010"]
