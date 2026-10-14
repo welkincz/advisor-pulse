@@ -128,15 +128,19 @@ dbt-docs-static: ## Static dbt docs into web/public/lineage
 
 .PHONY: web-dev
 web-dev: ## Vite dev server on fixtures
-	$(call todo,9)
+	pnpm -C web dev
 
 .PHONY: web-check
 web-check: ## Web lint + typecheck + build (+ smoke)
-	$(call todo,9)
+	pnpm -C web types:check
+	pnpm -C web lint
+	pnpm -C web typecheck
+	pnpm -C web build
+	pnpm -C web test:smoke
 
 .PHONY: web-types
 web-types: ## Generate TS types from contracts/schemas
-	$(call todo,9)
+	pnpm -C web types
 
 .PHONY: clean
 clean: ## Remove local data and build output

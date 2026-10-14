@@ -1,0 +1,5 @@
+/data/manifest.json
+  Cache-Control: no-cache
+
+/data/run_log.json
+  Cache-Control: no-cache

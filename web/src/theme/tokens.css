@@ -1,0 +1,25 @@
+:root {
+  --paper: #F6F7F5;
+  --ink: #1B222B;
+  --muted: #586371;
+  --faint: #626D7A;
+  --rule: #D9DDD8;
+  --signal: #8A6A1C;
+  --focus: #2F5FA8;
+  --field: rgba(27, 34, 43, 0.082);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14181D;
+    --ink: #E2E5E8;
+    --muted: #A2ABB5;
+    --faint: #848E99;
+    --rule: #303740;
+    --signal: #D0A64C;
+    --focus: #82ADE7;
+    --field: rgba(226, 229, 232, 0.095);
+    color-scheme: dark;
+  }
+}

@@ -10,7 +10,7 @@ build/
 dist/
 
 # Local pipeline state (sources, warehouse, caches)
-data/
+/data/
 *.duckdb
 *.duckdb.wal
 
