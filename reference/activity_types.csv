@@ -1,0 +1,5 @@
+activity_type,label,counts_as_contact,is_appointment_like
+CALL_OUT,Outbound call,true,false
+CALL_IN,Inbound call,true,false
+APPOINTMENT,Client appointment,true,true
+REVIEW,Annual or portfolio review,true,true
