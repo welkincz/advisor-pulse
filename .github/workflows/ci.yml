@@ -1,0 +1,156 @@
+# PR / main CI: python, dbt, and web as separate checks (PLAN.md §13, issue #5).
+# Path filters + existence gates keep jobs skipped (green) when unused or unchanged.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      dbt: ${{ steps.filter.outputs.dbt }}
+      web: ${{ steps.filter.outputs.web }}
+      dbt_ready: ${{ steps.exists.outputs.dbt_ready }}
+      web_ready: ${{ steps.exists.outputs.web_ready }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Include each job's inputs, not only its own directory — a skipped
+          # required check counts as passing, so missing inputs can hide breakage.
+          filters: |
+            python:
+              - 'src/**'
+              - 'tests/**'
+              - 'scripts/**'
+              - 'contracts/**'
+              - 'reference/**'
+              - 'fixtures/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+            dbt:
+              - 'dbt/**'
+              - 'fixtures/**'
+              - 'reference/**'
+              - 'contracts/**'
+              - 'src/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'web/**'
+              - 'contracts/schemas/**'
+              - 'fixtures/**'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
+
+      - name: Gate on project files
+        id: exists
+        run: |
+          if [[ -f dbt/dbt_project.yml ]]; then
+            echo "dbt_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dbt_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -f web/package.json ]]; then
+            echo "web_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "web_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  python:
+    name: python
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: make lint
+
+      - name: Typecheck (mypy)
+        run: make typecheck
+
+      - name: Unit tests
+        run: make test
+
+      - name: Contracts check
+        run: make contracts-check
+
+  dbt:
+    name: dbt
+    needs: changes
+    # Skip green until dbt models exist, or when this PR does not touch dbt paths.
+    if: needs.changes.outputs.dbt == 'true' && needs.changes.outputs.dbt_ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: dbt build (CI fixtures)
+        run: make dbt-build-ci
+
+  web:
+    name: web
+    needs: changes
+    # Skip green until the Vite app exists, or when this PR does not touch web paths.
+    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.web_ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Web check
+        run: make web-check
