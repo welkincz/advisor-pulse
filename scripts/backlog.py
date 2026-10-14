@@ -18,14 +18,46 @@ REPO = "welkincz/advisor-pulse"
 ROOT = Path(__file__).resolve().parent.parent
 
 MILESTONES = [
-    ("M1", "M1 · Synthetic multi-source data", "Seeded generator for the 'Snowflake' and 'Teradata' sources, realistic dirt, defect manifest, contracts and fixtures."),
-    ("M2", "M2 · Org hierarchy & geography", "National > Region > District > Branch > Advisor, SCD2 advisor, FSA geography and StatCan boundaries."),
-    ("M3", "M3 · Incremental ingestion", "Watermarks, file manifest, idempotent loads, quarantine."),
-    ("M4", "M4 · dbt modeling", "Staging / intermediate / marts star schema, tests, contracts, lineage docs."),
-    ("M5", "M5 · Orchestration, checks & AI narrative", "Weekly GitHub Actions run, retries, checks, alerting, backfill, state, export, deploy, grounded LLM narratives."),
-    ("M6", "M6 · Pipeline visualization", "React Flow replay of the last weekly run: status, rows, durations."),
-    ("M7", "M7 · Web dashboard", "pulse.charliebuild.com: DuckDB-WASM, drill-down, map, KPI trends, motion."),
-    ("M8", "M8 · Tableau & case study", "Google Sheets feed, Tableau Public companion, case study, charliebuild entry."),
+    (
+        "M1",
+        "M1 · Synthetic multi-source data",
+        "Seeded generator for the 'Snowflake' and 'Teradata' sources, realistic dirt, defect manifest, contracts and fixtures.",
+    ),
+    (
+        "M2",
+        "M2 · Org hierarchy & geography",
+        "National > Region > District > Branch > Advisor, SCD2 advisor, FSA geography and StatCan boundaries.",
+    ),
+    (
+        "M3",
+        "M3 · Incremental ingestion",
+        "Watermarks, file manifest, idempotent loads, quarantine.",
+    ),
+    (
+        "M4",
+        "M4 · dbt modeling",
+        "Staging / intermediate / marts star schema, tests, contracts, lineage docs.",
+    ),
+    (
+        "M5",
+        "M5 · Orchestration, checks & AI narrative",
+        "Weekly GitHub Actions run, retries, checks, alerting, backfill, state, export, deploy, grounded LLM narratives.",
+    ),
+    (
+        "M6",
+        "M6 · Pipeline visualization",
+        "React Flow replay of the last weekly run: status, rows, durations.",
+    ),
+    (
+        "M7",
+        "M7 · Web dashboard",
+        "pulse.charliebuild.com: DuckDB-WASM, drill-down, map, KPI trends, motion.",
+    ),
+    (
+        "M8",
+        "M8 · Tableau & case study",
+        "Google Sheets feed, Tableau Public companion, case study, charliebuild entry.",
+    ),
 ]
 
 LABELS = [
@@ -62,9 +94,25 @@ LABELS = [
 ISSUES: list[dict] = [
     # ───────────────────────── Wave 0: foundation ─────────────────────────
     dict(
-        key="scaffold", title="Scaffold repo: uv, ruff, pytest, Makefile, layout", milestone="M1",
-        area="infra", agent="claude", size="M", wave=0,
-        owns=["pyproject.toml", "Makefile", "src/pulse/__init__.py", "src/pulse/cli.py", ".gitignore", ".env.example", ".github/pull_request_template.md", ".github/ISSUE_TEMPLATE/", "README.md", "LICENSE"],
+        key="scaffold",
+        title="Scaffold repo: uv, ruff, pytest, Makefile, layout",
+        milestone="M1",
+        area="infra",
+        agent="claude",
+        size="M",
+        wave=0,
+        owns=[
+            "pyproject.toml",
+            "Makefile",
+            "src/pulse/__init__.py",
+            "src/pulse/cli.py",
+            ".gitignore",
+            ".env.example",
+            ".github/pull_request_template.md",
+            ".github/ISSUE_TEMPLATE/",
+            "README.md",
+            "LICENSE",
+        ],
         context="Create the skeleton from PLAN.md §4 so every later issue has a home. Python 3.12 with uv, ruff (lint and format), mypy, pytest with markers (unit, integration, slow, live). A `pulse` Typer CLI with stub subcommands. Makefile targets from AGENTS.md §5 (stubs that exit 0 with a message are fine where the code does not exist yet).",
         ac=[
             "`uv sync && make check` passes on a clean clone",
@@ -78,8 +126,13 @@ ISSUES: list[dict] = [
         deps=[],
     ),
     dict(
-        key="contracts", title="Data contracts as code (pydantic → JSON Schema)", milestone="M1",
-        area="contracts", agent="claude", size="M", wave=0,
+        key="contracts",
+        title="Data contracts as code (pydantic → JSON Schema)",
+        milestone="M1",
+        area="contracts",
+        agent="claude",
+        size="M",
+        wave=0,
         owns=["src/pulse/contracts/", "contracts/schemas/", "tests/contracts/"],
         context="Encode every table in PLAN.md §6 as pydantic models: sources (6.1–6.2), raw metadata columns (6.4), meta/quarantine (6.5), exports (6.9), run_log, pipeline_graph, narrative. Generate JSON Schema files, which the frontend later uses to generate TypeScript types. Contracts carry a `schema_version`.",
         ac=[
@@ -93,9 +146,19 @@ ISSUES: list[dict] = [
         deps=["scaffold"],
     ),
     dict(
-        key="orgref", title="Org hierarchy reference data (org.yaml)", milestone="M2",
-        area="contracts", agent="claude", size="S", wave=0,
-        owns=["reference/org.yaml", "reference/activity_types.csv", "src/pulse/reference.py", "tests/test_reference.py"],
+        key="orgref",
+        title="Org hierarchy reference data (org.yaml)",
+        milestone="M2",
+        area="contracts",
+        agent="claude",
+        size="S",
+        wave=0,
+        owns=[
+            "reference/org.yaml",
+            "reference/activity_types.csv",
+            "src/pulse/reference.py",
+            "tests/test_reference.py",
+        ],
         context="Author the fictional org: 4 regions, 14 districts (PLAN.md §5), ~120 branches, each in a real FSA in the right province and plausible area (e.g. GTA branches in M-prefixed FSAs). Branch names are fictional (neighbourhood + 'Branch'). Include a loader with validation.",
         ac=[
             "org.yaml has 4 regions, 14 districts, 110–130 branches, with branch counts weighted roughly by population",
@@ -107,8 +170,13 @@ ISSUES: list[dict] = [
         deps=["contracts"],
     ),
     dict(
-        key="fixtures", title="Tiny deterministic fixtures for every contract", milestone="M1",
-        area="contracts", agent="claude", size="M", wave=0,
+        key="fixtures",
+        title="Tiny deterministic fixtures for every contract",
+        milestone="M1",
+        area="contracts",
+        agent="claude",
+        size="M",
+        wave=0,
         owns=["fixtures/", "src/pulse/fixtures.py", "tests/test_fixtures.py"],
         context="Hand-designed (not randomly generated) small datasets so ingestion, dbt, export, frontend and pipeline viz can all be built in parallel before the generator exists. They cover 2 regions, 3 districts, 6 branches, 20 advisors (with 2 transfers), 200 clients, and 4 weeks of activity, including one example of every defect in PLAN.md §5. Fixture exports and run_log.json must look like real output, so the frontend can develop against them.",
         ac=[
@@ -123,8 +191,13 @@ ISSUES: list[dict] = [
         deps=["contracts", "orgref"],
     ),
     dict(
-        key="ci", title="PR CI workflow (lint, tests, contracts, dbt, web)", milestone="M5",
-        area="infra", agent="cursor", size="S", wave=0,
+        key="ci",
+        title="PR CI workflow (lint, tests, contracts, dbt, web)",
+        milestone="M5",
+        area="infra",
+        agent="cursor",
+        size="S",
+        wave=0,
         owns=[".github/workflows/ci.yml"],
         context="GitHub Actions on pull_request and push to main. Jobs use path filters: python (ruff, mypy, pytest -m 'not slow and not live', contracts-check), dbt (`make dbt-build-ci`, skipped until dbt/ has models), web (`make web-check`, skipped until web/package.json exists). Cache uv and pnpm.",
         ac=[
@@ -137,8 +210,13 @@ ISSUES: list[dict] = [
         deps=["scaffold"],
     ),
     dict(
-        key="depsbot", title="Dependency bot: flip status:blocked → status:ready", milestone="M5",
-        area="infra", agent="cursor", size="S", wave=0,
+        key="depsbot",
+        title="Dependency bot: flip status:blocked → status:ready",
+        milestone="M5",
+        area="infra",
+        agent="cursor",
+        size="S",
+        wave=0,
         owns=[".github/workflows/deps.yml", "scripts/deps_bot.py"],
         context="When an issue closes (or a body is edited), find open issues whose body contains `Depends on: #a, #b`. If all listed issues are closed, swap `status:blocked` for `status:ready` and comment once. Uses GITHUB_TOKEN only.",
         ac=[
@@ -151,8 +229,13 @@ ISSUES: list[dict] = [
         deps=["scaffold"],
     ),
     dict(
-        key="meta", title="Warehouse layer: DuckDB connection, meta + quarantine schemas", milestone="M3",
-        area="ingest", agent="claude", size="M", wave=0,
+        key="meta",
+        title="Warehouse layer: DuckDB connection, meta + quarantine schemas",
+        milestone="M3",
+        area="ingest",
+        agent="claude",
+        size="M",
+        wave=0,
         owns=["src/pulse/warehouse.py", "src/pulse/ingest/meta.py", "tests/ingest/test_meta.py"],
         context="A single module owns the DuckDB connection (path from PULSE_DATA_DIR), creates the schemas raw, meta and quarantine, and creates the tables from PLAN.md §6.5. It provides a small repository API: get/set watermark, record manifest entry, is_file_loaded(path, sha), write run_log row, write check_result, write rejected rows. Watermark and manifest writes take an optional open transaction.",
         ac=[
@@ -165,9 +248,23 @@ ISSUES: list[dict] = [
         deps=["contracts"],
     ),
     dict(
-        key="dbtscaffold", title="dbt project scaffold (dbt-duckdb, sources, conventions)", milestone="M4",
-        area="dbt", agent="claude", size="M", wave=0,
-        owns=["dbt/dbt_project.yml", "dbt/profiles.yml", "dbt/packages.yml", "dbt/models/sources.yml", "dbt/macros/", "dbt/seeds/", "dbt/models/marts/dim_date.sql", "dbt/models/marts/dim_date.yml"],
+        key="dbtscaffold",
+        title="dbt project scaffold (dbt-duckdb, sources, conventions)",
+        milestone="M4",
+        area="dbt",
+        agent="claude",
+        size="M",
+        wave=0,
+        owns=[
+            "dbt/dbt_project.yml",
+            "dbt/profiles.yml",
+            "dbt/packages.yml",
+            "dbt/models/sources.yml",
+            "dbt/macros/",
+            "dbt/seeds/",
+            "dbt/models/marts/dim_date.sql",
+            "dbt/models/marts/dim_date.yml",
+        ],
         context="dbt-duckdb with targets `dev` (data/warehouse.duckdb) and `ci` (a warehouse built from fixtures by `make dbt-build-ci`, which first ingests fixtures). Declare all raw sources with freshness config. Folder-level materializations: staging = view, intermediate = table or ephemeral, marts = table, contracts enforced. Add a macro for ISO week IDs and a macro `toronto_date(ts)`. Build dim_date as a worked example of the per-model yml convention.",
         ac=[
             "`make dbt-build-ci` runs green on fixtures, building dim_date",
@@ -179,8 +276,13 @@ ISSUES: list[dict] = [
         deps=["contracts", "fixtures", "meta"],
     ),
     dict(
-        key="webscaffold", title="Web scaffold: Vite + React + TS, tokens, routes, deploy config", milestone="M7",
-        area="frontend", agent="claude", size="M", wave=0,
+        key="webscaffold",
+        title="Web scaffold: Vite + React + TS, tokens, routes, deploy config",
+        milestone="M7",
+        area="frontend",
+        agent="claude",
+        size="M",
+        wave=0,
         owns=["web/"],
         context="Vite + React 18 + TypeScript + pnpm. Port charliebuild's tokens (paper, ink, muted, rule, signal, focus; light and dark) into `web/src/theme/tokens.css`. Add route shells for /, /r/:region(/d/:district(/b/:branch(/a/:advisor))), /map, /pipeline, /quality, /case-study. `web/public/data` points at fixtures/exports in dev. Add Cloudflare `_redirects` (SPA fallback) and `_headers` (no-cache for manifest.json and run_log.json). Generate TS types from contracts/schemas.",
         ac=[
@@ -194,8 +296,13 @@ ISSUES: list[dict] = [
         deps=["scaffold", "contracts"],
     ),
     dict(
-        key="runner", title="Runner skeleton: stage DAG, run_id, retries, run_log", milestone="M5",
-        area="orchestration", agent="claude", size="M", wave=0,
+        key="runner",
+        title="Runner skeleton: stage DAG, run_id, retries, run_log",
+        milestone="M5",
+        area="orchestration",
+        agent="claude",
+        size="M",
+        wave=0,
         owns=["src/pulse/runner/", "tests/runner/"],
         context="`pulse run --week YYYY-Www` executes registered stages in DAG order: restore_state, generate, ingest, dbt_build, checks, narrate, export, publish_sheets, persist_state. Stages are plain functions that return a StageResult(rows_in, rows_out, rows_quarantined, status, message). The runner adds tenacity retries (3 attempts, exponential backoff with jitter, only for retryable exceptions), writes one run_log row per attempt, stops downstream stages on FAIL, and exports the DAG as pipeline_graph nodes and edges. Stages that do not exist yet are no-ops returning SKIPPED.",
         ac=[
@@ -209,8 +316,13 @@ ISSUES: list[dict] = [
         deps=["meta"],
     ),
     dict(
-        key="accounts", title="Accounts and secrets: Cloudflare Pages, R2, Anthropic, Google SA", milestone="M5",
-        area="infra", agent="human", size="S", wave=0,
+        key="accounts",
+        title="Accounts and secrets: Cloudflare Pages, R2, Anthropic, Google SA",
+        milestone="M5",
+        area="infra",
+        agent="human",
+        size="S",
+        wave=0,
         owns=["(GitHub repo settings)"],
         context="Charlie sets up the external accounts. Agents cannot do this step.",
         ac=[
@@ -225,8 +337,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 1: data generation ─────────────────────────
     dict(
-        key="genadvisor", title="Generator: advisor master, assignments and transfers ('Teradata')", milestone="M1",
-        area="data-gen", agent="codex", size="M", wave=1,
+        key="genadvisor",
+        title="Generator: advisor master, assignments and transfers ('Teradata')",
+        milestone="M1",
+        area="data-gen",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/generate/advisors.py", "tests/generate/test_advisors.py"],
         context="From org.yaml, create ~900 advisors (Faker en_CA names) across branches by role mix, with hire dates over 10 years. Simulate assignment events week by week: transfers (~1.5% of advisors per month, mostly within district, sometimes cross-region), promotions, and terminations with backfill hires. Write the ADVSR, ADVSR_ASGN and BRNCH tables into data/sources/teradata/edw.sqlite using the Teradata-style column names in PLAN.md §6.2.",
         ac=[
@@ -240,8 +357,13 @@ ISSUES: list[dict] = [
         deps=["contracts", "orgref"],
     ),
     dict(
-        key="genclient", title="Generator: client dimension with postal codes ('Teradata')", milestone="M1",
-        area="data-gen", agent="codex", size="M", wave=1,
+        key="genclient",
+        title="Generator: client dimension with postal codes ('Teradata')",
+        milestone="M1",
+        area="data-gen",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/generate/clients.py", "tests/generate/test_clients.py"],
         context="~150k clients assigned to a primary advisor and branch. Postal code = an FSA near the branch (same or neighbouring FSA from a per-district FSA pool) plus a random LDU. Segments by mix; birth year; tenure. Write the CLNT table to SQLite, and daily CSV deltas `client_YYYYMMDD.csv` with new clients, closures and re-assignments (2% per quarter). Clean values only here; dirt is added by the dirt module.",
         ac=[
@@ -254,8 +376,13 @@ ISSUES: list[dict] = [
         deps=["contracts", "orgref"],
     ),
     dict(
-        key="genactivity", title="Generator: weekly activity facts ('Snowflake' Parquet)", milestone="M1",
-        area="data-gen", agent="codex", size="M", wave=1,
+        key="genactivity",
+        title="Generator: weekly activity facts ('Snowflake' Parquet)",
+        milestone="M1",
+        area="data-gen",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/generate/activity.py", "tests/generate/test_activity.py"],
         context="For each ISO week, generate activities per active advisor (as-of the assignment history) with realistic patterns: weekday peaks, a holiday dip (Canadian stat holidays), seasonal RRSP-season lift in Feb, advisor-level productivity variation, and some district-level 'stories' (one district trending down over 8 weeks, one improving) so the narrative has something to say. Appointments are booked from calls (BOOKED_FROM_ACTIVITY_ID), then complete, no-show or cancel later. Write `extract_date=YYYY-MM-DD/part-NNN.parquet`.",
         ac=[
@@ -268,8 +395,13 @@ ISSUES: list[dict] = [
         deps=["genadvisor", "genclient"],
     ),
     dict(
-        key="gendirt", title="Generator: dirt injection + defect manifest", milestone="M1",
-        area="data-gen", agent="codex", size="M", wave=1,
+        key="gendirt",
+        title="Generator: dirt injection + defect manifest",
+        milestone="M1",
+        area="data-gen",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/generate/dirt.py", "tests/generate/test_dirt.py"],
         context="A post-processing module that applies the defects in PLAN.md §5 at configured rates and records each one in `defects/YYYY-Www.json` (defect type, table, natural key or row number, expected handling rule). This is the ground truth the DQ tests reconcile against.",
         ac=[
@@ -282,9 +414,18 @@ ISSUES: list[dict] = [
         deps=["genactivity"],
     ),
     dict(
-        key="genincr", title="Generator: incremental weekly mode + late arrivals", milestone="M1",
-        area="data-gen", agent="codex", size="S", wave=1,
-        owns=["src/pulse/generate/cli.py", "src/pulse/generate/late.py", "tests/generate/test_incremental.py"],
+        key="genincr",
+        title="Generator: incremental weekly mode + late arrivals",
+        milestone="M1",
+        area="data-gen",
+        agent="codex",
+        size="S",
+        wave=1,
+        owns=[
+            "src/pulse/generate/cli.py",
+            "src/pulse/generate/late.py",
+            "tests/generate/test_incremental.py",
+        ],
         context="`pulse generate --week 2026-W40` emits only that week's extracts, plus late records for up to 3 prior weeks and re-sent rows with status updates. `--backfill --from --to` loops weeks. Generating weeks one by one must produce the same set of files as a backfill over the same range.",
         ac=[
             "Weekly mode writes only new extract_date partitions and new CSV deltas; it never rewrites existing files",
@@ -296,8 +437,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 1: ingestion ─────────────────────────
     dict(
-        key="ingactivity", title="Ingest 'Snowflake' activity Parquet incrementally", milestone="M3",
-        area="ingest", agent="codex", size="M", wave=1,
+        key="ingactivity",
+        title="Ingest 'Snowflake' activity Parquet incrementally",
+        milestone="M3",
+        area="ingest",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/ingest/snowflake.py", "tests/ingest/test_snowflake.py"],
         context="Discover partitions under sources/snowflake/activity, skip files already in load_manifest (same path and sha256), and read only rows with _EXTRACTED_AT > watermark. Pass rows through validation (hook from the quarantine issue; until then a pass-through), then write raw.snowflake__activity with the metadata columns using delete+insert by _batch_id. Update watermark and manifest in the same transaction.",
         ac=[
@@ -310,8 +456,13 @@ ISSUES: list[dict] = [
         deps=["meta", "fixtures"],
     ),
     dict(
-        key="ingclient", title="Ingest 'Teradata' client SQLite snapshot + CSV deltas", milestone="M3",
-        area="ingest", agent="codex", size="M", wave=1,
+        key="ingclient",
+        title="Ingest 'Teradata' client SQLite snapshot + CSV deltas",
+        milestone="M3",
+        area="ingest",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/ingest/teradata_client.py", "tests/ingest/test_teradata_client.py"],
         context="The first load takes the CLNT table snapshot from SQLite. Later loads take daily CSV deltas newer than the LAST_UPD_TS watermark, in file-date order. Load into raw.teradata__clnt with the same manifest and transaction semantics as the activity loader. CSV parsing must tolerate quoted fields and BOM.",
         ac=[
@@ -323,8 +474,13 @@ ISSUES: list[dict] = [
         deps=["meta", "fixtures"],
     ),
     dict(
-        key="inghr", title="Ingest 'Teradata' advisor, assignment and branch tables", milestone="M3",
-        area="ingest", agent="codex", size="S", wave=1,
+        key="inghr",
+        title="Ingest 'Teradata' advisor, assignment and branch tables",
+        milestone="M3",
+        area="ingest",
+        agent="codex",
+        size="S",
+        wave=1,
         owns=["src/pulse/ingest/teradata_hr.py", "tests/ingest/test_teradata_hr.py"],
         context="Load ADVSR, ADVSR_ASGN and BRNCH incrementally by LAST_UPD_TS into raw.teradata__* tables, with manifest and watermark semantics.",
         ac=[
@@ -336,8 +492,13 @@ ISSUES: list[dict] = [
         deps=["meta", "fixtures"],
     ),
     dict(
-        key="ingquar", title="Row validation and quarantine (DQ001–DQ006)", milestone="M3",
-        area="ingest", agent="codex", size="M", wave=1,
+        key="ingquar",
+        title="Row validation and quarantine (DQ001–DQ006)",
+        milestone="M3",
+        area="ingest",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/ingest/validate.py", "tests/ingest/test_validate.py"],
         context="A vectorized validator (DuckDB SQL or Arrow compute, no per-row Python) that applies rules DQ001–DQ006 from PLAN.md §8 using the contracts. It returns (valid_rows, rejected_rows). Rejected rows carry rule_id, reason and the JSON payload, and are written to quarantine.rejected_rows. Schema drift: a missing required column or type change fails the file; extra columns are logged as WARN and dropped.",
         ac=[
@@ -350,8 +511,13 @@ ISSUES: list[dict] = [
         deps=["meta", "contracts", "fixtures"],
     ),
     dict(
-        key="ingidem", title="Idempotency and re-run test suite for ingestion", milestone="M3",
-        area="ingest", agent="claude", size="M", wave=1,
+        key="ingidem",
+        title="Idempotency and re-run test suite for ingestion",
+        milestone="M3",
+        area="ingest",
+        agent="claude",
+        size="M",
+        wave=1,
         owns=["tests/integration/test_idempotency.py", "src/pulse/ingest/__init__.py"],
         context="Wire the loaders and the validator into one `ingest` stage for the runner. Prove the guarantees in PLAN.md §9 with integration tests: double runs, crash in the middle, late-arriving files, and a changed file.",
         ac=[
@@ -365,8 +531,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 1: dbt ─────────────────────────
     dict(
-        key="dbtstg", title="dbt staging models (rename, cast, dedupe, normalize postal)", milestone="M4",
-        area="dbt", agent="cursor", size="M", wave=1,
+        key="dbtstg",
+        title="dbt staging models (rename, cast, dedupe, normalize postal)",
+        milestone="M4",
+        area="dbt",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["dbt/models/staging/"],
         context="Build stg_activity, stg_client, stg_advisor, stg_advisor_assignment and stg_branch per PLAN.md §6.6. Dedupe activity by latest updated_ts then _extracted_at. Normalize postal codes to `A1A 1A1`; derive fsa_code or 'UNK'. Compute activity_date with the toronto_date macro, iso_week_id, and is_late_arriving. One .yml per model.",
         ac=[
@@ -379,8 +550,13 @@ ISSUES: list[dict] = [
         deps=["dbtscaffold"],
     ),
     dict(
-        key="dbtorg", title="dbt dim_org and dim_geography (hierarchy + FSA)", milestone="M2",
-        area="dbt", agent="cursor", size="S", wave=1,
+        key="dbtorg",
+        title="dbt dim_org and dim_geography (hierarchy + FSA)",
+        milestone="M2",
+        area="dbt",
+        agent="cursor",
+        size="S",
+        wave=1,
         owns=["dbt/models/marts/dim_org.*", "dbt/models/marts/dim_geography.*", "dbt/seeds/"],
         context="dim_org at branch grain with district and region from org.yaml (exported to a dbt seed by `make seeds`). dim_geography at FSA grain: every FSA appearing in branches or clients, plus province and is_rural (second character '0'). Contracts enforced.",
         ac=[
@@ -392,9 +568,19 @@ ISSUES: list[dict] = [
         deps=["dbtstg", "orgref"],
     ),
     dict(
-        key="dbtscd2", title="SCD2 advisor history and dim_advisor", milestone="M2",
-        area="dbt", agent="claude", size="M", wave=1,
-        owns=["dbt/models/intermediate/int_advisor_history.*", "dbt/models/marts/dim_advisor.*", "dbt/tests/scd2_*.sql", "docs/adr/0001-scd2-from-events.md"],
+        key="dbtscd2",
+        title="SCD2 advisor history and dim_advisor",
+        milestone="M2",
+        area="dbt",
+        agent="claude",
+        size="M",
+        wave=1,
+        owns=[
+            "dbt/models/intermediate/int_advisor_history.*",
+            "dbt/models/marts/dim_advisor.*",
+            "dbt/tests/scd2_*.sql",
+            "docs/adr/0001-scd2-from-events.md",
+        ],
         context="Build SCD2 ranges deterministically from assignment events (not dbt snapshot; see PLAN.md §3). valid_to is exclusive; open rows end 9999-12-31; terminations close the last range. Add the Unknown member. Write an ADR explaining why events-based SCD2 is used instead of snapshots for backfill determinism.",
         ac=[
             "Tests: no overlapping ranges per advisor, no gaps between hire and term, exactly one current row for active advisors and none for terminated ones (DQ020)",
@@ -406,8 +592,13 @@ ISSUES: list[dict] = [
         deps=["dbtstg"],
     ),
     dict(
-        key="dbtclient", title="dim_client and weekly client book history", milestone="M4",
-        area="dbt", agent="cursor", size="M", wave=1,
+        key="dbtclient",
+        title="dim_client and weekly client book history",
+        milestone="M4",
+        area="dbt",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["dbt/models/marts/dim_client.*", "dbt/models/intermediate/int_client_book_weekly.*"],
         context="dim_client from stg_client with tenure and age bands. int_client_book_weekly gives client × week with the primary advisor as of week end and an active flag; this is the denominator for coverage.",
         ac=[
@@ -419,9 +610,18 @@ ISSUES: list[dict] = [
         deps=["dbtstg", "dbtscd2"],
     ),
     dict(
-        key="dbtfct", title="fct_activity with as-of advisor attribution (incremental)", milestone="M4",
-        area="dbt", agent="claude", size="M", wave=1,
-        owns=["dbt/models/intermediate/int_activity_enriched.*", "dbt/models/marts/fct_activity.*", "dbt/models/marts/dim_activity_type.*"],
+        key="dbtfct",
+        title="fct_activity with as-of advisor attribution (incremental)",
+        milestone="M4",
+        area="dbt",
+        agent="claude",
+        size="M",
+        wave=1,
+        owns=[
+            "dbt/models/intermediate/int_activity_enriched.*",
+            "dbt/models/marts/fct_activity.*",
+            "dbt/models/marts/dim_activity_type.*",
+        ],
         context="Join each activity to the advisor history row valid at activity_date (branch at the time, not the current branch). Unknown advisors map to the 'UNKNOWN' member. Incremental delete+insert with a 28-day lookback so late arrivals rebuild the affected weeks. Flags: is_completed, is_appointment, is_conversion.",
         ac=[
             "A fixture activity by a transferred advisor is credited to the pre-transfer branch when it predates the transfer (test)",
@@ -433,8 +633,13 @@ ISSUES: list[dict] = [
         deps=["dbtorg", "dbtscd2", "dbtclient"],
     ),
     dict(
-        key="dbtweekly", title="mart_advisor_weekly and mart_org_weekly (all hierarchy levels)", milestone="M4",
-        area="dbt", agent="cursor", size="M", wave=1,
+        key="dbtweekly",
+        title="mart_advisor_weekly and mart_org_weekly (all hierarchy levels)",
+        milestone="M4",
+        area="dbt",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["dbt/models/marts/mart_advisor_weekly.*", "dbt/models/marts/mart_org_weekly.*"],
         context="Compute the KPI numerators and denominators from PLAN.md §7 at advisor × week, then roll up to branch, district, region and national with GROUPING SETS. Ratios are computed after roll-up, never averaged. Coverage uses int_client_book_weekly and a trailing 13-week window.",
         ac=[
@@ -447,9 +652,18 @@ ISSUES: list[dict] = [
         deps=["dbtfct"],
     ),
     dict(
-        key="dbtreport", title="mart_weekly_report, mart_geo_weekly, mart_dq_weekly", milestone="M4",
-        area="dbt", agent="cursor", size="M", wave=1,
-        owns=["dbt/models/marts/mart_weekly_report.*", "dbt/models/marts/mart_geo_weekly.*", "dbt/models/marts/mart_dq_weekly.*"],
+        key="dbtreport",
+        title="mart_weekly_report, mart_geo_weekly, mart_dq_weekly",
+        milestone="M4",
+        area="dbt",
+        agent="cursor",
+        size="M",
+        wave=1,
+        owns=[
+            "dbt/models/marts/mart_weekly_report.*",
+            "dbt/models/marts/mart_geo_weekly.*",
+            "dbt/models/marts/mart_dq_weekly.*",
+        ],
         context="mart_weekly_report: long format, node × KPI × week with prior week, WoW delta and %, trailing 13-week average, rank within parent, and a flag (ANOMALY when |z| > 2 against the trailing 13 weeks). mart_geo_weekly at FSA × week. mart_dq_weekly from quarantine and staging dedupe counts.",
         ac=[
             "The report has one row per (week, node, KPI); uniqueness test",
@@ -461,8 +675,13 @@ ISSUES: list[dict] = [
         deps=["dbtweekly"],
     ),
     dict(
-        key="dbtkpitests", title="KPI reconciliation tests (children sum to parent)", milestone="M4",
-        area="dbt", agent="claude", size="S", wave=1,
+        key="dbtkpitests",
+        title="KPI reconciliation tests (children sum to parent)",
+        milestone="M4",
+        area="dbt",
+        agent="claude",
+        size="S",
+        wave=1,
         owns=["dbt/tests/reconcile_*.sql", "dbt/macros/test_reconcile.sql"],
         context="A generic test macro: for every additive measure in mart_org_weekly, the sum over children equals the parent at every level and week (DQ022). Ratios stay within [0, 1] (DQ023).",
         ac=[
@@ -474,8 +693,13 @@ ISSUES: list[dict] = [
         deps=["dbtweekly"],
     ),
     dict(
-        key="dbtdocs", title="dbt docs + lineage published as a static site", milestone="M4",
-        area="dbt", agent="cursor", size="S", wave=1,
+        key="dbtdocs",
+        title="dbt docs + lineage published as a static site",
+        milestone="M4",
+        area="dbt",
+        agent="cursor",
+        size="S",
+        wave=1,
         owns=["scripts/build_dbt_docs.sh", "dbt/models/overview.md"],
         context="Generate dbt docs (static index) as part of export, so they are served at pulse.charliebuild.com/lineage/. Write an overview.md doc block with the layer conventions and a link back to the dashboard.",
         ac=[
@@ -488,8 +712,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 1: geo ─────────────────────────
     dict(
-        key="geofsa", title="StatCan FSA boundaries: download, simplify, size budget", milestone="M2",
-        area="geo", agent="cursor", size="M", wave=1,
+        key="geofsa",
+        title="StatCan FSA boundaries: download, simplify, size budget",
+        milestone="M2",
+        area="geo",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["geo/", "web/public/geo/", "docs/adr/0002-geo-size-budget.md"],
         context="Script to download the Statistics Canada 2021 FSA boundary file, reproject to WGS84, filter to the FSAs used in org.yaml and the client pool, and simplify with mapshaper to TopoJSON. FSA-level is optional: if it cannot fit within 3 MB gzip at acceptable fidelity, ship only district and region polygons and record that decision in an ADR. Add the Statistics Canada Open Licence attribution.",
         ac=[
@@ -502,9 +731,18 @@ ISSUES: list[dict] = [
         deps=["orgref"],
     ),
     dict(
-        key="geodissolve", title="Derive district and region polygons by dissolving FSAs", milestone="M2",
-        area="geo", agent="cursor", size="S", wave=1,
-        owns=["geo/dissolve.*", "web/public/geo/districts.topo.json", "web/public/geo/regions.topo.json"],
+        key="geodissolve",
+        title="Derive district and region polygons by dissolving FSAs",
+        milestone="M2",
+        area="geo",
+        agent="cursor",
+        size="S",
+        wave=1,
+        owns=[
+            "geo/dissolve.*",
+            "web/public/geo/districts.topo.json",
+            "web/public/geo/regions.topo.json",
+        ],
         context="Dissolve FSA polygons into the 14 fictional districts and 4 regions using the org.yaml mapping (each FSA is assigned to the district of its nearest branch). Each feature carries the node_id used in the marts.",
         ac=[
             "14 district and 4 region features, with IDs matching dim_org codes (test)",
@@ -516,8 +754,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 1: frontend (on fixtures) ─────────────────────────
     dict(
-        key="webdesign", title="Art direction and design system: docs/design.md + chart theme", milestone="M7",
-        area="frontend", agent="claude", size="M", wave=1,
+        key="webdesign",
+        title="Art direction and design system: docs/design.md + chart theme",
+        milestone="M7",
+        area="frontend",
+        agent="claude",
+        size="M",
+        wave=1,
         owns=["docs/design.md", "web/src/theme/", "web/src/components/primitives/"],
         context="Define an editorial look that extends charliebuild (paper, ink, signal gold; Avenir Next; mono figures). It should read like a well-made annual report, not a SaaS template. Deliver: type scale, grid, spacing, colour roles, a data palette (sequential from signal, diverging for WoW, status colours for pipeline), motion principles with durations and easings, an ECharts theme object, and primitives (Figure, Stat, Delta, Sparkline wrapper, Breadcrumb, Section).",
         ac=[
@@ -530,8 +773,13 @@ ISSUES: list[dict] = [
         deps=["webscaffold"],
     ),
     dict(
-        key="webdata", title="DuckDB-WASM data layer: manifest, Parquet registration, query hooks", milestone="M7",
-        area="frontend", agent="claude", size="M", wave=1,
+        key="webdata",
+        title="DuckDB-WASM data layer: manifest, Parquet registration, query hooks",
+        milestone="M7",
+        area="frontend",
+        agent="claude",
+        size="M",
+        wave=1,
         owns=["web/src/data/"],
         context="Lazy-load DuckDB-WASM in a worker, fetch manifest.json, register Parquet files over HTTP, and expose typed hooks (useOrgWeekly(nodeId, weeks), useWeeklyReport(...), useGeoWeekly(...), useRunLog(), useNarrative(week, node)). Before DuckDB is ready, render the first paint from a small summary embedded in manifest.json. Verify file sha256 from the manifest. Handle loading, empty and error states.",
         ac=[
@@ -544,8 +792,13 @@ ISSUES: list[dict] = [
         deps=["webscaffold", "fixtures"],
     ),
     dict(
-        key="webdrill", title="Hierarchy drill-down: National → Region → District → Branch → Advisor", milestone="M7",
-        area="frontend", agent="cursor", size="M", wave=1,
+        key="webdrill",
+        title="Hierarchy drill-down: National → Region → District → Branch → Advisor",
+        milestone="M7",
+        area="frontend",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["web/src/features/drill/"],
         context="URL-driven drill (/r/ON/d/GTA/b/BR-0412/a/ADV-00123). Each level shows its KPIs, a ranked list of children with sparklines, and a breadcrumb. Transitions keep spatial context: the clicked row expands into the next view. A week selector is shared via URL.",
         ac=[
@@ -558,8 +811,13 @@ ISSUES: list[dict] = [
         deps=["webdata", "webdesign"],
     ),
     dict(
-        key="webkpi", title="KPI tiles and trend charts (ECharts)", milestone="M7",
-        area="frontend", agent="cursor", size="M", wave=1,
+        key="webkpi",
+        title="KPI tiles and trend charts (ECharts)",
+        milestone="M7",
+        area="frontend",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["web/src/features/overview/"],
         context="Overview: the week's headline KPIs with WoW deltas, 26-week trend lines with a trailing 13-week band, and annotations for ANOMALY flags. All charts use the global theme. Each chart has a text alternative (the summary sentence).",
         ac=[
@@ -571,8 +829,13 @@ ISSUES: list[dict] = [
         deps=["webdata", "webdesign"],
     ),
     dict(
-        key="webleader", title="Leaderboard and peer comparison table", milestone="M7",
-        area="frontend", agent="cursor", size="S", wave=1,
+        key="webleader",
+        title="Leaderboard and peer comparison table",
+        milestone="M7",
+        area="frontend",
+        agent="cursor",
+        size="S",
+        wave=1,
         owns=["web/src/features/leaderboard/"],
         context="Ranked table of the children of the current node (or advisors within a branch), with KPI selector, rank change vs prior week, and inline sparklines. Uses rank_in_parent from mart_weekly_report.",
         ac=[
@@ -584,8 +847,13 @@ ISSUES: list[dict] = [
         deps=["webdata", "webdesign"],
     ),
     dict(
-        key="webmap", title="Geographic view: deck.gl + MapLibre choropleth with drill", milestone="M7",
-        area="frontend", agent="cursor", size="M", wave=1,
+        key="webmap",
+        title="Geographic view: deck.gl + MapLibre choropleth with drill",
+        milestone="M7",
+        area="frontend",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["web/src/features/map/"],
         context="Region and district choropleth for the selected KPI and week. Clicking a polygon drills (the same URL state as drill-down). FSA-level coverage heat layer only if FSA boundaries shipped (feature flag from manifest). Basemap: no-key minimal style or none. Show attribution.",
         ac=[
@@ -598,8 +866,13 @@ ISSUES: list[dict] = [
         deps=["webdata", "webdesign", "geodissolve"],
     ),
     dict(
-        key="webnarr", title="Weekly narrative panel with cited facts", milestone="M7",
-        area="frontend", agent="cursor", size="S", wave=1,
+        key="webnarr",
+        title="Weekly narrative panel with cited facts",
+        milestone="M7",
+        area="frontend",
+        agent="cursor",
+        size="S",
+        wave=1,
         owns=["web/src/features/narrative/"],
         context="Render the narrative for the current node and week: headline, bullets, and watchlist. Each bullet can reveal the facts it cites. Label: 'AI-generated from this week's figures'. If fallback is true, label it 'Template summary'.",
         ac=[
@@ -611,8 +884,13 @@ ISSUES: list[dict] = [
         deps=["webdata", "webdesign"],
     ),
     dict(
-        key="webdq", title="Data quality page: quarantine and defects by rule over time", milestone="M7",
-        area="frontend", agent="cursor", size="S", wave=1,
+        key="webdq",
+        title="Data quality page: quarantine and defects by rule over time",
+        milestone="M7",
+        area="frontend",
+        agent="cursor",
+        size="S",
+        wave=1,
         owns=["web/src/features/quality/"],
         context="Show mart_dq_weekly: per-rule counts and rates over time, the action taken, and the latest week's check results from run_log. This page shows the data-engineering work directly.",
         ac=[
@@ -625,8 +903,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 1: pipeline viz ─────────────────────────
     dict(
-        key="vizgraph", title="Emit pipeline_graph.json from runner DAG + dbt manifest", milestone="M6",
-        area="pipeline-viz", agent="claude", size="S", wave=1,
+        key="vizgraph",
+        title="Emit pipeline_graph.json from runner DAG + dbt manifest",
+        milestone="M6",
+        area="pipeline-viz",
+        agent="claude",
+        size="S",
+        wave=1,
         owns=["src/pulse/export/pipeline_graph.py", "tests/export/test_pipeline_graph.py"],
         context="Merge the runner's stage DAG with dbt's manifest.json (collapsed to layer-level groups with an expandable model list) into nodes and edges with stable IDs and suggested layout positions.",
         ac=[
@@ -638,8 +921,13 @@ ISSUES: list[dict] = [
         deps=["runner", "dbtscaffold"],
     ),
     dict(
-        key="vizcanvas", title="React Flow pipeline canvas with run replay", milestone="M6",
-        area="pipeline-viz", agent="cursor", size="M", wave=1,
+        key="vizcanvas",
+        title="React Flow pipeline canvas with run replay",
+        milestone="M6",
+        area="pipeline-viz",
+        agent="cursor",
+        size="M",
+        wave=1,
         owns=["web/src/features/pipeline/"],
         context="Custom nodes show stage status, rows in/out, quarantined rows, duration and attempts. Edges animate particles in order during a replay of the last weekly run's timeline (compressed to ~6 s), then settle into the final state. A header says 'Replaying weekly run of <date>'. Reduced motion shows the final state with no animation.",
         ac=[
@@ -652,8 +940,13 @@ ISSUES: list[dict] = [
         deps=["webscaffold", "webdesign", "fixtures"],
     ),
     dict(
-        key="vizhistory", title="Run history strip: last 12 weekly runs", milestone="M6",
-        area="pipeline-viz", agent="cursor", size="S", wave=1,
+        key="vizhistory",
+        title="Run history strip: last 12 weekly runs",
+        milestone="M6",
+        area="pipeline-viz",
+        agent="cursor",
+        size="S",
+        wave=1,
         owns=["web/src/features/pipeline/history/"],
         context="A strip of the last 12 runs (status, duration, rows), with a duration sparkline. Selecting a run replays it on the canvas.",
         ac=[
@@ -665,8 +958,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 1: orchestration features ─────────────────────────
     dict(
-        key="runchecks", title="Run checks: freshness, volume anomaly, quarantine rate, defect reconciliation", milestone="M5",
-        area="orchestration", agent="codex", size="M", wave=1,
+        key="runchecks",
+        title="Run checks: freshness, volume anomaly, quarantine rate, defect reconciliation",
+        milestone="M5",
+        area="orchestration",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/quality/", "tests/quality/"],
         context="Implement DQ030–DQ033 as a `checks` stage. Each check writes a meta.check_result row. The WARN/FAIL policy is configurable in pulse.toml. Volume uses trailing 8 weeks from mart_org_weekly (national level).",
         ac=[
@@ -678,8 +976,13 @@ ISSUES: list[dict] = [
         deps=["runner", "meta"],
     ),
     dict(
-        key="runstate", title="State persistence on R2 with run lock", milestone="M5",
-        area="orchestration", agent="claude", size="M", wave=1,
+        key="runstate",
+        title="State persistence on R2 with run lock",
+        milestone="M5",
+        area="orchestration",
+        agent="claude",
+        size="M",
+        wave=1,
         owns=["src/pulse/state/", "tests/state/"],
         context="restore_state and persist_state stages: sync data/sources and warehouse.duckdb to and from R2 (S3 API via boto3). A lock object with run_id and a 2 h TTL prevents concurrent runs. If the warehouse is missing on restore, trigger a deterministic cold rebuild (backfill) and log it. Tests use moto, with no network.",
         ac=[
@@ -692,8 +995,13 @@ ISSUES: list[dict] = [
         deps=["runner"],
     ),
     dict(
-        key="runexport", title="Export marts to web Parquet + manifest with size budget", milestone="M5",
-        area="orchestration", agent="codex", size="M", wave=1,
+        key="runexport",
+        title="Export marts to web Parquet + manifest with size budget",
+        milestone="M5",
+        area="orchestration",
+        agent="codex",
+        size="M",
+        wave=1,
         owns=["src/pulse/export/web.py", "tests/export/test_web_export.py"],
         context="Write the files in PLAN.md §6.9 to web/public/data with ZSTD Parquet, row group sizes suited to HTTP range reads, sha256 per file, and a small `summary` block in manifest.json for first paint. Fail if the size budget is exceeded. A failed run exports only run_log.json and keeps existing data files.",
         ac=[
@@ -706,8 +1014,13 @@ ISSUES: list[dict] = [
         deps=["runner", "fixtures"],
     ),
     dict(
-        key="ainarr", title="AI weekly narrative: grounded facts → Anthropic structured output", milestone="M5",
-        area="ai", agent="claude", size="M", wave=1,
+        key="ainarr",
+        title="AI weekly narrative: grounded facts → Anthropic structured output",
+        milestone="M5",
+        area="ai",
+        agent="claude",
+        size="M",
+        wave=1,
         owns=["src/pulse/narrative/", "tests/narrative/"],
         context="Build compact fact sets per region and district (PLAN.md §11) from mart_weekly_report, call the Anthropic API (model from PULSE_NARRATIVE_MODEL, default claude-opus-5-5) with a pinned prompt version, and parse a structured JSON response into the narrative contract. Cache by input hash under data/narratives/cache. Tests use a recorded fake client; the `live` marker runs one real call.",
         ac=[
@@ -720,9 +1033,18 @@ ISSUES: list[dict] = [
         deps=["runner", "fixtures"],
     ),
     dict(
-        key="aiguard", title="Narrative guardrails: numeric validator, fallback, eval set", milestone="M5",
-        area="ai", agent="claude", size="M", wave=1,
-        owns=["src/pulse/narrative/validate.py", "src/pulse/narrative/fallback.py", "tests/narrative/eval/"],
+        key="aiguard",
+        title="Narrative guardrails: numeric validator, fallback, eval set",
+        milestone="M5",
+        area="ai",
+        agent="claude",
+        size="M",
+        wave=1,
+        owns=[
+            "src/pulse/narrative/validate.py",
+            "src/pulse/narrative/fallback.py",
+            "tests/narrative/eval/",
+        ],
         context="A validator extracts every number and percentage in the text and checks it against the cited facts within rounding tolerance. It also checks banned phrases (speculation about individuals, advice, 'live'). On failure: one regeneration with the validator feedback, then the deterministic template. Eval set: 10 frozen fact sets with expected properties; report pass rates.",
         ac=[
             "The validator catches a fabricated number, a wrong sign on a delta, and an uncited claim (unit tests)",
@@ -734,8 +1056,13 @@ ISSUES: list[dict] = [
     ),
     # ───────────────────────── Wave 2: integration ─────────────────────────
     dict(
-        key="runwf", title="weekly.yml and backfill.yml workflows", milestone="M5",
-        area="orchestration", agent="cursor", size="M", wave=2,
+        key="runwf",
+        title="weekly.yml and backfill.yml workflows",
+        milestone="M5",
+        area="orchestration",
+        agent="cursor",
+        size="M",
+        wave=2,
         owns=[".github/workflows/weekly.yml", ".github/workflows/backfill.yml"],
         context="weekly.yml: cron '0 11 * * 1' plus workflow_dispatch; `concurrency: weekly`; runs `pulse run --week last`, builds the web app, and uploads run artifacts (run_log, check results). backfill.yml: workflow_dispatch with from, to and rebuild inputs. Both read secrets from §13.",
         ac=[
@@ -748,8 +1075,13 @@ ISSUES: list[dict] = [
         deps=["runstate", "runexport", "runchecks", "ingidem", "accounts"],
     ),
     dict(
-        key="runalert", title="Alerting: open/update/close a GitHub issue on run failure", milestone="M5",
-        area="orchestration", agent="cursor", size="S", wave=2,
+        key="runalert",
+        title="Alerting: open/update/close a GitHub issue on run failure",
+        milestone="M5",
+        area="orchestration",
+        agent="cursor",
+        size="S",
+        wave=2,
         owns=["src/pulse/runner/alert.py", ".github/workflows/weekly.yml (alert step only)"],
         context="On FAIL, open or update a single issue labelled alert:pipeline with a summary table of failing stages and checks and a link to the run. Optional webhook post if ALERT_WEBHOOK_URL is set. On the next SUCCESS, comment and close it.",
         ac=[
@@ -761,9 +1093,19 @@ ISSUES: list[dict] = [
         deps=["runwf"],
     ),
     dict(
-        key="rundeploy", title="Deploy to Cloudflare Pages (pulse.charliebuild.com)", milestone="M5",
-        area="infra", agent="cursor", size="S", wave=2,
-        owns=[".github/workflows/weekly.yml (deploy step)", ".github/workflows/backfill.yml (deploy step)", "web/public/_headers", "web/public/_redirects"],
+        key="rundeploy",
+        title="Deploy to Cloudflare Pages (pulse.charliebuild.com)",
+        milestone="M5",
+        area="infra",
+        agent="cursor",
+        size="S",
+        wave=2,
+        owns=[
+            ".github/workflows/weekly.yml (deploy step)",
+            ".github/workflows/backfill.yml (deploy step)",
+            "web/public/_headers",
+            "web/public/_redirects",
+        ],
         context="After a successful run: `wrangler pages deploy web/dist --project-name advisor-pulse`. After a failed run: deploy with only run_log.json updated (the previous data files are restored from the last deployment artifact or R2). Cache headers as in PLAN.md §14.",
         ac=[
             "pulse.charliebuild.com serves the latest week after a manual weekly run",
@@ -774,8 +1116,13 @@ ISSUES: list[dict] = [
         deps=["runwf", "webscaffold"],
     ),
     dict(
-        key="e2e", title="End-to-end integration: 104-week backfill, fix issues, baseline numbers", milestone="M5",
-        area="orchestration", agent="claude", size="M", wave=2,
+        key="e2e",
+        title="End-to-end integration: 104-week backfill, fix issues, baseline numbers",
+        milestone="M5",
+        area="orchestration",
+        agent="claude",
+        size="M",
+        wave=2,
         owns=["tests/integration/test_e2e.py", "docs/baseline.md"],
         context="Run the full 104-week backfill at default scale, then 2 incremental weeks. Fix integration bugs (or file issues for them), and record baseline numbers: row counts per layer, run duration per stage, export sizes, defect catch rate. These numbers feed the case study.",
         ac=[
@@ -785,12 +1132,25 @@ ISSUES: list[dict] = [
             "A slow-marked e2e test runs 8 weeks at small scale in < 3 min",
         ],
         verify="uv run pytest tests/integration/test_e2e.py -m slow",
-        deps=["genincr", "ingidem", "dbtreport", "dbtkpitests", "runchecks", "runexport", "aiguard"],
+        deps=[
+            "genincr",
+            "ingidem",
+            "dbtreport",
+            "dbtkpitests",
+            "runchecks",
+            "runexport",
+            "aiguard",
+        ],
     ),
     # ───────────────────────── Wave 3: polish ─────────────────────────
     dict(
-        key="webmotion", title="Motion pass: week-change tweens, drill transitions, reveals", milestone="M7",
-        area="frontend", agent="cursor", size="M", wave=3,
+        key="webmotion",
+        title="Motion pass: week-change tweens, drill transitions, reveals",
+        milestone="M7",
+        area="frontend",
+        agent="cursor",
+        size="M",
+        wave=3,
         owns=["web/src/motion/", "web/src/features/*/motion.ts"],
         context="Apply the motion principles from docs/design.md with Motion: number tweens on week change, shared-element drill transitions, staggered section reveals on first view. Everything is disabled or reduced under prefers-reduced-motion.",
         ac=[
@@ -802,8 +1162,13 @@ ISSUES: list[dict] = [
         deps=["webkpi", "webdrill", "webmap"],
     ),
     dict(
-        key="weba11y", title="Performance, accessibility and Playwright smoke suite", milestone="M7",
-        area="frontend", agent="claude", size="M", wave=3,
+        key="weba11y",
+        title="Performance, accessibility and Playwright smoke suite",
+        milestone="M7",
+        area="frontend",
+        agent="claude",
+        size="M",
+        wave=3,
         owns=["web/tests/", "web/lighthouserc.json"],
         context="Enforce the budgets in PLAN.md §12 in CI with Lighthouse CI and a bundle-size check. Playwright smoke on every route in light, dark, reduced motion and 375 px. Fix violations, or file issues for the ones that need larger changes.",
         ac=[
@@ -816,8 +1181,13 @@ ISSUES: list[dict] = [
         deps=["webdrill", "webkpi", "webleader", "webmap", "webnarr", "webdq", "webmotion"],
     ),
     dict(
-        key="tabsheets", title="Push the weekly mart to Google Sheets (service account)", milestone="M8",
-        area="tableau", agent="codex", size="S", wave=3,
+        key="tabsheets",
+        title="Push the weekly mart to Google Sheets (service account)",
+        milestone="M8",
+        area="tableau",
+        agent="codex",
+        size="S",
+        wave=3,
         owns=["src/pulse/export/sheets.py", "tests/export/test_sheets.py"],
         context="A publish_sheets stage writes mart_weekly_report (last 26 weeks) and dim_org to tabs in GSHEET_ID via gspread, replacing contents atomically (write to a temp tab, then rename). It stays well below the Sheets cell limit. Skip with WARN without credentials.",
         ac=[
@@ -829,8 +1199,13 @@ ISSUES: list[dict] = [
         deps=["runexport", "accounts"],
     ),
     dict(
-        key="tabworkbook", title="Tableau Public companion workbook with daily sync", milestone="M8",
-        area="tableau", agent="human", size="M", wave=3,
+        key="tabworkbook",
+        title="Tableau Public companion workbook with daily sync",
+        milestone="M8",
+        area="tableau",
+        agent="human",
+        size="M",
+        wave=3,
         owns=["tableau/README.md", "tableau/screenshots/"],
         context="Build a Tableau Public workbook on the Google Sheet: hierarchy drill with parameter actions, KPI trends, and a district map. Turn on 'Keep this data in sync'. Agents can draft the calculated fields and layout spec in tableau/README.md; Charlie builds and publishes it.",
         ac=[
@@ -842,8 +1217,13 @@ ISSUES: list[dict] = [
         deps=["tabsheets"],
     ),
     dict(
-        key="casestudy", title="Case study page (pulse.charliebuild.com/case-study)", milestone="M8",
-        area="docs", agent="claude", size="M", wave=3,
+        key="casestudy",
+        title="Case study page (pulse.charliebuild.com/case-study)",
+        milestone="M8",
+        area="docs",
+        agent="claude",
+        size="M",
+        wave=3,
         owns=["docs/case-study.md", "web/src/features/case-study/"],
         context="A narrative for hiring managers: the business problem, architecture (diagram), key decisions with tradeoffs (SCD2 from events, R2 state, DuckDB-WASM, grounded LLM), data-quality approach with real catch-rate numbers from baseline.md, failure handling, the multi-agent build process (issues, waves, tools), and what would change at real scale (Snowflake, Airflow or Dagster, dbt Cloud). Honest that it is a weekly batch on synthetic data.",
         ac=[
@@ -855,8 +1235,13 @@ ISSUES: list[dict] = [
         deps=["e2e", "rundeploy"],
     ),
     dict(
-        key="readme", title="README, architecture image and demo GIF", milestone="M8",
-        area="docs", agent="cursor", size="S", wave=3,
+        key="readme",
+        title="README, architecture image and demo GIF",
+        milestone="M8",
+        area="docs",
+        agent="cursor",
+        size="S",
+        wave=3,
         owns=["README.md", "docs/assets/"],
         context="A repo README that works as a portfolio landing page: one-paragraph pitch, live link, architecture diagram, quickstart, a GIF of drill-down and pipeline replay, and a map of where each concept lives in the code.",
         ac=[
@@ -868,8 +1253,13 @@ ISSUES: list[dict] = [
         deps=["rundeploy"],
     ),
     dict(
-        key="cbentry", title="Add Advisor Pulse to charliebuild.com Selected work", milestone="M8",
-        area="docs", agent="cursor", size="S", wave=3,
+        key="cbentry",
+        title="Add Advisor Pulse to charliebuild.com Selected work",
+        milestone="M8",
+        area="docs",
+        agent="cursor",
+        size="S",
+        wave=3,
         owns=["(repo welkincz/charliebuild) index.html project list"],
         context="In the charliebuild repo, add a project entry matching the existing pattern (glyph, name link to https://pulse.charliebuild.com/, tags, kind). Design a glyph that diagrams the project (a hierarchy fanning into a pulse line). Open the PR in welkincz/charliebuild and link it here.",
         ac=[
@@ -896,7 +1286,13 @@ def _numbers() -> dict[str, int]:
 
 def _labels(i: dict) -> list[str]:
     status = "status:blocked" if i["deps"] else "status:ready"
-    return [f"area:{i['area']}", status, f"size:{i['size']}", f"agent:{i['agent']}", f"wave:{i['wave']}"]
+    return [
+        f"area:{i['area']}",
+        status,
+        f"size:{i['size']}",
+        f"agent:{i['agent']}",
+        f"wave:{i['wave']}",
+    ]
 
 
 def _milestone_title(key: str) -> str:
@@ -911,7 +1307,7 @@ def _body(i: dict, nums: dict[str, int]) -> str:
     owns = "\n".join(f"- `{p}`" for p in i["owns"])
     ac = "\n".join(f"- [ ] {a}" for a in i["ac"])
     return f"""## Context
-{i['context']}
+{i["context"]}
 
 ## Owns (only touch these paths)
 {owns}
@@ -921,14 +1317,14 @@ def _body(i: dict, nums: dict[str, int]) -> str:
 
 ## Verify
 ```
-{i['verify']}
+{i["verify"]}
 ```
 
 ## Dependencies
 Depends on: {_deps_text(i, nums)}
 
 ---
-Size **{i['size']}** · Wave **{i['wave']}** · Suggested agent **{i['agent']}** · Read `AGENTS.md` and `docs/PLAN.md` first.
+Size **{i["size"]}** · Wave **{i["wave"]}** · Suggested agent **{i["agent"]}** · Read `AGENTS.md` and `docs/PLAN.md` first.
 """
 
 
@@ -950,7 +1346,28 @@ def render_markdown(nums: dict[str, int]) -> str:
         out.append(f"| {w} | {ids} | {par} |")
     out += [
         "",
-        "Critical path: " + " → ".join(f"#{nums[k]}" for k in ["scaffold", "contracts", "orgref", "fixtures", "meta", "dbtscaffold", "dbtstg", "dbtscd2", "dbtclient", "dbtfct", "dbtweekly", "dbtreport", "e2e", "casestudy", "cbentry"]) + ".",
+        "Critical path: "
+        + " → ".join(
+            f"#{nums[k]}"
+            for k in [
+                "scaffold",
+                "contracts",
+                "orgref",
+                "fixtures",
+                "meta",
+                "dbtscaffold",
+                "dbtstg",
+                "dbtscd2",
+                "dbtclient",
+                "dbtfct",
+                "dbtweekly",
+                "dbtreport",
+                "e2e",
+                "casestudy",
+                "cbentry",
+            ]
+        )
+        + ".",
         "Frontend and pipeline-viz lanes depend only on scaffold, contracts and fixtures, so they run in parallel with the whole backend.",
         "",
         "## Agent load",
@@ -963,14 +1380,29 @@ def render_markdown(nums: dict[str, int]) -> str:
         out.append(f"| {a} | {ids} |")
     out.append("")
     for mk, mt, md in MILESTONES:
-        out += [f"## {mt}", "", md, "", "| # | Title | Size | Agent | Wave | Depends on |", "|---|-------|------|-------|------|------------|"]
+        out += [
+            f"## {mt}",
+            "",
+            md,
+            "",
+            "| # | Title | Size | Agent | Wave | Depends on |",
+            "|---|-------|------|-------|------|------------|",
+        ]
         for i in ISSUES:
             if i["milestone"] == mk:
-                out.append(f"| #{nums[i['key']]} | {i['title']} | {i['size']} | {i['agent']} | {i['wave']} | {_deps_text(i, nums)} |")
+                out.append(
+                    f"| #{nums[i['key']]} | {i['title']} | {i['size']} | {i['agent']} | {i['wave']} | {_deps_text(i, nums)} |"
+                )
         out.append("")
     out += ["---", "", "## Issue details", ""]
     for i in ISSUES:
-        out += [f"### #{nums[i['key']]} — {i['title']}", "", f"Milestone: {_milestone_title(i['milestone'])} · Labels: {', '.join(_labels(i))}", "", _body(i, nums)]
+        out += [
+            f"### #{nums[i['key']]} — {i['title']}",
+            "",
+            f"Milestone: {_milestone_title(i['milestone'])} · Labels: {', '.join(_labels(i))}",
+            "",
+            _body(i, nums),
+        ]
     return "\n".join(out)
 
 
@@ -1008,11 +1440,13 @@ def render_shell(nums: dict[str, int]) -> str:
         "echo '==> Labels'",
     ]
     for name, color, desc in LABELS:
-        lines.append(f'gh label create {_sq(name)} --repo "$REPO" --color {color} --description {_sq(desc)} --force')
+        lines.append(
+            f'gh label create {_sq(name)} --repo "$REPO" --color {color} --description {_sq(desc)} --force'
+        )
     lines += ["", "echo '==> Milestones'"]
     for _, title, desc in MILESTONES:
         lines += [
-            f'if ! gh api "repos/$REPO/milestones?state=all&per_page=100" --jq \'.[].title\' | grep -Fxq {_sq(title)}; then',
+            f"if ! gh api \"repos/$REPO/milestones?state=all&per_page=100\" --jq '.[].title' | grep -Fxq {_sq(title)}; then",
             f'  gh api "repos/$REPO/milestones" -f title={_sq(title)} -f description={_sq(desc)} >/dev/null',
             "fi",
         ]
