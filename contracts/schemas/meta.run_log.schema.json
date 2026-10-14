@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "RunType": {
+      "enum": [
+        "WEEKLY",
+        "BACKFILL",
+        "MANUAL"
+      ],
+      "title": "RunType",
+      "type": "string"
+    },
+    "StageStatus": {
+      "enum": [
+        "RUNNING",
+        "SUCCESS",
+        "WARN",
+        "FAILED",
+        "SKIPPED"
+      ],
+      "title": "StageStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/meta.run_log.schema.json",
+  "additionalProperties": false,
+  "description": "One row per stage attempt.",
+  "properties": {
+    "attempt": {
+      "minimum": 1,
+      "title": "Attempt",
+      "type": "integer"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Ms"
+    },
+    "ended_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ended At"
+    },
+    "git_sha": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Git Sha"
+    },
+    "iso_week_id": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Iso Week Id",
+      "type": "string"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    },
+    "rows_in": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rows In"
+    },
+    "rows_out": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rows Out"
+    },
+    "rows_quarantined": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rows Quarantined"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "run_type": {
+      "$ref": "#/$defs/RunType"
+    },
+    "stage": {
+      "minLength": 1,
+      "title": "Stage",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/StageStatus"
+    }
+  },
+  "required": [
+    "run_id",
+    "run_type",
+    "iso_week_id",
+    "stage",
+    "attempt",
+    "status",
+    "started_at"
+  ],
+  "title": "meta.run_log",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

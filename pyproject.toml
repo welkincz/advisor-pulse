@@ -35,6 +35,7 @@ dev = [
     "moto[s3]>=5.0",
     "types-pyyaml",
     "boto3-stubs[s3]",
+    "pyarrow-stubs>=20.0.0.20260819",
 ]
 
 [build-system]

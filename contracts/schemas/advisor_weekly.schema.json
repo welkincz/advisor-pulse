@@ -1,0 +1,141 @@
+{
+  "$defs": {
+    "RegionCode": {
+      "enum": [
+        "ON",
+        "QC",
+        "WE",
+        "AT"
+      ],
+      "title": "RegionCode",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/advisor_weekly.schema.json",
+  "additionalProperties": false,
+  "description": "mart_advisor_weekly: one row per advisor and ISO week (last 26 weeks).",
+  "properties": {
+    "activities_completed": {
+      "minimum": 0,
+      "title": "Activities Completed",
+      "type": "integer"
+    },
+    "advisor_id": {
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Advisor Id",
+      "type": "string"
+    },
+    "appointments_booked": {
+      "minimum": 0,
+      "title": "Appointments Booked",
+      "type": "integer"
+    },
+    "appointments_held": {
+      "minimum": 0,
+      "title": "Appointments Held",
+      "type": "integer"
+    },
+    "avg_meeting_duration_min": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Avg Meeting Duration Min"
+    },
+    "book_size": {
+      "minimum": 0,
+      "title": "Book Size",
+      "type": "integer"
+    },
+    "branch_id": {
+      "description": "As-of branch for the week.",
+      "pattern": "^BR-\\d{4}$",
+      "title": "Branch Id",
+      "type": "string"
+    },
+    "calls_in": {
+      "minimum": 0,
+      "title": "Calls In",
+      "type": "integer"
+    },
+    "calls_out": {
+      "minimum": 0,
+      "title": "Calls Out",
+      "type": "integer"
+    },
+    "clients_covered_13w": {
+      "minimum": 0,
+      "title": "Clients Covered 13W",
+      "type": "integer"
+    },
+    "conversions": {
+      "minimum": 0,
+      "title": "Conversions",
+      "type": "integer"
+    },
+    "coverage_rate_13w": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Coverage Rate 13W"
+    },
+    "district_code": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "District Code",
+      "type": "string"
+    },
+    "iso_week_id": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Iso Week Id",
+      "type": "string"
+    },
+    "no_shows": {
+      "minimum": 0,
+      "title": "No Shows",
+      "type": "integer"
+    },
+    "region_code": {
+      "$ref": "#/$defs/RegionCode"
+    },
+    "unique_clients_contacted": {
+      "minimum": 0,
+      "title": "Unique Clients Contacted",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "iso_week_id",
+    "advisor_id",
+    "branch_id",
+    "district_code",
+    "region_code",
+    "activities_completed",
+    "calls_out",
+    "calls_in",
+    "appointments_booked",
+    "appointments_held",
+    "no_shows",
+    "conversions",
+    "unique_clients_contacted",
+    "book_size",
+    "clients_covered_13w"
+  ],
+  "title": "advisor_weekly",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

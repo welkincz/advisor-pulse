@@ -1,0 +1,68 @@
+{
+  "$defs": {
+    "Role": {
+      "enum": [
+        "ASSOC",
+        "ADVSR",
+        "SNR_ADVSR",
+        "BR_MGR"
+      ],
+      "title": "Role",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/teradata__advsr.schema.json",
+  "additionalProperties": false,
+  "description": "Advisor master (ADVSR) in sources/teradata/edw.sqlite.",
+  "properties": {
+    "ADVSR_ID": {
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Advsr Id",
+      "type": "string"
+    },
+    "ADVSR_NM": {
+      "description": "Synthetic name.",
+      "minLength": 1,
+      "title": "Advsr Nm",
+      "type": "string"
+    },
+    "HIRE_DT": {
+      "format": "date",
+      "title": "Hire Dt",
+      "type": "string"
+    },
+    "LAST_UPD_TS": {
+      "description": "Watermark column.",
+      "format": "date-time",
+      "title": "Last Upd Ts",
+      "type": "string"
+    },
+    "ROLE_CD": {
+      "$ref": "#/$defs/Role"
+    },
+    "TERM_DT": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Term Dt"
+    }
+  },
+  "required": [
+    "ADVSR_ID",
+    "ADVSR_NM",
+    "ROLE_CD",
+    "HIRE_DT",
+    "LAST_UPD_TS"
+  ],
+  "title": "teradata__advsr",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

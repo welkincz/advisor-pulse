@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "DqAction": {
+      "enum": [
+        "QUARANTINE",
+        "FAIL_FILE",
+        "DEDUPE",
+        "NORMALIZE",
+        "MAP_UNKNOWN",
+        "KEEP_FLAGGED",
+        "TEST_ERROR",
+        "RUN_CHECK"
+      ],
+      "title": "DqAction",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/dq_weekly.schema.json",
+  "additionalProperties": false,
+  "description": "mart_dq_weekly: one row per data-quality rule and ISO week.",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/DqAction"
+    },
+    "iso_week_id": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Iso Week Id",
+      "type": "string"
+    },
+    "rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rate"
+    },
+    "rows_affected": {
+      "minimum": 0,
+      "title": "Rows Affected",
+      "type": "integer"
+    },
+    "rows_in_batch": {
+      "minimum": 0,
+      "title": "Rows In Batch",
+      "type": "integer"
+    },
+    "rule_id": {
+      "pattern": "^DQ\\d{3}$",
+      "title": "Rule Id",
+      "type": "string"
+    },
+    "rule_name": {
+      "minLength": 1,
+      "title": "Rule Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "iso_week_id",
+    "rule_id",
+    "rule_name",
+    "action",
+    "rows_affected",
+    "rows_in_batch"
+  ],
+  "title": "dq_weekly",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

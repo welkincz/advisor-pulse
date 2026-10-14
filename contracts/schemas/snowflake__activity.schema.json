@@ -1,0 +1,202 @@
+{
+  "$defs": {
+    "ActivityStatus": {
+      "enum": [
+        "BOOKED",
+        "COMPLETED",
+        "NO_SHOW",
+        "CANCELLED"
+      ],
+      "title": "ActivityStatus",
+      "type": "string"
+    },
+    "ActivityType": {
+      "enum": [
+        "CALL_OUT",
+        "CALL_IN",
+        "APPOINTMENT",
+        "REVIEW"
+      ],
+      "title": "ActivityType",
+      "type": "string"
+    },
+    "Channel": {
+      "enum": [
+        "IN_BRANCH",
+        "PHONE",
+        "VIDEO"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "Outcome": {
+      "enum": [
+        "NONE",
+        "FOLLOW_UP",
+        "PLAN_CREATED",
+        "PRODUCT_OPENED",
+        "REFERRAL"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "ProductLine": {
+      "enum": [
+        "DEPOSITS",
+        "LENDING",
+        "MORTGAGE",
+        "INVESTING",
+        "INSURANCE"
+      ],
+      "title": "ProductLine",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/snowflake__activity.schema.json",
+  "additionalProperties": false,
+  "description": "Advisor activity facts, unloaded weekly to sources/snowflake/activity/extract_date=YYYY-MM-DD/part-NNN.parquet.",
+  "properties": {
+    "ACTIVITY_ID": {
+      "description": "Natural key.",
+      "pattern": "^ACT-[0-9a-f]{12}$",
+      "title": "Activity Id",
+      "type": "string"
+    },
+    "ACTIVITY_TS": {
+      "description": "When it happened, or was due (UTC).",
+      "format": "date-time",
+      "title": "Activity Ts",
+      "type": "string"
+    },
+    "ACTIVITY_TYPE": {
+      "$ref": "#/$defs/ActivityType"
+    },
+    "ADVISOR_ID": {
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Advisor Id",
+      "type": "string"
+    },
+    "BOOKED_FROM_ACTIVITY_ID": {
+      "anyOf": [
+        {
+          "pattern": "^ACT-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "For appointments booked on a call: the call's ACTIVITY_ID.",
+      "title": "Booked From Activity Id"
+    },
+    "BRANCH_ID": {
+      "description": "Branch where the activity was logged.",
+      "pattern": "^BR-\\d{4}$",
+      "title": "Branch Id",
+      "type": "string"
+    },
+    "CHANNEL": {
+      "$ref": "#/$defs/Channel"
+    },
+    "CLIENT_ID": {
+      "anyOf": [
+        {
+          "pattern": "^CLI-\\d{8}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Null for prospecting calls.",
+      "title": "Client Id"
+    },
+    "CREATED_TS": {
+      "format": "date-time",
+      "title": "Created Ts",
+      "type": "string"
+    },
+    "DURATION_MIN": {
+      "anyOf": [
+        {
+          "maximum": 480,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Min"
+    },
+    "OUTCOME": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Outcome"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "PRODUCT_LINE": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProductLine"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "SCHEDULED_TS": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Scheduled time for appointments and reviews (UTC).",
+      "title": "Scheduled Ts"
+    },
+    "STATUS": {
+      "$ref": "#/$defs/ActivityStatus"
+    },
+    "UPDATED_TS": {
+      "format": "date-time",
+      "title": "Updated Ts",
+      "type": "string"
+    },
+    "_EXTRACTED_AT": {
+      "description": "Extract time; the watermark column.",
+      "format": "date-time",
+      "title": "Extracted At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ACTIVITY_ID",
+    "ADVISOR_ID",
+    "BRANCH_ID",
+    "ACTIVITY_TYPE",
+    "CHANNEL",
+    "STATUS",
+    "ACTIVITY_TS",
+    "CREATED_TS",
+    "UPDATED_TS",
+    "_EXTRACTED_AT"
+  ],
+  "title": "snowflake__activity",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

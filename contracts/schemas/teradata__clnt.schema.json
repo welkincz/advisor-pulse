@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "ClientStatus": {
+      "enum": [
+        "A",
+        "C"
+      ],
+      "title": "ClientStatus",
+      "type": "string"
+    },
+    "Province": {
+      "description": "Provinces in scope. Territories are out of scope for the fictional network.",
+      "enum": [
+        "ON",
+        "QC",
+        "BC",
+        "AB",
+        "SK",
+        "MB",
+        "NS",
+        "PE",
+        "NB",
+        "NL"
+      ],
+      "title": "Province",
+      "type": "string"
+    },
+    "Segment": {
+      "enum": [
+        "MASS",
+        "MAFF",
+        "AFFL",
+        "SMBS"
+      ],
+      "title": "Segment",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/teradata__clnt.schema.json",
+  "additionalProperties": false,
+  "description": "Client master (CLNT) in sources/teradata/edw.sqlite; daily deltas in client_YYYYMMDD.csv share these columns.",
+  "properties": {
+    "BRTH_YR": {
+      "maximum": 2010,
+      "minimum": 1920,
+      "title": "Brth Yr",
+      "type": "integer"
+    },
+    "CLNT_ID": {
+      "pattern": "^CLI-\\d{8}$",
+      "title": "Clnt Id",
+      "type": "string"
+    },
+    "CLNT_SINCE_DT": {
+      "description": "Relationship start.",
+      "format": "date",
+      "title": "Clnt Since Dt",
+      "type": "string"
+    },
+    "LAST_UPD_TS": {
+      "description": "Watermark column.",
+      "format": "date-time",
+      "title": "Last Upd Ts",
+      "type": "string"
+    },
+    "PRIM_ADVSR_ID": {
+      "description": "Book owner.",
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Prim Advsr Id",
+      "type": "string"
+    },
+    "PRIM_BRNCH_ID": {
+      "pattern": "^BR-\\d{4}$",
+      "title": "Prim Brnch Id",
+      "type": "string"
+    },
+    "PROV_CD": {
+      "$ref": "#/$defs/Province"
+    },
+    "PSTL_CD": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Raw postal code; normalized in staging.",
+      "title": "Pstl Cd"
+    },
+    "SEG_CD": {
+      "$ref": "#/$defs/Segment"
+    },
+    "STAT_CD": {
+      "$ref": "#/$defs/ClientStatus"
+    }
+  },
+  "required": [
+    "CLNT_ID",
+    "CLNT_SINCE_DT",
+    "BRTH_YR",
+    "SEG_CD",
+    "PROV_CD",
+    "PRIM_ADVSR_ID",
+    "PRIM_BRNCH_ID",
+    "STAT_CD",
+    "LAST_UPD_TS"
+  ],
+  "title": "teradata__clnt",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}
