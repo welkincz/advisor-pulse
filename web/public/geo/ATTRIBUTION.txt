@@ -1,0 +1,14 @@
+Adapted from Statistics Canada, Census Forward Sortation Area Boundary File, 2021.
+This does not constitute an endorsement by Statistics Canada of this product.
+
+Source product: lfsa000b21a_e / MapServer layer
+"FSA - lfsa000b21s_e" (2021 cartographic boundary files).
+Product index:
+https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21
+
+Licensed under the Statistics Canada Open Licence:
+https://www.statcan.gc.ca/en/reference/licence
+
+Advisor Pulse filters the national FSA layer to Maplecrest Bank (fictional) branch
+FSAs from reference/org.yaml, reprojects to WGS84, and simplifies to TopoJSON for
+the weekly report map. District/region polygons are derived in a follow-up issue.
