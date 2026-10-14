@@ -34,4 +34,4 @@ def test_backfill_requires_range() -> None:
 
 def test_deliberate_ci_fail() -> None:
     """Temporary: prove the python CI job fails; revert after Actions shows red."""
-    assert 1 == 0, "deliberate CI failure for issue #5"
+    assert False, "deliberate CI failure for issue #5"
