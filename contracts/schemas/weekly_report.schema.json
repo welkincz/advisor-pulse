@@ -1,0 +1,184 @@
+{
+  "$defs": {
+    "KpiCode": {
+      "description": "KPI codes from PLAN.md \u00a77.",
+      "enum": [
+        "ACT_PER_ADV",
+        "CALLS_OUT",
+        "APPT_BOOKED",
+        "CALL_TO_APPT",
+        "SHOW_RATE",
+        "APPT_CONV",
+        "CLIENTS_CONTACTED",
+        "COVERAGE_13W",
+        "AVG_MEET_MIN",
+        "NO_SHOW_RATE",
+        "LATE_RATE",
+        "QUAR_RATE"
+      ],
+      "title": "KpiCode",
+      "type": "string"
+    },
+    "OrgLevel": {
+      "enum": [
+        "NATIONAL",
+        "REGION",
+        "DISTRICT",
+        "BRANCH"
+      ],
+      "title": "OrgLevel",
+      "type": "string"
+    },
+    "ReportFlag": {
+      "enum": [
+        "UP",
+        "DOWN",
+        "FLAT",
+        "ANOMALY"
+      ],
+      "title": "ReportFlag",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/weekly_report.schema.json",
+  "additionalProperties": false,
+  "description": "mart_weekly_report: long format, one row per (ISO week, node, KPI). Feeds the dashboard, Tableau and the AI narrative.",
+  "properties": {
+    "flag": {
+      "$ref": "#/$defs/ReportFlag"
+    },
+    "iso_week_id": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Iso Week Id",
+      "type": "string"
+    },
+    "kpi_code": {
+      "$ref": "#/$defs/KpiCode"
+    },
+    "level": {
+      "$ref": "#/$defs/OrgLevel"
+    },
+    "node_id": {
+      "minLength": 1,
+      "title": "Node Id",
+      "type": "string"
+    },
+    "node_name": {
+      "minLength": 1,
+      "title": "Node Name",
+      "type": "string"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Id"
+    },
+    "peer_count": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Peer Count"
+    },
+    "prior_week_value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prior Week Value"
+    },
+    "rank_in_parent": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Dense rank, 1 = best.",
+      "title": "Rank In Parent"
+    },
+    "trailing_13w_avg": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trailing 13W Avg"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value"
+    },
+    "wow_delta": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Wow Delta"
+    },
+    "wow_pct": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Fraction: 0.042 means +4.2%.",
+      "title": "Wow Pct"
+    }
+  },
+  "required": [
+    "iso_week_id",
+    "level",
+    "node_id",
+    "node_name",
+    "kpi_code",
+    "flag"
+  ],
+  "title": "weekly_report",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

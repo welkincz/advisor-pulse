@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "AssignmentReason": {
+      "enum": [
+        "HIRE",
+        "TRANSFER",
+        "PROMOTION",
+        "TERM"
+      ],
+      "title": "AssignmentReason",
+      "type": "string"
+    },
+    "Role": {
+      "enum": [
+        "ASSOC",
+        "ADVSR",
+        "SNR_ADVSR",
+        "BR_MGR"
+      ],
+      "title": "Role",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/teradata__advsr_asgn.schema.json",
+  "additionalProperties": false,
+  "description": "Advisor assignment events (ADVSR_ASGN) in sources/teradata/edw.sqlite; the input to SCD2 advisor history.",
+  "properties": {
+    "ADVSR_ID": {
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Advsr Id",
+      "type": "string"
+    },
+    "ASGN_ID": {
+      "pattern": "^ASG-\\d{8}$",
+      "title": "Asgn Id",
+      "type": "string"
+    },
+    "BRNCH_ID": {
+      "pattern": "^BR-\\d{4}$",
+      "title": "Brnch Id",
+      "type": "string"
+    },
+    "EFF_DT": {
+      "format": "date",
+      "title": "Eff Dt",
+      "type": "string"
+    },
+    "LAST_UPD_TS": {
+      "description": "Watermark column.",
+      "format": "date-time",
+      "title": "Last Upd Ts",
+      "type": "string"
+    },
+    "ROLE_CD": {
+      "$ref": "#/$defs/Role"
+    },
+    "RSN_CD": {
+      "$ref": "#/$defs/AssignmentReason"
+    }
+  },
+  "required": [
+    "ASGN_ID",
+    "ADVSR_ID",
+    "BRNCH_ID",
+    "ROLE_CD",
+    "EFF_DT",
+    "RSN_CD",
+    "LAST_UPD_TS"
+  ],
+  "title": "teradata__advsr_asgn",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

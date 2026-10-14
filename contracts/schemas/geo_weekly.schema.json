@@ -1,0 +1,63 @@
+{
+  "$id": "https://pulse.charliebuild.com/contracts/geo_weekly.schema.json",
+  "additionalProperties": false,
+  "description": "mart_geo_weekly: one row per FSA and ISO week (last 13 weeks).",
+  "properties": {
+    "active_clients": {
+      "minimum": 0,
+      "title": "Active Clients",
+      "type": "integer"
+    },
+    "activities_completed": {
+      "minimum": 0,
+      "title": "Activities Completed",
+      "type": "integer"
+    },
+    "clients_contacted_13w": {
+      "minimum": 0,
+      "title": "Clients Contacted 13W",
+      "type": "integer"
+    },
+    "coverage_rate_13w": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Coverage Rate 13W"
+    },
+    "district_code": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "District Code",
+      "type": "string"
+    },
+    "fsa_code": {
+      "pattern": "^([ABCEGHJ-NPRSTVXY]\\d[ABCEGHJ-NPRSTV-Z]|UNK)$",
+      "title": "Fsa Code",
+      "type": "string"
+    },
+    "iso_week_id": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Iso Week Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "iso_week_id",
+    "fsa_code",
+    "district_code",
+    "active_clients",
+    "clients_contacted_13w",
+    "activities_completed"
+  ],
+  "title": "geo_weekly",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

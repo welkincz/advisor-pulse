@@ -1,0 +1,311 @@
+{
+  "$defs": {
+    "KpiCode": {
+      "description": "KPI codes from PLAN.md \u00a77.",
+      "enum": [
+        "ACT_PER_ADV",
+        "CALLS_OUT",
+        "APPT_BOOKED",
+        "CALL_TO_APPT",
+        "SHOW_RATE",
+        "APPT_CONV",
+        "CLIENTS_CONTACTED",
+        "COVERAGE_13W",
+        "AVG_MEET_MIN",
+        "NO_SHOW_RATE",
+        "LATE_RATE",
+        "QUAR_RATE"
+      ],
+      "title": "KpiCode",
+      "type": "string"
+    },
+    "NarrativeBullet": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_ids": {
+          "description": "Every bullet cites at least one fact.",
+          "items": {
+            "pattern": "^F\\d+$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "fact_ids"
+      ],
+      "title": "NarrativeBullet",
+      "type": "object"
+    },
+    "NarrativeFact": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_id": {
+          "pattern": "^F\\d+$",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "iso_week_id": {
+          "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+          "title": "Iso Week Id",
+          "type": "string"
+        },
+        "kpi_code": {
+          "$ref": "#/$defs/KpiCode"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "peer_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Peer Count"
+        },
+        "prior_week_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prior Week Value"
+        },
+        "rank_in_parent": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rank In Parent"
+        },
+        "trailing_13w_avg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trailing 13W Avg"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "wow_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wow Pct"
+        }
+      },
+      "required": [
+        "fact_id",
+        "node_id",
+        "kpi_code",
+        "iso_week_id"
+      ],
+      "title": "NarrativeFact",
+      "type": "object"
+    },
+    "NodeNarrative": {
+      "additionalProperties": false,
+      "properties": {
+        "bullets": {
+          "items": {
+            "$ref": "#/$defs/NarrativeBullet"
+          },
+          "minItems": 1,
+          "title": "Bullets",
+          "type": "array"
+        },
+        "facts_used": {
+          "items": {
+            "$ref": "#/$defs/NarrativeFact"
+          },
+          "minItems": 1,
+          "title": "Facts Used",
+          "type": "array"
+        },
+        "fallback": {
+          "title": "Fallback",
+          "type": "boolean"
+        },
+        "headline": {
+          "minLength": 1,
+          "title": "Headline",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/OrgLevel"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null for template fallbacks.",
+          "title": "Model"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "prompt_version": {
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "validated": {
+          "title": "Validated",
+          "type": "boolean"
+        },
+        "watchlist": {
+          "items": {
+            "$ref": "#/$defs/WatchItem"
+          },
+          "title": "Watchlist",
+          "type": "array"
+        }
+      },
+      "required": [
+        "node_id",
+        "level",
+        "headline",
+        "bullets",
+        "facts_used",
+        "prompt_version",
+        "validated",
+        "fallback"
+      ],
+      "title": "NodeNarrative",
+      "type": "object"
+    },
+    "OrgLevel": {
+      "enum": [
+        "NATIONAL",
+        "REGION",
+        "DISTRICT",
+        "BRANCH"
+      ],
+      "title": "OrgLevel",
+      "type": "string"
+    },
+    "WatchItem": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_ids": {
+          "items": {
+            "pattern": "^F\\d+$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "reason",
+        "fact_ids"
+      ],
+      "title": "WatchItem",
+      "type": "object"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/narrative.schema.json",
+  "additionalProperties": false,
+  "description": "data/narratives/YYYY-Www.json: one narrative per region and district.",
+  "properties": {
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "iso_week_id": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Iso Week Id",
+      "type": "string"
+    },
+    "narratives": {
+      "items": {
+        "$ref": "#/$defs/NodeNarrative"
+      },
+      "title": "Narratives",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1.0.0",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "iso_week_id",
+    "generated_at",
+    "narratives"
+  ],
+  "title": "narrative",
+  "type": "object",
+  "x-contract-kind": "document",
+  "x-schema-version": "1.0.0"
+}

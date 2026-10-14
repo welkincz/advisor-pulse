@@ -1,0 +1,49 @@
+{
+  "$id": "https://pulse.charliebuild.com/contracts/meta.watermark.schema.json",
+  "additionalProperties": false,
+  "description": "High-water mark per (source, table_name). Primary key: both columns.",
+  "properties": {
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source": {
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    },
+    "table_name": {
+      "minLength": 1,
+      "title": "Table Name",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "watermark_column": {
+      "minLength": 1,
+      "title": "Watermark Column",
+      "type": "string"
+    },
+    "watermark_value": {
+      "format": "date-time",
+      "title": "Watermark Value",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "table_name",
+    "watermark_column",
+    "watermark_value",
+    "updated_at",
+    "run_id"
+  ],
+  "title": "meta.watermark",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

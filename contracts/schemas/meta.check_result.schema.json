@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "CheckSeverity": {
+      "enum": [
+        "WARN",
+        "FAIL"
+      ],
+      "title": "CheckSeverity",
+      "type": "string"
+    },
+    "CheckStatus": {
+      "enum": [
+        "PASS",
+        "WARN",
+        "FAIL"
+      ],
+      "title": "CheckStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/meta.check_result.schema.json",
+  "additionalProperties": false,
+  "description": "One row per run check (DQ030\u2013DQ033).",
+  "properties": {
+    "check_id": {
+      "pattern": "^DQ\\d{3}$",
+      "title": "Check Id",
+      "type": "string"
+    },
+    "expected": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Threshold or range, as text.",
+      "title": "Expected"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    },
+    "observed": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/CheckSeverity"
+    },
+    "status": {
+      "$ref": "#/$defs/CheckStatus"
+    }
+  },
+  "required": [
+    "run_id",
+    "check_id",
+    "severity",
+    "status"
+  ],
+  "title": "meta.check_result",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

@@ -1,0 +1,79 @@
+{
+  "$id": "https://pulse.charliebuild.com/contracts/quarantine.rejected_rows.schema.json",
+  "additionalProperties": false,
+  "description": "Rows rejected at ingest, with the rule that rejected them.",
+  "properties": {
+    "batch_id": {
+      "minLength": 1,
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "detected_at": {
+      "format": "date-time",
+      "title": "Detected At",
+      "type": "string"
+    },
+    "payload": {
+      "description": "The rejected row as a JSON object string.",
+      "title": "Payload",
+      "type": "string"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "rejected_id": {
+      "minLength": 1,
+      "title": "Rejected Id",
+      "type": "string"
+    },
+    "rule_id": {
+      "pattern": "^DQ\\d{3}$",
+      "title": "Rule Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source": {
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    },
+    "source_file": {
+      "minLength": 1,
+      "title": "Source File",
+      "type": "string"
+    },
+    "source_row": {
+      "minimum": 0,
+      "title": "Source Row",
+      "type": "integer"
+    },
+    "table_name": {
+      "minLength": 1,
+      "title": "Table Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rejected_id",
+    "run_id",
+    "batch_id",
+    "source",
+    "table_name",
+    "source_file",
+    "source_row",
+    "rule_id",
+    "reason",
+    "payload",
+    "detected_at"
+  ],
+  "title": "quarantine.rejected_rows",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

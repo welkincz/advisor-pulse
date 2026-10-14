@@ -1,0 +1,63 @@
+{
+  "$id": "https://pulse.charliebuild.com/contracts/teradata__brnch.schema.json",
+  "additionalProperties": false,
+  "description": "Branch master (BRNCH) in sources/teradata/edw.sqlite.",
+  "properties": {
+    "BRNCH_ID": {
+      "pattern": "^BR-\\d{4}$",
+      "title": "Brnch Id",
+      "type": "string"
+    },
+    "BRNCH_NM": {
+      "minLength": 1,
+      "title": "Brnch Nm",
+      "type": "string"
+    },
+    "CLOSE_DT": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Close Dt"
+    },
+    "DIST_CD": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "Dist Cd",
+      "type": "string"
+    },
+    "FSA_CD": {
+      "pattern": "^[ABCEGHJ-NPRSTVXY]\\d[ABCEGHJ-NPRSTV-Z]$",
+      "title": "Fsa Cd",
+      "type": "string"
+    },
+    "LAST_UPD_TS": {
+      "description": "Watermark column.",
+      "format": "date-time",
+      "title": "Last Upd Ts",
+      "type": "string"
+    },
+    "OPEN_DT": {
+      "format": "date",
+      "title": "Open Dt",
+      "type": "string"
+    }
+  },
+  "required": [
+    "BRNCH_ID",
+    "BRNCH_NM",
+    "DIST_CD",
+    "FSA_CD",
+    "OPEN_DT",
+    "LAST_UPD_TS"
+  ],
+  "title": "teradata__brnch",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

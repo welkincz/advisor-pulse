@@ -217,7 +217,11 @@ The generator writes a **defect manifest** (ground truth) per batch. Tests asser
 
 ## 6. Data dictionary
 
-Conventions: `snake_case` from staging on; `_sk` = surrogate key (hash); `_id` = natural key; timestamps are UTC (`TIMESTAMP`); dates are `America/Toronto` business dates; `iso_week_id` = `YYYY-Www` (ISO week, Monday start).
+Conventions: `snake_case` from staging on; `_sk` = surrogate key (hash); `_id` = natural key; timestamps are UTC (`TIMESTAMPTZ`; Arrow `timestamp[us, UTC]`; naive source values are read as UTC); dates are `America/Toronto` business dates; `iso_week_id` = `YYYY-Www` (ISO week, Monday start).
+
+Identifier formats (enforced by `src/pulse/contracts/patterns.py`): activity `ACT-` + 12 hex, advisor `ADV-#####`, client `CLI-########`, branch `BR-####`, assignment `ASG-########`, district code three capital letters (e.g. `GTA`), region code `ON`/`QC`/`WE`/`AT`, national node `CA`, rule `DQ###`, narrative fact `F<n>`.
+
+The contracts in `src/pulse/contracts/` are the executable form of this dictionary; `contracts/schemas/*.json` are generated from them (`make contracts`).
 
 ### 6.1 Source: "Snowflake" — `data/sources/snowflake/activity/extract_date=YYYY-MM-DD/part-NNN.parquet`
 
@@ -330,7 +334,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
 **mart_advisor_weekly** (advisor × week): `iso_week_id`, `advisor_id`, `branch_id`, `district_code`, `region_code`, `activities_completed`, `calls_out`, `calls_in`, `appointments_booked`, `appointments_held`, `no_shows`, `conversions`, `unique_clients_contacted`, `book_size`, `clients_covered_13w`, `coverage_rate_13w`, `avg_meeting_duration_min`.
 
-**mart_org_weekly** (node × week, all levels via `GROUPING SETS`): `iso_week_id`, `level` (`NATIONAL`, `REGION`, `DISTRICT`, `BRANCH`), `node_id`, `node_name`, `parent_id`, `active_advisors`, the same measures as advisor weekly, plus `activities_per_advisor`, `show_rate`, `conversion_rate`, `call_to_appt_rate`.
+**mart_org_weekly** (node × week, all levels via `GROUPING SETS`): `iso_week_id`, `level` (`NATIONAL`, `REGION`, `DISTRICT`, `BRANCH`), `node_id` (`CA` for national), `node_name`, `parent_id` (null for national), `active_advisors`, the same measures as advisor weekly, plus `activities_per_advisor`, `show_rate`, `conversion_rate`, `call_to_appt_rate`.
 
 **mart_weekly_report** (long format, Tableau- and LLM-friendly): `iso_week_id`, `level`, `node_id`, `node_name`, `parent_id`, `kpi_code`, `value`, `prior_week_value`, `wow_delta`, `wow_pct`, `trailing_13w_avg`, `rank_in_parent`, `peer_count`, `flag` (`UP`, `DOWN`, `FLAT`, `ANOMALY`).
 
@@ -342,7 +346,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
 | File | Content |
 |------|---------|
-| manifest.json | `schema_version`, `run_id`, `generated_at`, `latest_week`, `weeks_available`, `files[]` (`name`, `sha256`, `rows`, `bytes`) |
+| manifest.json | `schema_version`, `run_id`, `generated_at`, `latest_week`, `weeks_available`, `files[]` (`name`, `sha256`, `rows`, `bytes`), `summary[]` (national KPIs for first paint: `kpi_code`, `value`, `prior_week_value`, `wow_pct`, `flag`), `has_fsa_boundaries` |
 | org_weekly.parquet | mart_org_weekly |
 | advisor_weekly.parquet | mart_advisor_weekly (last 26 weeks) |
 | weekly_report.parquet | mart_weekly_report |

@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "LoadStatus": {
+      "enum": [
+        "LOADED",
+        "SKIPPED_DUPLICATE",
+        "FAILED"
+      ],
+      "title": "LoadStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/meta.load_manifest.schema.json",
+  "additionalProperties": false,
+  "description": "One row per file seen. Primary key: (file_path, file_sha256); a changed file is a new row.",
+  "properties": {
+    "batch_id": {
+      "minLength": 1,
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "file_path": {
+      "minLength": 1,
+      "title": "File Path",
+      "type": "string"
+    },
+    "file_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "File Sha256",
+      "type": "string"
+    },
+    "loaded_at": {
+      "format": "date-time",
+      "title": "Loaded At",
+      "type": "string"
+    },
+    "row_count": {
+      "minimum": 0,
+      "title": "Row Count",
+      "type": "integer"
+    },
+    "rows_loaded": {
+      "minimum": 0,
+      "title": "Rows Loaded",
+      "type": "integer"
+    },
+    "rows_quarantined": {
+      "minimum": 0,
+      "title": "Rows Quarantined",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source": {
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/LoadStatus"
+    },
+    "table_name": {
+      "minLength": 1,
+      "title": "Table Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "file_path",
+    "file_sha256",
+    "source",
+    "table_name",
+    "batch_id",
+    "row_count",
+    "rows_loaded",
+    "rows_quarantined",
+    "status",
+    "loaded_at",
+    "run_id"
+  ],
+  "title": "meta.load_manifest",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

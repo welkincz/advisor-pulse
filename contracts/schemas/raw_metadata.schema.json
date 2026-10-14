@@ -1,0 +1,47 @@
+{
+  "$id": "https://pulse.charliebuild.com/contracts/raw_metadata.schema.json",
+  "additionalProperties": false,
+  "description": "Columns appended to every raw table by ingestion.",
+  "properties": {
+    "_batch_id": {
+      "description": "run_id + source + file hash prefix.",
+      "minLength": 1,
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "_loaded_at": {
+      "format": "date-time",
+      "title": "Loaded At",
+      "type": "string"
+    },
+    "_row_hash": {
+      "description": "xxhash of business columns.",
+      "minLength": 1,
+      "title": "Row Hash",
+      "type": "string"
+    },
+    "_source_file": {
+      "description": "Relative path.",
+      "minLength": 1,
+      "title": "Source File",
+      "type": "string"
+    },
+    "_source_row": {
+      "description": "Row number in the file.",
+      "minimum": 0,
+      "title": "Source Row",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "_batch_id",
+    "_source_file",
+    "_source_row",
+    "_row_hash",
+    "_loaded_at"
+  ],
+  "title": "raw_metadata",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

@@ -1,0 +1,330 @@
+{
+  "$defs": {
+    "CheckSeverity": {
+      "enum": [
+        "WARN",
+        "FAIL"
+      ],
+      "title": "CheckSeverity",
+      "type": "string"
+    },
+    "CheckStatus": {
+      "enum": [
+        "PASS",
+        "WARN",
+        "FAIL"
+      ],
+      "title": "CheckStatus",
+      "type": "string"
+    },
+    "RunCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {
+          "pattern": "^DQ\\d{3}$",
+          "title": "Check Id",
+          "type": "string"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed"
+        },
+        "severity": {
+          "$ref": "#/$defs/CheckSeverity"
+        },
+        "status": {
+          "$ref": "#/$defs/CheckStatus"
+        }
+      },
+      "required": [
+        "check_id",
+        "severity",
+        "status"
+      ],
+      "title": "RunCheck",
+      "type": "object"
+    },
+    "RunSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/RunCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At"
+        },
+        "git_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Sha"
+        },
+        "iso_week_id": {
+          "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+          "title": "Iso Week Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "run_type": {
+          "$ref": "#/$defs/RunType"
+        },
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/StageAttempt"
+          },
+          "title": "Stages",
+          "type": "array"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/StageStatus",
+          "description": "Worst stage status of the run."
+        }
+      },
+      "required": [
+        "run_id",
+        "run_type",
+        "iso_week_id",
+        "status",
+        "started_at",
+        "stages",
+        "checks"
+      ],
+      "title": "RunSummary",
+      "type": "object"
+    },
+    "RunType": {
+      "enum": [
+        "WEEKLY",
+        "BACKFILL",
+        "MANUAL"
+      ],
+      "title": "RunType",
+      "type": "string"
+    },
+    "StageAttempt": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "rows_in": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rows In"
+        },
+        "rows_out": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rows Out"
+        },
+        "rows_quarantined": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rows Quarantined"
+        },
+        "stage": {
+          "minLength": 1,
+          "title": "Stage",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/StageStatus"
+        }
+      },
+      "required": [
+        "stage",
+        "attempt",
+        "status",
+        "started_at"
+      ],
+      "title": "StageAttempt",
+      "type": "object"
+    },
+    "StageStatus": {
+      "enum": [
+        "RUNNING",
+        "SUCCESS",
+        "WARN",
+        "FAILED",
+        "SKIPPED"
+      ],
+      "title": "StageStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/run_log.schema.json",
+  "additionalProperties": false,
+  "description": "data/run_log.json: the last 12 runs, newest first. Deployed even when a run fails.",
+  "properties": {
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/RunSummary"
+      },
+      "maxItems": 12,
+      "title": "Runs",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1.0.0",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "generated_at",
+    "runs"
+  ],
+  "title": "run_log",
+  "type": "object",
+  "x-contract-kind": "document",
+  "x-schema-version": "1.0.0"
+}
