@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,8 @@ def _load_deps_bot() -> Any:
     spec = importlib.util.spec_from_file_location("deps_bot", SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    # dataclasses looks up the module in sys.modules during class creation
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -80,11 +83,26 @@ def test_should_process_skips_pull_requests() -> None:
 
 
 @pytest.mark.unit
-def test_deps_satisfied_empty_and_closed() -> None:
+def test_deps_satisfied_requires_completed() -> None:
+    completed = deps_bot.DepStatus("closed", "completed")
+    not_planned = deps_bot.DepStatus("closed", "not_planned")
+    open_issue = deps_bot.DepStatus("open", None)
+
     assert deps_bot.deps_satisfied(frozenset(), {}) is True
-    assert deps_bot.deps_satisfied(frozenset({3, 12}), {3: "closed", 12: "closed"}) is True
-    assert deps_bot.deps_satisfied(frozenset({3, 12}), {3: "closed", 12: "open"}) is False
+    assert deps_bot.deps_satisfied(frozenset({3, 12}), {3: completed, 12: completed}) is True
+    assert deps_bot.deps_satisfied(frozenset({3, 12}), {3: completed, 12: open_issue}) is False
     assert deps_bot.deps_satisfied(frozenset({3}), {3: None}) is False
+    assert deps_bot.deps_satisfied(frozenset({3}), {3: not_planned}) is False
+
+
+@pytest.mark.unit
+def test_deps_satisfied_rejects_not_planned_with_waiting_label() -> None:
+    completed = deps_bot.DepStatus("closed", "completed")
+    not_planned = deps_bot.DepStatus("closed", "not_planned")
+    states = {3: completed, 7: not_planned}
+
+    assert deps_bot.deps_satisfied(frozenset({3, 7}), states) is False
+    assert deps_bot.waiting_deps(frozenset({3, 7}), states) == ["#7 (closed:not_planned)"]
 
 
 @pytest.mark.unit

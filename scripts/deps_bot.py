@@ -16,6 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
 DEPENDS_ON_RE = re.compile(r"^Depends on:\s*(.*?)\s*$", re.IGNORECASE | re.MULTILINE)
@@ -73,6 +74,25 @@ def has_ready_comment(comments: Iterable[dict[str, Any]]) -> bool:
     return any(READY_COMMENT_MARKER in (comment.get("body") or "") for comment in comments)
 
 
+@dataclass(frozen=True)
+class DepStatus:
+    """GitHub issue state used to decide whether a dependency counts as done."""
+
+    state: str
+    state_reason: str | None
+
+    @property
+    def satisfied(self) -> bool:
+        """Only completed closures count; not_planned / duplicate do not."""
+        return self.state == "closed" and self.state_reason == "completed"
+
+    def waiting_label(self) -> str:
+        if self.state != "closed":
+            return self.state
+        reason = self.state_reason or "unspecified"
+        return f"closed:{reason}"
+
+
 class GitHubClient:
     """Minimal GitHub REST client (stdlib urllib, GITHUB_TOKEN)."""
 
@@ -125,7 +145,8 @@ class GitHubClient:
             chunk = self._request("GET", f"{path}{sep}per_page=100&page={page}")
             if not chunk:
                 break
-            assert isinstance(chunk, list)
+            if not isinstance(chunk, list):
+                raise TypeError(f"expected list from {path}, got {type(chunk).__name__}")
             items.extend(chunk)
             if len(chunk) < 100:
                 break
@@ -140,11 +161,12 @@ class GitHubClient:
         result = self._request("GET", f"/repos/{self.repo}/issues/{number}", allow_404=True)
         return result if isinstance(result, dict) else None
 
-    def issue_state(self, number: int) -> str | None:
+    def dep_status(self, number: int) -> DepStatus | None:
         issue = self.get_issue(number)
         if issue is None:
             return None
-        return str(issue["state"])
+        reason = issue.get("state_reason")
+        return DepStatus(state=str(issue["state"]), state_reason=str(reason) if reason else None)
 
     def remove_label(self, number: int, label: str) -> None:
         encoded = urllib.parse.quote(label)
@@ -172,9 +194,26 @@ class GitHubClient:
         self._request("POST", path, body={"body": body})
 
 
-def deps_satisfied(deps: frozenset[int], states: dict[int, str | None]) -> bool:
-    """True when every dependency is closed (empty deps ⇒ satisfied)."""
-    return all(states.get(num) == "closed" for num in deps)
+def deps_satisfied(deps: frozenset[int], states: dict[int, DepStatus | None]) -> bool:
+    """True when every dependency is closed as completed (empty deps ⇒ satisfied)."""
+
+    def _ok(num: int) -> bool:
+        status = states.get(num)
+        return status is not None and status.satisfied
+
+    return all(_ok(num) for num in deps)
+
+
+def waiting_deps(deps: frozenset[int], states: dict[int, DepStatus | None]) -> list[str]:
+    """Human-readable labels for dependencies that are not completed."""
+    labels: list[str] = []
+    for num in sorted(deps):
+        status = states.get(num)
+        if status is None:
+            labels.append(f"#{num} (missing)")
+        elif not status.satisfied:
+            labels.append(f"#{num} ({status.waiting_label()})")
+    return labels
 
 
 def unblock_issue(client: GitHubClient, issue: dict[str, Any]) -> bool:
@@ -208,7 +247,7 @@ def run(client: GitHubClient) -> int:
     print(f"scanned {len(blocked)} blocked issue(s); {len(candidates)} candidate(s)")
 
     changed = 0
-    state_cache: dict[int, str | None] = {}
+    state_cache: dict[int, DepStatus | None] = {}
 
     for issue in candidates:
         number = int(issue["number"])
@@ -219,11 +258,11 @@ def run(client: GitHubClient) -> int:
 
         missing = [dep for dep in deps if dep not in state_cache]
         for dep in missing:
-            state_cache[dep] = client.issue_state(dep)
+            state_cache[dep] = client.dep_status(dep)
 
         if not deps_satisfied(deps, state_cache):
-            open_deps = sorted(dep for dep in deps if state_cache.get(dep) != "closed")
-            print(f"#{number}: still waiting on {open_deps}")
+            waiting = waiting_deps(deps, state_cache)
+            print(f"#{number}: still waiting on {', '.join(waiting)}")
             continue
 
         if unblock_issue(client, issue):
