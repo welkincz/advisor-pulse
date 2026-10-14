@@ -30,8 +30,3 @@ def test_stub_names_its_issue_and_exits_zero() -> None:
 def test_backfill_requires_range() -> None:
     result = runner.invoke(app, ["backfill"])
     assert result.exit_code != 0
-
-
-def test_deliberate_ci_fail() -> None:
-    """Temporary: prove the python CI job fails; revert after Actions shows red."""
-    assert False, "deliberate CI failure for issue #5"
