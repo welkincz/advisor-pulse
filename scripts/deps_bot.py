@@ -9,14 +9,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
+import random
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 DEPENDS_ON_RE = re.compile(r"^Depends on:\s*(.*?)\s*$", re.IGNORECASE | re.MULTILINE)
@@ -96,12 +101,49 @@ class DepStatus:
 class GitHubClient:
     """Minimal GitHub REST client (stdlib urllib, GITHUB_TOKEN)."""
 
-    def __init__(self, token: str, repo: str, *, dry_run: bool = False) -> None:
+    def __init__(
+        self,
+        token: str,
+        repo: str,
+        *,
+        dry_run: bool = False,
+        opener: Callable[..., Any] = urllib.request.urlopen,
+        sleep: Callable[[float], None] = time.sleep,
+        jitter: Callable[[], float] = random.random,
+        now: Callable[[], datetime] | None = None,
+    ) -> None:
         if "/" not in repo:
             raise ValueError(f"GITHUB_REPOSITORY must be owner/name, got {repo!r}")
         self.token = token
         self.repo = repo
         self.dry_run = dry_run
+        self.opener = opener
+        self.sleep = sleep
+        self.jitter = jitter
+        self.now = now or (lambda: datetime.now(UTC))
+
+    def _retry_after_seconds(self, value: str | None) -> float | None:
+        if value is None:
+            return None
+        try:
+            seconds = float(value)
+        except ValueError:
+            try:
+                retry_at = parsedate_to_datetime(value)
+            except (TypeError, ValueError):
+                return None
+            if retry_at.tzinfo is None:
+                return None
+            seconds = (retry_at - self.now()).total_seconds()
+        return max(0.0, seconds) if math.isfinite(seconds) else None
+
+    def _wait_before_retry(
+        self, attempt: int, retry_after: str | None = None, *, rate_limited: bool = False
+    ) -> None:
+        minimum = self._retry_after_seconds(retry_after)
+        base = 60 if rate_limited and minimum is None else 1
+        backoff = base * 2**attempt + self.jitter()
+        self.sleep(max(backoff, minimum or 0.0))
 
     def _request(
         self,
@@ -125,17 +167,33 @@ class GitHubClient:
                 **({"Content-Type": "application/json"} if body is not None else {}),
             },
         )
-        try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                raw = response.read()
-                if not raw:
+        for attempt in range(3):
+            try:
+                with self.opener(request, timeout=60) as response:
+                    raw = response.read()
+                    if not raw:
+                        return None
+                    return json.loads(raw.decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                if allow_404 and exc.code == 404:
                     return None
-                return json.loads(raw.decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if allow_404 and exc.code == 404:
-                return None
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"{method} {path} failed: {exc.code} {detail}") from exc
+                detail = exc.read().decode("utf-8", errors="replace")
+                retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                secondary_limit = exc.code == 403 and (
+                    retry_after is not None or "secondary rate limit" in detail.lower()
+                )
+                retryable = exc.code == 429 or 500 <= exc.code <= 599 or secondary_limit
+                if retryable and attempt < 2:
+                    self._wait_before_retry(
+                        attempt, retry_after, rate_limited=exc.code == 429 or secondary_limit
+                    )
+                    continue
+                raise RuntimeError(f"{method} {path} failed: {exc.code} {detail}") from exc
+            except (urllib.error.URLError, ConnectionError, TimeoutError):
+                if attempt == 2:
+                    raise
+                self._wait_before_retry(attempt)
+        raise AssertionError("unreachable")
 
     def _paginate(self, path: str) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []

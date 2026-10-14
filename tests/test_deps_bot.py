@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import http.client
 import importlib.util
 import sys
+import urllib.error
+from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -153,3 +157,135 @@ def test_unblock_issue_swaps_labels_and_comments_once() -> None:
     client._comments[42] = [{"body": client.comments_posted[0][1]}]
     assert deps_bot.unblock_issue(client, issue_after) is False
     assert len(client.comments_posted) == 1
+
+
+class _FakeOpener:
+    def __init__(self, outcomes: list[Exception | bytes]) -> None:
+        self.outcomes = iter(outcomes)
+        self.calls = 0
+
+    def __call__(self, _request: Any, *, timeout: int) -> BytesIO:
+        assert timeout == 60
+        self.calls += 1
+        outcome = next(self.outcomes)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return BytesIO(outcome)
+
+
+def _http_error(status: int, *, body: bytes = b"error", retry_after: str | None = None) -> Any:
+    headers = {"Retry-After": retry_after} if retry_after is not None else {}
+    return urllib.error.HTTPError(
+        "https://api.github.com/repos/example/repo/issues",
+        status,
+        "error",
+        headers,
+        BytesIO(body),
+    )
+
+
+@pytest.mark.unit
+def test_request_retries_connection_and_timeout_then_succeeds() -> None:
+    opener = _FakeOpener(
+        [http.client.RemoteDisconnected("closed"), TimeoutError("timed out"), b'{"ok": true}']
+    )
+    delays: list[float] = []
+    client = deps_bot.GitHubClient(
+        "token", "example/repo", opener=opener, sleep=delays.append, jitter=lambda: 0.25
+    )
+
+    assert client._request("GET", "/repos/example/repo/issues") == {"ok": True}
+    assert opener.calls == 3
+    assert delays == [1.25, 2.25]
+
+
+@pytest.mark.unit
+def test_request_gives_up_after_three_server_errors() -> None:
+    opener = _FakeOpener([_http_error(503) for _ in range(3)])
+    delays: list[float] = []
+    client = deps_bot.GitHubClient(
+        "token", "example/repo", opener=opener, sleep=delays.append, jitter=lambda: 0.0
+    )
+
+    with pytest.raises(RuntimeError, match="503"):
+        client._request("GET", "/repos/example/repo/issues")
+    assert opener.calls == 3
+    assert delays == [1.0, 2.0]
+
+
+@pytest.mark.unit
+def test_request_allow_404_returns_without_retry() -> None:
+    opener = _FakeOpener([_http_error(404)])
+    delays: list[float] = []
+    client = deps_bot.GitHubClient("token", "example/repo", opener=opener, sleep=delays.append)
+
+    assert client._request("GET", "/repos/example/repo/issues/404", allow_404=True) is None
+    assert opener.calls == 1
+    assert delays == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("status", [400, 403, 404, 422])
+def test_request_does_not_retry_other_client_errors(status: int) -> None:
+    opener = _FakeOpener([_http_error(status)])
+    delays: list[float] = []
+    client = deps_bot.GitHubClient("token", "example/repo", opener=opener, sleep=delays.append)
+
+    with pytest.raises(RuntimeError, match=str(status)):
+        client._request("GET", "/repos/example/repo/issues")
+    assert opener.calls == 1
+    assert delays == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("error", "expected_delay"),
+    [
+        (_http_error(429, retry_after="8"), 8.0),
+        (_http_error(429), 60.5),
+        (_http_error(403, body=b"You have exceeded a secondary rate limit."), 60.5),
+        (_http_error(403, retry_after="10"), 10.0),
+    ],
+)
+def test_request_retries_rate_limit_and_honours_retry_after(
+    error: Exception, expected_delay: float
+) -> None:
+    opener = _FakeOpener([error, b"{}"])
+    delays: list[float] = []
+    client = deps_bot.GitHubClient(
+        "token", "example/repo", opener=opener, sleep=delays.append, jitter=lambda: 0.5
+    )
+
+    assert client._request("GET", "/repos/example/repo/issues") == {}
+    assert opener.calls == 2
+    assert delays == [expected_delay]
+
+
+@pytest.mark.unit
+def test_request_retries_url_errors() -> None:
+    opener = _FakeOpener([urllib.error.URLError("connection lost"), b"{}"])
+    delays: list[float] = []
+    client = deps_bot.GitHubClient(
+        "token", "example/repo", opener=opener, sleep=delays.append, jitter=lambda: 0.0
+    )
+
+    assert client._request("GET", "/repos/example/repo/issues") == {}
+    assert opener.calls == 2
+    assert delays == [1.0]
+
+
+@pytest.mark.unit
+def test_request_honours_http_date_retry_after() -> None:
+    opener = _FakeOpener([_http_error(429, retry_after="Wed, 14 Oct 2026 12:00:08 GMT"), b"{}"])
+    delays: list[float] = []
+    client = deps_bot.GitHubClient(
+        "token",
+        "example/repo",
+        opener=opener,
+        sleep=delays.append,
+        jitter=lambda: 0.0,
+        now=lambda: datetime(2026, 10, 14, 12, 0, tzinfo=UTC),
+    )
+
+    assert client._request("GET", "/repos/example/repo/issues") == {}
+    assert delays == [8.0]
