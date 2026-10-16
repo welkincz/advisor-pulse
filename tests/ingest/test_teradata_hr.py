@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import sqlite3
 from collections.abc import Iterator
@@ -107,6 +108,42 @@ def test_changed_snapshot_loads_only_newer_rows(
         assert meta.get_watermark_value(warehouse, "teradata", table) == datetime(
             2026, 10, 6, 12, tzinfo=UTC
         )
+
+
+def test_new_row_at_watermark_boundary_is_loaded(
+    warehouse: duckdb.DuckDBPyConnection, source_db: Path
+) -> None:
+    load_teradata_hr(warehouse, source_db, run_id="run-1", loaded_at=LOADED_AT)
+    with sqlite3.connect(source_db) as source:
+        source.execute(
+            "INSERT INTO ADVSR_ASGN SELECT 'ASG-00000027', ADVSR_ID, BRNCH_ID, "
+            "ROLE_CD, EFF_DT, RSN_CD, LAST_UPD_TS FROM ADVSR_ASGN "
+            "WHERE ASGN_ID = 'ASG-00000026'"
+        )
+
+    result = load_teradata_hr(warehouse, source_db, run_id="run-2", loaded_at=LOADED_AT)
+
+    assert result.rows_loaded == 1
+    assert _counts(warehouse)["ADVSR_ASGN"] == 27
+    assert warehouse.execute(
+        "SELECT count(*) FROM raw.teradata__advsr_asgn WHERE ASGN_ID = 'ASG-00000027'"
+    ).fetchone() == (1,)
+    assert len(meta.get_manifest(warehouse)) == 2
+
+
+def test_additive_source_column_warns_and_does_not_fail(
+    warehouse: duckdb.DuckDBPyConnection, source_db: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with sqlite3.connect(source_db) as source:
+        source.execute("ALTER TABLE BRNCH ADD COLUMN OPTIONAL_NOTE TEXT")
+        source.execute("UPDATE BRNCH SET OPTIONAL_NOTE = 'synthetic note'")
+
+    with caplog.at_level(logging.WARNING, logger="pulse.ingest.teradata_hr"):
+        result = load_teradata_hr(warehouse, source_db, run_id="run-1", loaded_at=LOADED_AT)
+
+    assert result.rows_loaded == 52
+    assert _counts(warehouse) == TABLES
+    assert "BRNCH additive columns ignored: OPTIONAL_NOTE" in caplog.text
 
 
 def test_invalid_contract_row_does_not_write_any_table(

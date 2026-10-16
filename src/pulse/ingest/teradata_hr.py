@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from pulse.contracts.raw import RawTeradataAdvisor, RawTeradataAssignment, RawTe
 from pulse.contracts.sources import TeradataAdvisor, TeradataAssignment, TeradataBranch
 from pulse.ingest import meta
 from pulse.warehouse import transaction
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -126,29 +129,62 @@ def load_teradata_hr(
         source.row_factory = sqlite3.Row
         for table in _TABLES:
             watermark = meta.get_watermark_value(warehouse, "teradata", table.name)
+            if watermark is not None:
+                watermark = _utc(watermark)
+            boundary_rows = (
+                set(
+                    warehouse.execute(
+                        f'SELECT "{table.key}", _row_hash FROM {table.raw_name} '
+                        "WHERE LAST_UPD_TS = ?",
+                        [watermark],
+                    ).fetchall()
+                )
+                if watermark is not None
+                else set()
+            )
             selected: list[Contract] = []
             maximum: datetime | None = None
-            for row_number, row in enumerate(
-                source.execute(f"SELECT * FROM {table.name} ORDER BY {table.key}")
-            ):
+            cursor = source.execute(f"SELECT * FROM {table.name} ORDER BY {table.key}")
+            available = {column[0] for column in cursor.description}
+            expected = set(column_names(table.source_model))
+            required = {
+                field.alias or name
+                for name, field in table.source_model.model_fields.items()
+                if field.is_required()
+            }
+            missing = required - available
+            if missing:
+                names = ", ".join(sorted(missing))
+                raise ValueError(f"{table.name} missing required columns: {names}")
+            added = available - expected
+            if added:
+                logger.warning(
+                    "%s additive columns ignored: %s", table.name, ", ".join(sorted(added))
+                )
+            for row_number, row in enumerate(cursor):
                 rows_read += 1
                 try:
-                    validated = table.source_model.model_validate(dict(row))
+                    validated = table.source_model.model_validate(
+                        {name: row[name] for name in expected & available}
+                    )
                 except ValueError as exc:
                     raise ValueError(f"{table.name} row {row_number}: {exc}") from exc
                 updated = _utc(cast("datetime", validated.model_dump()["last_updated_ts"]))
-                if watermark is not None and updated <= _utc(watermark):
+                if watermark is not None and updated < watermark:
                     continue
-                selected.append(
-                    _raw_row(
-                        validated,
-                        table,
-                        batch_id=batch_id,
-                        source_file=source_file,
-                        source_row=row_number,
-                        loaded_at=loaded_at,
-                    )
+                raw = _raw_row(
+                    validated,
+                    table,
+                    batch_id=batch_id,
+                    source_file=source_file,
+                    source_row=row_number,
+                    loaded_at=loaded_at,
                 )
+                if watermark is not None and updated == watermark:
+                    existing = (row[table.key], raw.model_dump(by_alias=True)["_row_hash"])
+                    if existing in boundary_rows:
+                        continue
+                selected.append(raw)
                 maximum = updated if maximum is None else max(maximum, updated)
             batches.append((table, selected, maximum))
 
