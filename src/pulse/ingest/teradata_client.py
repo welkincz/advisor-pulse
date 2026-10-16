@@ -1,7 +1,8 @@
-"""Load the synthetic Teradata CLNT SQLite snapshot into raw."""
+"""Load the synthetic Teradata client snapshot and daily CSV changes."""
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import sqlite3
@@ -83,6 +84,42 @@ def _snapshot(path: Path) -> pa.Table:
     return _text_table(rows, names)
 
 
+def _parse_record(text: str) -> list[str] | None:
+    try:
+        return next(csv.reader([text], strict=True))
+    except csv.Error:
+        return None
+
+
+def _csv_delta(path: Path) -> tuple[pa.Table, dict[int, str]]:
+    rows: list[dict[str, str | None]] = []
+    malformed: dict[int, str] = {}
+    lines = path.read_text(encoding="utf-8-sig").splitlines(keepends=True)
+    header = _parse_record(lines[0]) if lines else None
+    if not header:
+        raise SchemaDriftError(f"DQ006 missing CSV header: {path}")
+    if len(header) != len(set(header)):
+        raise SchemaDriftError(f"DQ006 repeated CSV columns: {path}")
+    index = 1
+    while index < len(lines):
+        raw = lines[index]
+        index += 1
+        values = _parse_record(raw)
+        while values is None and index < len(lines):
+            candidate = _parse_record(lines[index])
+            if candidate and len(candidate) == len(header) and candidate[0].startswith("CLI-"):
+                break
+            raw += lines[index]
+            index += 1
+            values = _parse_record(raw)
+        if values is None or len(values) != len(header):
+            malformed[len(rows)] = raw
+            rows.append(dict.fromkeys(header))
+            continue
+        rows.append({name: value or None for name, value in zip(header, values, strict=True)})
+    return _text_table(rows, header), malformed
+
+
 def _batch_id(run_id: str, source_file: str, file_sha: str) -> str:
     path_hash = hashlib.sha256(source_file.encode()).hexdigest()[:8]
     return f"{run_id}:teradata:clnt:{file_sha[:12]}:{path_hash}"
@@ -107,10 +144,11 @@ def _load_file(
     source_file: str,
     file_sha: str,
     *,
+    snapshot: bool,
     run_id: str,
     loaded_at: datetime,
 ) -> tuple[int, int, int]:
-    table = _snapshot(path)
+    table, malformed = (_snapshot(path), {}) if snapshot else _csv_delta(path)
     if _sha256(path) != file_sha:
         raise ValueError(f"Source changed while reading: {path}")
     batch_id = _batch_id(run_id, source_file, file_sha)
@@ -137,6 +175,17 @@ def _load_file(
             warehouse=warehouse,
             allow_text_coercion=True,
         )
+        if malformed:
+            meta.write_rejected_rows(
+                warehouse,
+                [
+                    row.model_copy(
+                        update={"payload": json.dumps({"raw_text": malformed[row.source_row]})}
+                    )
+                    for row in validated.rejected_rows
+                    if row.source_row in malformed
+                ],
+            )
         rejected = {row.source_row for row in validated.rejected_rows}
         selected: list[RawTeradataClient] = []
         maximum: datetime | None = None
@@ -202,15 +251,19 @@ def load_teradata_client(
     run_id: str,
     loaded_at: datetime,
 ) -> StageResult:
-    """Load the immutable CLNT snapshot with transactional raw and metadata writes."""
+    """Load the immutable CLNT snapshot, then CSV deltas in file-date order."""
     if loaded_at.tzinfo is None:
         raise ValueError("loaded_at must have a timezone")
     base = sources_root / "teradata"
     snapshot = base / "edw.sqlite"
-    files = [(snapshot, "teradata/edw.sqlite#clnt")]
+    files = [(snapshot, "teradata/edw.sqlite#clnt", True)]
+    files.extend(
+        (path, path.relative_to(sources_root).as_posix(), False)
+        for path in sorted(base.glob("client_*.csv"))
+    )
     rows_in = rows_out = quarantined = skipped = watermark_skipped = 0
     failed: list[str] = []
-    for path, source_file in files:
+    for path, source_file, is_snapshot in files:
         file_sha = _sha256(path)
         if meta.is_file_loaded(warehouse, source_file, file_sha):
             skipped += 1
@@ -221,6 +274,7 @@ def load_teradata_client(
                 path,
                 source_file,
                 file_sha,
+                snapshot=is_snapshot,
                 run_id=run_id,
                 loaded_at=loaded_at,
             )
@@ -243,7 +297,7 @@ def load_teradata_client(
                         run_id=run_id,
                     ),
                 )
-            if not any(
+            if is_snapshot and not any(
                 entry.status is LoadStatus.LOADED
                 for entry in meta.get_manifest(warehouse, source_file)
             ):
