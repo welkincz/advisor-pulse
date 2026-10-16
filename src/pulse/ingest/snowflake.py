@@ -84,16 +84,6 @@ def _load_file(
         watermark = _utc(watermark)
     boundary = _boundary_rows(warehouse, watermark)
     replay = bool(meta.get_manifest(warehouse, source_file))
-    known = (
-        set(
-            warehouse.execute(
-                "SELECT ACTIVITY_ID, _row_hash FROM raw.snowflake__activity WHERE _source_file = ?",
-                [source_file],
-            ).fetchall()
-        )
-        if replay
-        else set()
-    )
 
     with transaction(warehouse):
         result = validate_rows(
@@ -121,8 +111,6 @@ def _load_file(
                 business, sort_keys=True, separators=(",", ":"), ensure_ascii=False
             )
             row_hash = xxhash.xxh64_hexdigest(canonical.encode("utf-8"))
-            if replay and (source.activity_id, row_hash) in known:
-                continue
             if (
                 not replay
                 and watermark is not None

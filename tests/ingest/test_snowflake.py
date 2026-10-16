@@ -96,13 +96,15 @@ def test_changed_historical_file_loads_correction_without_watermark_regression(
     path = sources / "snowflake/activity/extract_date=2026-09-13/part-000.parquet"
     table = pq.read_table(path)
     rows = table.to_pylist()
+    original_outcome = rows[0]["OUTCOME"]
+    first_activity_id = rows[0]["ACTIVITY_ID"]
     rows[0]["OUTCOME"] = "FOLLOW_UP" if rows[0]["OUTCOME"] != "FOLLOW_UP" else "NONE"
     pq.write_table(pa.Table.from_pylist(rows, schema=table.schema), path)
 
     result = _load(warehouse, sources, run_id="run-2")
 
-    assert result.rows_out == 1
-    assert _raw_count(warehouse) == 655
+    assert result.rows_out == 151
+    assert _raw_count(warehouse) == 805
     assert len(meta.get_manifest(warehouse)) == 6
     versions = meta.get_manifest(
         warehouse, "snowflake/activity/extract_date=2026-09-13/part-000.parquet"
@@ -111,6 +113,19 @@ def test_changed_historical_file_loads_correction_without_watermark_regression(
     assert meta.get_watermark_value(warehouse, "snowflake", "activity") == datetime(
         2026, 10, 5, 3, tzinfo=UTC
     )
+
+    rows[0]["OUTCOME"] = original_outcome
+    rows[1]["OUTCOME"] = "FOLLOW_UP" if rows[1]["OUTCOME"] != "FOLLOW_UP" else "NONE"
+    pq.write_table(pa.Table.from_pylist(rows, schema=table.schema), path)
+    reverted = _load(warehouse, sources, run_id="run-3")
+
+    assert reverted.rows_out == 151
+    assert _raw_count(warehouse) == 956
+    assert warehouse.execute(
+        "SELECT OUTCOME FROM raw.snowflake__activity "
+        "WHERE ACTIVITY_ID = ? AND _batch_id LIKE 'run-3:%'",
+        [first_activity_id],
+    ).fetchall() == [(original_outcome,)]
 
 
 def test_additive_column_is_warned_and_dropped_before_raw_insert(
