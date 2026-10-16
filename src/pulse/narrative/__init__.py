@@ -1,1 +1,1 @@
-"""Grounded AI weekly narrative (issues #47, #48)."""
+"""Grounded weekly narratives per region and district (issue #47)."""

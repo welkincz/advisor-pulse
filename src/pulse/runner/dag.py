@@ -55,6 +55,12 @@ def _ingest(ctx: StageContext) -> StageResult:
     return ingest(ctx)
 
 
+def _narrate(ctx: StageContext) -> StageResult:
+    from pulse.narrative.stage import narrate
+
+    return narrate(ctx)
+
+
 def _restore_state(ctx: StageContext) -> StageResult:
     from pulse.state import STATE
 
@@ -80,7 +86,7 @@ WEEKLY_STAGES: tuple[Stage, ...] = (
     Stage("ingest", "Ingest + validate", _ingest, ("generate",)),
     Stage("dbt_build", "dbt build", stages.dbt_build, ("ingest",)),
     Stage("checks", "Run checks", stages.checks, ("dbt_build",)),
-    Stage("narrate", "AI narrative", not_implemented(47), ("checks",)),
+    Stage("narrate", "AI narrative", _narrate, ("checks",)),
     # always: after a failure, export still publishes run_log.json (and no data).
     Stage("export", "Export", stages.export, ("narrate",), always=True),
     Stage("publish_sheets", "Google Sheets", not_implemented(55), ("export",)),
