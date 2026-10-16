@@ -1,3 +1,5 @@
+-- Checks fixture ground truth, so it runs only on the ci target (make dbt-build-ci).
+{{ config(enabled=target.name == 'ci') }}
 -- DQ010 on fixtures: every duplicate defect in fixtures/defects.json is one staged row,
 -- and a re-sent update keeps the status of the latest version. Returns one row per failure.
 -- `make dbt-build-ci` runs from the repo root, where fixtures/defects.json lives.

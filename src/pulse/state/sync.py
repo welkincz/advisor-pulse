@@ -64,10 +64,12 @@ def backfill_rebuild(ctx: StageContext, weeks: Sequence[str]) -> StageResult:
     from pulse.runner.run import Runner, WarehouseSink, new_run_id
     from pulse.warehouse import connect, init_warehouse
 
+    # Rebuild the warehouse only: publishing every historical week would be wasted work.
+    skip = STATE_STAGES | {"export", "publish_sheets"}
     stages = [
-        replace(s, depends_on=tuple(d for d in s.depends_on if d not in STATE_STAGES))
+        replace(s, depends_on=tuple(d for d in s.depends_on if d not in skip))
         for s in WEEKLY_STAGES
-        if s.name not in STATE_STAGES
+        if s.name not in skip
     ]
     warehouse = ctx.data_dir / WAREHOUSE_FILE
     runner = Runner(

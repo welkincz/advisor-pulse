@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from pulse.runner import stages
 from pulse.runner.stage import Stage, StageContext, StageResult, not_implemented
 
 
@@ -77,10 +78,11 @@ WEEKLY_STAGES: tuple[Stage, ...] = (
     Stage("restore_state", "Restore state", _restore_state),
     Stage("generate", "Generate week", not_implemented(16), ("restore_state",)),
     Stage("ingest", "Ingest + validate", _ingest, ("generate",)),
-    Stage("dbt_build", "dbt build", not_implemented(52), ("ingest",)),
-    Stage("checks", "Run checks", not_implemented(44), ("dbt_build",)),
+    Stage("dbt_build", "dbt build", stages.dbt_build, ("ingest",)),
+    Stage("checks", "Run checks", stages.checks, ("dbt_build",)),
     Stage("narrate", "AI narrative", not_implemented(47), ("checks",)),
-    Stage("export", "Export", not_implemented(46), ("narrate",)),
+    # always: after a failure, export still publishes run_log.json (and no data).
+    Stage("export", "Export", stages.export, ("narrate",), always=True),
     Stage("publish_sheets", "Google Sheets", not_implemented(55), ("export",)),
     Stage("persist_state", "Persist state", _persist_state, ("export",)),
     Stage(
