@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-10-05T10:01:23.600000Z",
+  "generated_at": "2026-10-05T10:01:24.050000Z",
   "runs": [
     {
       "run_id": "weekly-2026-W40-1",
@@ -8,8 +8,8 @@
       "iso_week_id": "2026-W40",
       "status": "WARN",
       "started_at": "2026-10-05T10:00:00Z",
-      "ended_at": "2026-10-05T10:01:23.600000Z",
-      "duration_ms": 83600,
+      "ended_at": "2026-10-05T10:01:24.050000Z",
+      "duration_ms": 84050,
       "git_sha": "88ee740d318c5856e32be2e58b7501e51b6724ff",
       "stages": [
         {
@@ -118,7 +118,19 @@
           "rows_in": null,
           "rows_out": null,
           "rows_quarantined": null,
-          "message": "Pushed state to R2; lock released."
+          "message": "Persisted warehouse.duckdb and 3 new or changed source files."
+        },
+        {
+          "stage": "release_lock",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-10-05T10:01:23.750000Z",
+          "ended_at": "2026-10-05T10:01:24.050000Z",
+          "duration_ms": 300,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Released run lock."
         }
       ],
       "checks": [
@@ -162,8 +174,8 @@
       "iso_week_id": "2026-W39",
       "status": "WARN",
       "started_at": "2026-09-28T10:00:00Z",
-      "ended_at": "2026-09-28T10:01:24.850000Z",
-      "duration_ms": 84850,
+      "ended_at": "2026-09-28T10:01:25.300000Z",
+      "duration_ms": 85300,
       "git_sha": "824b15cf34371782ed9b6424c62dc3d468db2d2d",
       "stages": [
         {
@@ -284,7 +296,19 @@
           "rows_in": null,
           "rows_out": null,
           "rows_quarantined": null,
-          "message": "Pushed state to R2; lock released."
+          "message": "Persisted warehouse.duckdb and 3 new or changed source files."
+        },
+        {
+          "stage": "release_lock",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-28T10:01:25Z",
+          "ended_at": "2026-09-28T10:01:25.300000Z",
+          "duration_ms": 300,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Released run lock."
         }
       ],
       "checks": [
@@ -328,8 +352,8 @@
       "iso_week_id": "2026-W38",
       "status": "SUCCESS",
       "started_at": "2026-09-21T10:00:00Z",
-      "ended_at": "2026-09-21T10:01:20.900000Z",
-      "duration_ms": 80900,
+      "ended_at": "2026-09-21T10:01:21.350000Z",
+      "duration_ms": 81350,
       "git_sha": "bf11c64452289711e90d4f2a6f12cda1d922b21b",
       "stages": [
         {
@@ -438,7 +462,19 @@
           "rows_in": null,
           "rows_out": null,
           "rows_quarantined": null,
-          "message": "Pushed state to R2; lock released."
+          "message": "Persisted warehouse.duckdb and 3 new or changed source files."
+        },
+        {
+          "stage": "release_lock",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-21T10:01:21.050000Z",
+          "ended_at": "2026-09-21T10:01:21.350000Z",
+          "duration_ms": 300,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Released run lock."
         }
       ],
       "checks": [
@@ -482,8 +518,8 @@
       "iso_week_id": "2026-W37",
       "status": "SUCCESS",
       "started_at": "2026-09-14T10:00:00Z",
-      "ended_at": "2026-09-14T10:01:20.900000Z",
-      "duration_ms": 80900,
+      "ended_at": "2026-09-14T10:01:21.350000Z",
+      "duration_ms": 81350,
       "git_sha": "de0ad1f194b6abc20a4c3e367a6f2c0b7a20f7f8",
       "stages": [
         {
@@ -592,7 +628,19 @@
           "rows_in": null,
           "rows_out": null,
           "rows_quarantined": null,
-          "message": "Pushed state to R2; lock released."
+          "message": "Persisted warehouse.duckdb and 3 new or changed source files."
+        },
+        {
+          "stage": "release_lock",
+          "attempt": 1,
+          "status": "SUCCESS",
+          "started_at": "2026-09-14T10:01:21.050000Z",
+          "ended_at": "2026-09-14T10:01:21.350000Z",
+          "duration_ms": 300,
+          "rows_in": null,
+          "rows_out": null,
+          "rows_quarantined": null,
+          "message": "Released run lock."
         }
       ],
       "checks": [

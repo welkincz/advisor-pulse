@@ -117,6 +117,7 @@ RUNNER_STAGES = (
     "export",
     "publish_sheets",
     "persist_state",
+    "release_lock",
 )
 APPOINTMENT_LIKE = {ActivityType.APPOINTMENT, ActivityType.REVIEW}
 CONVERTING = {Outcome.PLAN_CREATED, Outcome.PRODUCT_OPENED}
@@ -1579,7 +1580,12 @@ def run_log(
             stage("narrate", 22100, message="5 narratives validated.")
         stage("export", 2600, message="Exported 5 tables and 4 documents.")
         stage("publish_sheets", 0, StageStatus.SKIPPED, message="GSHEET_ID is not set.")
-        stage("persist_state", 3900, message="Pushed state to R2; lock released.")
+        stage(
+            "persist_state",
+            3900,
+            message="Persisted warehouse.duckdb and 3 new or changed source files.",
+        )
+        stage("release_lock", 300, message="Released run lock.")
 
         finals: dict[str, StageStatus] = {a.stage: a.status for a in attempts}
         order = [StageStatus.FAILED, StageStatus.WARN, StageStatus.SUCCESS]
@@ -1698,6 +1704,7 @@ def pipeline_graph() -> PipelineGraph:
         ("export", "Export", k.STAGE, "export", [], 2160, 60),
         ("publish_sheets", "Google Sheets", k.STAGE, "publish_sheets", [], 2400, 180),
         ("persist_state", "Persist state", k.STAGE, "persist_state", [], 2400, -60),
+        ("release_lock", "Release lock", k.STAGE, "release_lock", [], 2640, -60),
         ("out_web", "pulse.charliebuild.com", k.OUTPUT, None, [], 2640, 60),
         ("out_tableau", "Tableau Public", k.OUTPUT, None, [], 2640, 180),
     ]
@@ -1719,6 +1726,8 @@ def pipeline_graph() -> PipelineGraph:
         ("export", "publish_sheets"),
         ("publish_sheets", "out_tableau"),
         ("export", "persist_state"),
+        ("persist_state", "release_lock"),
+        ("publish_sheets", "release_lock"),
     ]
     return PipelineGraph(
         nodes=[

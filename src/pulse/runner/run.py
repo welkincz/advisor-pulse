@@ -133,31 +133,35 @@ class Runner:
         rows: list[RunLogRow] = []
         finals: dict[str, StageStatus] = {}
         blocked_by: dict[str, str] = {}
+        halted_by: StageResult | None = None
+        halted_at = ""
 
         for stage in self.stages:
-            if stage.name in blocked_by:
+            if halted_by is not None:
+                skip = f"Run stopped at {halted_at}: {halted_by.message or 'halted'}"
+            elif stage.name in blocked_by and not stage.always:
+                skip = f"Upstream stage {blocked_by[stage.name]} failed."
+            else:
+                skip = None
+            if skip is not None:
                 now = self.clock.now()
                 row = self._row(ctx, stage.name, 1, StageStatus.SKIPPED, now)
-                row = row.model_copy(
-                    update={
-                        "ended_at": now,
-                        "duration_ms": 0,
-                        "message": f"Upstream stage {blocked_by[stage.name]} failed.",
-                    }
-                )
+                row = row.model_copy(update={"ended_at": now, "duration_ms": 0, "message": skip})
                 self._emit(rows, row)
                 finals[stage.name] = StageStatus.SKIPPED
                 continue
 
-            status = self._run_stage(ctx, stage, rows)
-            finals[stage.name] = status
-            if status is StageStatus.FAILED:
+            result = self._run_stage(ctx, stage, rows)
+            finals[stage.name] = result.status
+            if result.status is StageStatus.FAILED:
                 for name in downstream(self.stages, stage.name):
                     blocked_by.setdefault(name, stage.name)
+            if result.halt:
+                halted_by, halted_at = result, stage.name
 
         return RunReport(run_id, run_type, iso_week_id, run_status(finals.values()), rows)
 
-    def _run_stage(self, ctx: StageContext, stage: Stage, rows: list[RunLogRow]) -> StageStatus:
+    def _run_stage(self, ctx: StageContext, stage: Stage, rows: list[RunLogRow]) -> StageResult:
         retrying = Retrying(
             stop=stop_after_attempt(stage.max_attempts),
             wait=self.wait,
@@ -171,12 +175,12 @@ class Runner:
                     n = attempt.retry_state.attempt_number
                     return self._attempt(ctx, stage, n, rows)
         except Exception:
-            return StageStatus.FAILED
+            return StageResult(StageStatus.FAILED)
         raise AssertionError("unreachable: tenacity yields at least one attempt")
 
     def _attempt(
         self, ctx: StageContext, stage: Stage, n: int, rows: list[RunLogRow]
-    ) -> StageStatus:
+    ) -> StageResult:
         started = self.clock.now()
         self._emit(rows, self._row(ctx, stage.name, n, StageStatus.RUNNING, started))
         try:
@@ -191,7 +195,7 @@ class Runner:
             )
             raise
         self._finish(ctx, stage.name, n, started, result, rows)
-        return result.status
+        return result
 
     def _finish(
         self,

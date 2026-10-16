@@ -113,7 +113,8 @@ def test_placeholder_stages_log_one_skipped_row_each() -> None:
     assert [r.stage for r in rows] == [s.name for s in WEEKLY_STAGES]
     assert {r.status for r in rows} == {StageStatus.SKIPPED}
     assert all(r.attempt == 1 and r.ended_at is not None for r in rows)
-    assert "issue #45" in (rows[0].message or "")
+    assert "R2 credentials absent" in (rows[0].message or "")
+    assert "issue #16" in (rows[1].message or "")
     assert status is StageStatus.SKIPPED
 
 
@@ -179,7 +180,22 @@ def test_retries_exhausted_fails_and_skips_downstream() -> None:
     for name in ("checks", "narrate", "export", "publish_sheets", "persist_state"):
         assert statuses[name] is StageStatus.SKIPPED
     assert "Upstream stage dbt_build failed." in {r.message for r in rows}
+    # release_lock is an ``always`` stage: it runs even though its upstream failed.
+    assert statuses["release_lock"] is StageStatus.SUCCESS
     assert status is StageStatus.FAILED
+
+
+def test_halt_skips_every_later_stage_and_the_run_is_skipped() -> None:
+    clock = FakeClock()
+    held = ok(
+        clock, status=StageStatus.SKIPPED, message="Run lock held by weekly-2026-W40-1.", halt=True
+    )
+    rows, status = run(weekly(clock, restore_state=held), clock)
+    assert {r.status for r in rows} == {StageStatus.SKIPPED}
+    assert len(rows) == len(WEEKLY_STAGES)
+    assert final(rows)["release_lock"] is StageStatus.SKIPPED
+    assert rows[1].message == "Run stopped at restore_state: Run lock held by weekly-2026-W40-1."
+    assert status is StageStatus.SKIPPED
 
 
 def test_non_retryable_error_fails_on_first_attempt() -> None:
@@ -272,7 +288,8 @@ def test_dry_run_prints_the_plan_and_touches_nothing(
     lines = result.output.splitlines()
     assert lines[0] == f"Plan for {WEEK} (MANUAL), nothing will run:"
     assert lines[1].strip() == "1. restore_state (Restore state), up to 3 attempts"
-    assert lines[-1].strip().startswith("9. persist_state (Persist state) after export")
+    assert lines[-2].strip().startswith("9. persist_state (Persist state) after export")
+    assert lines[-1].strip().startswith("10. release_lock (Release lock) after persist_state")
     assert list(tmp_path.iterdir()) == []
 
 

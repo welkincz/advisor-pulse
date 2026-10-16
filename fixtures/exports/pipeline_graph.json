@@ -190,6 +190,17 @@
       }
     },
     {
+      "id": "release_lock",
+      "label": "Release lock",
+      "kind": "STAGE",
+      "stage": "release_lock",
+      "models": [],
+      "position": {
+        "x": 2640.0,
+        "y": -60.0
+      }
+    },
+    {
       "id": "out_web",
       "label": "pulse.charliebuild.com",
       "kind": "OUTPUT",
@@ -297,6 +308,16 @@
       "id": "export->persist_state",
       "source": "export",
       "target": "persist_state"
+    },
+    {
+      "id": "persist_state->release_lock",
+      "source": "persist_state",
+      "target": "release_lock"
+    },
+    {
+      "id": "publish_sheets->release_lock",
+      "source": "publish_sheets",
+      "target": "release_lock"
     }
   ]
 }
