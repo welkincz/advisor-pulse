@@ -1,36 +1,45 @@
 """Build the dbt `ci` warehouse by ingesting the committed fixtures (used by `make dbt-build-ci`).
 
-Runs the real loaders, so quarantine and dedupe behave as in a weekly run. The load time and
-run id are fixed, so the warehouse content is the same on every machine. Replaced by the
-runner's ingest stage once #21 lands.
+Runs the runner's ingest stage, so quarantine and dedupe behave as in a weekly run. The load
+time and run id are fixed, so the warehouse content is the same on every machine.
 """
 
 from __future__ import annotations
 
 import argparse
+import shutil
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pulse.ingest.snowflake import load_snowflake_activity
-from pulse.ingest.teradata_client import load_teradata_client
-from pulse.ingest.teradata_hr import load_teradata_hr
-from pulse.warehouse import connect, init_warehouse
+from pulse.contracts.enums import RunType, StageStatus
+from pulse.ingest.stage import SOURCES_DIR, ingest
+from pulse.runner.stage import StageContext
+from pulse.warehouse import WAREHOUSE_FILE
 
 LOADED_AT = datetime(2026, 10, 5, 3, 30, tzinfo=UTC)
 RUN_ID = "ci-fixtures"
 
 
+class _FixedClock:
+    def now(self) -> datetime:
+        return LOADED_AT
+
+    def sleep(self, seconds: float) -> None:
+        pass
+
+
 def build(sources: Path, target: Path) -> None:
-    for stale in (target, target.with_name(target.name + ".wal")):
-        stale.unlink(missing_ok=True)
-    con = connect(target)
-    try:
-        init_warehouse(con)
-        load_teradata_hr(con, sources / "teradata/edw.sqlite", run_id=RUN_ID, loaded_at=LOADED_AT)
-        load_teradata_client(con, sources, run_id=RUN_ID, loaded_at=LOADED_AT)
-        load_snowflake_activity(con, sources, run_id=RUN_ID, loaded_at=LOADED_AT)
-    finally:
-        con.close()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=target.parent) as work:
+        data_dir = Path(work)
+        (data_dir / SOURCES_DIR).symlink_to(sources.resolve(), target_is_directory=True)
+        ctx = StageContext(RUN_ID, RunType.MANUAL, "2026-W40", data_dir, _FixedClock())
+        result = ingest(ctx)
+        if result.status is StageStatus.FAILED:
+            raise SystemExit(f"Fixture ingest failed: {result.message}")
+        shutil.move(data_dir / WAREHOUSE_FILE, target)
+    print(f"{target}: {result.rows_out} rows loaded, {result.rows_quarantined} quarantined")
 
 
 def main() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from pulse.runner.stage import Stage, not_implemented
+from pulse.runner.stage import Stage, StageContext, StageResult, not_implemented
 
 
 class DagError(ValueError):
@@ -46,11 +46,19 @@ def downstream(stages: Sequence[Stage], name: str) -> set[str]:
     return found
 
 
+def _ingest(ctx: StageContext) -> StageResult:
+    # Imported on call: the loaders import pulse.runner.stage, so a module-level import here
+    # would be circular whenever pulse.ingest is imported first.
+    from pulse.ingest.stage import ingest
+
+    return ingest(ctx)
+
+
 # Stages land one issue at a time; until then each is a SKIPPED placeholder naming its issue.
 WEEKLY_STAGES: tuple[Stage, ...] = (
     Stage("restore_state", "Restore state", not_implemented(45)),
     Stage("generate", "Generate week", not_implemented(16), ("restore_state",)),
-    Stage("ingest", "Ingest + validate", not_implemented(52), ("generate",)),
+    Stage("ingest", "Ingest + validate", _ingest, ("generate",)),
     Stage("dbt_build", "dbt build", not_implemented(52), ("ingest",)),
     Stage("checks", "Run checks", not_implemented(44), ("dbt_build",)),
     Stage("narrate", "AI narrative", not_implemented(47), ("checks",)),
