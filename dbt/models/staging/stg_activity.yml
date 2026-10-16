@@ -41,6 +41,9 @@ models:
               arguments:
                 to: ref('stg_client')
                 field: client_id
+              config:
+                # DQ013: unknown clients are kept (null client_sk downstream); WARN only.
+                severity: warn
       - name: branch_id
         description: Branch where the activity was logged.
         data_type: varchar
@@ -120,6 +123,9 @@ models:
               arguments:
                 to: ref('stg_activity')
                 field: activity_id
+              config:
+                # The booking call may have been quarantined; keep the appointment.
+                severity: warn
       - name: created_ts
         description: Source-system create time (UTC).
         data_type: timestamp with time zone
