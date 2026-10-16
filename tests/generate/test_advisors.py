@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import importlib
 import itertools
+import re
 import sqlite3
 from collections import defaultdict
+from contextlib import closing
 from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
@@ -181,3 +183,48 @@ def test_writer_replaces_only_owned_tables_and_preserves_client_table(tmp_path: 
             roster.assignments
         )
         assert conn.execute("SELECT CLNT_ID FROM CLNT").fetchall() == [("CLI-00000001",)]
+
+
+@pytest.mark.unit
+def test_writer_uses_teradata_text_conventions(tmp_path: Path) -> None:
+    """PLAN.md §6.2: naive UTC 'YYYY-MM-DD HH:MM:SS' timestamps and ISO dates, as in fixtures."""
+    module = _advisors_module()
+    roster = module.generate_advisors(org(), seed=5, advisor_count=40, start_date=START, weeks=30)
+    db_path = tmp_path / "edw.sqlite"
+    module.write_advisors(roster, db_path)
+    with closing(sqlite3.connect(db_path)) as conn:
+        ts, hired = conn.execute("SELECT LAST_UPD_TS, HIRE_DT FROM ADVSR LIMIT 1").fetchone()
+        terms = [r[0] for r in conn.execute("SELECT TERM_DT FROM ADVSR WHERE TERM_DT IS NOT NULL")]
+        reasons = {r[0] for r in conn.execute("SELECT RSN_CD FROM ADVSR_ASGN")}
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", ts)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", hired)
+    assert all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", t) for t in terms)
+    assert reasons <= {r.value for r in AssignmentReason}
+
+
+@pytest.mark.unit
+def test_assignment_ranges_cover_full_history(roster: Any) -> None:
+    module = _advisors_module()
+    ranges = module.assignment_ranges(roster)
+    events = [e for e in roster.assignments if e.reason_code != AssignmentReason.TERM]
+    assert len(ranges) == len(events)
+
+    by_advisor: dict[str, list[Any]] = defaultdict(list)
+    for r in ranges:
+        by_advisor[r[0]].append(r)
+    termed = {
+        e.advisor_id: e.effective_date
+        for e in roster.assignments
+        if e.reason_code == AssignmentReason.TERM
+    }
+    for advisor_id, rows in by_advisor.items():
+        # Contiguous: each range ends where the next begins.
+        for prev, nxt in itertools.pairwise(rows):
+            assert prev[4] == nxt[3]
+        assert rows[-1][4] == termed.get(advisor_id)
+
+    # as_of is exactly the ranges that contain the day.
+    day = START + timedelta(weeks=50)
+    assert set(module.assignments_as_of(roster, day)) == {
+        r for r in ranges if r[3] <= day and (r[4] is None or day < r[4])
+    }

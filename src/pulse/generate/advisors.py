@@ -6,16 +6,16 @@ import random
 import sqlite3
 from collections import defaultdict
 from collections.abc import Sequence
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 from faker import Faker
 
-from pulse.contracts import column_names, columns
-from pulse.contracts.base import Contract
 from pulse.contracts.enums import AssignmentReason, Role
 from pulse.contracts.sources import TeradataAdvisor, TeradataAssignment, TeradataBranch
+from pulse.generate.teradata import replace_table
 from pulse.reference import BranchPlacement, OrgReference
 
 DEFAULT_START = date(2024, 10, 7)
@@ -223,70 +223,39 @@ def generate_advisors(
     )
 
 
-def assignments_as_of(roster: AdvisorRoster, as_of: date) -> tuple[AssignmentRow, ...]:
-    """Active (advisor, branch, role, valid_from, valid_to) rows; end is exclusive."""
+def assignment_ranges(roster: AdvisorRoster) -> tuple[AssignmentRow, ...]:
+    """Every (advisor, branch, role, valid_from, valid_to) range; ``valid_to`` is exclusive.
+
+    A TERM event closes the previous range and opens none, so a leaver's last range ends on
+    their TERM date. The current range of an active advisor has ``valid_to`` None.
+    """
     by_advisor: dict[str, list[TeradataAssignment]] = defaultdict(list)
     for event in roster.assignments:
         by_advisor[event.advisor_id].append(event)
     rows: list[AssignmentRow] = []
     for advisor_id, events in sorted(by_advisor.items()):
+        events.sort(key=lambda e: (e.effective_date, e.assignment_id))
         for index, event in enumerate(events):
+            if event.reason_code == AssignmentReason.TERM:
+                continue
             valid_to = events[index + 1].effective_date if index + 1 < len(events) else None
-            if event.effective_date <= as_of and (valid_to is None or as_of < valid_to):
-                if event.reason_code != AssignmentReason.TERM:
-                    rows.append(
-                        (
-                            advisor_id,
-                            event.branch_id,
-                            event.role_code,
-                            event.effective_date,
-                            valid_to,
-                        )
-                    )
-                break
+            rows.append(
+                (advisor_id, event.branch_id, event.role_code, event.effective_date, valid_to)
+            )
     return tuple(rows)
 
 
-def _replace_table(
-    conn: sqlite3.Connection,
-    name: str,
-    model: type[Contract],
-    rows: Sequence[Contract],
-    primary_key: str,
-) -> None:
-    fields = columns(model)
-
-    def sqlite_type(python_type: type[object]) -> str:
-        if issubclass(python_type, datetime):
-            return "TIMESTAMP"
-        if issubclass(python_type, date):
-            return "DATE"
-        return "INTEGER" if issubclass(python_type, int) else "TEXT"
-
-    definitions = [
-        f'"{field.name}" {sqlite_type(field.python_type)}' + ("" if field.nullable else " NOT NULL")
-        for field in fields
-    ]
-    definitions.append(f'PRIMARY KEY ("{primary_key}")')
-    conn.execute(f'DROP TABLE IF EXISTS "{name}"')
-    conn.execute(f'CREATE TABLE "{name}" ({", ".join(definitions)})')
-    names = column_names(model)
-    quoted = ", ".join(f'"{column}"' for column in names)
-    placeholders = ", ".join("?" for _ in names)
-    conn.executemany(
-        f'INSERT INTO "{name}" ({quoted}) VALUES ({placeholders})',
-        [
-            tuple(row.model_dump(by_alias=True, mode="json")[column] for column in names)
-            for row in rows
-        ],
+def assignments_as_of(roster: AdvisorRoster, as_of: date) -> tuple[AssignmentRow, ...]:
+    """The ranges in effect on ``as_of``: one per active advisor."""
+    return tuple(
+        r for r in assignment_ranges(roster) if r[3] <= as_of and (r[4] is None or as_of < r[4])
     )
 
 
 def write_advisors(roster: AdvisorRoster, db_path: Path) -> None:
     """Replace only ADVSR, ADVSR_ASGN and BRNCH; preserve CLNT in the same file."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as conn:
-        conn.execute("BEGIN")
-        _replace_table(conn, "ADVSR", TeradataAdvisor, roster.advisors, "ADVSR_ID")
-        _replace_table(conn, "ADVSR_ASGN", TeradataAssignment, roster.assignments, "ASGN_ID")
-        _replace_table(conn, "BRNCH", TeradataBranch, roster.branches, "BRNCH_ID")
+    with closing(sqlite3.connect(db_path)) as conn, conn:
+        replace_table(conn, "ADVSR", TeradataAdvisor, roster.advisors, "ADVSR_ID")
+        replace_table(conn, "ADVSR_ASGN", TeradataAssignment, roster.assignments, "ASGN_ID")
+        replace_table(conn, "BRNCH", TeradataBranch, roster.branches, "BRNCH_ID")
