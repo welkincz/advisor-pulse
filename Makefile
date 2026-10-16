@@ -111,8 +111,9 @@ narrative-eval: ## Live narrative eval pass-rate table
 	$(call todo,48)
 
 .PHONY: geo
-geo: ## Download and simplify StatCan boundaries
+geo: ## Download StatCan boundaries and dissolve district and region polygons
 	$(RUN) python geo/build_boundaries.py
+	$(RUN) python geo/dissolve.py
 
 # ── dbt ─────────────────────────────────────────────────────────────────────
 
