@@ -68,7 +68,7 @@ def test_appointments_follow_calls_and_have_valid_status_timing() -> None:
 def test_default_volume_and_district_stories() -> None:
     ranges = assignment_ranges(_roster(900))
     districts = {p.branch.branch_id: p.district.district_code for p in org().placements()}
-    weeks = [date(2026, 1, 5) + timedelta(weeks=i) for i in range(8)]
+    weeks = [date(2026, 8, 10) + timedelta(weeks=i) for i in range(8)]
     totals: list[Counter[str]] = []
     for monday in weeks:
         week = f"{monday.isocalendar().year}-W{monday.isocalendar().week:02d}"
@@ -97,6 +97,11 @@ def test_default_volume_and_district_stories() -> None:
 
 def test_holiday_dip_and_february_lift() -> None:
     ranges = assignment_ranges(_roster(900))
+    for week in ("2024-W52", "2025-W52"):
+        christmas = generate_activity(
+            org(), ranges, iso_week_id=week, seed=31, client_ids=CLIENT_IDS
+        )
+        assert 12_000 <= len(christmas) <= 18_000
     holiday_week = generate_activity(
         org(), ranges, iso_week_id="2026-W27", seed=31, client_ids=CLIENT_IDS
     )

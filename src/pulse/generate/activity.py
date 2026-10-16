@@ -25,7 +25,7 @@ from pulse.contracts.sources import SnowflakeActivity
 from pulse.generate.advisors import AssignmentRow
 from pulse.reference import OrgReference
 
-STORY_START = date(2026, 1, 5)
+STORY_START = date(2026, 8, 10)
 
 
 def _week_start(iso_week_id: str) -> date:
@@ -92,7 +92,7 @@ def generate_activity(
         day = monday + timedelta(days=offset)
         weekday = (1.08, 1.12, 1.04, 0.98, 0.78)[offset]
         seasonal = 1.10 if day.month == 2 else 1.0
-        holiday = 0.48 if _holiday(day) else 1.0
+        holiday = 0.65 if _holiday(day) else 1.0
         active = sorted(
             (advisor, branch)
             for advisor, branch, role, start, end in assignments
