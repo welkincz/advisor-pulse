@@ -228,7 +228,7 @@ def test_without_api_key_the_stage_writes_templates_and_warns(
     assert AnthropicClient.from_env() is None
     result = write_narratives(report, WEEK, tmp_path, AnthropicClient.from_env(), ctx(tmp_path))
     assert result.status is StageStatus.WARN
-    assert result.message == "ANTHROPIC_API_KEY not set: wrote 5 template narratives."
+    assert result.message == "No model backend configured: wrote 5 template narratives."
     doc = NarrativeFile.model_validate_json((tmp_path / f"{WEEK}.json").read_text())
     assert len(doc.narratives) == 5 and all(n.fallback for n in doc.narratives)
 

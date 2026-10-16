@@ -150,11 +150,15 @@ def main(argv: list[str] | None = None) -> int:
 
     rows: list[tuple[str, dict[str, bool]]] = []
     if args.live:
-        from pulse.narrative.client import AnthropicClient
+        from pulse.narrative.client import client_from_env
 
-        client = AnthropicClient.from_env()
+        client = client_from_env()
         if client is None:
-            print("ANTHROPIC_API_KEY is not set; the live eval needs it.", file=sys.stderr)
+            print(
+                "No model backend: set ANTHROPIC_API_KEY, or PULSE_NARRATIVE_BACKEND=claude-code "
+                "with the claude CLI on PATH.",
+                file=sys.stderr,
+            )
             return 2
         for case in load_cases():
             answer = client.complete(user_message(case.node))
