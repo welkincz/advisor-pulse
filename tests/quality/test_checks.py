@@ -88,6 +88,17 @@ def warehouse() -> duckdb.DuckDBPyConnection:
     con.close()
 
 
+def test_freshness_uses_toronto_business_date(warehouse: duckdb.DuckDBPyConnection) -> None:
+    warehouse.execute("DROP TABLE raw.snowflake__activity")
+    warehouse.execute(
+        "CREATE VIEW raw.snowflake__activity AS "
+        "SELECT TIMESTAMPTZ '2026-10-02 02:00:00+00' AS ACTIVITY_TS"
+    )
+    defects = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
+    run_checks(warehouse, run_id="timezone", iso_week_id="2026-W40", defect_manifest=defects)
+    assert meta.get_check_results(warehouse, "timezone")[0].status is CheckStatus.FAIL
+
+
 def test_failed_check_persists_results_and_blocks_export(
     warehouse: duckdb.DuckDBPyConnection,
 ) -> None:

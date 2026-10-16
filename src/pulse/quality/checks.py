@@ -214,8 +214,9 @@ def run_checks(
         f"{baseline_monday.isocalendar().year}-W{baseline_monday.isocalendar().week:02d}"
     )
     latest_row = warehouse.execute(
-        "SELECT max(CAST(ACTIVITY_TS AS DATE)) FROM raw.snowflake__activity "
-        "WHERE CAST(ACTIVITY_TS AS DATE) <= ?",
+        "SELECT max(CAST(ACTIVITY_TS AT TIME ZONE 'America/Toronto' AS DATE)) "
+        "FROM raw.snowflake__activity "
+        "WHERE CAST(ACTIVITY_TS AT TIME ZONE 'America/Toronto' AS DATE) <= ?",
         [week_end],
     ).fetchone()
     latest = latest_row[0] if latest_row else None
