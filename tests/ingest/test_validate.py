@@ -17,7 +17,7 @@ from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import CheckStatus
 from pulse.contracts.sources import SnowflakeActivity, TeradataClient
 from pulse.ingest import meta
-from pulse.ingest.validate import validate_rows
+from pulse.ingest.validate import SchemaDriftError, validate_rows
 from pulse.warehouse import connect, init_warehouse
 
 SOURCES = Path(__file__).resolve().parents[2] / "fixtures/sources"
@@ -115,7 +115,7 @@ def test_missing_column_and_type_change_fail_with_dq006(
             pa.array(["12"] * len(table)),
         ),
     ):
-        with pytest.raises(ValueError, match="DQ006"):
+        with pytest.raises(SchemaDriftError, match="DQ006"):
             _validate(
                 drifted,
                 source="snowflake",
@@ -164,3 +164,54 @@ def test_100k_rows_validate_within_two_seconds() -> None:
     assert len(result.valid_rows) == 100_000
     assert not result.rejected_rows
     assert elapsed < 2, f"Validation took {elapsed:.2f}s"
+
+
+def test_naive_text_timestamps_are_read_as_utc() -> None:
+    """PLAN.md §6.2. Run under TZ=Asia/Tokyo too: a local session zone would shift this."""
+    path = sorted((SOURCES / "teradata").glob("client_*.csv"))[-1]
+    with path.open(encoding="utf-8-sig", newline="") as source:
+        reader = csv.DictReader(source)
+        rows = list(reader)
+        table = pa.table({name: [row[name] for row in rows] for name in reader.fieldnames or []})
+    result = _validate(
+        table,
+        source="teradata",
+        table_name="CLNT",
+        source_file=path.name,
+        model=TeradataClient,
+        allow_text_coercion=True,
+    )
+    valid_ids = set(result.valid_rows.column("CLNT_ID").to_pylist())
+    raw = {r["CLNT_ID"]: r["LAST_UPD_TS"] for r in rows if r["CLNT_ID"] in valid_ids}
+    loaded = dict(
+        zip(
+            result.valid_rows.column("CLNT_ID").to_pylist(),
+            result.valid_rows.column("LAST_UPD_TS").to_pylist(),
+            strict=True,
+        )
+    )
+    assert raw
+    for client_id, text in raw.items():
+        expected = datetime.strptime(text, "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+        assert loaded[client_id] == expected
+
+
+def test_drift_warnings_from_several_files_share_one_check_row(
+    warehouse: duckdb.DuckDBPyConnection,
+) -> None:
+    table = pq.read_table(next((SOURCES / "snowflake/activity").rglob("*.parquet")))
+    table = table.append_column("EXTRA_NOTE", pa.array(["x"] * len(table)))
+    for name in ("a.parquet", "b.parquet", "b.parquet"):
+        _validate(
+            table,
+            source="snowflake",
+            table_name="activity",
+            source_file=name,
+            model=SnowflakeActivity,
+            warehouse=warehouse,
+        )
+    (check,) = meta.get_check_results(warehouse, "run-1")
+    assert check.observed == 2
+    assert check.message == (
+        "a.parquet: Extra columns ignored: EXTRA_NOTE; b.parquet: Extra columns ignored: EXTRA_NOTE"
+    )

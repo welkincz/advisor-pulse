@@ -16,6 +16,7 @@ from pulse.contracts import Contract, arrow_schema, columns, duckdb_columns
 from pulse.contracts.enums import CheckSeverity, CheckStatus
 from pulse.contracts.meta import CheckResult, RejectedRow
 from pulse.ingest import meta
+from pulse.warehouse import connect
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,12 @@ _REASONS = {
 }
 
 
+class SchemaDriftError(ValueError):
+    """DQ006: a required column is missing or has the wrong type. The file fails as a whole."""
+
+    rule_id = "DQ006"
+
+
 def _quote(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
@@ -37,14 +44,14 @@ def _schema_check(table: pa.Table, model: type[Contract], allow_text: bool) -> t
     available = set(table.column_names)
     missing = [f.name for f in expected if not f.nullable and f.name not in available]
     if missing:
-        raise ValueError(f"DQ006 missing required columns: {', '.join(missing)}")
+        raise SchemaDriftError(f"DQ006 missing required columns: {', '.join(missing)}")
     for field in expected:
         if field.name not in available:
             continue
         actual = table.schema.field(field.name).type
         text_input = allow_text and (pa.types.is_string(actual) or pa.types.is_null(actual))
         if actual != field.type and not text_input:
-            raise ValueError(f"DQ006 {field.name}: expected {field.type}, got {actual}")
+            raise SchemaDriftError(f"DQ006 {field.name}: expected {field.type}, got {actual}")
     return tuple(sorted(available - set(expected.names)))
 
 
@@ -124,7 +131,9 @@ def validate_rows(
     if "__source_row" in table.column_names:
         raise ValueError("Reserved source column: __source_row")
     indexed = table.append_column("__source_row", pa.array(range(len(table)), type=pa.int64()))
-    con = duckdb.connect(":memory:")
+    # The warehouse helper pins the session to UTC: naive 'Teradata' text timestamps are UTC
+    # (PLAN.md §6.2), and a local session zone would shift them by the machine's offset.
+    con = connect(":memory:")
     try:
         con.register("incoming", indexed)
         con.execute(
@@ -169,15 +178,27 @@ def validate_rows(
     if warehouse is not None:
         meta.write_rejected_rows(warehouse, rejected)
         if warnings:
-            meta.write_check_result(
-                warehouse,
-                CheckResult(
-                    run_id=run_id,
-                    check_id="DQ006",
-                    severity=CheckSeverity.WARN,
-                    status=CheckStatus.WARN,
-                    observed=float(len(added)),
-                    message=f"{source_file}: {warnings[0]}",
-                ),
-            )
+            _record_drift_warning(warehouse, run_id, f"{source_file}: {warnings[0]}", len(added))
     return ValidationResult(valid_rows=valid, rejected_rows=rejected, warnings=warnings)
+
+
+def _record_drift_warning(
+    warehouse: duckdb.DuckDBPyConnection, run_id: str, message: str, extra_columns: int
+) -> None:
+    """One DQ006 row per run (its key is run_id + check_id), so later files add to it."""
+    prior = next(
+        (c for c in meta.get_check_results(warehouse, run_id) if c.check_id == "DQ006"), None
+    )
+    if prior is not None and prior.message and message in prior.message.split("; "):
+        return
+    meta.write_check_result(
+        warehouse,
+        CheckResult(
+            run_id=run_id,
+            check_id="DQ006",
+            severity=CheckSeverity.WARN,
+            status=CheckStatus.WARN,
+            observed=float(extra_columns + (prior.observed or 0 if prior else 0)),
+            message=message if prior is None else f"{prior.message}; {message}",
+        ),
+    )
