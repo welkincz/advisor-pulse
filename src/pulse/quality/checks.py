@@ -58,25 +58,30 @@ def run_checks(
     rows_in = sum(entry.row_count for entry in batches)
     quarantined = sum(entry.rows_quarantined for entry in batches)
     relevant_rules = {f"DQ00{i}" for i in range(1, 6)}
+    expected_files = {
+        defect.file
+        for defect in defect_manifest.defects
+        if defect.iso_week_id == iso_week_id and defect.rule_id in relevant_rules
+    }
+    scope_files = {entry.file_path for entry in batches} | expected_files
     expected: set[tuple[str, int | None, str | None]] = {
         (d.file, d.row, d.rule_id)
         for d in defect_manifest.defects
-        if d.iso_week_id == iso_week_id and d.rule_id in relevant_rules
+        if d.file in scope_files and d.rule_id in relevant_rules
     }
-    expected_files = {file for file, _, _ in expected}
     latest_by_file = {
         file: max(
             (entry for entry in loaded if entry.file_path == file),
             key=lambda entry: (entry.loaded_at, entry.run_id == run_id),
             default=None,
         )
-        for file in expected_files
+        for file in scope_files
     }
     active_batches = {entry.batch_id for entry in latest_by_file.values() if entry is not None}
     actual: set[tuple[str, int | None, str | None]] = {
         (r.source_file, r.source_row, r.rule_id)
         for r in meta.get_rejected_rows(warehouse)
-        if (r.run_id == run_id or r.batch_id in active_batches) and r.rule_id in relevant_rules
+        if r.batch_id in active_batches and r.rule_id in relevant_rules
     }
     checks = [
         freshness(run_id, iso_week_id, latest, policy),

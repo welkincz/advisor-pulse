@@ -12,6 +12,8 @@ from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import CheckStatus, LoadStatus, RunType, StageStatus
 from pulse.contracts.meta import LoadManifest, RejectedRow
 from pulse.ingest import meta
+from pulse.ingest.snowflake import load_snowflake_activity
+from pulse.ingest.teradata_client import load_teradata_client
 from pulse.quality.checks import run_checks
 from pulse.runner.run import Runner
 from pulse.runner.stage import Stage, StageContext, StageResult
@@ -112,6 +114,30 @@ def test_defect_reconciliation_uses_prior_loaded_batch_on_rerun(
     )
     run_checks(warehouse, run_id="rerun", iso_week_id="2026-W40", defect_manifest=defects)
     assert meta.get_check_results(warehouse, "rerun")[3].status is CheckStatus.PASS
+
+
+def test_defect_reconciliation_covers_all_files_loaded_in_run(
+    warehouse: duckdb.DuckDBPyConnection,
+) -> None:
+    run_id = "fixture-backfill"
+    loaded_at = datetime(2026, 10, 5, tzinfo=UTC)
+    sources = FIXTURES / "sources"
+    assert (
+        load_snowflake_activity(warehouse, sources, run_id=run_id, loaded_at=loaded_at).status
+        is StageStatus.SUCCESS
+    )
+    assert (
+        load_teradata_client(warehouse, sources, run_id=run_id, loaded_at=loaded_at).status
+        is StageStatus.SUCCESS
+    )
+    defects = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
+    assert len(meta.get_manifest(warehouse)) == 11
+
+    run_checks(warehouse, run_id=run_id, iso_week_id="2026-W40", defect_manifest=defects, ci=True)
+
+    reconciliation = meta.get_check_results(warehouse, run_id)[3]
+    assert reconciliation.status is CheckStatus.PASS
+    assert reconciliation.observed == 10
 
 
 def test_failed_check_persists_results_and_blocks_export(
