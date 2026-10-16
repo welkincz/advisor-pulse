@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import random
-import sqlite3
 from collections import defaultdict
 from collections.abc import Sequence
-from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -15,7 +13,7 @@ from faker import Faker
 
 from pulse.contracts.enums import AssignmentReason, Role
 from pulse.contracts.sources import TeradataAdvisor, TeradataAssignment, TeradataBranch
-from pulse.generate.teradata import replace_table
+from pulse.generate.teradata import replace_table, write_transaction
 from pulse.reference import BranchPlacement, OrgReference
 
 DEFAULT_START = date(2024, 10, 7)
@@ -254,8 +252,7 @@ def assignments_as_of(roster: AdvisorRoster, as_of: date) -> tuple[AssignmentRow
 
 def write_advisors(roster: AdvisorRoster, db_path: Path) -> None:
     """Replace only ADVSR, ADVSR_ASGN and BRNCH; preserve CLNT in the same file."""
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(db_path)) as conn, conn:
+    with write_transaction(db_path) as conn:
         replace_table(conn, "ADVSR", TeradataAdvisor, roster.advisors, "ADVSR_ID")
         replace_table(conn, "ADVSR_ASGN", TeradataAssignment, roster.assignments, "ASGN_ID")
         replace_table(conn, "BRNCH", TeradataBranch, roster.branches, "BRNCH_ID")
