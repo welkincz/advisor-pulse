@@ -52,9 +52,12 @@ def publish_directory(
     content = hashlib.sha256()
     for path in sorted(staging.rglob("*")):
         if path.is_file():
-            content.update(path.relative_to(staging).as_posix().encode())
-            content.update(b"\0")
-            content.update(path.read_bytes())
+            name = path.relative_to(staging).as_posix().encode()
+            data = path.read_bytes()
+            content.update(len(name).to_bytes(8, "big"))
+            content.update(name)
+            content.update(len(data).to_bytes(8, "big"))
+            content.update(data)
     version = versions / content.hexdigest()
     if not version.exists():
         staging.rename(version)

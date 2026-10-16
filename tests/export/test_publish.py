@@ -75,3 +75,23 @@ def test_rejected_version_preserves_pointer(tmp_path: Path) -> None:
         publish_directory(large, output, temporary, max_file_bytes=1, max_total_bytes=1)
     assert output.resolve() == previous
     assert (output / "report.txt").read_text() == "old"
+
+
+def test_distinct_file_sets_have_distinct_versions(tmp_path: Path) -> None:
+    public = tmp_path / "public"
+    public.mkdir()
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    one = temporary / "one"
+    one.mkdir()
+    (one / "a").write_bytes(b"b\0")
+    output = public / "data"
+    publish_directory(one, output, temporary, max_file_bytes=10, max_total_bytes=10)
+    previous = output.resolve()
+    two = temporary / "two"
+    two.mkdir()
+    (two / "a").write_bytes(b"")
+    (two / "b").write_bytes(b"")
+    publish_directory(two, output, temporary, max_file_bytes=10, max_total_bytes=10)
+    assert output.resolve() != previous
+    assert sorted(p.name for p in output.iterdir()) == ["a", "b"]
