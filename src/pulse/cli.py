@@ -10,6 +10,8 @@ from typing import Annotated
 import typer
 
 from pulse import __version__
+from pulse.contracts.enums import RunType
+from pulse.warehouse import data_dir
 
 app = typer.Typer(
     name="pulse",
@@ -61,9 +63,20 @@ def ingest(week: WeekOption = None) -> None:
 def run(
     week: WeekOption = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the plan only.")] = False,
+    run_type: Annotated[
+        RunType, typer.Option("--run-type", help="Recorded in run_log.", case_sensitive=False)
+    ] = RunType.MANUAL,
 ) -> None:
-    """Run the full weekly pipeline for one week."""
-    _not_implemented("run", 10)
+    """Run the full weekly pipeline for one week (default: the last complete week)."""
+    from pulse.runner.command import run_week
+
+    try:
+        code = run_week(
+            week, data_dir=data_dir(), run_type=run_type, dry_run=dry_run, echo=typer.echo
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--week") from exc
+    raise typer.Exit(code)
 
 
 @app.command()

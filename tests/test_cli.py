@@ -22,9 +22,9 @@ def test_version() -> None:
 
 
 def test_stub_names_its_issue_and_exits_zero() -> None:
-    result = runner.invoke(app, ["run", "--week", "2026-W40"])
+    result = runner.invoke(app, ["export"])
     assert result.exit_code == 0
-    assert "issue #10" in result.output
+    assert "issue #46" in result.output
 
 
 def test_backfill_requires_range() -> None:
