@@ -7,9 +7,11 @@ types match ``fixtures/sources/teradata/edw.sqlite``.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import closing, contextmanager
 from datetime import UTC, date, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from pulse.contracts import columns
@@ -29,6 +31,24 @@ def sql_value(value: Any) -> Any:
     if isinstance(value, StrEnum):
         return value.value
     return value
+
+
+@contextmanager
+def write_transaction(db_path: Path) -> Iterator[sqlite3.Connection]:
+    """One explicit transaction, closed afterwards.
+
+    sqlite3's default mode only opens a transaction before DML, so a DROP TABLE would commit
+    on its own and a failed insert would leave the table empty.
+    """
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(db_path, isolation_level=None)) as con:
+        con.execute("BEGIN")
+        try:
+            yield con
+        except BaseException:
+            con.execute("ROLLBACK")
+            raise
+        con.execute("COMMIT")
 
 
 def replace_table(

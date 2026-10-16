@@ -1,0 +1,272 @@
+"""Deterministic clean client source rows: a CLNT snapshot plus daily Teradata-style deltas.
+
+Follows PLAN.md §6.2: CLNT is the state the day before ``start_date`` and is never rewritten.
+Every later change is a row in ``client_YYYYMMDD.csv`` whose LAST_UPD_TS is strictly after
+every snapshot timestamp, so an incremental load on LAST_UPD_TS sees each delta exactly once.
+"""
+
+from __future__ import annotations
+
+import csv
+import random
+from collections import defaultdict
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
+from typing import Literal
+
+from pulse.contracts import column_names
+from pulse.contracts.enums import ClientStatus, Role, Segment
+from pulse.contracts.sources import TeradataClient
+from pulse.generate.teradata import replace_table, sql_value, write_transaction
+from pulse.reference import OrgReference, fsa_province
+
+DEFAULT_START = date(2024, 10, 7)
+QUARTER_DAYS = 91
+REASSIGN_RATE = 0.02
+NEW_DAILY_RATE = 0.00002
+CLOSE_DAILY_RATE = 0.00001
+POSTAL_LETTERS = "ABCEGHJKLMNPRSTVWXYZ"
+
+# (advisor_id, branch_id, role, valid_from, valid_to exclusive), as from
+# pulse.generate.advisors.assignment_ranges.
+AdvisorAssignment = tuple[str, str, Role, date, date | None]
+# REASSIGNED is the ~2%/quarter business churn. ADVISOR_LEFT moves a leaver's book on their
+# TERM date and is not counted against that rate.
+ChangeKind = Literal["NEW", "CLOSED", "REASSIGNED", "ADVISOR_LEFT"]
+
+
+@dataclass(frozen=True)
+class ClientChange:
+    day: date
+    kind: ChangeKind
+    before: TeradataClient | None
+    after: TeradataClient
+
+
+@dataclass(frozen=True)
+class ClientBatch:
+    snapshot: tuple[TeradataClient, ...]
+    changes: tuple[ClientChange, ...]
+
+    def final(self) -> tuple[TeradataClient, ...]:
+        """Snapshot with every change applied, in CLNT_ID order."""
+        state = {c.client_id: c for c in self.snapshot}
+        for change in self.changes:
+            state[change.after.client_id] = change.after
+        return tuple(state[k] for k in sorted(state))
+
+
+def _ts(day: date) -> datetime:
+    return datetime.combine(day, time(12), tzinfo=UTC)
+
+
+def _count_at_rate(population: int, rate: float, rng: random.Random) -> int:
+    expected = population * rate
+    whole = int(expected)
+    return whole + (rng.random() < expected - whole)
+
+
+def _book_owners(roster: Sequence[AdvisorAssignment], day: date) -> list[AdvisorAssignment]:
+    """Advisors who can own a book on ``day``. Branch managers do not."""
+    return [
+        a
+        for a in roster
+        if a[2] != Role.BRANCH_MANAGER and a[3] <= day and (a[4] is None or day < a[4])
+    ]
+
+
+def _leavers(roster: Sequence[AdvisorAssignment]) -> dict[date, list[tuple[str, str]]]:
+    """(advisor, last branch) by TERM date: a range ends and no range starts that day."""
+    starts = {(a[0], a[3]) for a in roster}
+    out: dict[date, list[tuple[str, str]]] = defaultdict(list)
+    for advisor_id, branch_id, _, _, valid_to in roster:
+        if valid_to is not None and (advisor_id, valid_to) not in starts:
+            out[valid_to].append((advisor_id, branch_id))
+    return {d: sorted(ids) for d, ids in out.items()}
+
+
+def generate_clients(
+    org: OrgReference,
+    advisors: Sequence[AdvisorAssignment],
+    *,
+    seed: int,
+    client_count: int = 150_000,
+    start_date: date = DEFAULT_START,
+    weeks: int = 104,
+) -> ClientBatch:
+    """Return the CLNT snapshot (as of the day before ``start_date``) and every daily change."""
+    if not 1 <= client_count < 100_000_000:
+        raise ValueError("client_count must be between 1 and 99999999")
+    if weeks < 1:
+        raise ValueError("weeks must be positive")
+    snapshot_day = start_date - timedelta(days=1)
+    initial_owners = _book_owners(advisors, snapshot_day)
+    if not initial_owners:
+        raise ValueError("at least one active advisor (not a branch manager) is required")
+
+    rng = random.Random(seed)
+    placements = {p.branch.branch_id: p for p in org.placements()}
+    for advisor_id, branch_id, _, valid_from, valid_to in advisors:
+        if branch_id not in placements or (valid_to is not None and valid_to <= valid_from):
+            raise ValueError(f"invalid advisor assignment for {advisor_id}")
+    pools = {
+        p.branch.branch_id: tuple(b.fsa_code for b in p.district.branches)
+        for p in placements.values()
+    }
+
+    def make_client(
+        client_id: str, owner: AdvisorAssignment, since: date, updated: date
+    ) -> TeradataClient:
+        branch_id = owner[1]
+        branch_fsa = placements[branch_id].branch.fsa_code
+        fsa = branch_fsa if rng.random() < 0.8 else rng.choice(pools[branch_id])
+        postal = f"{fsa} {rng.randrange(10)}{rng.choice(POSTAL_LETTERS)}{rng.randrange(10)}"
+        return TeradataClient(
+            CLNT_ID=client_id,
+            CLNT_SINCE_DT=since,
+            BRTH_YR=rng.randint(1940, 1995),
+            SEG_CD=rng.choices(list(Segment), weights=[60, 25, 10, 5])[0],
+            PSTL_CD=postal,
+            PROV_CD=fsa_province(fsa),
+            PRIM_ADVSR_ID=owner[0],
+            PRIM_BRNCH_ID=branch_id,
+            STAT_CD=ClientStatus.ACTIVE,
+            LAST_UPD_TS=_ts(updated),
+        )
+
+    current: dict[str, TeradataClient] = {}
+    book: dict[str, set[str]] = defaultdict(set)  # advisor_id -> active client ids
+    active_ids: list[str] = []
+    active_position: dict[str, int] = {}
+
+    def activate(client: TeradataClient) -> None:
+        current[client.client_id] = client
+        book[client.primary_advisor_id].add(client.client_id)
+        active_position[client.client_id] = len(active_ids)
+        active_ids.append(client.client_id)
+
+    for number in range(1, client_count + 1):
+        since = snapshot_day - timedelta(days=rng.randrange(3653))
+        updated = since + timedelta(days=rng.randrange((snapshot_day - since).days + 1))
+        activate(make_client(f"CLI-{number:08d}", rng.choice(initial_owners), since, updated))
+    snapshot = tuple(current.values())
+
+    changes: list[ClientChange] = []
+
+    def move(client_id: str, owner: AdvisorAssignment, day: date, kind: ChangeKind) -> None:
+        before = current[client_id]
+        after = before.model_copy(
+            update={
+                "primary_advisor_id": owner[0],
+                "primary_branch_id": owner[1],
+                "last_updated_ts": _ts(day),
+            }
+        )
+        book[before.primary_advisor_id].discard(client_id)
+        book[owner[0]].add(client_id)
+        current[client_id] = after
+        changes.append(ClientChange(day, kind, before, after))
+
+    def district(branch_id: str) -> str:
+        return placements[branch_id].district.district_code
+
+    leavers = _leavers(advisors)
+    scheduled: dict[date, list[str]] = defaultdict(list)
+    protected: set[str] = set()
+    next_number = client_count + 1
+    total_days = weeks * 7
+    for offset in range(total_days):
+        day = start_date + timedelta(days=offset)
+        owners = _book_owners(advisors, day)
+        if not owners:
+            raise ValueError(f"no active advisor on {day.isoformat()}")
+
+        # A leaver's book moves on the TERM date: same branch first, then district, then any.
+        for leaver, branch in leavers.get(day, []):
+            clients = sorted(book.pop(leaver, set()))
+            same_branch = [o for o in owners if o[1] == branch]
+            same_district = [o for o in owners if district(o[1]) == district(branch)]
+            heirs = same_branch or same_district or owners
+            for client_id in clients:
+                move(client_id, rng.choice(heirs), day, "ADVISOR_LEFT")
+
+        if offset % QUARTER_DAYS == 0:
+            count = _count_at_rate(len(active_ids), REASSIGN_RATE, rng)
+            chosen = rng.sample(active_ids, min(len(active_ids), count))
+            protected = set(chosen)
+            days_left = min(QUARTER_DAYS, total_days - offset)
+            for client_id in chosen:
+                scheduled[day + timedelta(days=rng.randrange(days_left))].append(client_id)
+
+        new_today: set[str] = set()
+        for _ in range(_count_at_rate(len(active_ids), NEW_DAILY_RATE, rng)):
+            if next_number >= 100_000_000:
+                raise ValueError("client ID space exhausted")
+            client = make_client(f"CLI-{next_number:08d}", rng.choice(owners), day, day)
+            next_number += 1
+            activate(client)
+            new_today.add(client.client_id)
+            changes.append(ClientChange(day, "NEW", None, client))
+
+        for client_id in scheduled.pop(day, []):
+            before = current[client_id]
+            alternatives = [
+                o
+                for o in owners
+                if o[0] != before.primary_advisor_id
+                and district(o[1]) == district(before.primary_branch_id)
+            ]
+            if alternatives:
+                move(client_id, rng.choice(alternatives), day, "REASSIGNED")
+
+        for _ in range(_count_at_rate(len(active_ids), CLOSE_DAILY_RATE, rng)):
+            if len(protected | new_today) >= len(active_ids):
+                break
+            client_id = rng.choice(active_ids)
+            while client_id in protected or client_id in new_today:
+                client_id = rng.choice(active_ids)
+            before = current[client_id]
+            after = before.model_copy(
+                update={"status_code": ClientStatus.CLOSED, "last_updated_ts": _ts(day)}
+            )
+            current[client_id] = after
+            book[before.primary_advisor_id].discard(client_id)
+            changes.append(ClientChange(day, "CLOSED", before, after))
+            index = active_position.pop(client_id)
+            last = active_ids.pop()
+            if index < len(active_ids):
+                active_ids[index] = last
+                active_position[last] = index
+
+    return ClientBatch(snapshot=snapshot, changes=tuple(changes))
+
+
+def delta_rows(batch: ClientBatch) -> dict[date, list[TeradataClient]]:
+    """Rows per delta file: each changed client once per day, in its end-of-day state."""
+    by_day: dict[date, dict[str, TeradataClient]] = defaultdict(dict)
+    for change in batch.changes:
+        by_day[change.day][change.after.client_id] = change.after
+    return {day: list(rows.values()) for day, rows in sorted(by_day.items())}
+
+
+def write_clients(batch: ClientBatch, db_path: Path) -> None:
+    """Replace CLNT with the snapshot and rewrite the CSV deltas; other tables are kept."""
+    with write_transaction(db_path) as conn:
+        replace_table(conn, "CLNT", TeradataClient, batch.snapshot, "CLNT_ID")
+
+    names = column_names(TeradataClient)
+    written: set[Path] = set()
+    for day, rows in delta_rows(batch).items():
+        path = db_path.parent / f"client_{day:%Y%m%d}.csv"
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle, lineterminator="\n")
+            writer.writerow(names)
+            for row in rows:
+                values = row.model_dump(by_alias=True, mode="python").values()
+                writer.writerow("" if v is None else sql_value(v) for v in values)
+        written.add(path)
+    for stale in db_path.parent.glob("client_*.csv"):
+        if stale not in written:
+            stale.unlink()
