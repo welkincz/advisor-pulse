@@ -1,0 +1,36 @@
+name: advisor_pulse
+version: "0.1.0"
+config-version: 2
+profile: advisor_pulse
+require-dbt-version: [">=1.10.0", "<2.0.0"]
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+target-path: target
+clean-targets: [target, dbt_packages]
+
+# Layer conventions (README.md): each folder builds into the warehouse schema of the same
+# name (see macros/generate_schema_name.sql), so the export reads marts.mart_*.
+models:
+  advisor_pulse:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+      +contract:
+        enforced: true
+
+seeds:
+  advisor_pulse:
+    +schema: reference
+
+data_tests:
+  advisor_pulse:
+    +severity: error

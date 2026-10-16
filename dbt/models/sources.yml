@@ -1,0 +1,340 @@
+# Generated from src/pulse/contracts by `make contracts`. Do not edit by hand.
+version: 2
+sources:
+- name: meta
+  schema: meta
+  description: 'Pipeline state: watermarks, the file manifest, run log and check results.'
+  tables:
+  - name: watermark
+    description: 'High-water mark per (source, table_name). Primary key: both columns.'
+    columns:
+    - name: source
+      data_type: VARCHAR
+    - name: table_name
+      data_type: VARCHAR
+    - name: watermark_column
+      data_type: VARCHAR
+    - name: watermark_value
+      data_type: TIMESTAMP WITH TIME ZONE
+    - name: updated_at
+      data_type: TIMESTAMP WITH TIME ZONE
+    - name: run_id
+      data_type: VARCHAR
+  - name: load_manifest
+    description: 'One row per file seen. Primary key: (file_path, file_sha256); a changed file is a new
+      row.'
+    columns:
+    - name: file_path
+      data_type: VARCHAR
+    - name: file_sha256
+      data_type: VARCHAR
+    - name: source
+      data_type: VARCHAR
+    - name: table_name
+      data_type: VARCHAR
+    - name: batch_id
+      data_type: VARCHAR
+    - name: row_count
+      data_type: BIGINT
+    - name: rows_loaded
+      data_type: BIGINT
+    - name: rows_quarantined
+      data_type: BIGINT
+    - name: status
+      data_type: VARCHAR
+    - name: loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
+    - name: run_id
+      data_type: VARCHAR
+  - name: run_log
+    description: One row per stage attempt.
+    columns:
+    - name: run_id
+      data_type: VARCHAR
+    - name: run_type
+      data_type: VARCHAR
+    - name: iso_week_id
+      data_type: VARCHAR
+    - name: stage
+      data_type: VARCHAR
+    - name: attempt
+      data_type: BIGINT
+    - name: status
+      data_type: VARCHAR
+    - name: started_at
+      data_type: TIMESTAMP WITH TIME ZONE
+    - name: ended_at
+      data_type: TIMESTAMP WITH TIME ZONE
+    - name: duration_ms
+      data_type: BIGINT
+    - name: rows_in
+      data_type: BIGINT
+    - name: rows_out
+      data_type: BIGINT
+    - name: rows_quarantined
+      data_type: BIGINT
+    - name: message
+      data_type: VARCHAR
+    - name: git_sha
+      data_type: VARCHAR
+  - name: check_result
+    description: One row per run check (DQ030–DQ033).
+    columns:
+    - name: run_id
+      data_type: VARCHAR
+    - name: check_id
+      data_type: VARCHAR
+    - name: severity
+      data_type: VARCHAR
+    - name: status
+      data_type: VARCHAR
+    - name: observed
+      data_type: DOUBLE
+    - name: expected
+      data_type: VARCHAR
+      description: Threshold or range, as text.
+    - name: message
+      data_type: VARCHAR
+- name: quarantine
+  schema: quarantine
+  description: Rows rejected at ingest by rules DQ001–DQ005, with rule and payload.
+  tables:
+  - name: rejected_rows
+    description: Rows rejected at ingest, with the rule that rejected them.
+    columns:
+    - name: rejected_id
+      data_type: VARCHAR
+    - name: run_id
+      data_type: VARCHAR
+    - name: batch_id
+      data_type: VARCHAR
+    - name: source
+      data_type: VARCHAR
+    - name: table_name
+      data_type: VARCHAR
+    - name: source_file
+      data_type: VARCHAR
+    - name: source_row
+      data_type: BIGINT
+    - name: rule_id
+      data_type: VARCHAR
+    - name: reason
+      data_type: VARCHAR
+    - name: payload
+      data_type: VARCHAR
+      description: The rejected row as a JSON object string.
+    - name: detected_at
+      data_type: TIMESTAMP WITH TIME ZONE
+- name: raw
+  schema: raw
+  description: 'Source rows as loaded by ingestion: one row per loaded source row, duplicates kept, plus
+    _batch_id/_source_file/_source_row/_row_hash/_loaded_at.'
+  tables:
+  - name: snowflake__activity
+    description: Raw activity, one row per loaded source row.
+    loaded_at_field: _loaded_at
+    freshness: &id001
+      warn_after:
+        count: 8
+        period: day
+      error_after:
+        count: 15
+        period: day
+    columns:
+    - name: ACTIVITY_ID
+      data_type: VARCHAR
+      description: Natural key.
+    - name: ADVISOR_ID
+      data_type: VARCHAR
+    - name: CLIENT_ID
+      data_type: VARCHAR
+      description: Null for prospecting calls.
+    - name: BRANCH_ID
+      data_type: VARCHAR
+      description: Branch where the activity was logged.
+    - name: ACTIVITY_TYPE
+      data_type: VARCHAR
+    - name: CHANNEL
+      data_type: VARCHAR
+    - name: STATUS
+      data_type: VARCHAR
+    - name: OUTCOME
+      data_type: VARCHAR
+    - name: PRODUCT_LINE
+      data_type: VARCHAR
+    - name: SCHEDULED_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Scheduled time for appointments and reviews (UTC).
+    - name: ACTIVITY_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: When it happened, or was due (UTC).
+    - name: DURATION_MIN
+      data_type: BIGINT
+    - name: BOOKED_FROM_ACTIVITY_ID
+      data_type: VARCHAR
+      description: 'For appointments booked on a call: the call''s ACTIVITY_ID.'
+    - name: CREATED_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+    - name: UPDATED_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+    - name: _EXTRACTED_AT
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Extract time; the watermark column.
+    - name: _batch_id
+      data_type: VARCHAR
+      description: run_id + source + file hash prefix.
+    - name: _source_file
+      data_type: VARCHAR
+      description: Relative path.
+    - name: _source_row
+      data_type: BIGINT
+      description: Row number in the file.
+    - name: _row_hash
+      data_type: VARCHAR
+      description: xxhash of business columns.
+    - name: _loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
+  - name: teradata__clnt
+    description: Raw client master and deltas.
+    loaded_at_field: _loaded_at
+    freshness: *id001
+    columns:
+    - name: CLNT_ID
+      data_type: VARCHAR
+    - name: CLNT_SINCE_DT
+      data_type: DATE
+      description: Relationship start.
+    - name: BRTH_YR
+      data_type: BIGINT
+    - name: SEG_CD
+      data_type: VARCHAR
+    - name: PSTL_CD
+      data_type: VARCHAR
+      description: Raw postal code; normalized in staging.
+    - name: PROV_CD
+      data_type: VARCHAR
+    - name: PRIM_ADVSR_ID
+      data_type: VARCHAR
+      description: Book owner.
+    - name: PRIM_BRNCH_ID
+      data_type: VARCHAR
+    - name: STAT_CD
+      data_type: VARCHAR
+    - name: LAST_UPD_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Watermark column.
+    - name: _batch_id
+      data_type: VARCHAR
+      description: run_id + source + file hash prefix.
+    - name: _source_file
+      data_type: VARCHAR
+      description: Relative path.
+    - name: _source_row
+      data_type: BIGINT
+      description: Row number in the file.
+    - name: _row_hash
+      data_type: VARCHAR
+      description: xxhash of business columns.
+    - name: _loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
+  - name: teradata__advsr
+    description: Raw advisor master.
+    loaded_at_field: _loaded_at
+    freshness: *id001
+    columns:
+    - name: ADVSR_ID
+      data_type: VARCHAR
+    - name: ADVSR_NM
+      data_type: VARCHAR
+      description: Synthetic name.
+    - name: ROLE_CD
+      data_type: VARCHAR
+    - name: HIRE_DT
+      data_type: DATE
+    - name: TERM_DT
+      data_type: DATE
+    - name: LAST_UPD_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Watermark column.
+    - name: _batch_id
+      data_type: VARCHAR
+      description: run_id + source + file hash prefix.
+    - name: _source_file
+      data_type: VARCHAR
+      description: Relative path.
+    - name: _source_row
+      data_type: BIGINT
+      description: Row number in the file.
+    - name: _row_hash
+      data_type: VARCHAR
+      description: xxhash of business columns.
+    - name: _loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
+  - name: teradata__advsr_asgn
+    description: Raw advisor assignment events.
+    loaded_at_field: _loaded_at
+    freshness: *id001
+    columns:
+    - name: ASGN_ID
+      data_type: VARCHAR
+    - name: ADVSR_ID
+      data_type: VARCHAR
+    - name: BRNCH_ID
+      data_type: VARCHAR
+    - name: ROLE_CD
+      data_type: VARCHAR
+    - name: EFF_DT
+      data_type: DATE
+    - name: RSN_CD
+      data_type: VARCHAR
+    - name: LAST_UPD_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Watermark column.
+    - name: _batch_id
+      data_type: VARCHAR
+      description: run_id + source + file hash prefix.
+    - name: _source_file
+      data_type: VARCHAR
+      description: Relative path.
+    - name: _source_row
+      data_type: BIGINT
+      description: Row number in the file.
+    - name: _row_hash
+      data_type: VARCHAR
+      description: xxhash of business columns.
+    - name: _loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
+  - name: teradata__brnch
+    description: Raw branch master.
+    loaded_at_field: _loaded_at
+    freshness: *id001
+    columns:
+    - name: BRNCH_ID
+      data_type: VARCHAR
+    - name: BRNCH_NM
+      data_type: VARCHAR
+    - name: DIST_CD
+      data_type: VARCHAR
+    - name: FSA_CD
+      data_type: VARCHAR
+    - name: OPEN_DT
+      data_type: DATE
+    - name: CLOSE_DT
+      data_type: DATE
+    - name: LAST_UPD_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Watermark column.
+    - name: _batch_id
+      data_type: VARCHAR
+      description: run_id + source + file hash prefix.
+    - name: _source_file
+      data_type: VARCHAR
+      description: Relative path.
+    - name: _source_row
+      data_type: BIGINT
+      description: Row number in the file.
+    - name: _row_hash
+      data_type: VARCHAR
+      description: xxhash of business columns.
+    - name: _loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
