@@ -1,3 +1,5 @@
+-- Checks fixture ground truth, so it runs only on the ci target (make dbt-build-ci).
+{{ config(enabled=target.name == 'ci') }}
 -- DQ011 on fixtures: every dirty postal code in fixtures/defects.json normalizes on
 -- stg_client. expected_value is the `A1A 1A1` code, or `UNK` when the raw value is invalid.
 -- Returns one row per failure. Runs from the repo root (`make dbt-build-ci`).

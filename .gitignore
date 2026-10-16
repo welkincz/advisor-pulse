@@ -22,7 +22,7 @@ dbt/logs/
 # Web
 node_modules/
 web/dist/
-web/public/data/
+web/public/data
 web/.public-data-versions/
 web/public/lineage/
 

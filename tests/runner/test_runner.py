@@ -27,6 +27,7 @@ from pulse.runner import (
     WarehouseSink,
     execution_order,
     new_run_id,
+    not_implemented,
     plan,
 )
 from pulse.runner.command import RUN_LOG_JSON, run_week
@@ -81,6 +82,14 @@ def flaky(
     return fn
 
 
+# The weekly DAG with the stages that shell out to dbt or read marts swapped for
+# placeholders, so runner tests stay fast. tests/runner/test_stages.py covers those.
+PLACEHOLDERS = [
+    replace(s, fn=not_implemented(103)) if s.name in {"dbt_build", "checks", "export"} else s
+    for s in WEEKLY_STAGES
+]
+
+
 def weekly(clock: FakeClock, **overrides: Callable[[StageContext], StageResult]) -> list[Stage]:
     """The real weekly DAG with every stage succeeding unless overridden."""
     return [replace(s, fn=overrides.get(s.name, ok(clock))) for s in WEEKLY_STAGES]
@@ -109,7 +118,7 @@ def final(rows: list[RunLogRow]) -> dict[str, StageStatus]:
 
 
 def test_placeholder_stages_log_one_skipped_row_each() -> None:
-    rows, status = run(list(WEEKLY_STAGES), FakeClock())
+    rows, status = run(PLACEHOLDERS, FakeClock())
     assert [r.stage for r in rows] == [s.name for s in WEEKLY_STAGES]
     assert {r.status for r in rows} == {StageStatus.SKIPPED}
     assert all(r.attempt == 1 and r.ended_at is not None for r in rows)
@@ -122,7 +131,7 @@ def test_mixed_success_and_placeholder_run_is_success() -> None:
     clock = FakeClock()
     stages = [
         replace(s, fn=ok(clock)) if s.name in {"restore_state", "generate"} else s
-        for s in WEEKLY_STAGES
+        for s in PLACEHOLDERS
     ]
     rows, status = run(stages, clock)
     assert final(rows)["restore_state"] is StageStatus.SUCCESS
@@ -177,10 +186,11 @@ def test_retries_exhausted_fails_and_skips_downstream() -> None:
     assert dbt[-1].status is StageStatus.FAILED
     assert "retrying" not in (dbt[-1].message or "")
     statuses = final(rows)
-    for name in ("checks", "narrate", "export", "publish_sheets", "persist_state"):
+    for name in ("checks", "narrate", "publish_sheets", "persist_state"):
         assert statuses[name] is StageStatus.SKIPPED
     assert "Upstream stage dbt_build failed." in {r.message for r in rows}
-    # release_lock is an ``always`` stage: it runs even though its upstream failed.
+    # export and release_lock are ``always`` stages: they run even though upstream failed.
+    assert statuses["export"] is StageStatus.SUCCESS
     assert statuses["release_lock"] is StageStatus.SUCCESS
     assert status is StageStatus.FAILED
 
@@ -268,7 +278,8 @@ def test_cli_exit_code_follows_the_run(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setenv("PULSE_DATA_DIR", str(tmp_path))
     result = CliRunner().invoke(app, ["run", "--week", WEEK, "--run-type", "weekly"])
     assert result.exit_code == 0, result.output
-    assert f"weekly-{WEEK}-1: SKIPPED" in result.output
+    # Real stages on an empty data dir: dbt builds the (empty) staging views and passes.
+    assert f"weekly-{WEEK}-1: SUCCESS" in result.output
     assert (tmp_path / RUN_LOG_JSON).exists()
 
 
@@ -296,7 +307,14 @@ def test_dry_run_prints_the_plan_and_touches_nothing(
 def test_run_log_json_validates_and_accumulates_runs(tmp_path: Path) -> None:
     clock = FakeClock()
     for _ in range(2):
-        run_week(WEEK, data_dir=tmp_path, run_type=RunType.WEEKLY, clock=clock, echo=lambda _: None)
+        run_week(
+            WEEK,
+            data_dir=tmp_path,
+            run_type=RunType.WEEKLY,
+            stages=PLACEHOLDERS,
+            clock=clock,
+            echo=lambda _: None,
+        )
         clock.work(60_000)
     raw = json.loads((tmp_path / RUN_LOG_JSON).read_text())
     doc = RunLogExport.model_validate(raw)
