@@ -1,0 +1,49 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Outbound calls 59, from 61 the week before."
+   },
+   {
+    "fact_ids": [
+     "F5"
+    ],
+    "text": "Show rate 83.3%, from 90.0% the week before."
+   },
+   {
+    "fact_ids": [
+     "F8"
+    ],
+    "text": "13-week coverage 88.6%, from 81.6% the week before."
+   },
+   {
+    "fact_ids": [
+     "F6"
+    ],
+    "text": "Appointment conversion 53.3%, from 44.4% the week before."
+   },
+   {
+    "fact_ids": [
+     "F18"
+    ],
+    "text": "GTA trails its peers on 13-week coverage at 85.9%."
+   }
+  ],
+  "headline": "Ontario: activities per advisor fell 3.4% week over week to 10.4.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F18"
+    ],
+    "node_id": "GTA",
+    "reason": "Lowest 13-week coverage under Ontario (85.9%)."
+   }
+  ]
+ },
+ "expected_pass": false,
+ "note": "Wrong direction in the headline: the validator must reject it.",
+ "source": "handwritten-bad"
+}

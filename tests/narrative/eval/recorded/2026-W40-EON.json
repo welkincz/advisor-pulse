@@ -1,0 +1,49 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Outbound calls 28, from 32 the week before."
+   },
+   {
+    "fact_ids": [
+     "F5"
+    ],
+    "text": "Show rate 100.0%, from 91.7% the week before."
+   },
+   {
+    "fact_ids": [
+     "F8"
+    ],
+    "text": "13-week coverage 91.4%, from 85.7% the week before."
+   },
+   {
+    "fact_ids": [
+     "F6"
+    ],
+    "text": "Appointment conversion 50.0%, from 36.4% the week before."
+   },
+   {
+    "fact_ids": [
+     "F14"
+    ],
+    "text": "ByWard Market Branch trails its peers on 13-week coverage at 88.4%."
+   }
+  ],
+  "headline": "Eastern Ontario: activities per advisor fell 8.5% week over week to 10.2.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F14"
+    ],
+    "node_id": "BR-0201",
+    "reason": "Lowest 13-week coverage under Eastern Ontario (88.4%)."
+   }
+  ]
+ },
+ "expected_pass": true,
+ "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
+ "source": "template-seed"
+}

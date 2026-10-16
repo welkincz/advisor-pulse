@@ -1,0 +1,49 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Outbound calls 61, from 68 the week before."
+   },
+   {
+    "fact_ids": [
+     "F5"
+    ],
+    "text": "Show rate 90.0%, from 76.2% the week before."
+   },
+   {
+    "fact_ids": [
+     "F8"
+    ],
+    "text": "13-week coverage 81.6%, from 67.4% the week before."
+   },
+   {
+    "fact_ids": [
+     "F6"
+    ],
+    "text": "Appointment conversion 44.4%, from 62.5% the week before."
+   },
+   {
+    "fact_ids": [
+     "F18"
+    ],
+    "text": "GTA trails its peers on 13-week coverage at 77.5%."
+   }
+  ],
+  "headline": "Ontario: activities per advisor fell 5.6% week over week to 10.1.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F18"
+    ],
+    "node_id": "GTA",
+    "reason": "Lowest 13-week coverage under Ontario (77.5%)."
+   }
+  ]
+ },
+ "expected_pass": true,
+ "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
+ "source": "template-seed"
+}
