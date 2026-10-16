@@ -31,6 +31,6 @@ Sources are the warehouse tables in `raw`, `meta`, and `quarantine`.
 
 ## Lineage
 
-The lineage graph is this project's DAG. Open it from the header, or from a model page, to see parents and children: sources feed staging, staging feeds intermediate, and intermediate feeds marts.
+The lineage graph is this project's DAG. Use the **View Lineage Graph** button to see parents and children: sources feed staging, staging feeds intermediate, and intermediate feeds marts.
 
 {% enddocs %}
