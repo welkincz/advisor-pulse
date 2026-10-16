@@ -53,19 +53,6 @@ def _insert_rows(
     warehouse.executemany(sql, values)
 
 
-def _boundary_rows(
-    warehouse: duckdb.DuckDBPyConnection, watermark: datetime | None
-) -> set[tuple[str, str]]:
-    if watermark is None:
-        return set()
-    return set(
-        warehouse.execute(
-            "SELECT ACTIVITY_ID, _row_hash FROM raw.snowflake__activity WHERE _EXTRACTED_AT = ?",
-            [watermark],
-        ).fetchall()
-    )
-
-
 def _load_file(
     warehouse: duckdb.DuckDBPyConnection,
     path: Path,
@@ -82,7 +69,6 @@ def _load_file(
     watermark = meta.get_watermark_value(warehouse, "snowflake", "activity")
     if watermark is not None:
         watermark = _utc(watermark)
-    boundary = _boundary_rows(warehouse, watermark)
     replay = bool(meta.get_manifest(warehouse, source_file))
 
     with transaction(warehouse):
@@ -111,13 +97,6 @@ def _load_file(
                 business, sort_keys=True, separators=(",", ":"), ensure_ascii=False
             )
             row_hash = xxhash.xxh64_hexdigest(canonical.encode("utf-8"))
-            if (
-                not replay
-                and watermark is not None
-                and extracted == watermark
-                and (source.activity_id, row_hash) in boundary
-            ):
-                continue
             loaded.append(
                 RawSnowflakeActivity.model_validate(
                     {

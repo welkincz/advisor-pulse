@@ -89,6 +89,33 @@ def test_identical_rerun_reports_duplicate_and_does_not_write(
     assert len(meta.get_rejected_rows(warehouse)) == 8
 
 
+def test_new_part_at_watermark_preserves_cross_file_duplicate(
+    warehouse: duckdb.DuckDBPyConnection, sources: Path
+) -> None:
+    _load(warehouse, sources)
+    existing = sources / "snowflake/activity/extract_date=2026-10-04/part-000.parquet"
+    table = pq.read_table(existing)
+    row = next(
+        row
+        for row in table.to_pylist()
+        if row["_EXTRACTED_AT"] == datetime(2026, 10, 5, 3, tzinfo=UTC)
+    )
+    new_part = existing.with_name("part-999.parquet")
+    pq.write_table(pa.Table.from_pylist([row], schema=table.schema), new_part)
+
+    result = _load(warehouse, sources, run_id="run-2")
+
+    assert (result.rows_in, result.rows_out) == (1, 1)
+    assert _raw_count(warehouse) == 655
+    assert (
+        warehouse.execute(
+            "SELECT count(*) FROM raw.snowflake__activity WHERE ACTIVITY_ID = ?",
+            [row["ACTIVITY_ID"]],
+        ).fetchone()[0]
+        >= 2
+    )
+
+
 def test_changed_historical_file_loads_correction_without_watermark_regression(
     warehouse: duckdb.DuckDBPyConnection, sources: Path
 ) -> None:
