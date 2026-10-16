@@ -2,6 +2,8 @@
 
 from datetime import date
 
+import pytest
+
 from pulse.contracts.enums import ClientStatus, Role
 from pulse.generate.books import client_pools_by_day
 from pulse.generate.clients import generate_clients
@@ -30,3 +32,5 @@ def test_active_books_follow_new_reassigned_and_closed_clients() -> None:
         books, active = pools[day]
         assert set(active) == set(expected)
         assert {client_id: owner for owner, ids in books.items() for client_id in ids} == expected
+    with pytest.raises(ValueError, match="seven days"):
+        client_pools_by_day(batch, [date(2024, 10, day) for day in range(7, 15)])

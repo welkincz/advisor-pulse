@@ -13,12 +13,15 @@ ClientPools = tuple[dict[str, tuple[str, ...]], tuple[str, ...]]
 
 
 def client_pools_by_day(batch: ClientBatch, days: Sequence[date]) -> dict[date, ClientPools]:
-    """Return advisor books and all active IDs as of each requested business day."""
+    """Return advisor books and all active IDs for one weekly run (at most seven days)."""
+    requested = sorted(set(days))
+    if len(requested) > 7:
+        raise ValueError("client pools are limited to seven days per call")
     state = {client.client_id: client for client in batch.snapshot}
     changes = sorted(batch.changes, key=lambda change: change.day)
     cursor = 0
     pools: dict[date, ClientPools] = {}
-    for day in sorted(set(days)):
+    for day in requested:
         while cursor < len(changes) and changes[cursor].day <= day:
             client = changes[cursor].after
             state[client.client_id] = client
