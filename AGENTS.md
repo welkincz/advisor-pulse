@@ -1,6 +1,6 @@
 # AGENTS.md — Advisor Pulse
 
-Rules for every coding agent (Claude Code, Cursor, Codex) and every human working in this repo.
+Rules for every coding agent (Claude Code, Cursor) and every human working in this repo.
 Read this file and `docs/PLAN.md` before starting any issue. If they disagree, PLAN.md wins on design and this file wins on process.
 
 ## 1. Ground rules
@@ -89,8 +89,7 @@ Environment variables (`.env.example`): `PULSE_DATA_DIR`, `PULSE_SEED`, `PULSE_N
 | Tool | Take issues labelled | Good at here |
 |------|---------------------|--------------|
 | Claude Code | `agent:claude` | Contracts, SCD2 and attribution logic, runner and failure handling, AI narrative and guardrails, data layer, design direction, integration, PR review |
-| Cursor | `agent:cursor` | Most implementation: dbt staging and marts, React features, charts, map, workflows, geo scripts, docs |
-| Codex | `agent:codex` | Well-bounded backend issues: generator modules, loaders, checks, export |
+| Cursor | `agent:cursor` | Most implementation: dbt staging and marts, React features, charts, map, workflows, geo scripts, loaders, export, docs |
 | Human | `agent:human` | Accounts, secrets, DNS, Tableau publishing, final copy approval |
 
 Labels are a default, not a lock. Any agent can take an `agent:any` issue.

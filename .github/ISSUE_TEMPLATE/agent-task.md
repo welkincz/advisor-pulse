@@ -23,4 +23,4 @@ make check
 Depends on: none
 
 ---
-Size **S|M** · Wave **0-3** · Suggested agent **claude|cursor|codex|human** · Read `AGENTS.md` and `docs/PLAN.md` first.
+Size **S|M** · Wave **0-3** · Suggested agent **claude|cursor|human** · Read `AGENTS.md` and `docs/PLAN.md` first.

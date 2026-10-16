@@ -122,7 +122,7 @@ On failure, data is **not** redeployed: the site keeps the last good week, and o
 
 ```
 advisor-pulse/
-├── AGENTS.md                  # rules for every coding agent (Claude, Cursor, Codex)
+├── AGENTS.md                  # rules for every coding agent (Claude, Cursor)
 ├── CLAUDE.md                  # imports AGENTS.md
 ├── README.md
 ├── Makefile                   # the only entry points agents should need
@@ -500,6 +500,6 @@ Contracts and fixtures come first, so every lane after that can work in parallel
 | 2 | Integration: real backfill, weekly workflow, export, deploy, narratives | 2–3 |
 | 3 | Polish: motion, performance and a11y, Tableau, case study, charliebuild entry | 3 |
 
-Tool routing (detailed in AGENTS.md): **Claude** for architecture, contracts, reasoning-heavy and cross-cutting issues, and PR review. **Cursor** for most implementation (components, charts, dbt staging and marts, workflows, docs). **Codex** for well-bounded backend issues. **Human** for account setup (Cloudflare, R2, Google service account, Tableau publish).
+Tool routing (detailed in AGENTS.md): **Claude** for architecture, contracts, reasoning-heavy and cross-cutting issues, and PR review. **Cursor** for most implementation (components, charts, dbt staging and marts, workflows, loaders, export, docs). **Human** for account setup (Cloudflare, R2, Google service account, Tableau publish).
 
 The issue backlog lives in [`docs/BACKLOG.md`](BACKLOG.md). It is generated from `scripts/backlog.py`, which also renders `scripts/create_github_backlog.sh`.
