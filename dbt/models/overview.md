@@ -2,7 +2,7 @@
 
 # Advisor Pulse
 
-Model catalog and column lineage for the weekly warehouse behind the
+Model catalog and model lineage for the weekly warehouse behind the
 [Maplecrest Bank dashboard](https://pulse.charliebuild.com/). Maplecrest Bank
 is fictional. These pages are rebuilt with the weekly report and published at
 `/lineage/` on that same site.

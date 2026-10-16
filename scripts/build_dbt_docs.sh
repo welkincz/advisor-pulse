@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Publish dbt docs as a static site at web/public/lineage/ (gitignored).
 # Called by `make dbt-docs-static`. Lineage and the overview page come from
-# the project manifest; catalog stats reflect whatever is already in the dev
-# warehouse (empty until models have been built there).
+# the project manifest; catalog stats reflect whatever is already in the
+# target's warehouse. DBT_TARGET=ci reads the warehouse `make dbt-build-ci` built.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -14,6 +14,7 @@ mkdir -p "$out" "${PULSE_DATA_DIR:-data}"
 uv run dbt --no-use-colors docs generate \
   --project-dir dbt \
   --profiles-dir dbt \
+  --target "${DBT_TARGET:-dev}" \
   --static \
   --no-send-anonymous-usage-stats
 
