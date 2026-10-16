@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: stg_advisor_assignment
+    description: >
+      One row per assignment event (hire, transfer, promotion, termination). Events are
+      kept in full so SCD2 can order them by `effective_date`; a repeated `assignment_id`
+      keeps the latest `last_updated_ts`.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(assignment_id, '^ASG-[0-9]{8}$')"
+    columns:
+      - name: assignment_id
+        description: Natural key, `ASG-` plus 8 digits.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: advisor_id
+        description: Advisor the event applies to.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_advisor')
+                field: advisor_id
+      - name: branch_id
+        description: Branch the assignment places the advisor in.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_branch')
+                field: branch_id
+      - name: role_code
+        description: Role in force on `effective_date` (`ASSOC`, `ADVSR`, `SNR_ADVSR`, or `BR_MGR`).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["ASSOC", "ADVSR", "SNR_ADVSR", "BR_MGR"]
+      - name: effective_date
+        description: Date the assignment takes effect.
+        data_type: date
+        data_tests: [not_null]
+      - name: reason_code
+        description: "`HIRE`, `TRANSFER`, `PROMOTION`, or `TERM`."
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["HIRE", "TRANSFER", "PROMOTION", "TERM"]
+      - name: last_updated_ts
+        description: Source watermark of the surviving version (UTC).
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: _batch_id
+        description: Load batch of the surviving row (`run_id`, source, and file hash prefix).
+        data_type: varchar
+        data_tests: [not_null]

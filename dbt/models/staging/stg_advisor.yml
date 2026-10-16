@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: stg_advisor
+    description: One row per advisor, the latest master-record version by `last_updated_ts`.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "term_date is null or term_date >= hire_date"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(advisor_id, '^ADV-[0-9]{5}$')"
+    columns:
+      - name: advisor_id
+        description: Natural key, `ADV-` plus 5 digits.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: advisor_name
+        description: Synthetic advisor name, trimmed.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: role_code
+        description: "`ASSOC`, `ADVSR`, `SNR_ADVSR`, or `BR_MGR`."
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["ASSOC", "ADVSR", "SNR_ADVSR", "BR_MGR"]
+      - name: hire_date
+        description: Date the advisor was hired.
+        data_type: date
+        data_tests: [not_null]
+      - name: term_date
+        description: Date the advisor left. Null while they are employed.
+        data_type: date
+      - name: last_updated_ts
+        description: Source watermark of the surviving version (UTC).
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: _batch_id
+        description: Load batch of the surviving row (`run_id`, source, and file hash prefix).
+        data_type: varchar
+        data_tests: [not_null]

@@ -1,0 +1,144 @@
+version: 2
+
+models:
+  - name: stg_activity
+    description: >
+      One row per activity. Enums are trimmed and uppercased. Duplicate and re-sent rows
+      collapse to the latest `updated_ts`, then the latest `extracted_at`. `activity_date`
+      is the America/Toronto date of `activity_ts`; `is_late_arriving` is true when that
+      week is earlier than the extract week.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "activity_date = {{ toronto_date('activity_ts') }}"
+      - expression_is_true:
+          arguments:
+            expression: "iso_week_id = {{ iso_week_id('activity_date') }}"
+      - expression_is_true:
+          arguments:
+            expression: "is_late_arriving = (iso_week_id < {{ iso_week_id(toronto_date('extracted_at')) }})"
+      - expression_is_true:
+          arguments:
+            expression: "duration_min is null or duration_min between 0 and 480"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(activity_id, '^ACT-[0-9a-f]{12}$')"
+    columns:
+      - name: activity_id
+        description: Natural key, `ACT-` plus 12 hex characters.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: advisor_id
+        description: Advisor who logged the activity. May be absent from the advisor master (DQ012).
+        data_type: varchar
+        data_tests:
+          - not_null
+      - name: client_id
+        description: Client the activity is about. Null for prospecting calls.
+        data_type: varchar
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_client')
+                field: client_id
+              config:
+                # DQ013: unknown clients are kept (null client_sk downstream); WARN only.
+                severity: warn
+      - name: branch_id
+        description: Branch where the activity was logged.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_branch')
+                field: branch_id
+      - name: activity_type
+        description: "`CALL_OUT`, `CALL_IN`, `APPOINTMENT`, or `REVIEW`."
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["CALL_OUT", "CALL_IN", "APPOINTMENT", "REVIEW"]
+      - name: channel
+        description: "`IN_BRANCH`, `PHONE`, or `VIDEO`."
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["IN_BRANCH", "PHONE", "VIDEO"]
+      - name: status
+        description: "`BOOKED`, `COMPLETED`, `NO_SHOW`, or `CANCELLED`."
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["BOOKED", "COMPLETED", "NO_SHOW", "CANCELLED"]
+      - name: outcome
+        description: "`NONE`, `FOLLOW_UP`, `PLAN_CREATED`, `PRODUCT_OPENED`, or `REFERRAL`. Null when the source left it blank."
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["NONE", "FOLLOW_UP", "PLAN_CREATED", "PRODUCT_OPENED", "REFERRAL"]
+      - name: product_line
+        description: "`DEPOSITS`, `LENDING`, `MORTGAGE`, `INVESTING`, or `INSURANCE`. Null when no product was opened."
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["DEPOSITS", "LENDING", "MORTGAGE", "INVESTING", "INSURANCE"]
+      - name: scheduled_ts
+        description: Scheduled time for appointments and reviews (UTC). Null for calls.
+        data_type: timestamp with time zone
+      - name: activity_ts
+        description: When the activity happened, or was due (UTC).
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: activity_date
+        description: America/Toronto calendar date of `activity_ts`.
+        data_type: date
+        data_tests: [not_null]
+      - name: iso_week_id
+        description: ISO week of `activity_date`, labelled `YYYY-Www`. Late rows keep their activity week.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - iso_week_id_format
+      - name: is_late_arriving
+        description: True when the activity week is earlier than the week of `extracted_at` (Toronto).
+        data_type: boolean
+        data_tests: [not_null]
+      - name: duration_min
+        description: Length in minutes, from 0 to 480. Null when the source did not record one.
+        data_type: integer
+      - name: booked_from_activity_id
+        description: For an appointment booked on a call, that call's `activity_id`.
+        data_type: varchar
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_activity')
+                field: activity_id
+              config:
+                # The booking call may have been quarantined; keep the appointment.
+                severity: warn
+      - name: created_ts
+        description: Source-system create time (UTC).
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: updated_ts
+        description: Source-system last update (UTC). The first dedupe sort key.
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: extracted_at
+        description: Extract time of the surviving row (UTC). The second dedupe sort key.
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: _batch_id
+        description: Load batch of the surviving row (`run_id`, source, and file hash prefix).
+        data_type: varchar
+        data_tests: [not_null]

@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: stg_branch
+    description: >
+      One row per branch, the latest master-record version. `district_name`, `region_code`,
+      and `region_name` come from the org hierarchy (`reference/org.yaml`).
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "close_date is null or close_date >= open_date"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(fsa_code, '^[ABCEGHJ-NPRSTVXY][0-9][ABCEGHJ-NPRSTV-Z]$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(branch_id, '^BR-[0-9]{4}$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(district_code, '^[A-Z]{3}$')"
+    columns:
+      - name: branch_id
+        description: Natural key, `BR-` plus 4 digits.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: branch_name
+        description: Branch name, trimmed.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: district_code
+        description: Three-letter district code from the source.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: district_name
+        description: District name from the org hierarchy.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: region_code
+        description: Region code from the org hierarchy (`ON`, `QC`, `WE`, `AT`).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["ON", "QC", "WE", "AT"]
+      - name: region_name
+        description: Region name from the org hierarchy.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: fsa_code
+        description: Forward sortation area of the branch.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: open_date
+        description: Date the branch opened.
+        data_type: date
+        data_tests: [not_null]
+      - name: close_date
+        description: Date the branch closed. Null while it is open.
+        data_type: date
+      - name: last_updated_ts
+        description: Source watermark of the surviving version (UTC).
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: _batch_id
+        description: Load batch of the surviving row (`run_id`, source, and file hash prefix).
+        data_type: varchar
+        data_tests: [not_null]
