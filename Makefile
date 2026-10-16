@@ -6,6 +6,8 @@ SHELL := /bin/bash
 
 UV  ?= uv
 RUN := $(UV) run
+DBT := $(RUN) dbt --no-use-colors
+DBT_DIRS := --project-dir dbt --profiles-dir dbt
 
 WEEK  ?= last
 WEEKS ?= 8
@@ -34,7 +36,7 @@ ifneq ($(HAS_WEB),)
 	pnpm -C web install
 endif
 ifneq ($(HAS_DBT),)
-	cd dbt && $(RUN) dbt deps
+	$(DBT) deps $(DBT_DIRS)
 endif
 
 .PHONY: lint
@@ -61,9 +63,10 @@ check: lint typecheck test contracts-check ## Everything a PR must pass locally
 # ── Contracts and fixtures ──────────────────────────────────────────────────
 
 .PHONY: contracts
-contracts: ## Write contracts/schemas/*.json from pydantic models
+contracts: ## Write contracts/schemas/*.json and dbt/models/sources.yml from pydantic models
 ifneq ($(HAS_CONTRACTS),)
 	$(RUN) python -m pulse.contracts.codegen
+	$(RUN) python -m pulse.dbt_sources
 else
 	$(call todo,2)
 endif
@@ -72,6 +75,7 @@ endif
 contracts-check: ## Fail if committed JSON schemas are stale
 ifneq ($(HAS_CONTRACTS),)
 	$(RUN) python -m pulse.contracts.codegen --check
+	$(RUN) python -m pulse.dbt_sources --check
 else
 	$(call todo,2)
 endif
@@ -114,11 +118,13 @@ geo: ## Download and simplify StatCan boundaries
 
 .PHONY: dbt-build-ci
 dbt-build-ci: ## dbt build against fixtures (ARGS='-s model')
-	$(call todo,8)
+	$(RUN) python scripts/ci_warehouse.py
+	$(DBT) build $(DBT_DIRS) --target ci $(ARGS)
 
 .PHONY: dbt-docs
-dbt-docs: ## dbt docs generate + serve
-	$(call todo,8)
+dbt-docs: ## dbt docs generate + serve (local warehouse)
+	$(DBT) docs generate $(DBT_DIRS)
+	$(DBT) docs serve $(DBT_DIRS)
 
 .PHONY: dbt-docs-static
 dbt-docs-static: ## Static dbt docs into web/public/lineage

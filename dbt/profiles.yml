@@ -1,0 +1,18 @@
+# Run dbt from the repo root (`--project-dir dbt --profiles-dir dbt`, as the Makefile does),
+# so these paths match PULSE_DATA_DIR. No secrets live here.
+advisor_pulse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('PULSE_DATA_DIR', 'data') }}/warehouse.duckdb"
+      threads: 4
+      settings:
+        TimeZone: UTC
+    ci:
+      # Built from fixtures by scripts/ci_warehouse.py (`make dbt-build-ci`).
+      type: duckdb
+      path: data/ci/warehouse.duckdb
+      threads: 4
+      settings:
+        TimeZone: UTC

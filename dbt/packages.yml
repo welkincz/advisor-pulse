@@ -1,0 +1,2 @@
+# No third-party packages yet: the generic tests the project needs live in macros/tests/.
+packages: []

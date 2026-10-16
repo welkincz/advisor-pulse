@@ -1,0 +1,82 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: >
+      Calendar dimension, one row per day. Weeks are ISO weeks (Monday start) labelled
+      `YYYY-Www`; every weekly mart joins on `iso_week_id`. Dates are America/Toronto
+      business dates (PLAN.md §6).
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "week_end = week_start + 6"
+      - expression_is_true:
+          arguments:
+            expression: "date_day between week_start and week_end"
+      - expression_is_true:
+          arguments:
+            expression: "iso_week_id = format('{:04d}-W{:02d}', iso_year, iso_week)"
+    columns:
+      - name: date_day
+        description: Calendar date (primary key).
+        data_type: date
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests: [unique, not_null]
+      - name: iso_week_id
+        description: ISO week label, e.g. `2026-W40`; ISO year, so 2027-01-03 is `2026-W53`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - iso_week_id_format
+      - name: week_start
+        description: Monday of the ISO week.
+        data_type: date
+        data_tests: [not_null]
+      - name: week_end
+        description: Sunday of the ISO week (the weekly report's cut-off day).
+        data_type: date
+        data_tests: [not_null]
+      - name: iso_year
+        description: ISO year the week belongs to (can differ from the calendar year).
+        data_type: integer
+        data_tests: [not_null]
+      - name: iso_week
+        description: ISO week number, 1–53.
+        data_type: integer
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ range(1, 54) | list }}"
+                quote: false
+      - name: month
+        description: Calendar month, 1–12.
+        data_type: integer
+        data_tests: [not_null]
+      - name: quarter
+        description: Calendar quarter, 1–4.
+        data_type: integer
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4]
+                quote: false
+      - name: day_of_week
+        description: ISO day of week, 1 = Monday … 7 = Sunday.
+        data_type: integer
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7]
+                quote: false
+      - name: is_weekend
+        description: True on Saturday and Sunday.
+        data_type: boolean
+        data_tests: [not_null]
