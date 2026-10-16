@@ -17,7 +17,7 @@ from pulse.contracts.meta import LoadManifest, Watermark
 from pulse.contracts.raw import RawSnowflakeActivity
 from pulse.contracts.sources import SnowflakeActivity
 from pulse.ingest import meta
-from pulse.ingest.validate import validate_rows
+from pulse.ingest.validate import SchemaDriftError, validate_rows
 from pulse.runner.stage import StageResult
 from pulse.warehouse import transaction
 
@@ -32,6 +32,11 @@ def _sha256(path: Path) -> str:
 
 def _utc(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def _batch_id(run_id: str, source_file: str, file_sha: str) -> str:
+    path_hash = hashlib.sha256(source_file.encode()).hexdigest()[:8]
+    return f"{run_id}:snowflake:{file_sha[:12]}:{path_hash}"
 
 
 def _insert_rows(
@@ -73,12 +78,22 @@ def _load_file(
     table = pq.read_table(path)
     if _sha256(path) != file_sha:
         raise ValueError(f"Source changed while reading: {path}")
-    path_hash = hashlib.sha256(source_file.encode()).hexdigest()[:8]
-    batch_id = f"{run_id}:snowflake:{file_sha[:12]}:{path_hash}"
+    batch_id = _batch_id(run_id, source_file, file_sha)
     watermark = meta.get_watermark_value(warehouse, "snowflake", "activity")
     if watermark is not None:
         watermark = _utc(watermark)
     boundary = _boundary_rows(warehouse, watermark)
+    replay = bool(meta.get_manifest(warehouse, source_file))
+    known = (
+        set(
+            warehouse.execute(
+                "SELECT ACTIVITY_ID, _row_hash FROM raw.snowflake__activity WHERE _source_file = ?",
+                [source_file],
+            ).fetchall()
+        )
+        if replay
+        else set()
+    )
 
     with transaction(warehouse):
         result = validate_rows(
@@ -95,20 +110,22 @@ def _load_file(
         rejected = {row.source_row for row in result.rejected_rows}
         loaded: list[RawSnowflakeActivity] = []
         maximum: datetime | None = None
-        for row_number, data in enumerate(table.to_pylist()):
-            if row_number in rejected:
-                continue
+        valid_indices = (index for index in range(len(table)) if index not in rejected)
+        for row_number, data in zip(valid_indices, result.valid_rows.to_pylist(), strict=True):
             source = SnowflakeActivity.model_validate(data)
             extracted = _utc(source.extracted_at)
-            if watermark is not None and extracted < watermark:
+            if not replay and watermark is not None and extracted < watermark:
                 continue
             business = source.model_dump(by_alias=True, mode="json")
             canonical = json.dumps(
                 business, sort_keys=True, separators=(",", ":"), ensure_ascii=False
             )
             row_hash = xxhash.xxh64_hexdigest(canonical.encode("utf-8"))
+            if replay and (source.activity_id, row_hash) in known:
+                continue
             if (
-                watermark is not None
+                not replay
+                and watermark is not None
                 and extracted == watermark
                 and (source.activity_id, row_hash) in boundary
             ):
@@ -127,7 +144,7 @@ def _load_file(
             )
             maximum = extracted if maximum is None else max(maximum, extracted)
         _insert_rows(warehouse, loaded, batch_id)
-        if maximum is not None:
+        if maximum is not None and (watermark is None or maximum > watermark):
             meta.set_watermark(
                 warehouse,
                 Watermark(
@@ -173,20 +190,51 @@ def load_snowflake_activity(
         return StageResult(StageStatus.SKIPPED, 0, 0, 0, "No activity partitions found")
 
     rows_in = rows_out = quarantined = skipped = 0
+    drifted: list[str] = []
     for path in paths:
         source_file = path.relative_to(sources_root).as_posix()
         file_sha = _sha256(path)
         if meta.is_file_loaded(warehouse, source_file, file_sha):
             skipped += 1
             continue
-        read, loaded, rejected = _load_file(
-            warehouse, path, source_file, file_sha, run_id=run_id, loaded_at=loaded_at
-        )
+        try:
+            read, loaded, rejected = _load_file(
+                warehouse, path, source_file, file_sha, run_id=run_id, loaded_at=loaded_at
+            )
+        except SchemaDriftError:
+            drifted.append(source_file)
+            rows_in += pq.read_metadata(path).num_rows
+            with transaction(warehouse):
+                meta.record_manifest(
+                    warehouse,
+                    LoadManifest(
+                        file_path=source_file,
+                        file_sha256=file_sha,
+                        source="snowflake",
+                        table_name="activity",
+                        batch_id=_batch_id(run_id, source_file, file_sha),
+                        row_count=pq.read_metadata(path).num_rows,
+                        rows_loaded=0,
+                        rows_quarantined=0,
+                        status=LoadStatus.FAILED,
+                        loaded_at=loaded_at,
+                        run_id=run_id,
+                    ),
+                )
+            continue
         rows_in += read
         rows_out += loaded
         quarantined += rejected
     if skipped == len(paths):
         return StageResult(StageStatus.SKIPPED, 0, 0, 0, f"SKIPPED_DUPLICATE: {skipped} files")
+    if drifted:
+        return StageResult(
+            StageStatus.WARN,
+            rows_in,
+            rows_out,
+            quarantined,
+            f"DQ006 failed files: {', '.join(drifted)}",
+        )
     return StageResult(
         StageStatus.SUCCESS,
         rows_in,
