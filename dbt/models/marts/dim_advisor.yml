@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: dim_advisor
+    description: >
+      Advisor SCD2 dimension (PLAN.md §6.8): one row per assignment range from
+      `int_advisor_history`, plus the Unknown member (`advisor_sk = 'UNKNOWN'`) that
+      activity with an unmatched advisor maps to (DQ012). `advisor_sk` is the md5 of
+      `advisor_id|valid_from`, so it is the same after every full rebuild. Join facts on
+      `activity_date >= valid_from and activity_date < valid_to`.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "is_current = (valid_to = date '9999-12-31')"
+      - expression_is_true:
+          arguments:
+            expression: "advisor_sk = 'UNKNOWN' or (branch_id is not null and district_code is not null and region_code is not null)"
+    columns:
+      - name: advisor_sk
+        description: Surrogate key, md5 of `advisor_id|valid_from` (ISO date); `UNKNOWN` for the Unknown member.
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests: [unique, not_null]
+      - name: advisor_id
+        description: Advisor natural key; `UNKNOWN` for the Unknown member.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: advisor_name
+        description: Fictional advisor name from the HR master.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: role_code
+        description: Role during the range; null for the Unknown member.
+        data_type: varchar
+      - name: branch_id
+        description: Branch during the range (the as-of branch for attribution).
+        data_type: varchar
+      - name: district_code
+        description: District of `branch_id`.
+        data_type: varchar
+      - name: region_code
+        description: Region of `branch_id`.
+        data_type: varchar
+      - name: valid_from
+        description: First day of the range (inclusive).
+        data_type: date
+        data_tests: [not_null]
+      - name: valid_to
+        description: Day after the range ends (exclusive); `9999-12-31` while open.
+        data_type: date
+        data_tests: [not_null]
+      - name: is_current
+        description: True for the open range; terminated advisors have none.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: change_reason
+        description: Event that opened the range (`HIRE`, `TRANSFER`, `PROMOTION`).
+        data_type: varchar
+      - name: hire_date
+        description: Hire date from the HR master.
+        data_type: date
+      - name: term_date
+        description: Termination date from the HR master; null while employed.
+        data_type: date
