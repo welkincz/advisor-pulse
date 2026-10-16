@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: int_advisor_history
+    description: >
+      SCD2 advisor ranges built from `stg_advisor_assignment` events (PLAN.md §6.7,
+      ADR 0001). One row per non-TERM event. `valid_to` is exclusive and is the advisor's
+      next event date, `9999-12-31` while open; a TERM event closes the last range on
+      the termination date and opens none. Overlaps, gaps and current-row counts are
+      checked by `tests/scd2_*.sql` (DQ020, error).
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "valid_to > valid_from"
+    columns:
+      - name: advisor_id
+        description: Advisor natural key.
+        data_tests: [not_null]
+      - name: branch_id
+        description: Branch the advisor is assigned to during this range.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_branch')
+                field: branch_id
+      - name: role_code
+        description: Role during this range (`ASSOC`, `ADVSR`, `SNR_ADVSR`, `BR_MGR`).
+        data_tests: [not_null]
+      - name: change_reason
+        description: Event that opened the range (`HIRE`, `TRANSFER`, `PROMOTION`).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [HIRE, TRANSFER, PROMOTION]
+      - name: valid_from
+        description: First day of the range (inclusive), the event's effective date.
+        data_tests: [not_null]
+      - name: valid_to
+        description: Day after the range ends (exclusive); `9999-12-31` for the open range.
+        data_tests: [not_null]
+      - name: assignment_id
+        description: The assignment event that opened the range (unique).
+        data_tests: [unique, not_null]
