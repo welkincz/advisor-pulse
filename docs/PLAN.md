@@ -267,6 +267,11 @@ The contracts in `src/pulse/contracts/` are the executable form of this dictiona
 
 **BRNCH** (branch): BRNCH_ID, BRNCH_NM, DIST_CD, FSA_CD, OPEN_DT, CLOSE_DT (nullable), LAST_UPD_TS.
 
+Physical conventions for both 'Teradata' files:
+- **Text formats:** timestamps are naive UTC text `YYYY-MM-DD HH:MM:SS`; dates are `YYYY-MM-DD`; nulls are empty CSV fields.
+- **CLNT:** the table in `edw.sqlite` is the initial snapshot and is never rewritten. Every later client change (new, closed, re-assigned, moved) arrives only in a delta, with a `LAST_UPD_TS` strictly after the snapshot's.
+- **HR tables:** ADVSR, ADVSR_ASGN and BRNCH hold their current state and are loaded incrementally on `LAST_UPD_TS`.
+
 ### 6.3 Reference — `reference/org.yaml`
 
 regions[`region_code`, `region_name`] → districts[`district_code`, `district_name`, `provinces`] → branches[`branch_id`, `branch_name`, `fsa_code`, `open_date`].

@@ -1,0 +1,4 @@
+*.parquet binary
+*.sqlite binary
+*.csv text eol=lf
+*.json text eol=lf

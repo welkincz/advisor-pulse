@@ -78,7 +78,7 @@ endif
 
 .PHONY: fixtures
 fixtures: ## Rebuild tiny deterministic fixtures
-	$(call todo,4)
+	$(RUN) python -m pulse.fixtures
 
 .PHONY: seeds
 seeds: ## Export org.yaml to dbt seeds
