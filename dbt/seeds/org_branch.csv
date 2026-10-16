@@ -1,0 +1,123 @@
+branch_id,branch_name,district_code,district_name,region_code,region_name,fsa_code,province_code,open_date
+BR-0101,King & Bay Branch,GTA,GTA,ON,Ontario,M5H,ON,2018-09-06
+BR-0102,Liberty Village Branch,GTA,GTA,ON,Ontario,M6K,ON,2015-03-26
+BR-0103,Yonge & Eglinton Branch,GTA,GTA,ON,Ontario,M4P,ON,2002-10-17
+BR-0104,North York Centre Branch,GTA,GTA,ON,Ontario,M2N,ON,1993-11-12
+BR-0105,Scarborough Town Centre Branch,GTA,GTA,ON,Ontario,M1P,ON,1992-09-12
+BR-0106,Leslieville Branch,GTA,GTA,ON,Ontario,M4M,ON,1981-09-14
+BR-0107,The Annex Branch,GTA,GTA,ON,Ontario,M5R,ON,1991-08-14
+BR-0108,Etobicoke Centre Branch,GTA,GTA,ON,Ontario,M9B,ON,1989-04-02
+BR-0109,Rexdale Branch,GTA,GTA,ON,Ontario,M9W,ON,2016-08-23
+BR-0110,Don Mills Branch,GTA,GTA,ON,Ontario,M3C,ON,1992-11-17
+BR-0111,Square One Branch,GTA,GTA,ON,Ontario,L5B,ON,2012-10-21
+BR-0112,Meadowvale Branch,GTA,GTA,ON,Ontario,L5N,ON,1997-06-26
+BR-0113,Brampton Downtown Branch,GTA,GTA,ON,Ontario,L6V,ON,1988-07-19
+BR-0114,Bramalea Branch,GTA,GTA,ON,Ontario,L6T,ON,1984-02-23
+BR-0115,Markham Unionville Branch,GTA,GTA,ON,Ontario,L3R,ON,1993-04-04
+BR-0116,Richmond Hill Branch,GTA,GTA,ON,Ontario,L4C,ON,1996-02-01
+BR-0117,Vaughan Corporate Centre Branch,GTA,GTA,ON,Ontario,L4K,ON,2018-01-12
+BR-0118,Ajax Branch,GTA,GTA,ON,Ontario,L1S,ON,1989-07-04
+BR-0119,Oshawa Centre Branch,GTA,GTA,ON,Ontario,L1J,ON,1999-07-03
+BR-0120,Oakville Downtown Branch,GTA,GTA,ON,Ontario,L6J,ON,1980-03-27
+BR-0121,Burlington Branch,GTA,GTA,ON,Ontario,L7R,ON,2018-05-12
+BR-0122,Newmarket Branch,GTA,GTA,ON,Ontario,L3Y,ON,1975-06-28
+BR-0201,ByWard Market Branch,EON,Eastern Ontario,ON,Ontario,K1N,ON,2016-03-02
+BR-0202,Centretown Branch,EON,Eastern Ontario,ON,Ontario,K2P,ON,1985-01-10
+BR-0203,Kanata Branch,EON,Eastern Ontario,ON,Ontario,K2K,ON,2005-09-01
+BR-0204,Orléans Branch,EON,Eastern Ontario,ON,Ontario,K1C,ON,1972-05-28
+BR-0205,Barrhaven Branch,EON,Eastern Ontario,ON,Ontario,K2J,ON,1977-06-18
+BR-0206,Kingston Downtown Branch,EON,Eastern Ontario,ON,Ontario,K7L,ON,2017-12-16
+BR-0207,Belleville Branch,EON,Eastern Ontario,ON,Ontario,K8N,ON,2019-02-26
+BR-0208,Peterborough Branch,EON,Eastern Ontario,ON,Ontario,K9J,ON,1994-01-09
+BR-0209,Cornwall Branch,EON,Eastern Ontario,ON,Ontario,K6H,ON,1972-02-25
+BR-0210,Brockville Branch,EON,Eastern Ontario,ON,Ontario,K6V,ON,2008-08-23
+BR-0301,London Downtown Branch,SWO,Southwestern Ontario,ON,Ontario,N6A,ON,1973-04-01
+BR-0302,Masonville Branch,SWO,Southwestern Ontario,ON,Ontario,N6G,ON,2019-03-07
+BR-0303,Uptown Waterloo Branch,SWO,Southwestern Ontario,ON,Ontario,N2L,ON,2007-06-23
+BR-0304,Kitchener Downtown Branch,SWO,Southwestern Ontario,ON,Ontario,N2H,ON,1986-06-10
+BR-0305,Guelph Branch,SWO,Southwestern Ontario,ON,Ontario,N1H,ON,1972-04-05
+BR-0306,Windsor Riverside Branch,SWO,Southwestern Ontario,ON,Ontario,N9A,ON,1978-12-19
+BR-0307,Hamilton Downtown Branch,SWO,Southwestern Ontario,ON,Ontario,L8P,ON,2009-04-08
+BR-0308,Hamilton Mountain Branch,SWO,Southwestern Ontario,ON,Ontario,L9A,ON,1978-12-07
+BR-0309,St. Catharines Branch,SWO,Southwestern Ontario,ON,Ontario,L2R,ON,1995-09-28
+BR-0310,Brantford Branch,SWO,Southwestern Ontario,ON,Ontario,N3T,ON,1988-09-05
+BR-0311,Sarnia Branch,SWO,Southwestern Ontario,ON,Ontario,N7T,ON,2010-04-05
+BR-0312,Cambridge Branch,SWO,Southwestern Ontario,ON,Ontario,N1R,ON,1973-01-15
+BR-0401,Sudbury Branch,NON,Northern Ontario,ON,Ontario,P3E,ON,2009-09-16
+BR-0402,North Bay Branch,NON,Northern Ontario,ON,Ontario,P1B,ON,2002-10-15
+BR-0403,Sault Ste. Marie Branch,NON,Northern Ontario,ON,Ontario,P6A,ON,2014-12-27
+BR-0404,Thunder Bay Branch,NON,Northern Ontario,ON,Ontario,P7B,ON,1972-08-28
+BR-0405,Timmins Branch,NON,Northern Ontario,ON,Ontario,P4N,ON,2018-08-26
+BR-0501,Ville-Marie Branch,MTL,Greater Montréal,QC,Quebec,H3B,QC,1991-05-08
+BR-0502,Plateau Mont-Royal Branch,MTL,Greater Montréal,QC,Quebec,H2X,QC,1990-02-26
+BR-0503,McGill Branch,MTL,Greater Montréal,QC,Quebec,H3A,QC,1997-08-12
+BR-0504,Westmount Branch,MTL,Greater Montréal,QC,Quebec,H3Z,QC,1995-10-05
+BR-0505,Hochelaga Branch,MTL,Greater Montréal,QC,Quebec,H1V,QC,1999-07-16
+BR-0506,Rosemont Branch,MTL,Greater Montréal,QC,Quebec,H1X,QC,1990-08-16
+BR-0507,Saint-Laurent Branch,MTL,Greater Montréal,QC,Quebec,H4M,QC,1997-10-08
+BR-0508,Pointe-Claire Branch,MTL,Greater Montréal,QC,Quebec,H9R,QC,1996-07-10
+BR-0509,Laval Chomedey Branch,MTL,Greater Montréal,QC,Quebec,H7T,QC,1994-07-28
+BR-0510,Laval des Rapides Branch,MTL,Greater Montréal,QC,Quebec,H7N,QC,1978-04-15
+BR-0511,Longueuil Branch,MTL,Greater Montréal,QC,Quebec,J4K,QC,2009-11-27
+BR-0512,Brossard Branch,MTL,Greater Montréal,QC,Quebec,J4W,QC,2012-03-25
+BR-0513,Terrebonne Branch,MTL,Greater Montréal,QC,Quebec,J6W,QC,1985-07-02
+BR-0514,Saint-Jérôme Branch,MTL,Greater Montréal,QC,Quebec,J7Z,QC,1981-06-11
+BR-0601,Vieux-Québec Branch,QCE,Québec City & East,QC,Quebec,G1R,QC,1989-08-08
+BR-0602,Sainte-Foy Branch,QCE,Québec City & East,QC,Quebec,G1V,QC,2019-07-13
+BR-0603,Charlesbourg Branch,QCE,Québec City & East,QC,Quebec,G1H,QC,1976-06-18
+BR-0604,Lévis Branch,QCE,Québec City & East,QC,Quebec,G6V,QC,1979-07-17
+BR-0605,Trois-Rivières Branch,QCE,Québec City & East,QC,Quebec,G9A,QC,1975-01-26
+BR-0606,Saguenay Branch,QCE,Québec City & East,QC,Quebec,G7H,QC,1981-03-28
+BR-0607,Rimouski Branch,QCE,Québec City & East,QC,Quebec,G5L,QC,1998-05-28
+BR-0701,Gatineau Hull Branch,WQC,Western Quebec,QC,Quebec,J8X,QC,1991-12-08
+BR-0702,Gatineau Centre Branch,WQC,Western Quebec,QC,Quebec,J8Y,QC,2015-06-15
+BR-0703,Sherbrooke Branch,WQC,Western Quebec,QC,Quebec,J1H,QC,2017-02-10
+BR-0704,Saint-Hyacinthe Branch,WQC,Western Quebec,QC,Quebec,J2S,QC,1987-08-12
+BR-0705,Rouyn-Noranda Branch,WQC,Western Quebec,QC,Quebec,J9X,QC,1983-02-21
+BR-0801,Vancouver Downtown Branch,BCL,BC Lower Mainland,WE,West,V6B,BC,2009-09-07
+BR-0802,West End Branch,BCL,BC Lower Mainland,WE,West,V6E,BC,1995-02-17
+BR-0803,Commercial Drive Branch,BCL,BC Lower Mainland,WE,West,V5L,BC,2009-10-26
+BR-0804,Cambie Branch,BCL,BC Lower Mainland,WE,West,V5Z,BC,1973-11-07
+BR-0805,Kitsilano Branch,BCL,BC Lower Mainland,WE,West,V6K,BC,2001-04-20
+BR-0806,Richmond Centre Branch,BCL,BC Lower Mainland,WE,West,V6X,BC,2013-12-26
+BR-0807,Burnaby Metrotown Branch,BCL,BC Lower Mainland,WE,West,V5H,BC,1978-12-12
+BR-0808,Surrey Central Branch,BCL,BC Lower Mainland,WE,West,V3T,BC,2005-10-15
+BR-0809,Newton Branch,BCL,BC Lower Mainland,WE,West,V3W,BC,1983-06-06
+BR-0810,North Vancouver Branch,BCL,BC Lower Mainland,WE,West,V7M,BC,2012-07-07
+BR-0811,Langley Branch,BCL,BC Lower Mainland,WE,West,V2Y,BC,2011-05-04
+BR-0812,Coquitlam Branch,BCL,BC Lower Mainland,WE,West,V3B,BC,1974-03-14
+BR-0901,Kelowna Branch,BCI,BC Interior & North,WE,West,V1Y,BC,1992-09-24
+BR-0902,Kamloops Branch,BCI,BC Interior & North,WE,West,V2C,BC,1978-07-10
+BR-0903,Prince George Branch,BCI,BC Interior & North,WE,West,V2L,BC,1975-12-04
+BR-0904,Penticton Branch,BCI,BC Interior & North,WE,West,V2A,BC,2014-03-18
+BR-0905,Vernon Branch,BCI,BC Interior & North,WE,West,V1T,BC,1997-01-04
+BR-1001,Calgary Downtown Branch,ABT,Alberta,WE,West,T2P,AB,2000-09-26
+BR-1002,Beltline Branch,ABT,Alberta,WE,West,T2R,AB,1998-06-25
+BR-1003,Calgary Northeast Branch,ABT,Alberta,WE,West,T1Y,AB,2012-11-06
+BR-1004,Calgary Southwest Branch,ABT,Alberta,WE,West,T2W,AB,1977-11-23
+BR-1005,Edmonton Downtown Branch,ABT,Alberta,WE,West,T5J,AB,2004-10-13
+BR-1006,Whyte Avenue Branch,ABT,Alberta,WE,West,T6E,AB,1978-10-09
+BR-1007,Edmonton West Branch,ABT,Alberta,WE,West,T5T,AB,2000-04-10
+BR-1008,St. Albert Branch,ABT,Alberta,WE,West,T8N,AB,1989-03-06
+BR-1009,Red Deer Branch,ABT,Alberta,WE,West,T4N,AB,1986-09-02
+BR-1010,Lethbridge Branch,ABT,Alberta,WE,West,T1J,AB,2004-10-04
+BR-1011,Medicine Hat Branch,ABT,Alberta,WE,West,T1A,AB,1976-10-08
+BR-1012,Fort McMurray Branch,ABT,Alberta,WE,West,T9H,AB,2011-11-12
+BR-1101,Regina Downtown Branch,PRA,Prairies (SK/MB),WE,West,S4P,SK,1994-08-13
+BR-1102,Saskatoon Downtown Branch,PRA,Prairies (SK/MB),WE,West,S7K,SK,1993-08-02
+BR-1103,University Heights Branch,PRA,Prairies (SK/MB),WE,West,S7N,SK,2015-01-15
+BR-1104,Winnipeg Exchange Branch,PRA,Prairies (SK/MB),WE,West,R3C,MB,2009-01-27
+BR-1105,Fort Garry Branch,PRA,Prairies (SK/MB),WE,West,R3T,MB,2011-04-06
+BR-1106,Brandon Branch,PRA,Prairies (SK/MB),WE,West,R7A,MB,2017-06-22
+BR-1201,Halifax Downtown Branch,NSP,Nova Scotia & PEI,AT,Atlantic,B3J,NS,1993-11-14
+BR-1202,Dartmouth Branch,NSP,Nova Scotia & PEI,AT,Atlantic,B2Y,NS,2015-07-25
+BR-1203,Sydney Branch,NSP,Nova Scotia & PEI,AT,Atlantic,B1P,NS,2005-02-06
+BR-1204,Charlottetown Branch,NSP,Nova Scotia & PEI,AT,Atlantic,C1A,PE,1987-01-01
+BR-1205,Summerside Branch,NSP,Nova Scotia & PEI,AT,Atlantic,C1N,PE,1996-11-15
+BR-1301,Moncton Branch,NBK,New Brunswick,AT,Atlantic,E1C,NB,2000-05-05
+BR-1302,Fredericton Branch,NBK,New Brunswick,AT,Atlantic,E3B,NB,1987-09-12
+BR-1303,Saint John Branch,NBK,New Brunswick,AT,Atlantic,E2L,NB,1982-04-05
+BR-1304,Bathurst Branch,NBK,New Brunswick,AT,Atlantic,E2A,NB,2015-11-28
+BR-1401,St. John's Downtown Branch,NFL,Newfoundland & Labrador,AT,Atlantic,A1C,NL,2009-07-04
+BR-1402,Mount Pearl Branch,NFL,Newfoundland & Labrador,AT,Atlantic,A1N,NL,2009-03-04
+BR-1403,Corner Brook Branch,NFL,Newfoundland & Labrador,AT,Atlantic,A2H,NL,2006-04-06

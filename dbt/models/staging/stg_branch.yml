@@ -4,7 +4,7 @@ models:
   - name: stg_branch
     description: >
       One row per branch, the latest master-record version. `district_name`, `region_code`,
-      and `region_name` come from the org hierarchy (`reference/org.yaml`).
+      and `region_name` come from the `org_branch` seed (`reference/org.yaml` via `make seeds`).
     data_tests:
       - expression_is_true:
           arguments:

@@ -58,7 +58,7 @@ test: ## pytest, excluding slow and live tests
 	$(RUN) pytest -m "not slow and not live" $(ARGS)
 
 .PHONY: check
-check: lint typecheck test contracts-check ## Everything a PR must pass locally
+check: lint typecheck test contracts-check seeds-check ## Everything a PR must pass locally
 
 # ── Contracts and fixtures ──────────────────────────────────────────────────
 
@@ -84,9 +84,12 @@ endif
 fixtures: ## Rebuild tiny deterministic fixtures
 	$(RUN) python -m pulse.fixtures
 
-.PHONY: seeds
-seeds: ## Export org.yaml to dbt seeds
-	$(call todo,23)
+.PHONY: seeds seeds-check
+seeds: ## Export org.yaml and shipped FSA codes to dbt seeds
+	$(RUN) python -m pulse.seeds
+
+seeds-check: ## Fail if committed dbt seeds are stale
+	$(RUN) python -m pulse.seeds --check
 
 # ── Pipeline ────────────────────────────────────────────────────────────────
 
@@ -120,6 +123,7 @@ geo: ## Download StatCan boundaries and dissolve district and region polygons
 .PHONY: dbt-build-ci
 dbt-build-ci: ## dbt build against fixtures (ARGS='-s model')
 	$(RUN) python scripts/ci_warehouse.py
+	$(DBT) seed $(DBT_DIRS) --target ci
 	$(DBT) build $(DBT_DIRS) --target ci $(ARGS)
 
 .PHONY: dbt-docs
