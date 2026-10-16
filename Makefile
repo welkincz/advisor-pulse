@@ -128,7 +128,7 @@ dbt-docs: ## dbt docs generate + serve (local warehouse)
 
 .PHONY: dbt-docs-static
 dbt-docs-static: ## Static dbt docs into web/public/lineage
-	$(call todo,30)
+	bash scripts/build_dbt_docs.sh
 
 # ── Web ─────────────────────────────────────────────────────────────────────
 
