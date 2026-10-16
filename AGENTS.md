@@ -19,7 +19,7 @@ Read this file and `docs/PLAN.md` before starting any issue. If they disagree, P
 4. **Stay inside the issue's "Owns" paths.** Touching anything else needs a note in the PR explaining why. Shared files (see §4) need their own issue.
 5. **Open a PR** titled `<type>(<area>): <summary> (#<issue>)`, with body `Closes #<issue>` and the template filled in.
 6. **Keep PRs small:** under ~400 changed lines excluding generated files and fixtures. If an issue grows beyond that, split it and say so on the issue.
-7. **Squash merge** after CI is green and review is done. Delete the branch.
+7. **Do not merge your own PR** (Cursor included). Claude reviews every PR and squash-merges it when CI is green and there are no must-fix items, then deletes the branch. PRs that change `src/pulse/contracts/`, PLAN.md design, or add a dependency also wait for the human owner's OK.
 
 Commit messages: Conventional Commits (`feat`, `fix`, `test`, `docs`, `chore`, `refactor`, `ci`), imperative mood.
 
