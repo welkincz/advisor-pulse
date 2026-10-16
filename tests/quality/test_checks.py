@@ -1,78 +1,23 @@
-"""DQ030–DQ033 policy and stage behavior against synthetic fixture data."""
+"""Fixture-backed DQ check persistence and runner gating."""
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
 import pytest
 
 from pulse.contracts.defects import DefectManifest
-from pulse.contracts.enums import CheckStatus, RunType, StageStatus
+from pulse.contracts.enums import CheckStatus, LoadStatus, RunType, StageStatus
+from pulse.contracts.meta import LoadManifest, RejectedRow
 from pulse.ingest import meta
-from pulse.quality.checks import (
-    CheckPolicy,
-    defect_reconciliation,
-    freshness,
-    quarantine_rate,
-    run_checks,
-    volume,
-)
+from pulse.quality.checks import run_checks
 from pulse.runner.run import Runner
 from pulse.runner.stage import Stage, StageContext, StageResult
 from pulse.warehouse import connect, init_warehouse
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
-
-
-def test_freshness_pass_and_fail() -> None:
-    policy = CheckPolicy()
-    assert freshness("r", "2026-W40", date(2026, 10, 2), policy).status is CheckStatus.PASS
-    assert freshness("r", "2026-W40", date(2026, 10, 1), policy).status is CheckStatus.FAIL
-
-
-def test_volume_pass_warn_and_fail() -> None:
-    policy = CheckPolicy()
-    history = [100] * 8
-    assert volume("r", 100, history, policy).status is CheckStatus.PASS
-    assert volume("r", 130, history, policy).status is CheckStatus.WARN
-    assert volume("r", 160, history, policy).status is CheckStatus.FAIL
-
-
-def test_quarantine_rate_pass_and_fail() -> None:
-    policy = CheckPolicy()
-    assert quarantine_rate("r", 2, 100, policy).status is CheckStatus.PASS
-    assert quarantine_rate("r", 3, 100, policy).status is CheckStatus.FAIL
-
-
-def test_defect_reconciliation_pass_and_fail() -> None:
-    manifest = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
-    expected = {
-        (d.file, d.row, d.rule_id)
-        for d in manifest.defects
-        if d.iso_week_id == "2026-W40" and d.rule_id in {f"DQ00{i}" for i in range(1, 6)}
-    }
-    assert expected
-    assert defect_reconciliation("r", expected, expected, CheckPolicy()).status is CheckStatus.PASS
-    assert defect_reconciliation("r", expected, set(), CheckPolicy()).status is CheckStatus.WARN
-    assert (
-        defect_reconciliation("r", expected, set(), CheckPolicy(), ci=True).status
-        is CheckStatus.FAIL
-    )
-
-
-def test_policy_reads_thresholds_and_actions_from_toml(tmp_path: Path) -> None:
-    path = tmp_path / "pulse.toml"
-    path.write_text(
-        "[quality]\nfreshness_lag_days = 3\nquarantine_max_rate = 0.05\n"
-        'dq030_action = "WARN"\ndq032_action = "WARN"\n'
-    )
-    policy = CheckPolicy.from_toml(path)
-    assert freshness("r", "2026-W40", date(2026, 10, 1), policy).status is CheckStatus.PASS
-    assert freshness("r", "2026-W40", date(2026, 9, 30), policy).status is CheckStatus.WARN
-    assert quarantine_rate("r", 3, 100, policy).status is CheckStatus.PASS
-    assert quarantine_rate("r", 6, 100, policy).status is CheckStatus.WARN
 
 
 @pytest.fixture
@@ -97,6 +42,76 @@ def test_freshness_uses_toronto_business_date(warehouse: duckdb.DuckDBPyConnecti
     defects = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
     run_checks(warehouse, run_id="timezone", iso_week_id="2026-W40", defect_manifest=defects)
     assert meta.get_check_results(warehouse, "timezone")[0].status is CheckStatus.FAIL
+
+
+def test_volume_requires_eight_calendar_weeks(warehouse: duckdb.DuckDBPyConnection) -> None:
+    source = warehouse.execute(
+        "SELECT * FROM marts.mart_org_weekly "
+        "WHERE level = 'NATIONAL' AND node_id = 'CA' AND iso_week_id = '2026-W37'"
+    ).fetchone()
+    assert source is not None
+    warehouse.execute("DELETE FROM marts.mart_org_weekly WHERE level = 'NATIONAL'")
+    for week in [31, 32, 33, 34, 36, 37, 38, 39, 40]:
+        row = (f"2026-W{week:02d}", *source[1:6], 5000 if week == 31 else 133, *source[7:])
+        warehouse.execute(
+            "INSERT INTO marts.mart_org_weekly VALUES (" + ", ".join("?" * len(row)) + ")", row
+        )
+    defects = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
+    run_checks(warehouse, run_id="gap", iso_week_id="2026-W40", defect_manifest=defects)
+    assert meta.get_check_results(warehouse, "gap")[1].status is CheckStatus.WARN
+    row = ("2026-W35", *source[1:6], 133, *source[7:])
+    warehouse.execute(
+        "INSERT INTO marts.mart_org_weekly VALUES (" + ", ".join("?" * len(row)) + ")", row
+    )
+    run_checks(warehouse, run_id="complete", iso_week_id="2026-W40", defect_manifest=defects)
+    assert meta.get_check_results(warehouse, "complete")[1].status is CheckStatus.PASS
+
+
+def test_defect_reconciliation_uses_prior_loaded_batch_on_rerun(
+    warehouse: duckdb.DuckDBPyConnection,
+) -> None:
+    fixture = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
+    defect = next(
+        d for d in fixture.defects if d.iso_week_id == "2026-W40" and d.rule_id == "DQ002"
+    )
+    defects = fixture.model_copy(update={"defects": [defect]})
+    when = datetime(2026, 10, 5, tzinfo=UTC)
+    meta.record_manifest(
+        warehouse,
+        LoadManifest(
+            file_path=defect.file,
+            file_sha256="0" * 64,
+            source="snowflake",
+            table_name="activity",
+            batch_id="old-batch",
+            row_count=100,
+            rows_loaded=99,
+            rows_quarantined=1,
+            status=LoadStatus.LOADED,
+            loaded_at=when,
+            run_id="first-run",
+        ),
+    )
+    meta.write_rejected_rows(
+        warehouse,
+        [
+            RejectedRow(
+                rejected_id="fixture-defect",
+                run_id="first-run",
+                batch_id="old-batch",
+                source="snowflake",
+                table_name="activity",
+                source_file=defect.file,
+                source_row=defect.row or 0,
+                rule_id=defect.rule_id,
+                reason="fixture",
+                payload="{}",
+                detected_at=when,
+            )
+        ],
+    )
+    run_checks(warehouse, run_id="rerun", iso_week_id="2026-W40", defect_manifest=defects)
+    assert meta.get_check_results(warehouse, "rerun")[3].status is CheckStatus.PASS
 
 
 def test_failed_check_persists_results_and_blocks_export(
