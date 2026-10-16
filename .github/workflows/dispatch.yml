@@ -1,0 +1,53 @@
+# Hand status:ready agent issues to cloud agents and nudge quiet ones. See scripts/dispatch.py
+# and issue #99. Only collaborators can label issues, so a label event is already trusted.
+name: dispatch
+
+on:
+  issues:
+    types: [labeled]
+  workflow_run:
+    # deps.yml relabels with GITHUB_TOKEN, which does not fire `issues` events.
+    workflows: [deps]
+    types: [completed]
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print actions without commenting or relabelling
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: dispatcher
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: >-
+      github.event_name != 'issues' ||
+      github.event.label.name == 'status:ready' ||
+      startsWith(github.event.label.name, 'agent:')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run dispatcher
+        env:
+          # A user token (fine-grained PAT, Issues: read/write on this repo), so the agent
+          # accepts the mention. Falls back to GITHUB_TOKEN with a warning.
+          DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/dispatch.py ${{ inputs.dry_run && '--dry-run' || '' }}
