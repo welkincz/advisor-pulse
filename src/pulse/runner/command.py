@@ -41,9 +41,14 @@ def run_week(
     con = connect(warehouse)
     try:
         init_warehouse(con)
-        run_id = new_run_id(run_type, iso_week, {r.run_id for r in meta.get_run_log(con)})
+        existing = {r.run_id for r in meta.get_run_log(con)}
     finally:
         con.close()
+    # Imported on call: pulse.state imports the runner. On a fresh CI runner the local
+    # warehouse is empty, so the ids persisted to R2 keep run_ids unique across runners.
+    from pulse.state import STATE
+
+    run_id = new_run_id(run_type, iso_week, existing | STATE.known_run_ids())
 
     runner = Runner(
         stages,

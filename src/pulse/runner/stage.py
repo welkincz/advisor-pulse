@@ -46,6 +46,9 @@ class StageResult:
     rows_out: int | None = None
     rows_quarantined: int | None = None
     message: str | None = None
+    # Stop the run here: every later stage is SKIPPED, ``always`` stages included. Used when
+    # another run holds the lock, so this one must touch nothing.
+    halt: bool = False
 
     def __post_init__(self) -> None:
         if self.status is StageStatus.RUNNING:
@@ -60,7 +63,8 @@ class Stage:
     """One node of the runner DAG.
 
     ``retry_on`` lists the exception types worth another attempt; anything else fails the
-    stage on its first attempt.
+    stage on its first attempt. An ``always`` stage still runs when an upstream stage failed
+    (cleanup, such as releasing the run lock); a halted run skips it too.
     """
 
     name: str
@@ -69,6 +73,7 @@ class Stage:
     depends_on: tuple[str, ...] = ()
     retry_on: tuple[type[BaseException], ...] = (RetryableError,)
     max_attempts: int = 3
+    always: bool = False
 
 
 def not_implemented(issue: int) -> StageFn:

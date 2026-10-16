@@ -54,9 +54,27 @@ def _ingest(ctx: StageContext) -> StageResult:
     return ingest(ctx)
 
 
+def _restore_state(ctx: StageContext) -> StageResult:
+    from pulse.state import STATE
+
+    return STATE.restore(ctx)
+
+
+def _persist_state(ctx: StageContext) -> StageResult:
+    from pulse.state import STATE
+
+    return STATE.persist(ctx)
+
+
+def _release_lock(ctx: StageContext) -> StageResult:
+    from pulse.state import STATE
+
+    return STATE.release(ctx)
+
+
 # Stages land one issue at a time; until then each is a SKIPPED placeholder naming its issue.
 WEEKLY_STAGES: tuple[Stage, ...] = (
-    Stage("restore_state", "Restore state", not_implemented(45)),
+    Stage("restore_state", "Restore state", _restore_state),
     Stage("generate", "Generate week", not_implemented(16), ("restore_state",)),
     Stage("ingest", "Ingest + validate", _ingest, ("generate",)),
     Stage("dbt_build", "dbt build", not_implemented(52), ("ingest",)),
@@ -64,5 +82,12 @@ WEEKLY_STAGES: tuple[Stage, ...] = (
     Stage("narrate", "AI narrative", not_implemented(47), ("checks",)),
     Stage("export", "Export", not_implemented(46), ("narrate",)),
     Stage("publish_sheets", "Google Sheets", not_implemented(55), ("export",)),
-    Stage("persist_state", "Persist state", not_implemented(45), ("export",)),
+    Stage("persist_state", "Persist state", _persist_state, ("export",)),
+    Stage(
+        "release_lock",
+        "Release lock",
+        _release_lock,
+        ("persist_state", "publish_sheets"),
+        always=True,
+    ),
 )
