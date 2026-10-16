@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import random
 from datetime import UTC, datetime
@@ -14,7 +15,7 @@ from pulse.contracts.exports import NarrativeFile, WeeklyReport
 from pulse.narrative.client import AnthropicClient
 from pulse.narrative.facts import build_facts, narrated_nodes
 from pulse.narrative.generate import ResponseCache, cache_key, narrate_node
-from pulse.narrative.prompt import facts_json, user_message
+from pulse.narrative.prompt import KPI_LABELS, facts_json, fmt, user_message
 from pulse.narrative.stage import narrate, write_narratives
 from pulse.narrative.template import template_narrative
 from pulse.runner.stage import StageContext
@@ -60,9 +61,16 @@ class FakeClient:
         self.calls.append(user)
         if self.error is not None:
             raise self.error
-        return self.answer or {
-            "headline": "Activities per advisor rose this week.",
-            "bullets": [{"text": "Activities per advisor 10.4.", "fact_ids": ["F1"]}],
+        if self.answer is not None:
+            return self.answer
+        # A grounded answer: state F1's value, as the prompt asks.
+        first = json.loads(user.split("Facts:\n", 1)[1].splitlines()[0])[0]
+        value = fmt(KpiCode(first["kpi_code"]), first["value"])
+        return {
+            "headline": "Weekly activity summary.",
+            "bullets": [
+                {"text": f"{KPI_LABELS[KpiCode(first['kpi_code'])]} {value}.", "fact_ids": ["F1"]}
+            ],
             "watchlist": [],
         }
 
@@ -260,7 +268,7 @@ def test_partial_fallback_warns_with_the_reason(tmp_path: Path) -> None:
     result = narrate(ctx(tmp_path), client_factory=lambda: FakeClient(bad))
     assert result.status is StageStatus.WARN
     assert result.message == (
-        "5 of 5 narratives fell back to the template (cites unknown facts F999)."
+        "5 of 5 narratives fell back to the template (failed validation: cites unknown facts F999)."
     )
 
 

@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from pulse.contracts.exports import NarrativeBullet, NodeNarrative, WatchItem
 from pulse.narrative.client import NarrativeClient
 from pulse.narrative.facts import NodeFacts
-from pulse.narrative.prompt import PROMPT_VERSION, facts_json, user_message
+from pulse.narrative.prompt import PROMPT_VERSION, facts_json
 from pulse.narrative.template import template_narrative
 
 log = logging.getLogger(__name__)
@@ -82,28 +82,22 @@ def to_narrative(node: NodeFacts, response: dict[str, Any], model: str) -> NodeN
 @dataclass(frozen=True)
 class Outcome:
     narrative: NodeNarrative
-    cached: bool = False
+    cached: bool = False  # served from the cache with no API call
     reason: str | None = None  # why the template was used, if it was
 
 
 def narrate_node(node: NodeFacts, client: NarrativeClient | None, cache: ResponseCache) -> Outcome:
+    """Cached, validated narrative for one node; the template when anything goes wrong."""
+    # Imported on call: fallback builds on to_narrative above.
+    from pulse.narrative.fallback import generate_guarded
+
     if client is None:
         return Outcome(template_narrative(node), reason="no API key")
 
     key = cache_key(client.model, node)
-    response = cache.get(key)
-    cached = response is not None
-    if response is None:
-        try:
-            response = client.complete(user_message(node))
-        except Exception as exc:  # API outage must not block the weekly report
-            log.warning("Narrative for %s fell back: %s", node.node_id, exc)
-            return Outcome(template_narrative(node), reason=f"API error: {type(exc).__name__}")
-    try:
-        narrative = to_narrative(node, response, client.model)
-    except UnusableResponse as exc:
-        log.warning("Narrative for %s fell back: answer %s", node.node_id, exc)
-        return Outcome(template_narrative(node), cached=cached, reason=str(exc))
-    if not cached:
-        cache.put(key, response)  # only usable answers are cached
-    return Outcome(narrative, cached=cached)
+    cached = cache.get(key)
+    guarded = generate_guarded(node, client, first=cached)
+    hit = cached is not None and guarded.response is cached
+    if guarded.response is not None and not hit:
+        cache.put(key, guarded.response)  # only answers that passed validation are cached
+    return Outcome(guarded.narrative, cached=hit, reason=guarded.reason)

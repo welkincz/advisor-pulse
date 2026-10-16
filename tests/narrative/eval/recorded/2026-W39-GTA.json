@@ -1,0 +1,49 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Outbound calls 29, from 37 the week before."
+   },
+   {
+    "fact_ids": [
+     "F5"
+    ],
+    "text": "Show rate 87.5%, from 50.0% the week before."
+   },
+   {
+    "fact_ids": [
+     "F8"
+    ],
+    "text": "13-week coverage 77.5%, from 67.6% the week before."
+   },
+   {
+    "fact_ids": [
+     "F6"
+    ],
+    "text": "Appointment conversion 57.1%, from 50.0% the week before."
+   },
+   {
+    "fact_ids": [
+     "F14"
+    ],
+    "text": "King & Bay Branch trails its peers on 13-week coverage at 72.4%."
+   }
+  ],
+  "headline": "GTA: activities per advisor fell 15.1% week over week to 9.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F14"
+    ],
+    "node_id": "BR-0101",
+    "reason": "Lowest 13-week coverage under GTA (72.4%)."
+   }
+  ]
+ },
+ "expected_pass": true,
+ "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
+ "source": "template-seed"
+}

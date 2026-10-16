@@ -107,8 +107,8 @@ export: ## Export marts to web/public/data
 	$(RUN) pulse export
 
 .PHONY: narrative-eval
-narrative-eval: ## Live narrative eval pass-rate table
-	$(call todo,48)
+narrative-eval: ## Live narrative eval pass-rate table (RECORD=1 saves the answers)
+	$(RUN) python tests/narrative/eval/run_eval.py --live $(if $(RECORD),--record)
 
 .PHONY: geo
 geo: ## Download and simplify StatCan boundaries
