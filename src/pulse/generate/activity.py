@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+import tempfile
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -23,6 +24,8 @@ from pulse.contracts.enums import (
 from pulse.contracts.sources import SnowflakeActivity
 from pulse.generate.advisors import AssignmentRow
 from pulse.reference import OrgReference
+
+STORY_START = date(2026, 1, 5)
 
 
 def _week_start(iso_week_id: str) -> date:
@@ -66,14 +69,14 @@ def generate_activity(
     *,
     iso_week_id: str,
     seed: int,
-    week_index: int = 0,
     story_districts: tuple[str, str] | None = None,
     client_ids: Sequence[str] = (),
 ) -> tuple[SnowflakeActivity, ...]:
     """Generate one week from as-of assignments; no wall clock or mutable state."""
     monday = _week_start(iso_week_id)
-    if week_index < 0:
-        raise ValueError("week_index must be non-negative")
+    if not client_ids:
+        raise ValueError("client_ids must contain generated clients")
+    story_step = min(7, max(0, (monday - STORY_START).days // 7))
     districts = {p.branch.branch_id: p.district.district_code for p in org.placements()}
     if story_districts is None:
         codes = sorted(set(districts.values()))
@@ -98,9 +101,9 @@ def generate_activity(
         for advisor, branch in active:
             district = districts[branch]
             story = (
-                max(0.55, 1 - 0.05 * week_index)
+                1 - 0.05 * story_step
                 if district == story_districts[0]
-                else 1 + 0.05 * week_index
+                else 1 + 0.05 * story_step
                 if district == story_districts[1]
                 else 1.0
             )
@@ -112,7 +115,11 @@ def generate_activity(
                 at = datetime.combine(
                     day, time(14 + rng.randrange(6), rng.randrange(60)), tzinfo=UTC
                 )
-                client = rng.choice(client_ids) if client_ids and rng.random() < 0.9 else None
+                client = (
+                    None
+                    if kind == ActivityType.CALL_OUT and rng.random() < 0.1
+                    else rng.choice(client_ids)
+                )
                 sequence += 1
                 activity_id = _id(seed, iso_week_id, advisor, sequence)
                 duration = rng.randrange(5, 46)
@@ -142,7 +149,7 @@ def generate_activity(
                         _EXTRACTED_AT=extracted,
                     )
                 )
-                if kind != ActivityType.CALL_OUT or rng.random() >= 0.09:
+                if kind != ActivityType.CALL_OUT or client is None or rng.random() >= 0.09:
                     continue
                 appointment_time = at + timedelta(hours=2)
                 status = rng.choices(
@@ -189,17 +196,28 @@ def write_activity(
     if part_size < 1:
         raise ValueError("part_size must be positive")
     directory = sources_root / "snowflake/activity" / f"extract_date={extract_date.isoformat()}"
-    directory.mkdir(parents=True, exist_ok=True)
-    paths: list[Path] = []
-    for index, start in enumerate(range(0, len(rows), part_size)):
-        path = directory / f"part-{index:03d}.parquet"
-        table = pa.Table.from_pylist(
-            [
-                row.model_dump(by_alias=True, mode="python")
-                for row in rows[start : start + part_size]
-            ],
-            schema=arrow_schema(SnowflakeActivity),
-        )
-        pq.write_table(table, path, compression="zstd")
-        paths.append(path)
-    return tuple(paths)
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    names: list[str] = []
+    with tempfile.TemporaryDirectory(dir=directory.parent) as temporary:
+        staging = Path(temporary) / directory.name
+        staging.mkdir()
+        for index, start in enumerate(range(0, len(rows), part_size)):
+            name = f"part-{index:03d}.parquet"
+            table = pa.Table.from_pylist(
+                [
+                    row.model_dump(by_alias=True, mode="python")
+                    for row in rows[start : start + part_size]
+                ],
+                schema=arrow_schema(SnowflakeActivity),
+            )
+            pq.write_table(table, staging / name, compression="zstd")
+            names.append(name)
+        if directory.exists():
+            directory.rename(Path(temporary) / "old")
+        try:
+            staging.rename(directory)
+        except BaseException:
+            if (Path(temporary) / "old").exists():
+                (Path(temporary) / "old").rename(directory)
+            raise
+    return tuple(directory / name for name in names)
