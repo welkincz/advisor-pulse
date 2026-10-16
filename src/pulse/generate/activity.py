@@ -23,6 +23,8 @@ from pulse.contracts.enums import (
 )
 from pulse.contracts.sources import SnowflakeActivity
 from pulse.generate.advisors import AssignmentRow
+from pulse.generate.books import client_pools_by_day
+from pulse.generate.clients import ClientBatch
 from pulse.reference import OrgReference
 
 STORY_START = date(2026, 8, 10)
@@ -69,13 +71,12 @@ def generate_activity(
     *,
     iso_week_id: str,
     seed: int,
+    client_batch: ClientBatch,
     story_districts: tuple[str, str] | None = None,
-    client_ids: Sequence[str] = (),
 ) -> tuple[SnowflakeActivity, ...]:
     """Generate one week from as-of assignments; no wall clock or mutable state."""
     monday = _week_start(iso_week_id)
-    if not client_ids:
-        raise ValueError("client_ids must contain generated clients")
+    pools = client_pools_by_day(client_batch, [monday + timedelta(days=i) for i in range(5)])
     story_step = min(7, max(0, (monday - STORY_START).days // 7))
     districts = {p.branch.branch_id: p.district.district_code for p in org.placements()}
     if story_districts is None:
@@ -90,6 +91,7 @@ def generate_activity(
     sequence = 0
     for offset in range(5):
         day = monday + timedelta(days=offset)
+        books, active_clients = pools[day]
         weekday = (1.08, 1.12, 1.04, 0.98, 0.78)[offset]
         seasonal = 1.10 if day.month == 2 else 1.0
         holiday = 0.65 if _holiday(day) else 1.0
@@ -115,11 +117,12 @@ def generate_activity(
                 at = datetime.combine(
                     day, time(14 + rng.randrange(6), rng.randrange(60)), tzinfo=UTC
                 )
-                client = (
-                    None
-                    if kind == ActivityType.CALL_OUT and rng.random() < 0.1
-                    else rng.choice(client_ids)
-                )
+                client = None
+                if kind != ActivityType.CALL_OUT or rng.random() >= 0.1:
+                    own_book = books.get(advisor, ())
+                    client = rng.choice(
+                        own_book if own_book and rng.random() < 0.95 else active_clients
+                    )
                 sequence += 1
                 activity_id = _id(seed, iso_week_id, advisor, sequence)
                 duration = rng.randrange(5, 46)

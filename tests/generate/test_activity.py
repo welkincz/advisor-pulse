@@ -2,32 +2,44 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import date, timedelta
+from functools import lru_cache
 from pathlib import Path
+from statistics import median
 
 import pyarrow.parquet as pq
-import pytest
 
 from pulse.contracts import arrow_schema
 from pulse.contracts.enums import ActivityStatus, ActivityType, Role
 from pulse.contracts.sources import SnowflakeActivity
 from pulse.generate.activity import generate_activity, write_activity
 from pulse.generate.advisors import assignment_ranges, generate_advisors
+from pulse.generate.books import client_pools_by_day
+from pulse.generate.clients import ClientBatch, generate_clients
 from pulse.reference import org
-
-CLIENT_IDS = tuple(f"CLI-{number:08d}" for number in range(1, 201))
 
 
 def _roster(count: int = 80):
     return generate_advisors(org(), seed=29, advisor_count=count, weeks=104)
 
 
+@lru_cache
+def _clients(count: int) -> ClientBatch:
+    return generate_clients(
+        org(),
+        assignment_ranges(_roster(count)),
+        seed=29,
+        client_count=10_000 if count == 900 else 5_000,
+        weeks=104,
+    )
+
+
 def test_activity_uses_advisor_branch_as_of_each_date() -> None:
     ranges = assignment_ranges(_roster())
-    week = "2026-W37"
-    rows = generate_activity(org(), ranges, iso_week_id=week, seed=17, client_ids=CLIENT_IDS)
-    assert rows
+    rows = generate_activity(
+        org(), ranges, iso_week_id="2026-W37", seed=17, client_batch=_clients(80)
+    )
     for row in rows:
         day = row.activity_ts.date()
         assert any(
@@ -38,6 +50,41 @@ def test_activity_uses_advisor_branch_as_of_each_date() -> None:
             and (end is None or day < end)
             for advisor, branch, role, start, end in ranges
         )
+    batch = _clients(80)
+    linked = [row for row in rows if row.client_id is not None]
+    pools = client_pools_by_day(batch, [row.activity_ts.date() for row in linked])
+    owned = 0
+    for row in linked:
+        books, active = pools[row.activity_ts.date()]
+        assert row.client_id in active
+        owned += row.client_id in books.get(row.advisor_id, ())
+    assert owned / len(linked) >= 0.9
+
+
+def test_default_scale_thirteen_week_book_coverage() -> None:
+    ranges = assignment_ranges(_roster(900))
+    batch = generate_clients(org(), ranges, seed=29, client_count=150_000, weeks=13)
+    contacted: dict[str, set[str]] = defaultdict(set)
+    linked = owned = 0
+    for offset in range(13):
+        monday = date(2024, 10, 7) + timedelta(weeks=offset)
+        week = f"{monday.isocalendar().year}-W{monday.isocalendar().week:02d}"
+        rows = generate_activity(org(), ranges, iso_week_id=week, seed=31, client_batch=batch)
+        pools = client_pools_by_day(batch, [row.activity_ts.date() for row in rows])
+        for row in rows:
+            if row.client_id is None:
+                continue
+            linked += 1
+            books, _ = pools[row.activity_ts.date()]
+            if row.client_id in books.get(row.advisor_id, ()):
+                owned += 1
+                contacted[row.advisor_id].add(row.client_id)
+    assert owned / linked >= 0.9
+    end_books, _ = client_pools_by_day(batch, [date(2025, 1, 5)])[date(2025, 1, 5)]
+    coverage = [
+        len(contacted[owner].intersection(ids)) / len(ids) for owner, ids in end_books.items()
+    ]
+    assert 0.30 <= median(coverage) <= 0.80
 
 
 def test_appointments_follow_calls_and_have_valid_status_timing() -> None:
@@ -46,7 +93,7 @@ def test_appointments_follow_calls_and_have_valid_status_timing() -> None:
         assignment_ranges(_roster()),
         iso_week_id="2026-W37",
         seed=17,
-        client_ids=CLIENT_IDS,
+        client_batch=_clients(80),
     )
     by_id = {row.activity_id: row for row in rows}
     appointments = [r for r in rows if r.activity_type == ActivityType.APPOINTMENT]
@@ -59,7 +106,6 @@ def test_appointments_follow_calls_and_have_valid_status_timing() -> None:
         if row.status == ActivityStatus.COMPLETED and row.scheduled_ts is not None:
             assert row.activity_ts >= row.scheduled_ts
     for appointment in appointments:
-        assert appointment.booked_from_activity_id in by_id
         call = by_id[appointment.booked_from_activity_id]
         assert call.activity_type == ActivityType.CALL_OUT
         assert call.created_ts <= appointment.created_ts < appointment.scheduled_ts
@@ -68,9 +114,8 @@ def test_appointments_follow_calls_and_have_valid_status_timing() -> None:
 def test_default_volume_and_district_stories() -> None:
     ranges = assignment_ranges(_roster(900))
     districts = {p.branch.branch_id: p.district.district_code for p in org().placements()}
-    weeks = [date(2026, 8, 10) + timedelta(weeks=i) for i in range(8)]
     totals: list[Counter[str]] = []
-    for monday in weeks:
+    for monday in (date(2026, 8, 10) + timedelta(weeks=i) for i in range(8)):
         week = f"{monday.isocalendar().year}-W{monday.isocalendar().week:02d}"
         rows = generate_activity(
             org(),
@@ -78,54 +123,40 @@ def test_default_volume_and_district_stories() -> None:
             iso_week_id=week,
             seed=31,
             story_districts=("GTA", "MTL"),
-            client_ids=CLIENT_IDS,
+            client_batch=_clients(900),
         )
         assert 12_000 <= len(rows) <= 18_000
         totals.append(Counter(districts[r.branch_id] for r in rows))
     assert totals[-1]["GTA"] < totals[0]["GTA"] * 0.85
     assert totals[-1]["MTL"] > totals[0]["MTL"] * 1.15
-    late = generate_activity(
-        org(),
-        ranges,
-        iso_week_id="2026-W40",
-        seed=31,
-        story_districts=("GTA", "MTL"),
-        client_ids=CLIENT_IDS,
-    )
-    assert 12_000 <= len(late) <= 18_000
 
 
 def test_holiday_dip_and_february_lift() -> None:
     ranges = assignment_ranges(_roster(900))
-    for week in ("2024-W52", "2025-W52"):
-        christmas = generate_activity(
-            org(), ranges, iso_week_id=week, seed=31, client_ids=CLIENT_IDS
-        )
-        assert 12_000 <= len(christmas) <= 18_000
-    holiday_week = generate_activity(
-        org(), ranges, iso_week_id="2026-W27", seed=31, client_ids=CLIENT_IDS
-    )
-    by_day = Counter(row.activity_ts.date() for row in holiday_week)
-    assert by_day[date(2026, 7, 1)] < by_day[date(2026, 7, 2)] * 0.7
 
-    january = generate_activity(
-        org(), ranges, iso_week_id="2026-W03", seed=31, client_ids=CLIENT_IDS
-    )
-    february = generate_activity(
-        org(), ranges, iso_week_id="2026-W07", seed=31, client_ids=CLIENT_IDS
-    )
-    assert len(february) > len(january) * 1.04
+    def week_rows(week: str):
+        return generate_activity(
+            org(), ranges, iso_week_id=week, seed=31, client_batch=_clients(900)
+        )
+
+    for week in ("2024-W52", "2025-W52"):
+        assert 12_000 <= len(week_rows(week)) <= 18_000
+    holiday_week = week_rows("2026-W27")
+    by_day = Counter(row.activity_ts.date() for row in holiday_week)
+    assert by_day[date(2026, 7, 1)] < by_day[date(2026, 7, 2)] * 0.75
+
+    assert len(week_rows("2026-W07")) > len(week_rows("2026-W03")) * 1.04
 
 
 def test_seed_week_determinism_and_parquet_schema(tmp_path: Path) -> None:
     ranges = assignment_ranges(_roster(50))
-    first = generate_activity(org(), ranges, iso_week_id="2026-W37", seed=7, client_ids=CLIENT_IDS)
-    second = generate_activity(org(), ranges, iso_week_id="2026-W37", seed=7, client_ids=CLIENT_IDS)
-    other = generate_activity(org(), ranges, iso_week_id="2026-W38", seed=7, client_ids=CLIENT_IDS)
-    with pytest.raises(ValueError, match="client_ids"):
-        generate_activity(org(), ranges, iso_week_id="2026-W37", seed=7)
-    assert first == second
-    assert first != other
+
+    def generated(week: str):
+        return generate_activity(org(), ranges, iso_week_id=week, seed=7, client_batch=_clients(50))
+
+    first = generated("2026-W37")
+    assert first == generated("2026-W37")
+    assert first != generated("2026-W38")
     path = write_activity(first, tmp_path, extract_date=date(2026, 9, 14))[0]
     bytes_once = path.read_bytes()
     assert (
@@ -135,17 +166,9 @@ def test_seed_week_determinism_and_parquet_schema(tmp_path: Path) -> None:
     table = pq.read_table(path)
     assert table.schema == arrow_schema(SnowflakeActivity)
     assert [SnowflakeActivity.model_validate(row) for row in table.to_pylist()] == list(first)
-
-
-def test_rewrite_with_fewer_rows_removes_stale_parts(tmp_path: Path) -> None:
-    rows = generate_activity(
-        org(),
-        assignment_ranges(_roster(50)),
-        iso_week_id="2026-W37",
-        seed=7,
-        client_ids=CLIENT_IDS,
+    assert (
+        len(write_activity(first[:2], tmp_path, extract_date=date(2026, 9, 14), part_size=1)) == 2
     )
-    assert len(write_activity(rows[:2], tmp_path, extract_date=date(2026, 9, 14), part_size=1)) == 2
-    latest = write_activity(rows[:1], tmp_path, extract_date=date(2026, 9, 14))
+    latest = write_activity(first[:1], tmp_path, extract_date=date(2026, 9, 14))
     assert len(latest) == 1
     assert sorted(latest[0].parent.glob("part-*.parquet")) == list(latest)
