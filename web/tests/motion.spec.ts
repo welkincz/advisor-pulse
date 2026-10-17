@@ -76,6 +76,15 @@ test('reduced motion shows final values and sections without animation', async (
 })
 
 test('drill shares a title transition and bypasses it for reduced motion', async ({ page }) => {
+  if (process.env.RECORD_MOTION) {
+    await page.goto('/r/ON')
+    await expect(page.getByRole('table').getByRole('link').first()).toBeVisible()
+    expect(await page.evaluate(() => typeof document.startViewTransition)).toBe('function')
+    await page.getByRole('table').getByRole('link').first().click()
+    await expect(page).toHaveURL(/\/r\/ON\/d\//)
+    await page.waitForTimeout(400)
+    await page.goBack()
+  }
   await page.addInitScript(() => {
     Object.assign(window, { __transitionCount: 0 })
     ;(document as Document & { startViewTransition?: (update: () => void) => { ready: Promise<void>; finished: Promise<void> } }).startViewTransition = (update) => {
