@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Link, NavLink, Route, Routes, useParams } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { DataNotice, useManifest } from '../data'
+import { AdvisorLeaderboard, OrgLeaderboard } from '../features/leaderboard/Leaderboard'
 import { NarrativePanel } from '../features/narrative/NarrativePanel'
 import { Overview } from './Overview'
 import { useReducedMotion } from './useReducedMotion'
@@ -22,6 +23,10 @@ function DrillPage({ title }: { title: string }) {
   const manifest = useManifest()
   const levels = [region, district, branch, advisor].filter(Boolean)
   const nodeId = advisor ?? branch ?? district ?? region
+  const { pathname } = useLocation()
+  // The next drill segment under this node: districts, then branches, then advisors.
+  const child = advisor ? null : branch ? 'a' : district ? 'b' : 'd'
+  const childHref = (id: string) => `${pathname.replace(/\/$/, '')}/${child}/${encodeURIComponent(id)}`
   return <main>
     <p className="eyebrow">Maplecrest Bank · fictional</p>
     <h1>{title}</h1>
@@ -30,6 +35,8 @@ function DrillPage({ title }: { title: string }) {
     {manifest.status === 'loading' && <p aria-busy="true">Loading the latest weekly report…</p>}
     {manifest.status === 'error' && <DataNotice what="this week's report" onRetry={manifest.retry} />}
     {manifest.status === 'ready' && nodeId && <NarrativePanel week={manifest.data.latest_week} nodeId={nodeId} />}
+    {manifest.status === 'ready' && nodeId && child === 'a' && <AdvisorLeaderboard weeks={manifest.data.weeks_available} parentId={nodeId} parentName={nodeId} childHref={childHref} />}
+    {manifest.status === 'ready' && nodeId && child && child !== 'a' && <OrgLeaderboard weeks={manifest.data.weeks_available} parentId={nodeId} parentName={nodeId} childHref={childHref} />}
   </main>
 }
 

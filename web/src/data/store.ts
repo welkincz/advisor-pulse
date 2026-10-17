@@ -1,4 +1,5 @@
 import type { QueryEngine } from './engine'
+import type { AdvisorWeekly } from './generated/advisor_weekly'
 import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { Narrative, NodeNarrative } from './generated/narrative'
@@ -6,7 +7,7 @@ import type { OrgWeekly } from './generated/org_weekly'
 import type { RunLog } from './generated/run_log'
 import type { WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
-import { TABLES, type Table, geoWeeklySql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
+import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
 
 export interface PulseDataOptions {
   /** URL prefix of the weekly export: `/data` on the site and in `make web-dev`. */
@@ -65,6 +66,14 @@ export class PulseData {
 
   weeklyReportHistory(nodeId: string, weeks: readonly string[]): Promise<WeeklyReport[]> {
     return this.select<WeeklyReport>('weekly_report', weeklyReportHistorySql(nodeId, weeks))
+  }
+
+  childReportHistory(parentId: string, weeks: readonly string[]): Promise<WeeklyReport[]> {
+    return this.select<WeeklyReport>('weekly_report', childReportHistorySql(parentId, weeks))
+  }
+
+  advisorWeekly(branchId: string, weeks: readonly string[]): Promise<AdvisorWeekly[]> {
+    return this.select<AdvisorWeekly>('advisor_weekly', advisorWeeklySql(branchId, weeks))
   }
 
   geoWeekly(week: string, districtCode?: string): Promise<GeoWeekly[]> {
