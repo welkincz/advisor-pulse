@@ -188,7 +188,8 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
   keeps their place. Drill up reverses it.
 - Pipeline replay (#42) steps through stages at 400 ms each, and can be paused.
 - Run history names each run type (weekly, manual, or backfill) beside its week and status.
-- No entrance animations on scroll, no staggered fade-ins, no looping motion.
+- On the first report view, sections may fade in once in reading order, with opacity only.
+  Never trigger an entrance on scroll or loop an animation.
 - `prefers-reduced-motion: reduce` sets every duration token to 0, and `Chart` turns off
   ECharts animation. Content must make sense with no motion at all.
 

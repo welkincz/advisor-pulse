@@ -87,7 +87,7 @@ function Board({ title, codes, result, toRows, weeks, parentName, childHref, onC
   const week = weeks.at(-1)
   const rows = result.status === 'ready' ? toRows(code) : []
   const direction = LOWER_IS_BETTER.has(code) ? 'lowest' : 'highest'
-  return <Section id="leaderboard" title={title} lede={`Ranked ${direction} first; change is places moved since the prior week.`}>
+  return <Section id="leaderboard" title={title} lede={`Ranked ${direction} first; change is places moved since the prior week.`} revealOrder={2}>
     <label className="leader-picker">Rank by
       <select value={code} onChange={(event) => setCode(event.target.value as KpiCode)}>
         {codes.map((item) => <option key={item} value={item}>{KPI_LABELS[item]}</option>)}

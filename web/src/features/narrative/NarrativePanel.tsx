@@ -37,7 +37,7 @@ export function NarrativePanel({ week, nodeId }: { week: string; nodeId: string 
   if (result.status === 'empty') return null
 
   const narrative = result.data
-  return <Section id="weekly-narrative" title="Weekly interpretation" lede={`Week ${week}`}>
+  return <Section id="weekly-narrative" title="Weekly interpretation" lede={`Week ${week}`} revealOrder={1}>
     <div className="narrative-panel">
       <p className="narrative-disclosure">
         {narrative.fallback ? 'Template summary' : "AI-generated from this week's figures"}

@@ -4,6 +4,7 @@ import { Chart, Delta, Figure, Section, Stat, StatGroup } from '../../components
 import { DataNotice, KPI_LABELS, formatKpi, useWeeklyReportHistory } from '../../data'
 import type { Manifest } from '../../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
+import { AnimatedKpiValue } from '../../motion/AnimatedKpiValue'
 import { KPI_CODES, KPI_DEFINITIONS, LOWER_IS_BETTER, RATE_CODES } from './kpis'
 import './overview.css'
 
@@ -48,7 +49,7 @@ function Trend({ manifest }: { manifest: Manifest }) {
     ? `${KPI_LABELS[code]}: ${formatKpi(code, first.value)} in ${first.iso_week_id} to ${formatKpi(code, last.value)} in ${last.iso_week_id}.`
     : ''
 
-  return <Section id="trend" title="Weekly trend" lede="Up to 26 available weeks; the 13-week average appears when reported.">
+  return <Section id="trend" title="Weekly trend" lede="Up to 26 available weeks; the 13-week average appears when reported." revealOrder={1}>
     <label className="trend-picker">Trend KPI
       <select value={code} onChange={(event) => setCode(event.target.value as KpiCode)}>
         {KPI_CODES.map((item) => <option key={item} value={item}>{KPI_LABELS[item]}</option>)}
@@ -72,11 +73,11 @@ function Trend({ manifest }: { manifest: Manifest }) {
 export function OverviewKpis({ manifest }: { manifest: Manifest }) {
   const summary = new Map(manifest.summary.map((row) => [row.kpi_code, row]))
   return <>
-    <Section id="national" title={`National, week ${manifest.latest_week}`} lede="Change is against the prior week. Anomaly means more than two standard deviations from the 13 weeks before.">
+    <Section id="national" title={`National, week ${manifest.latest_week}`} lede="Change is against the prior week. Anomaly means more than two standard deviations from the 13 weeks before." revealOrder={0}>
       <StatGroup label="National key performance indicators">
         {KPI_CODES.map((code, index) => {
           const kpi = summary.get(code)
-          return <Stat key={code} data-kpi={code} label={KPI_LABELS[code]} value={formatKpi(code, kpi?.value)} emphasis={index === 0}
+          return <Stat key={code} data-kpi={code} label={KPI_LABELS[code]} value={<AnimatedKpiValue code={code} value={kpi?.value ?? null} />} emphasis={index === 0}
             footer={<details className="kpi-definition"><summary>Definition</summary><p>{KPI_DEFINITIONS[code]}</p></details>}>
             <Delta value={kpi?.wow_pct} better={code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'} />
             {kpi?.wow_pct != null && <span> WoW</span>}
