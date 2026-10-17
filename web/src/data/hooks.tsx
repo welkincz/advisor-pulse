@@ -1,4 +1,5 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import type { AdvisorWeekly } from './generated/advisor_weekly'
 import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { NodeNarrative } from './generated/narrative'
@@ -77,6 +78,14 @@ export function useWeeklyReport(week: string, filter: { nodeId: string } | { par
 
 export function useWeeklyReportHistory(nodeId: string, weeks: readonly string[]): DataResult<WeeklyReport[]> {
   return useData(`report-history:${nodeId}:${weeks.join(',')}`, (d) => d.weeklyReportHistory(nodeId, weeks))
+}
+
+export function useChildReportHistory(parentId: string, weeks: readonly string[]): DataResult<WeeklyReport[]> {
+  return useData(`child-history:${parentId}:${weeks.join(',')}`, (d) => d.childReportHistory(parentId, weeks))
+}
+
+export function useAdvisorWeekly(branchId: string, weeks: readonly string[]): DataResult<AdvisorWeekly[]> {
+  return useData(`advisors:${branchId}:${weeks.join(',')}`, (d) => d.advisorWeekly(branchId, weeks))
 }
 
 export function useGeoWeekly(week: string, districtCode?: string): DataResult<GeoWeekly[]> {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { DataNotice, useManifest, usePulseData } from '../data'
+import { OrgLeaderboard } from '../features/leaderboard/Leaderboard'
 import { OverviewKpis } from '../features/overview/OverviewKpis'
 
 /** National KPIs from the manifest summary paint before DuckDB-WASM loads. */
@@ -19,5 +20,6 @@ export function Overview() {
     {manifest.status === 'loading' && <p className="intro" aria-busy="true">Loading the latest weekly report…</p>}
     {manifest.status === 'error' && <DataNotice what="this week's report" onRetry={manifest.retry} />}
     {manifest.status === 'ready' && <OverviewKpis manifest={manifest.data} />}
+    {manifest.status === 'ready' && <OrgLeaderboard weeks={manifest.data.weeks_available} parentId="CA" parentName="Canada" childHref={(id) => `/r/${encodeURIComponent(id)}`} />}
   </main>
 }
