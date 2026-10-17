@@ -79,6 +79,15 @@ test('a failed manifest fetch shows a calm notice with the last run time', async
   await expect(page.getByText(/Last weekly run: Oct 5, 2026/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
 })
+
+test('a failed manifest fetch on a drill page shows a retryable notice', async ({ page }) => {
+  await page.route('**/data/manifest.json', (route) => route.fulfill({ status: 503, body: 'down' }))
+  await page.route('**/data/run_log.json', (route) => route.fulfill({ path: resolve(exportsDir, 'run_log.json') }))
+  await page.goto('/r/ON')
+  await expect(page.getByText("We could not load this week's report just now.")).toBeVisible()
+  await expect(page.getByText(/Last weekly run: Oct 5, 2026/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+})
 for (const colorScheme of ['light', 'dark'] as const) {
   test(`kitchen sink renders primitives and themed charts in ${colorScheme}`, async ({ page }) => {
     const errors: string[] = []
