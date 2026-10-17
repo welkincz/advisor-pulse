@@ -68,7 +68,9 @@ loaded_counts as (
     select
         iso_week_id,
         count(*) as activity_loaded,
-        count(*) filter (where activity_week < iso_week_id) as late_rows,
+        -- Late means the activity first arrived after its week. A re-sent copy of an earlier
+        -- row (an older BOOKED version keeps its booking time) is DQ010, not late.
+        count(*) filter (where activity_week < iso_week_id and load_order = 1) as late_rows,
         count(*) filter (where load_order > 1) as dedupe_rows,
         count(*) filter (
             where advisor_id is null
