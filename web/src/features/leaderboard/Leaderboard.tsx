@@ -21,7 +21,11 @@ interface Props {
   parentName: string
   /** Where a child row links to, if anywhere. */
   childHref?: (id: string) => string
+  /** Called when a child link is followed, e.g. to run a view transition. */
+  onChildClick?: ChildClick
 }
+
+export type ChildClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void
 
 function Change({ row }: { row: LeaderRow }) {
   const change = rankChange(row)
@@ -40,7 +44,7 @@ function useWindow(count: number) {
   return { virtual: true, start, end, onScroll: (event: React.UIEvent<HTMLDivElement>) => setTop(event.currentTarget.scrollTop) }
 }
 
-export function LeaderTable({ rows, code, caption, childHref }: { rows: LeaderRow[]; code: KpiCode; caption: string; childHref?: (id: string) => string }) {
+export function LeaderTable({ rows, code, caption, childHref, onChildClick }: { rows: LeaderRow[]; code: KpiCode; caption: string; childHref?: (id: string) => string; onChildClick?: ChildClick }) {
   const { virtual, start, end, onScroll } = useWindow(rows.length)
   const label = KPI_LABELS[code]
   const table = <table className="leader-table" aria-rowcount={rows.length + 1}>
@@ -57,7 +61,7 @@ export function LeaderTable({ rows, code, caption, childHref }: { rows: LeaderRo
       {rows.slice(start, end).map((row, offset) => <tr key={row.id} aria-rowindex={start + offset + 2} style={virtual ? { height: ROW_HEIGHT } : undefined}>
         <td className="num figure-num">{row.rank ?? '–'}</td>
         <td><Change row={row} /></td>
-        <th scope="row">{childHref ? <Link to={childHref(row.id)}>{row.name}</Link> : row.name}</th>
+        <th scope="row">{childHref ? <Link to={childHref(row.id)} onClick={onChildClick && ((event) => onChildClick(event, childHref(row.id)))}>{row.name}</Link> : row.name}</th>
         <td className="num figure-num">{formatKpi(code, row.value)}</td>
         <td><Sparkline width={64} values={row.trend} label={`${row.name}, ${label} over ${row.trend.length} weeks`} /></td>
       </tr>)}
@@ -69,7 +73,7 @@ export function LeaderTable({ rows, code, caption, childHref }: { rows: LeaderRo
     tabIndex={0} role="region" aria-label={`${caption}, scrollable`}>{table}</div>
 }
 
-function Board({ title, codes, result, toRows, weeks, parentName, childHref }: {
+function Board({ title, codes, result, toRows, weeks, parentName, childHref, onChildClick }: {
   title: string
   codes: readonly KpiCode[]
   result: DataResult<unknown[]>
@@ -77,6 +81,7 @@ function Board({ title, codes, result, toRows, weeks, parentName, childHref }: {
   weeks: readonly string[]
   parentName: string
   childHref?: (id: string) => string
+  onChildClick?: ChildClick
 }) {
   const [code, setCode] = useState<KpiCode>(codes[0]!)
   const week = weeks.at(-1)
@@ -91,23 +96,23 @@ function Board({ title, codes, result, toRows, weeks, parentName, childHref }: {
     {result.status === 'loading' && <p aria-busy="true">Loading the ranking…</p>}
     {result.status === 'error' && <DataNotice what="the ranking" onRetry={result.retry} />}
     {(result.status === 'empty' || (result.status === 'ready' && rows.length === 0)) && <p>No ranking is available for {week}.</p>}
-    {rows.length > 0 && <LeaderTable rows={rows} code={code} childHref={childHref}
+    {rows.length > 0 && <LeaderTable rows={rows} code={code} childHref={childHref} onChildClick={onChildClick}
       caption={`${KPI_LABELS[code]} under ${parentName}, week ${week}`} />}
   </Section>
 }
 
 /** Regions, districts or branches under an org node, ranked by the mart's rank_in_parent. */
-export function OrgLeaderboard({ weeks, parentId, parentName, childHref }: Props) {
+export function OrgLeaderboard({ weeks, parentId, parentName, childHref, onChildClick }: Props) {
   const recent = weeks.slice(-TREND_WEEKS)
   const result = useChildReportHistory(parentId, recent)
-  return <Board title="Leaderboard" codes={ORG_KPIS} result={result} weeks={recent} parentName={parentName} childHref={childHref}
+  return <Board title="Leaderboard" codes={ORG_KPIS} result={result} weeks={recent} parentName={parentName} childHref={childHref} onChildClick={onChildClick}
     toRows={(code) => (result.status === 'ready' ? orgRows(result.data, code, recent) : [])} />
 }
 
 /** Advisors in a branch, ranked here in the same direction as the mart. */
-export function AdvisorLeaderboard({ weeks, parentId, parentName, childHref }: Props) {
+export function AdvisorLeaderboard({ weeks, parentId, parentName, childHref, onChildClick }: Props) {
   const recent = weeks.slice(-TREND_WEEKS)
   const result = useAdvisorWeekly(parentId, recent)
-  return <Board title="Advisor leaderboard" codes={ADVISOR_KPIS} result={result} weeks={recent} parentName={parentName} childHref={childHref}
+  return <Board title="Advisor leaderboard" codes={ADVISOR_KPIS} result={result} weeks={recent} parentName={parentName} childHref={childHref} onChildClick={onChildClick}
     toRows={(code) => (result.status === 'ready' ? advisorRows(result.data, code, recent) : [])} />
 }

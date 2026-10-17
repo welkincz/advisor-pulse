@@ -1,0 +1,14 @@
+.drill .breadcrumb { margin-top: var(--space-6); }
+.drill-level { margin: var(--space-6) 0 0; color: var(--muted); font-size: var(--text-sm); }
+.drill h1 { margin-top: var(--space-1); overflow-wrap: anywhere; }
+.drill-week { display: grid; gap: var(--space-1); max-width: 14rem; margin: var(--space-4) 0 var(--space-8); color: var(--muted); font-size: var(--text-sm); }
+.drill-week select { padding: var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; }
+.drill .kpi-anomaly { color: var(--signal); font-weight: 600; }
+
+/* The clicked child's name grows into this heading; nothing else moves. */
+.drill-title { view-transition-name: drill-title; }
+.drill-from-row .drill-title { view-transition-name: none; }
+::view-transition-group(drill-title) { animation-duration: var(--duration-standard); animation-timing-function: var(--ease-standard); }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none; }
+}
