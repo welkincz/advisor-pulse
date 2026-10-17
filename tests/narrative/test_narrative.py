@@ -13,9 +13,9 @@ import pytest
 from pulse.contracts.enums import KpiCode, OrgLevel, RunType, StageStatus
 from pulse.contracts.exports import NarrativeFile, WeeklyReport
 from pulse.narrative.client import AnthropicClient
-from pulse.narrative.facts import build_facts, narrated_nodes
+from pulse.narrative.facts import HEADLINE_KPI, build_facts, narrated_nodes
 from pulse.narrative.generate import ResponseCache, cache_key, narrate_node
-from pulse.narrative.prompt import KPI_LABELS, facts_json, fmt, user_message
+from pulse.narrative.prompt import KPI_LABELS, PROMPT_VERSION, facts_json, fmt, user_message
 from pulse.narrative.stage import narrate, write_narratives
 from pulse.narrative.template import template_narrative
 from pulse.runner.stage import StageContext
@@ -122,6 +122,23 @@ def test_prompt_carries_the_facts(report: list[WeeklyReport]) -> None:
     assert "GTA" in message and '"fact_id":"F1"' in message
 
 
+def test_prompt_assigns_only_the_nodes_headline_kpi_to_headline(
+    report: list[WeeklyReport],
+) -> None:
+    node = build_facts(report, "GTA", WEEK)
+    lead = next(
+        f
+        for f in node.facts
+        if f.node_id == node.node_id and f.iso_week_id == WEEK and f.kpi_code is HEADLINE_KPI
+    )
+    message = user_message(node)
+    assert (
+        f"Headline KPI: {KPI_LABELS[HEADLINE_KPI]} ({HEADLINE_KPI.value}, {lead.fact_id})"
+        in message
+    )
+    assert "Other KPIs belong in bullets, never in the headline" in message
+
+
 # ── Template ────────────────────────────────────────────────────────────────
 
 
@@ -175,7 +192,8 @@ def test_cache_key_covers_prompt_model_and_facts(report: list[WeeklyReport]) -> 
     base = cache_key("claude-opus-5-5", on)
     assert base == cache_key("claude-opus-5-5", build_facts(report, "ON", WEEK))
     assert base != cache_key("claude-sonnet-5-5", on)
-    assert base != cache_key("claude-opus-5-5", on, prompt_version="narrative-v2")
+    assert PROMPT_VERSION == "narrative-v2"
+    assert base != cache_key("claude-opus-5-5", on, prompt_version="narrative-v1")
     assert base != cache_key("claude-opus-5-5", qc)
 
 

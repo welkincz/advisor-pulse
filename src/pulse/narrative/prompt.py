@@ -10,9 +10,9 @@ import json
 from typing import Any
 
 from pulse.contracts.enums import KpiCode
-from pulse.narrative.facts import NodeFacts
+from pulse.narrative.facts import HEADLINE_KPI, NodeFacts
 
-PROMPT_VERSION = "narrative-v1"
+PROMPT_VERSION = "narrative-v2"
 DEFAULT_MODEL = "claude-opus-5-5"
 MAX_TOKENS = 1500
 
@@ -55,6 +55,8 @@ the facts are rounded (rates as percentages with one decimal, other values to on
 - Describe what changed and how this node compares with its children or peers. Do not \
 explain causes, give advice, or speculate about individual people.
 - Say "weekly" or "this week", never "live" or "real-time".
+- The headline states only the current node's headline KPI change named below. Do not \
+mention or describe other KPIs in the headline; put them in bullets.
 - headline: one sentence, at most 120 characters. bullets: 2 to 5. watchlist: 0 to 3 \
 child nodes that trail their peers, using child node_ids from the facts."""
 
@@ -103,9 +105,25 @@ def facts_json(node: NodeFacts) -> str:
 
 def user_message(node: NodeFacts) -> str:
     children = ", ".join(f"{k} ({v})" for k, v in sorted(node.children.items())) or "none"
+    headline = next(
+        (
+            fact
+            for fact in node.facts
+            if fact.node_id == node.node_id
+            and fact.iso_week_id == node.iso_week_id
+            and fact.kpi_code is HEADLINE_KPI
+        ),
+        None,
+    )
+    focus = (
+        f"Headline KPI: {KPI_LABELS[HEADLINE_KPI]} ({HEADLINE_KPI.value}, {headline.fact_id})."
+        if headline is not None
+        else f"Headline KPI: {HEADLINE_KPI.value} unavailable; use a neutral headline."
+    )
     return (
         f"Node: {node.node_id} ({node.node_name}), level {node.level.value}, "
-        f"week {node.iso_week_id}.\nChildren: {children}.\nFacts:\n{facts_json(node)}"
+        f"week {node.iso_week_id}.\n{focus} Other KPIs belong in bullets, never in the headline."
+        f"\nChildren: {children}.\nFacts:\n{facts_json(node)}"
     )
 
 
