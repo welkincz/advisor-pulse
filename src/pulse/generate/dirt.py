@@ -201,7 +201,7 @@ def _activity(
                         DefectKind.INVALID_ENUM: "EMAIL",
                         DefectKind.DURATION_OUT_OF_RANGE: -15,
                         DefectKind.ACTIVITY_TS_OUT_OF_RANGE: datetime(2014, 6, 2, tzinfo=UTC),
-                        DefectKind.UNKNOWN_ADVISOR: "ADV-09999",
+                        DefectKind.UNKNOWN_ADVISOR: "ADV-00000",
                         DefectKind.LATE_ARRIVING: original["ACTIVITY_TS"]
                         - timedelta(weeks=rng.randint(1, 3)),
                     }[kind]
@@ -459,6 +459,12 @@ def inject_dirt(
         for rate in configured.values()
     ):
         raise ValueError("every defect rate must be finite and within [0, 1]")
+    manifest_path = defects_root / f"{iso_week_id}.json"
+    if manifest_path.exists():
+        existing = DefectManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
+        if existing.seed != seed or existing.iso_weeks != [iso_week_id]:
+            raise ValueError("existing defect manifest belongs to another seed or week")
+        return existing
     rng_seed = int.from_bytes(hashlib.sha256(f"{seed}|{iso_week_id}".encode()).digest()[:8], "big")
     rng = random.Random(rng_seed)
     defects = _activity(sources_root, iso_week_id, configured, rng)
@@ -474,7 +480,5 @@ def inject_dirt(
         defects=defects,
     )
     defects_root.mkdir(parents=True, exist_ok=True)
-    (defects_root / f"{iso_week_id}.json").write_text(
-        manifest.model_dump_json(indent=2) + "\n", encoding="utf-8"
-    )
+    manifest_path.write_text(manifest.model_dump_json(indent=2) + "\n", encoding="utf-8")
     return manifest

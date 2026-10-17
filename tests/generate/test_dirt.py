@@ -75,7 +75,7 @@ def test_activity_mutations_identify_written_rows_and_rule_ids(tmp_path: Path) -
         if defect.kind is DefectKind.NULL_ACTIVITY_ID:
             assert row["ACTIVITY_ID"] is None
         elif defect.kind is DefectKind.UNKNOWN_ADVISOR:
-            assert row["ADVISOR_ID"] == defect.raw_value == "ADV-09999"
+            assert row["ADVISOR_ID"] == defect.raw_value == "ADV-00000"
         else:
             assert sum(r == row for r in rows_by_file[defect.file]) == 2
 
@@ -137,6 +137,23 @@ def test_same_seed_and_week_reproduce_sources_and_manifest(tmp_path: Path) -> No
         )
         results.append((_files(sources), manifest, (root / "defects/2026-W37.json").read_bytes()))
     assert results[0] == results[1]
+
+
+def test_completed_week_retry_does_not_inject_again(tmp_path: Path) -> None:
+    sources = _sources(tmp_path)
+    kwargs = dict(
+        iso_week_id=WEEK,
+        seed=19,
+        rates=_rates(
+            EXACT_DUPLICATE=0.1, RESENT_UPDATE=0.1, NULL_ACTIVITY_ID=0.1, DIRTY_POSTAL_CODE=0.1
+        ),
+    )
+    first = inject_dirt(sources, tmp_path / "defects", **kwargs)
+    before = _files(sources)
+    manifest_bytes = (tmp_path / "defects/2026-W37.json").read_bytes()
+    assert inject_dirt(sources, tmp_path / "defects", **kwargs) == first
+    assert _files(sources) == before
+    assert (tmp_path / "defects/2026-W37.json").read_bytes() == manifest_bytes
 
 
 @pytest.mark.parametrize(
