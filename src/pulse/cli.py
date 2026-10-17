@@ -48,9 +48,40 @@ def main(
 
 
 @app.command()
-def generate(week: WeekOption = None) -> None:
-    """Generate synthetic 'Snowflake' and 'Teradata' extracts for a week."""
-    _not_implemented("generate", 16)
+def generate(
+    week: WeekOption = None,
+    backfill: Annotated[
+        bool, typer.Option("--backfill", help="Generate every week from --from to --to.")
+    ] = False,
+    first: Annotated[
+        str | None, typer.Option("--from", help="First ISO week of a backfill.")
+    ] = None,
+    last: Annotated[str | None, typer.Option("--to", help="Last ISO week of a backfill.")] = None,
+    seed: Annotated[
+        int | None, typer.Option("--seed", help="Generator seed (default: $PULSE_SEED).")
+    ] = None,
+) -> None:
+    """Generate synthetic 'Snowflake' and 'Teradata' extracts for a week (or a range)."""
+    from datetime import date
+
+    from pulse.generate.cli import default_seed, generate_weeks, week_range
+    from pulse.runner.run import resolve_week
+
+    try:
+        if backfill:
+            if week is not None or first is None or last is None:
+                raise ValueError("--backfill needs --from and --to, and no --week")
+            weeks = week_range(first, last)
+        else:
+            if first is not None or last is not None:
+                raise ValueError("--from and --to need --backfill")
+            weeks = [resolve_week(week, date.today())]
+            week_range(weeks[0], weeks[0])
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    generate_weeks(
+        data_dir(), weeks, seed=default_seed() if seed is None else seed, echo=typer.echo
+    )
 
 
 @app.command()
