@@ -151,7 +151,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             {geo.status === 'loading' && <p aria-busy="true">Loading FSA values…</p>}
             {geo.status === 'error' && <DataNotice what="FSA coverage" onRetry={geo.retry} />}
             {geo.status === 'empty' && <p>No FSA coverage values for this week.</p>}
-            {geo.status === 'ready' && <div className="map-fsa-values"><table>
+            {geo.status === 'ready' && <div className="map-fsa-values" role="region" aria-label="FSA coverage values" tabIndex={0}><table>
               <caption>13-week coverage by FSA, {week}; available values first</caption>
               <thead><tr><th scope="col">FSA</th><th scope="col">Coverage</th></tr></thead>
               <tbody>{fsaRows.map((item) => {
