@@ -214,6 +214,21 @@ def test_retried_restore_keeps_its_own_lock(store: ObjectStore, tmp_path: Path) 
     assert sync.restore(c).status is StageStatus.SUCCESS  # same token: not "held by itself"
 
 
+def test_rebuild_restore_takes_lock_without_restoring_old_state(
+    store: ObjectStore, tmp_path: Path
+) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "rebuild")
+    result = sync.restore(c, skip_remote=True)
+    assert result.status is StageStatus.SUCCESS
+    assert "empty local state" in (result.message or "")
+    assert not (c.data_dir / WAREHOUSE_FILE).exists()
+    assert not (c.data_dir / "sources").exists()
+    assert lock.holder(store) is not None
+    assert sync.release(c).status is StageStatus.SUCCESS
+
+
 def test_failed_run_still_releases_the_lock(
     store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
