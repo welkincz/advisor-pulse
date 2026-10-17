@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes, useParams } from 'react-router-dom'
+import { useManifest } from '../data'
+import { NarrativePanel } from '../features/narrative/NarrativePanel'
 import { Overview } from './Overview'
 import { useReducedMotion } from './useReducedMotion'
 
@@ -17,8 +19,16 @@ function Page({ title }: { title: string }) {
 
 function DrillPage({ title }: { title: string }) {
   const { region, district, branch, advisor } = useParams()
+  const manifest = useManifest()
   const levels = [region, district, branch, advisor].filter(Boolean)
-  return <main><p className="eyebrow">Maplecrest Bank · fictional</p><h1>{title}</h1><p className="intro">Weekly advisor activity for {levels.at(-1)}.</p><nav className="drill-trail" aria-label="Drill path">{levels.map((level, index) => <span key={index}>{index > 0 && ' / '}{level}</span>)}</nav></main>
+  const nodeId = advisor ?? branch ?? district ?? region
+  return <main>
+    <p className="eyebrow">Maplecrest Bank · fictional</p>
+    <h1>{title}</h1>
+    <p className="intro">Weekly advisor activity for {nodeId}.</p>
+    <nav className="drill-trail" aria-label="Drill path">{levels.map((level, index) => <span key={index}>{index > 0 && ' / '}{level}</span>)}</nav>
+    {manifest.status === 'ready' && nodeId && <NarrativePanel week={manifest.data.latest_week} nodeId={nodeId} />}
+  </main>
 }
 
 function Shell() {
