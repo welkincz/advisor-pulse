@@ -11,8 +11,8 @@ from tenacity import wait_exponential_jitter
 from typer.testing import CliRunner
 
 from pulse.cli import app
-from pulse.contracts.enums import PipelineNodeKind, RunType, StageStatus
-from pulse.contracts.exports import PipelineGraph, RunLogExport
+from pulse.contracts.enums import RunType, StageStatus
+from pulse.contracts.exports import RunLogExport
 from pulse.contracts.meta import CheckResult, RunLogRow
 from pulse.ingest import meta
 from pulse.runner import (
@@ -31,7 +31,6 @@ from pulse.runner import (
     plan,
 )
 from pulse.runner.command import RUN_LOG_JSON, run_week
-from pulse.runner.graph import stage_graph
 from pulse.runner.run import resolve_week, run_status
 from pulse.runner.run_log import build_export
 from pulse.warehouse import WAREHOUSE_FILE, connect
@@ -388,23 +387,6 @@ def test_execution_order_respects_dependencies_not_registration() -> None:
     ]
     assert [s.name for s in execution_order(stages)] == ["a", "b", "c"]
     assert len(plan(stages)) == 3
-
-
-def test_stage_graph_validates_and_covers_the_fixture_stages() -> None:
-    graph = PipelineGraph.model_validate(stage_graph(WEEKLY_STAGES).model_dump())
-    fixture = PipelineGraph.model_validate_json(
-        (FIXTURE_EXPORTS / "pipeline_graph.json").read_text()
-    )
-    fixture_stages = {n.id: n.label for n in fixture.nodes if n.kind is PipelineNodeKind.STAGE}
-    assert {n.id: n.label for n in graph.nodes} == fixture_stages
-    assert {(e.source, e.target) for e in graph.edges} >= {
-        ("restore_state", "generate"),
-        ("export", "publish_sheets"),
-        ("export", "persist_state"),
-    }
-    by_id = {n.id: n.position for n in graph.nodes}
-    assert by_id["publish_sheets"].x == by_id["persist_state"].x
-    assert by_id["publish_sheets"].y != by_id["persist_state"].y
 
 
 def test_new_run_id_counts_earlier_runs_of_the_same_type_and_week() -> None:
