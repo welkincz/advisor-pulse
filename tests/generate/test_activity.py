@@ -9,6 +9,7 @@ from pathlib import Path
 from statistics import median
 
 import pyarrow.parquet as pq
+import pytest
 
 from pulse.contracts import arrow_schema
 from pulse.contracts.enums import ActivityStatus, ActivityType, Role
@@ -61,6 +62,7 @@ def test_activity_uses_advisor_branch_as_of_each_date() -> None:
     assert owned / len(linked) >= 0.9
 
 
+@pytest.mark.slow
 def test_default_scale_thirteen_week_book_coverage() -> None:
     ranges = assignment_ranges(_roster(900))
     batch = generate_clients(org(), ranges, seed=29, client_count=150_000, weeks=13)
@@ -111,6 +113,7 @@ def test_appointments_follow_calls_and_have_valid_status_timing() -> None:
         assert call.created_ts <= appointment.created_ts < appointment.scheduled_ts
 
 
+@pytest.mark.slow
 def test_default_volume_and_district_stories() -> None:
     ranges = assignment_ranges(_roster(900))
     districts = {p.branch.branch_id: p.district.district_code for p in org().placements()}
@@ -131,6 +134,7 @@ def test_default_volume_and_district_stories() -> None:
     assert totals[-1]["MTL"] > totals[0]["MTL"] * 1.15
 
 
+@pytest.mark.slow
 def test_holiday_dip_and_february_lift() -> None:
     ranges = assignment_ranges(_roster(900))
 
@@ -153,6 +157,10 @@ def test_seed_week_determinism_and_parquet_schema(tmp_path: Path) -> None:
 
     def generated(week: str):
         return generate_activity(org(), ranges, iso_week_id=week, seed=7, client_batch=_clients(50))
+
+    for invalid in ("2026-W1", "2026-W001"):
+        with pytest.raises(ValueError, match="Invalid ISO week"):
+            generated(invalid)
 
     first = generated("2026-W37")
     assert first == generated("2026-W37")

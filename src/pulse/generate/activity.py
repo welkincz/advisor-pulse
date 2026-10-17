@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+import re
 import tempfile
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
@@ -21,6 +22,7 @@ from pulse.contracts.enums import (
     ProductLine,
     Role,
 )
+from pulse.contracts.patterns import ISO_WEEK_ID
 from pulse.contracts.sources import SnowflakeActivity
 from pulse.generate.advisors import AssignmentRow
 from pulse.generate.books import client_pools_by_day
@@ -32,6 +34,8 @@ STORY_START = date(2026, 8, 10)
 
 def _week_start(iso_week_id: str) -> date:
     try:
+        if not re.fullmatch(ISO_WEEK_ID, iso_week_id):
+            raise ValueError("Noncanonical ISO week")
         year, week = iso_week_id.split("-W")
         return date.fromisocalendar(int(year), int(week), 1)
     except (ValueError, TypeError) as exc:
