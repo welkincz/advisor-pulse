@@ -54,7 +54,12 @@ models:
       - name: branch_sk
         description: md5 of the attributed branch id (the advisor's branch on `activity_date`); joins `dim_org.branch_sk`.
         data_type: varchar
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_org')
+                field: branch_sk
       - name: client_sk
         description: md5 of `client_id` when the client is in `dim_client`; null for prospecting calls and unknown clients (DQ013).
         data_type: varchar
@@ -66,7 +71,12 @@ models:
       - name: fsa_code
         description: The client's FSA, or `UNK`; joins `dim_geography.fsa_code`.
         data_type: varchar
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_geography')
+                field: fsa_code
       - name: activity_type
         description: References `dim_activity_type`.
         data_type: varchar
