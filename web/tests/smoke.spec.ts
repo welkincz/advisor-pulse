@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
 const routes = [
@@ -53,4 +54,28 @@ test('missing fixture URLs return 404 instead of the app shell', async ({ reques
   const response = await request.get('/data/missing.json')
   expect(response.status()).toBe(404)
   expect(await response.text()).toBe('Not found')
+})
+
+const exportsDir = resolve(import.meta.dirname, '../../fixtures/exports')
+
+test('overview paints KPI values from the manifest before DuckDB-WASM loads', async ({ page }) => {
+  const wasmRequests: string[] = []
+  // Hold every jsDelivr request open: the summary must not wait for the engine.
+  await page.route('https://cdn.jsdelivr.net/**', (route) => { wasmRequests.push(route.request().url()) })
+  await page.route('**/data/manifest.json', (route) => route.fulfill({ path: resolve(exportsDir, 'manifest.json') }))
+  await page.goto('/')
+  const kpi = page.locator('[data-kpi="ACT_PER_ADV"]')
+  await expect(kpi).toContainText('Activities per advisor')
+  await expect(kpi).toContainText('11.5')
+  await expect(kpi).toContainText('+14.6% WoW')
+  await expect(page.getByRole('heading', { name: 'National, week 2026-W40' })).toBeVisible()
+})
+
+test('a failed manifest fetch shows a calm notice with the last run time', async ({ page }) => {
+  await page.route('**/data/manifest.json', (route) => route.fulfill({ status: 503, body: 'down' }))
+  await page.route('**/data/run_log.json', (route) => route.fulfill({ path: resolve(exportsDir, 'run_log.json') }))
+  await page.goto('/')
+  await expect(page.getByText("We could not load this week's report just now.")).toBeVisible()
+  await expect(page.getByText(/Last weekly run: Oct 5, 2026/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
 })

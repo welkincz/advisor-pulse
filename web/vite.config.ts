@@ -1,11 +1,12 @@
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 const fixtures = resolve(process.env.PULSE_FIXTURES_DIR ?? resolve(import.meta.dirname, '../fixtures/exports'))
 
 export default defineConfig({
+  test: { include: ['src/**/*.test.{ts,tsx}'], testTimeout: 20_000 },
   plugins: [
     react(),
     {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes, useParams } from 'react-router-dom'
+import { Overview } from './Overview'
 import { useReducedMotion } from './useReducedMotion'
 
 const navigation = [
@@ -23,7 +24,7 @@ function Shell() {
   return <div className="site">
     <header className="site-header"><Link className="brand" to="/">Advisor Pulse</Link><nav className="site-nav" aria-label="Main navigation">{navigation.slice(1).map(([path, label]) => <NavLink key={path} to={path}>{label}</NavLink>)}</nav></header>
     <Routes>
-      <Route path="/" element={<Page title="Overview" />} />
+      <Route path="/" element={<Overview />} />
       <Route path="/r/:region" element={<DrillPage title="Region" />} />
       <Route path="/r/:region/d/:district" element={<DrillPage title="District" />} />
       <Route path="/r/:region/d/:district/b/:branch" element={<DrillPage title="Branch" />} />

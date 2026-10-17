@@ -18,3 +18,8 @@ h1 { max-width: 18ch; font-size: clamp(2.5rem, 8vw, 5rem); letter-spacing: -0.05
 .drill-trail { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2rem; color: var(--muted); }
 .site-footer { border-top: 1px solid var(--rule); padding-top: 1rem; color: var(--muted); font-size: 0.875rem; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+.kpi-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 1rem 2rem; margin: 1.5rem 0 0; }
+.kpi-summary dt { color: var(--muted); font-size: 0.875rem; }
+.kpi-summary dd { margin: 0.25rem 0 0; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.kpi-wow { color: var(--muted); font-size: 0.875rem; }
+.data-notice { border-left: 2px solid var(--rule); padding-left: 1rem; color: var(--muted); }
