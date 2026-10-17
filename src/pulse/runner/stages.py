@@ -137,7 +137,8 @@ def dbt_build(ctx: StageContext, command: DbtCommand = dbt_command) -> StageResu
 
 def load_defects(data_dir: Path, iso_week_id: str, now: datetime) -> DefectManifest:
     """The generator's defect manifest, or an empty one (no defects expected) if absent."""
-    path = data_dir / DEFECTS_FILE
+    weekly = data_dir / "defects" / f"{iso_week_id}.json"
+    path = weekly if weekly.exists() else data_dir / DEFECTS_FILE
     if path.exists():
         return DefectManifest.model_validate_json(path.read_text(encoding="utf-8"))
     log.warning("No %s in %s: expecting no injected defects.", DEFECTS_FILE, data_dir)

@@ -204,6 +204,16 @@ def test_defects_file_is_read_when_present(tmp_path: Path) -> None:
     assert stages.load_defects(tmp_path, WEEK, T0).defects
 
 
+def test_weekly_defects_take_precedence_over_merged_file(tmp_path: Path) -> None:
+    fixture = Path(__file__).parents[2] / "fixtures" / "defects.json"
+    (tmp_path / "defects.json").write_text(fixture.read_text())
+    week_dir = tmp_path / "defects"
+    week_dir.mkdir()
+    weekly = stages.load_defects(tmp_path, WEEK, T0).model_copy(update={"defects": []})
+    (week_dir / f"{WEEK}.json").write_text(weekly.model_dump_json())
+    assert stages.load_defects(tmp_path, WEEK, T0).defects == []
+
+
 # ── wiring ──────────────────────────────────────────────────────────────────
 
 
