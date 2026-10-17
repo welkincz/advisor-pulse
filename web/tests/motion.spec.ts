@@ -75,6 +75,18 @@ test('reduced motion shows final values and sections without animation', async (
   if (process.env.RECORD_MOTION) await page.screenshot({ path: resolve(recordingDir, 'reduced-375.png'), fullPage: true })
 })
 
+test('narrative reveals only on the first report view', async ({ page }) => {
+  await page.goto('/r/ON')
+  const narrative = page.locator('section[aria-labelledby="weekly-narrative-title"]')
+  await expect(narrative).toHaveAttribute('data-reveal-order', '1')
+  const week = page.getByRole('combobox', { name: /^Week/ })
+  await week.selectOption('2026-W39')
+  await expect(narrative).toHaveCount(0)
+  await week.selectOption('2026-W40')
+  await expect(narrative).toBeVisible()
+  await expect(narrative).not.toHaveAttribute('data-reveal-order', /./)
+})
+
 test('drill shares a title transition and bypasses it for reduced motion', async ({ page }) => {
   if (process.env.RECORD_MOTION) {
     await page.goto('/r/ON')

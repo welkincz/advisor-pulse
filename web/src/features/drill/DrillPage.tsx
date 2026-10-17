@@ -32,7 +32,7 @@ function Tiles({ tiles, label }: { tiles: Tile[]; label: string }) {
 /** Keep the prior tiles mounted during a week fetch so values can tween when it completes. */
 function PendingTiles({ tiles, label, loading }: { tiles: Tile[]; label: string; loading: boolean }) {
   return <div aria-busy={loading}>
-    {loading && <span role="status">Updating KPIs…</span>}
+    {loading && <span className="motion-sr-only" role="status">Updating KPIs…</span>}
     <div style={{ visibility: loading ? 'hidden' : 'visible' }}><Tiles tiles={tiles} label={label} /></div>
   </div>
 }
