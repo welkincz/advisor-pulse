@@ -24,3 +24,9 @@
 .map-places button { display: flex; justify-content: space-between; gap: var(--space-3); width: 100%; padding: var(--space-2) 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .map-places button span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .map-places button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.map-fsa-values { max-height: 25rem; overflow-y: auto; }
+.map-fsa-values table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.map-fsa-values caption { padding: var(--space-2) 0; color: var(--muted); text-align: left; }
+.map-fsa-values th, .map-fsa-values td { padding: var(--space-2) 0; border-top: 1px solid var(--rule); }
+.map-fsa-values th { text-align: left; font-weight: 500; }
+.map-fsa-values td { text-align: right; font-variant-numeric: tabular-nums; }

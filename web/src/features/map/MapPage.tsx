@@ -62,6 +62,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const region = search.get('region') || null
   const week = resolveWeek(search.get('week'), manifest.weeks_available)!
   const shape: Shape = fsa && manifest.has_fsa_boundaries ? 'fsa' : region ? 'districts' : 'regions'
+  const fsaMode = shape === 'fsa'
+  const displayCode = fsaMode ? 'COVERAGE_13W' : code
   const regions = useBoundaries('regions')
   const boundaries = useBoundaries(shape)
   const report = useWeeklyReport(week, { parentId: region ?? 'CA' })
@@ -73,31 +75,35 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const rows = report.status === 'ready' ? report.data : []
   const byNode = kpiByNode(rows, code)
   const byFsa = new Map(geo.status === 'ready' ? geo.data.map((row) => [row.fsa_code, row.coverage_rate_13w ?? null]) : [])
-  const values = shape === 'fsa' ? byFsa : byNode
+  const values = fsaMode ? byFsa : byNode
   const range = extent(values.values())
   const colourKey = [...values].map(([id, value]) => `${id}:${value}`).join('|')
   const features = boundaries?.data?.filter((item) => shape !== 'districts' || item.properties.parent_id === region) ?? []
-  const bounds = boundaryBounds(features, values, shape === 'fsa')
+  const bounds = boundaryBounds(features, values, fsaMode)
   const fitted = bounds && canvasWidth ? new WebMercatorViewport({ width: canvasWidth, height: 432, ...FALLBACK_CAMERA }).fitBounds(bounds, { padding: 32 }) : null
   const camera = fitted ? { longitude: fitted.longitude, latitude: fitted.latitude, zoom: Math.min(8, fitted.zoom) } : FALLBACK_CAMERA
-  const legendCode = shape === 'fsa' ? 'COVERAGE_13W' : code
   const placeRows = regions?.data && region ? features : regions?.data ?? []
+  const fsaRows = fsaMode ? [...features].sort((a, b) => {
+    const left = a.properties.CFSAUID ?? ''
+    const right = b.properties.CFSAUID ?? ''
+    return Number(byFsa.get(right) != null) - Number(byFsa.get(left) != null) || left.localeCompare(right)
+  }) : []
   const drill = (id: string) => navigate(drillHref(region, id, week, manifest.latest_week))
 
   const layer = new GeoJsonLayer<BoundaryProperties>({
-    id: `map-${shape}-${week}-${code}`,
+    id: `map-${shape}-${week}-${displayCode}`,
     data: features,
-    pickable: shape !== 'fsa',
+    pickable: !fsaMode,
     filled: true,
     stroked: false,
     updateTriggers: { getFillColor: [colourKey, scheme] },
     getFillColor: (item) => {
-      const id = shape === 'fsa' ? item.properties.CFSAUID : item.properties.node_id
+      const id = fsaMode ? item.properties.CFSAUID : item.properties.node_id
       const shade = bin(id ? values.get(id) : null, range)
       return shade === null ? missing : palette[shade]!
     },
     onClick: ({ object }) => {
-      if (object?.properties.node_id && shape !== 'fsa') drill(object.properties.node_id)
+      if (object?.properties.node_id && !fsaMode) drill(object.properties.node_id)
     },
   })
 
@@ -113,7 +119,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
       <label>Week <select value={week} onChange={(event) => setQuery('week', event.target.value)}>
         {[...manifest.weeks_available].reverse().map((id) => <option key={id} value={id}>{id}</option>)}
       </select></label>
-      <label>Measure <select value={code} onChange={(event) => setCode(event.target.value as KpiCode)}>
+      <label>Measure <select value={displayCode} disabled={fsaMode} onChange={(event) => setCode(event.target.value as KpiCode)}>
         {Object.entries(KPI_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
       </select></label>
       <label>Area <select value={region ?? ''} onChange={(event) => { setFsa(false); setQuery('region', event.target.value) }}>
@@ -125,27 +131,45 @@ function MapContent({ manifest }: { manifest: Manifest }) {
         if (event.target.checked && region) setQuery('region', '')
       }} /> FSA coverage layer</label>}
     </div>
-    <Figure title={`${region ? 'District' : 'Region'} map, ${week}`} reading={`${KPI_LABELS[legendCode]} by ${shape === 'fsa' ? 'FSA' : region ? 'district' : 'region'}.`} note={<>
+    <Figure title={`${fsaMode ? 'FSA coverage' : region ? 'District' : 'Region'} map, ${week}`} reading={`${KPI_LABELS[displayCode]} by ${fsaMode ? 'FSA' : region ? 'district' : 'region'}.`} note={<>
       Boundaries adapted from <a href="https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21">Statistics Canada, 2021 Census boundary files</a> under the Statistics Canada Open Licence. No basemap tiles are used.
     </>}>
-      <Legend range={range} code={legendCode} palette={palette} />
+      <Legend range={range} code={displayCode} palette={palette} />
       <p className="map-scope">The map draws FSAs containing fictional branch locations. Other land is left blank.</p>
       <div className="map-layout">
         <div className="map-canvas" ref={canvasRef} aria-label={`${shape} choropleth`}>
-          {boundaries?.data && <DeckGL key={`${shape}-${region}-${week}-${colourKey}-${canvasWidth}`} initialViewState={camera} controller layers={[layer]} getTooltip={({ object }) => object?.properties?.node_name ?? object?.properties?.CFSAUID ?? null} />}
+          {boundaries?.data && (!fsaMode || geo.status === 'ready') && <DeckGL key={`${shape}-${region}-${week}-${colourKey}-${canvasWidth}`} initialViewState={camera} controller layers={[layer]} getTooltip={({ object }) => object?.properties?.node_name ?? object?.properties?.CFSAUID ?? null} />}
           {!boundaries && <p>Loading boundaries…</p>}
           {boundaries?.error && <p role="alert">{boundaries.error.message}</p>}
+          {fsaMode && geo.status === 'loading' && <p>Loading FSA coverage…</p>}
+          {fsaMode && geo.status === 'empty' && <p>No FSA coverage values for this week.</p>}
+          {fsaMode && geo.status === 'error' && <p>FSA coverage is unavailable.</p>}
         </div>
         <div className="map-places">
-          <h4>{region ? 'Districts' : 'Regions'}</h4>
-          <p>Select an area to open its weekly report.</p>
-          {report.status === 'loading' && <p aria-busy="true">Loading map values…</p>}
-          {report.status === 'error' && <DataNotice what="map values" onRetry={report.retry} />}
-          <ul>{placeRows.map((item) => {
-            const id = item.properties.node_id
-            if (!id) return null
-            return <li key={id}><button type="button" onClick={() => drill(id)}><span>{item.properties.node_name ?? id}</span><span>{formatKpi(code, byNode.get(id))}</span></button></li>
-          })}</ul>
+          {fsaMode ? <>
+            <h4>FSA coverage</h4>
+            {geo.status === 'loading' && <p aria-busy="true">Loading FSA values…</p>}
+            {geo.status === 'error' && <DataNotice what="FSA coverage" onRetry={geo.retry} />}
+            {geo.status === 'empty' && <p>No FSA coverage values for this week.</p>}
+            {geo.status === 'ready' && <div className="map-fsa-values"><table>
+              <caption>13-week coverage by FSA, {week}; available values first</caption>
+              <thead><tr><th scope="col">FSA</th><th scope="col">Coverage</th></tr></thead>
+              <tbody>{fsaRows.map((item) => {
+                const id = item.properties.CFSAUID
+                return id && <tr key={id}><th scope="row">{id}</th><td>{formatKpi('COVERAGE_13W', byFsa.get(id))}</td></tr>
+              })}</tbody>
+            </table></div>}
+          </> : <>
+            <h4>{region ? 'Districts' : 'Regions'}</h4>
+            <p>Select an area to open its weekly report.</p>
+            {report.status === 'loading' && <p aria-busy="true">Loading map values…</p>}
+            {report.status === 'error' && <DataNotice what="map values" onRetry={report.retry} />}
+            <ul>{placeRows.map((item) => {
+              const id = item.properties.node_id
+              if (!id) return null
+              return <li key={id}><button type="button" onClick={() => drill(id)}><span>{item.properties.node_name ?? id}</span><span>{formatKpi(code, byNode.get(id))}</span></button></li>
+            })}</ul>
+          </>}
         </div>
       </div>
     </Figure>

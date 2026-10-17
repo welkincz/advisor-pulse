@@ -52,6 +52,40 @@ test('FSA boundaries load only when the manifest enables them', async ({ page })
   await expect.poll(() => requests.length).toBe(1)
 })
 
+test('FSA mode fixes the measure to coverage and exposes the mapped values as a table', async ({ page }) => {
+  await page.route('**/data/manifest.json', (route) => {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    return route.fulfill({ json: { ...manifest, has_fsa_boundaries: true } })
+  })
+  await page.goto('/map')
+  const measure = page.getByRole('combobox', { name: 'Measure' })
+  await measure.selectOption('CALLS_OUT')
+  await page.getByRole('checkbox', { name: 'FSA coverage layer' }).check()
+  await expect(measure).toHaveValue('COVERAGE_13W')
+  await expect(measure).toBeDisabled()
+  const table = page.getByRole('table', { name: /13-week coverage by FSA/ })
+  await expect(table.locator('tbody tr')).toHaveCount(122)
+  await expect(table.locator('tbody tr').first()).toContainText('%')
+  await page.getByRole('checkbox', { name: 'FSA coverage layer' }).uncheck()
+  await expect(measure).toHaveValue('CALLS_OUT')
+  await expect(measure).toBeEnabled()
+})
+
+test('FSA data failure has a retry instead of an empty map', async ({ page }) => {
+  await page.route('**/data/manifest.json', (route) => {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    return route.fulfill({ json: { ...manifest, has_fsa_boundaries: true } })
+  })
+  await page.route('**/data/geo_weekly.parquet', (route) => route.fulfill({ status: 503, body: 'unavailable' }))
+  await page.goto('/map')
+  await page.getByRole('checkbox', { name: 'FSA coverage layer' }).check()
+  await expect(page.getByText('We could not load FSA coverage just now.')).toBeVisible()
+  await expect(page.getByText('FSA coverage is unavailable.')).toBeVisible()
+  await page.unroute('**/data/geo_weekly.parquet')
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByRole('table', { name: /13-week coverage by FSA/ })).toBeVisible()
+})
+
 test('clicking a district polygon opens its report', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/map?region=ON')
