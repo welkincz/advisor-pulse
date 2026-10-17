@@ -111,8 +111,9 @@ narrative-eval: ## Live narrative eval pass-rate table (RECORD=1 saves the answe
 	$(RUN) python tests/narrative/eval/run_eval.py --live $(if $(RECORD),--record)
 
 .PHONY: geo
-geo: ## Download and simplify StatCan boundaries
+geo: ## Download StatCan boundaries and dissolve district and region polygons
 	$(RUN) python geo/build_boundaries.py
+	$(RUN) python geo/dissolve.py
 
 # ── dbt ─────────────────────────────────────────────────────────────────────
 
