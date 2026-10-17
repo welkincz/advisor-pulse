@@ -3,47 +3,63 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1"
     ],
-    "text": "Outbound calls 59, from 61 the week before."
+    "text": "Activities per advisor reached 10.4 this week versus 10.1 the prior week (+3.4%), slightly above the trailing 13-week average of 10.1. ON ranks 2 of 2 in its parent group."
    },
    {
     "fact_ids": [
-     "F5"
+     "F15",
+     "F11"
     ],
-    "text": "Show rate 83.3%, from 90.0% the week before."
+    "text": "Among children, GTA rose 17.8% to 10.6 activities per advisor, while EON fell 8.5% to 10.3."
    },
    {
     "fact_ids": [
-     "F8"
+     "F2",
+     "F3",
+     "F7"
     ],
-    "text": "13-week coverage 88.6%, from 81.6% the week before."
+    "text": "Outbound calls fell 3.3% to 59.0, appointments booked fell 11.8% to 15.0, and clients contacted fell 9.2% to 59.0."
    },
    {
     "fact_ids": [
-     "F6"
+     "F4",
+     "F5",
+     "F10"
     ],
-    "text": "Appointment conversion 53.3%, from 44.4% the week before."
+    "text": "Call-to-appointment rate rose to 25.4% from 23.0%, while the show rate fell to 83.3% from 90.0% and the no-show rate rose to 16.7% from 10.0%."
    },
    {
     "fact_ids": [
+     "F6",
+     "F8",
+     "F14",
      "F18"
     ],
-    "text": "GTA trails its peers on 13-week coverage at 85.9%."
+    "text": "Appointment conversion was 53.3% versus 44.4% the prior week. 13-week coverage rose to 88.7%. EON led on coverage at 91.4% against GTA at 85.9%."
    }
   ],
-  "headline": "Ontario: activities per advisor fell 3.4% week over week to 10.4.",
+  "headline": "Ontario activities per advisor rose 3.4% this week to 10.4, up from 10.1 the prior week.",
   "watchlist": [
    {
     "fact_ids": [
+     "F16",
      "F18"
     ],
     "node_id": "GTA",
-    "reason": "Lowest 13-week coverage under Ontario (85.9%)."
+    "reason": "Show rate fell to 78.6% from 87.5% this week and ranks 2 of 2, as does its 13-week coverage at 85.9%."
+   },
+   {
+    "fact_ids": [
+     "F11",
+     "F13"
+    ],
+    "node_id": "EON",
+    "reason": "Activities per advisor fell 8.5% to 10.3 this week and rank 2 of 2, as does appointment conversion at 50.0%."
    }
   ]
  },
- "expected_pass": false,
- "note": "Wrong direction in the headline: the validator must reject it.",
- "source": "handwritten-bad"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }

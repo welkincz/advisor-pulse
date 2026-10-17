@@ -3,33 +3,47 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1",
+     "F11"
     ],
-    "text": "Outbound calls 35, from 29 the week before."
+    "text": "Activities per advisor of 14.0 compares with a trailing 13-week average of 10.9. Greater Montr\u00e9al (MTL) shows the same weekly figures: 14.0, up 40.0% from 10.0."
    },
    {
     "fact_ids": [
-     "F5"
+     "F2",
+     "F7"
     ],
-    "text": "Show rate 85.7%, from 42.9% the week before."
+    "text": "Outbound calls rose 20.7% to 35.0 from 29.0, and clients contacted rose 33.3% to 36.0 from 27.0."
    },
    {
     "fact_ids": [
-     "F8"
+     "F3",
+     "F4"
     ],
-    "text": "13-week coverage 92.9%, from 85.5% the week before."
+    "text": "Appointments booked were unchanged at 11.0, while the call-to-appointment rate rose to 31.4% from 27.6%."
    },
    {
     "fact_ids": [
-     "F6"
+     "F5",
+     "F10",
+     "F6",
+     "F12",
+     "F13"
     ],
-    "text": "Appointment conversion 58.3%, from 66.7% the week before."
+    "text": "Show rate rose to 85.7% from 42.9%, and no-show rate fell to 14.3% from 57.1%. Appointment conversion slipped to 58.3% from 66.7%, a 12.5% weekly decline. MTL shows the same show rate and conversion figures."
+   },
+   {
+    "fact_ids": [
+     "F8",
+     "F9",
+     "F14"
+    ],
+    "text": "13-week coverage rose to 92.9% from 85.5%, and average meeting length dipped to 55.0 minutes from 57.0. MTL's coverage matches at 92.9%."
    }
   ],
-  "headline": "Quebec: activities per advisor rose 40.0% week over week to 14.",
+  "headline": "Quebec activities per advisor rose 40.0% this week to 14.0, up from 10.0 the prior week.",
   "watchlist": []
  },
- "expected_pass": true,
- "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
- "source": "template-seed"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }

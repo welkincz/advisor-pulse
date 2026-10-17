@@ -3,47 +3,65 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1",
+     "F19",
+     "F20"
     ],
-    "text": "Outbound calls 61, from 68 the week before."
+    "text": "Activities per advisor were 10.1 this week, above the trailing 13-week average of 10.0 and ranked 1 of 2 among peers; the prior week was 10.7 after 9.3 in 2026-W37."
    },
    {
     "fact_ids": [
-     "F5"
+     "F2",
+     "F3"
     ],
-    "text": "Show rate 90.0%, from 76.2% the week before."
+    "text": "Weekly outbound calls fell 10.3% to 61.0 and appointments booked fell 15.0% to 17.0, both below their trailing 13-week averages (65.0 and 18.0)."
    },
    {
     "fact_ids": [
-     "F8"
-    ],
-    "text": "13-week coverage 81.6%, from 67.4% the week before."
-   },
-   {
-    "fact_ids": [
+     "F4",
+     "F5",
+     "F10",
      "F6"
     ],
-    "text": "Appointment conversion 44.4%, from 62.5% the week before."
+    "text": "Call-to-appointment rate rose to 23.0% and show rate rose to 90.0%, while no-show rate dropped to 10.0%. Appointment conversion fell 28.9% to 44.4%."
    },
    {
     "fact_ids": [
+     "F11",
+     "F15"
+    ],
+    "text": "Among children, EON rose 3.7% to 11.2 activities per advisor, while GTA fell 15.1% to 9.0 and ranked 2 of 2."
+   },
+   {
+    "fact_ids": [
+     "F8",
+     "F14",
      "F18"
     ],
-    "text": "GTA trails its peers on 13-week coverage at 77.5%."
+    "text": "13-week coverage rose to 81.6% in ON; EON is at 85.7% and GTA at 77.5%."
    }
   ],
-  "headline": "Ontario: activities per advisor fell 5.6% week over week to 10.1.",
+  "headline": "Ontario activities per advisor fell 5.6% this week to 10.1, down from 10.7 the prior week.",
   "watchlist": [
    {
     "fact_ids": [
-     "F18"
+     "F15",
+     "F18",
+     "F14"
     ],
     "node_id": "GTA",
-    "reason": "Lowest 13-week coverage under Ontario (77.5%)."
+    "reason": "Activities per advisor fell 15.1% to 9.0, ranking 2 of 2 and below its trailing 13-week average of 9.5; coverage of 77.5% also trails EON."
+   },
+   {
+    "fact_ids": [
+     "F13",
+     "F17"
+    ],
+    "node_id": "EON",
+    "reason": "Appointment conversion fell 45.5% to 36.4%, ranking 2 of 2 and trailing GTA at 57.1%."
    }
   ]
  },
- "expected_pass": true,
- "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
- "source": "template-seed"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }

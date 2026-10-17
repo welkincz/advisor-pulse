@@ -3,47 +3,56 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1",
+     "F18",
+     "F19"
     ],
-    "text": "Outbound calls 28, from 32 the week before."
+    "text": "Activities per advisor were 10.3 this week, below the trailing 13-week average of 10.5; EON ranks 2 of 2 in its parent. It had risen in each of the prior two weeks, to 10.8 and then 11.2."
    },
    {
     "fact_ids": [
-     "F5"
+     "F11",
+     "F15"
     ],
-    "text": "Show rate 100.0%, from 91.7% the week before."
+    "text": "Among EON's branches, BR-0201 rose 3.1% to 11.0 activities per advisor, while BR-0202 fell 33.3% to 8.0."
    },
    {
     "fact_ids": [
-     "F8"
+     "F2",
+     "F3",
+     "F4"
     ],
-    "text": "13-week coverage 91.4%, from 85.7% the week before."
+    "text": "Outbound calls fell 12.5% to 28.0 and appointments booked fell 37.5% to 5.0. The call-to-appointment rate was 17.9%, down 18.4% from the prior week."
    },
    {
     "fact_ids": [
-     "F6"
+     "F7",
+     "F5",
+     "F10"
     ],
-    "text": "Appointment conversion 50.0%, from 36.4% the week before."
+    "text": "Clients contacted fell 27.0% to 27.0 this week. The show rate reached 100.0% and the no-show rate was 0.0%, both ranking 1 of 2."
    },
    {
     "fact_ids": [
+     "F8",
+     "F16",
      "F14"
     ],
-    "text": "ByWard Market Branch trails its peers on 13-week coverage at 88.4%."
+    "text": "13-week coverage was 91.4% for EON, ranking 1 of 2. BR-0202 had 96.3% coverage and BR-0201 had 88.4%."
    }
   ],
-  "headline": "Eastern Ontario: activities per advisor fell 8.5% week over week to 10.2.",
+  "headline": "EON activities per advisor fell 8.5% this week to 10.3, down from 11.2 the prior week.",
   "watchlist": [
    {
     "fact_ids": [
-     "F14"
+     "F15",
+     "F11"
     ],
-    "node_id": "BR-0201",
-    "reason": "Lowest 13-week coverage under Eastern Ontario (88.4%)."
+    "node_id": "BR-0202",
+    "reason": "Activities per advisor fell 33.3% to 8.0 this week, ranking 2 of 2 and below BR-0201 at 11.0."
    }
   ]
  },
- "expected_pass": true,
- "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
- "source": "template-seed"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }

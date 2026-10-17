@@ -3,47 +3,57 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1"
     ],
-    "text": "Outbound calls 31, from 29 the week 999."
+    "text": "GTA's 10.6 activities per advisor is above its trailing 13-week average of 9.8 and ranks 1 of 2 in its parent."
    },
    {
     "fact_ids": [
-     "F5"
+     "F15",
+     "F11"
     ],
-    "text": "Show rate 78.6%, from 87.5% the week before."
+    "text": "Between branches, BR-0102 (Liberty Village) rose 54.1% to 12.3 activities per advisor and ranks first. BR-0101 (King & Bay) fell 23.8% to 8.0 and ranks second."
    },
    {
     "fact_ids": [
-     "F8"
+     "F5",
+     "F10",
+     "F12",
+     "F16"
     ],
-    "text": "13-week coverage 85.9%, from 77.5% the week before."
+    "text": "GTA's weekly show rate was 78.6%, down 10.2% from the prior week, and its no-show rate was 21.4%. BR-0101's show rate was 50.0% (down 37.5%), compared with 90.0% (down 10.0%) at BR-0102."
    },
    {
     "fact_ids": [
-     "F6"
-    ],
-    "text": "Appointment conversion 54.5%, from 57.1% the week before."
-   },
-   {
-    "fact_ids": [
+     "F4",
+     "F8",
+     "F18",
      "F14"
     ],
-    "text": "King & Bay Branch trails its peers on 13-week coverage at 82.8%."
+    "text": "GTA's call-to-appointment rate was 32.3%, up 33.6% week over week, and its 13-week coverage was 85.9%, up 10.9%. BR-0102 coverage was 88.1% and BR-0101 was 82.8%."
+   },
+   {
+    "fact_ids": [
+     "F6",
+     "F13",
+     "F17"
+    ],
+    "text": "GTA's appointment conversion was 54.5%, down 4.5%. BR-0101 reached 100.0% and BR-0102 was 44.4%."
    }
   ],
-  "headline": "GTA: activities per advisor rose 17.8% week over week to 10.6.",
+  "headline": "GTA activities per advisor rose 17.8% this week to 10.6, up from 9.0 the prior week.",
   "watchlist": [
    {
     "fact_ids": [
+     "F11",
+     "F12",
      "F14"
     ],
     "node_id": "BR-0101",
-    "reason": "Lowest 13-week coverage under GTA (82.8%)."
+    "reason": "Ranks second of 2 on activities per advisor (8.0, down 23.8%), show rate (50.0%) and 13-week coverage (82.8%)."
    }
   ]
  },
- "expected_pass": false,
- "note": "Fabricated number: the validator must reject it.",
- "source": "handwritten-bad"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }
