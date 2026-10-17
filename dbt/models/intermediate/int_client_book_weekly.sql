@@ -1,14 +1,15 @@
 -- Client × ISO week book (PLAN.md §6.7 and §7). One row per client who already
--- existed at week end, with the primary advisor on the client version in force at
--- Sunday 23:59 America/Toronto and an active flag. Coverage's denominator is the
--- active subset (`is_active`). Versions come from every loaded CLNT row: staging
--- keeps only the latest, which would hide a mid-period reassignment.
+-- existed at week end, with the primary advisor, home branch and FSA on the client
+-- version in force at Sunday 23:59 America/Toronto, and an active flag. Coverage's
+-- denominator is the active subset (`is_active`). Versions come from every loaded CLNT
+-- row: staging keeps only the latest, which would hide a mid-period reassignment or move.
 with renamed as (
     select
         "CLNT_ID" as client_id,
         cast("CLNT_SINCE_DT" as date) as client_since_date,
         nullif(trim("PRIM_ADVSR_ID"), '') as primary_advisor_id,
         nullif(trim("PRIM_BRNCH_ID"), '') as primary_branch_id,
+        {{ fsa_code('"PSTL_CD"') }} as fsa_code,
         nullif(upper(trim("STAT_CD")), '') as status_code,
         cast("LAST_UPD_TS" as timestamp with time zone) as last_updated_ts,
         "_loaded_at" as _loaded_at,
@@ -36,6 +37,7 @@ ranged as (
         client_since_date,
         primary_advisor_id,
         primary_branch_id,
+        fsa_code,
         status_code,
         last_updated_ts as valid_from,
         coalesce(
@@ -74,6 +76,7 @@ select
     weeks.week_end,
     ranged.primary_advisor_id,
     ranged.primary_branch_id,
+    ranged.fsa_code,
     ranged.status_code = 'A' as is_active
 from weeks
 inner join observed

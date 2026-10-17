@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: int_ingest_weekly
+    description: >
+      One row per ISO week with a loaded activity or CLNT file: rows read, quarantined by
+      rule (DQ001–DQ005, from quarantine.rejected_rows), and per-row counts over the
+      loaded activity rows (late-arriving, collapsed by staging dedupe DQ010, unknown
+      advisor DQ012). A file belongs to the week of the date in its name; the undated CLNT
+      snapshot to the first activity week of the run that loaded it. Feeds mart_dq_weekly
+      and the LATE_RATE and QUAR_RATE rows of mart_weekly_report.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "activity_rows = activity_loaded + activity_quarantined"
+      - expression_is_true:
+          arguments:
+            expression: "activity_quarantined = dq001_rows + dq002_rows + dq003_rows + dq004_rows"
+      - expression_is_true:
+          arguments:
+            expression: "client_quarantined = dq005_rows and client_quarantined <= client_rows"
+      - expression_is_true:
+          arguments:
+            expression: "greatest(late_rows, dedupe_rows, unknown_advisor_rows) <= activity_loaded"
+    columns:
+      - name: iso_week_id
+        description: ISO week of the batch, YYYY-Www. The grain.
+        data_tests: [not_null, unique, iso_week_id_format]
+      - name: activity_rows
+        description: Activity rows read from this week's extract files, quarantined rows included.
+        data_tests: [not_null]
+      - name: activity_loaded
+        description: Activity rows loaded to raw (read minus quarantined); the LATE_RATE denominator.
+        data_tests: [not_null]
+      - name: activity_quarantined
+        description: Activity rows quarantined at ingest (DQ001–DQ004).
+        data_tests: [not_null]
+      - name: dq001_rows
+        description: Activity rows quarantined for a null ACTIVITY_ID.
+        data_tests: [not_null]
+      - name: dq002_rows
+        description: Activity rows quarantined for an enum value not in the contract.
+        data_tests: [not_null]
+      - name: dq003_rows
+        description: Activity rows quarantined for DURATION_MIN out of range.
+        data_tests: [not_null]
+      - name: dq004_rows
+        description: Activity rows quarantined for ACTIVITY_TS out of range.
+        data_tests: [not_null]
+      - name: late_rows
+        description: >
+          Loaded activity rows whose activity week is before the batch week, the same test
+          as stg_activity.is_late_arriving; the LATE_RATE numerator.
+        data_tests: [not_null]
+      - name: dedupe_rows
+        description: >
+          Loaded activity rows whose activity_id was already loaded in an earlier or the
+          same week: exact copies and re-sent versions that staging collapses (DQ010).
+        data_tests: [not_null]
+      - name: unknown_advisor_rows
+        description: Loaded activity rows whose ADVISOR_ID is not in the advisor master (DQ012).
+        data_tests: [not_null]
+      - name: client_rows
+        description: CLNT rows read this week (snapshot and daily deltas), quarantined rows included.
+        data_tests: [not_null]
+      - name: client_quarantined
+        description: CLNT rows quarantined at ingest.
+        data_tests: [not_null]
+      - name: dq005_rows
+        description: CLNT rows quarantined for an unparseable value.
+        data_tests: [not_null]

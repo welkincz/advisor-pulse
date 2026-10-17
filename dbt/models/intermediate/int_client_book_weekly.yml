@@ -25,6 +25,9 @@ models:
       - expression_is_true:
           arguments:
             expression: "regexp_full_match(primary_branch_id, '^BR-[0-9]{4}$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(fsa_code, '^([ABCEGHJ-NPRSTVXY][0-9][ABCEGHJ-NPRSTV-Z]|UNK)$')"
     columns:
       - name: client_id
         description: Client natural key.
@@ -58,6 +61,11 @@ models:
               arguments:
                 to: ref('stg_branch')
                 field: branch_id
+      - name: fsa_code
+        description: >
+          FSA of the postal code on the week-end version, or `UNK` when it does not
+          normalize (DQ011, same rule as `stg_client`). A move changes it from that week on.
+        data_tests: [not_null]
       - name: is_active
         description: >
           True when the week-end version is status `A`. Closed clients stay in the

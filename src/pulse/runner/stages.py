@@ -1,7 +1,7 @@
 """The dbt_build, checks and export stages of the weekly DAG.
 
-Each one reads ``ctx.data_dir`` only. Until the marts land (issues #27, #28), checks and
-export find no ``marts.mart_org_weekly`` and report SKIPPED instead of failing every run.
+Each one reads ``ctx.data_dir`` only. Before any activity is loaded, checks and export
+find the marts missing or empty and report SKIPPED instead of failing the run.
 """
 
 from __future__ import annotations

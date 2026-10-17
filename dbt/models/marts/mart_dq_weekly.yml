@@ -1,0 +1,56 @@
+version: 2
+
+models:
+  - name: mart_dq_weekly
+    description: >
+      One row per data-quality rule and ISO week (PLAN.md §6.8, §8), exported as
+      dq_weekly.parquet. DQ001–DQ004 and DQ010, DQ012 count activity rows in the week's
+      extract (rows_in_batch = activity rows read, quarantined included); DQ005 counts CLNT
+      rows; DQ011 counts active book clients at week end whose postal code does not
+      normalize. Quarantine counts come from quarantine.rejected_rows via int_ingest_weekly.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "rows_affected <= rows_in_batch"
+      - expression_is_true:
+          arguments:
+            expression: "rate is null or rate between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "(rate is null) = (rows_in_batch = 0)"
+    columns:
+      - name: iso_week_id
+        description: ISO week of the batch, YYYY-Www.
+        data_type: varchar
+        data_tests: [not_null, iso_week_id_format]
+      - name: rule_id
+        description: Rule from PLAN.md §8 (DQ001–DQ005, DQ010–DQ012).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['DQ001', 'DQ002', 'DQ003', 'DQ004', 'DQ005', 'DQ010', 'DQ011', 'DQ012']
+      - name: rule_name
+        description: Short name of the rule.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: action
+        description: What the pipeline does with an affected row.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['QUARANTINE', 'DEDUPE', 'NORMALIZE', 'MAP_UNKNOWN']
+      - name: rows_affected
+        description: Rows the rule caught this week.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: rows_in_batch
+        description: The rule's denominator this week (see the model description).
+        data_type: bigint
+        data_tests: [not_null]
+      - name: rate
+        description: "rows_affected ÷ rows_in_batch, 4 decimals; null when the batch is empty."
+        data_type: double
