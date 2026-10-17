@@ -6,14 +6,23 @@ import csv
 import hashlib
 import shutil
 import sqlite3
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
 from pulse.contracts.defects import DefectKind, DefectManifest
-from pulse.contracts.enums import AssignmentReason
-from pulse.generate.advisors import assignment_ranges, generate_advisors, write_advisors
+from pulse.contracts.enums import AssignmentReason, Role
+from pulse.contracts.sources import TeradataAssignment
+from pulse.generate.advisors import (
+    AdvisorRoster,
+    assignment_ranges,
+    generate_advisors,
+    write_advisors,
+)
 from pulse.generate.clients import generate_clients, write_clients
 from pulse.generate.dirt import inject_dirt
 from pulse.reference import org
@@ -37,7 +46,13 @@ def _files(root: Path) -> dict[str, str]:
 
 
 def _rates(**enabled: float) -> dict[DefectKind, float]:
-    return {kind: enabled.get(kind.value, 0.0) for kind in DefectKind}
+    upstream = {
+        DefectKind.ADVISOR_TRANSFER,
+        DefectKind.ADVISOR_PROMOTION,
+        DefectKind.ADVISOR_TERM,
+        DefectKind.CLIENT_REASSIGNMENT,
+    }
+    return {kind: enabled.get(kind.value, 0.0) for kind in DefectKind if kind not in upstream}
 
 
 def test_zero_rates_leave_fixture_files_identical_and_write_empty_manifest(tmp_path: Path) -> None:
@@ -163,7 +178,7 @@ def test_completed_week_retry_does_not_inject_again(tmp_path: Path) -> None:
         (DefectKind.DURATION_OUT_OF_RANGE, "DURATION_MIN", "DQ003", -15),
         (DefectKind.ACTIVITY_TS_OUT_OF_RANGE, "ACTIVITY_TS", "DQ004", 2014),
         (DefectKind.LATE_ARRIVING, "ACTIVITY_TS", None, 2026),
-        (DefectKind.RESENT_UPDATE, "STATUS", "DQ010", "CANCELLED"),
+        (DefectKind.RESENT_UPDATE, "STATUS", "DQ010", "BOOKED"),
     ],
 )
 def test_each_activity_defect_has_written_evidence(
@@ -182,12 +197,132 @@ def test_each_activity_defect_has_written_evidence(
         row = pq.read_table(sources / defect.file).to_pylist()[defect.row]
         assert defect.column == column and defect.rule_id == rule
         if kind is DefectKind.RESENT_UPDATE:
-            assert row["STATUS"] == defect.expected_value
-            assert row["STATUS"] != defect.raw_value
+            assert row["STATUS"] == defect.raw_value == "BOOKED"
+            assert row["ACTIVITY_TYPE"] == "APPOINTMENT"
+            assert row["OUTCOME"] is row["PRODUCT_LINE"] is row["DURATION_MIN"] is None
+            final = next(
+                r
+                for r in pq.read_table(sources / defect.file).to_pylist()
+                if r["ACTIVITY_ID"] == defect.natural_key and r["STATUS"] != "BOOKED"
+            )
+            assert final["STATUS"] == defect.expected_value
+            assert final["UPDATED_TS"] > row["UPDATED_TS"]
+            assert row["ACTIVITY_TS"] == row["CREATED_TS"]
         elif kind in (DefectKind.LATE_ARRIVING, DefectKind.ACTIVITY_TS_OUT_OF_RANGE):
             assert row[column].year == written
         else:
             assert row[column] == written
+
+
+def test_late_rows_shift_whole_call_and_keep_toronto_week(tmp_path: Path) -> None:
+    sources = _sources(tmp_path)
+    before = {
+        row["ACTIVITY_ID"]: row
+        for path in sources.glob("snowflake/activity/extract_date=2026-09-13/*.parquet")
+        for row in pq.read_table(path).to_pylist()
+        if row["ACTIVITY_ID"]
+    }
+    booked = {
+        row["BOOKED_FROM_ACTIVITY_ID"] for row in before.values() if row["BOOKED_FROM_ACTIVITY_ID"]
+    }
+    manifest = inject_dirt(
+        sources,
+        tmp_path / "defects",
+        iso_week_id=WEEK,
+        seed=8,
+        rates=_rates(LATE_ARRIVING=1.0),
+    )
+    late = [d for d in manifest.defects if d.kind is DefectKind.LATE_ARRIVING]
+    assert late
+    toronto = ZoneInfo("America/Toronto")
+    for defect in late:
+        row = pq.read_table(sources / defect.file).to_pylist()[defect.row]
+        old = before[defect.natural_key]
+        assert row["ACTIVITY_TYPE"] == "CALL_IN"
+        assert defect.natural_key not in booked
+        offset = old["ACTIVITY_TS"] - row["ACTIVITY_TS"]
+        assert timedelta(weeks=1) <= offset <= timedelta(weeks=3)
+        assert all(
+            old[column] - row[column] == offset
+            for column in ("ACTIVITY_TS", "CREATED_TS", "UPDATED_TS")
+        )
+        if old["SCHEDULED_TS"] is not None:
+            assert old["SCHEDULED_TS"] - row["SCHEDULED_TS"] == offset
+        day = row["ACTIVITY_TS"].astimezone(toronto).date().isocalendar()
+        assert defect.expected_value == f"{day.year}-W{day.week:02d}"
+
+
+def test_late_row_requires_advisor_assignment_on_shifted_date(tmp_path: Path) -> None:
+    sources = _sources(tmp_path)
+    row = next(
+        row
+        for path in sources.glob("snowflake/activity/extract_date=2026-09-13/*.parquet")
+        for row in pq.read_table(path).to_pylist()
+        if row["ACTIVITY_TYPE"] == "CALL_IN"
+    )
+
+    def roster(start: date) -> AdvisorRoster:
+        assignment = TeradataAssignment(
+            ASGN_ID="ASG-00000001",
+            ADVSR_ID=row["ADVISOR_ID"],
+            BRNCH_ID=row["BRANCH_ID"],
+            ROLE_CD=Role.ADVISOR,
+            EFF_DT=start,
+            RSN_CD=AssignmentReason.HIRE,
+            LAST_UPD_TS=datetime(2026, 9, 7, tzinfo=UTC),
+        )
+        return AdvisorRoster(advisors=(), assignments=(assignment,), branches=())
+
+    absent = inject_dirt(
+        sources,
+        tmp_path / "absent",
+        iso_week_id=WEEK,
+        seed=8,
+        rates=_rates(LATE_ARRIVING=1.0),
+        advisor_roster=roster(date(2026, 9, 7)),
+    )
+    assert absent.defects == []
+    eligible = inject_dirt(
+        sources,
+        tmp_path / "eligible",
+        iso_week_id=WEEK,
+        seed=8,
+        rates=_rates(LATE_ARRIVING=1.0),
+        advisor_roster=roster(date(2026, 8, 1)),
+    )
+    assert eligible.defects
+    assert {d.natural_key for d in eligible.defects} <= {
+        r["ACTIVITY_ID"]
+        for path in sources.glob("snowflake/activity/extract_date=2026-09-13/*.parquet")
+        for r in pq.read_table(path).to_pylist()
+        if r["ADVISOR_ID"] == row["ADVISOR_ID"]
+    }
+
+
+def test_late_expected_week_uses_toronto_sunday(tmp_path: Path) -> None:
+    sources = _sources(tmp_path)
+    path = next(sources.glob("snowflake/activity/extract_date=2026-09-13/*.parquet"))
+    table = pq.read_table(path)
+    rows = table.to_pylist()
+    booked = {r["BOOKED_FROM_ACTIVITY_ID"] for r in rows if r["BOOKED_FROM_ACTIVITY_ID"]}
+    target = next(
+        r for r in rows if r["ACTIVITY_TYPE"] == "CALL_IN" and r["ACTIVITY_ID"] not in booked
+    )
+    target["ACTIVITY_TS"] = datetime(2026, 9, 14, 1, tzinfo=UTC)
+    target["CREATED_TS"] = target["ACTIVITY_TS"]
+    target["UPDATED_TS"] = target["ACTIVITY_TS"]
+    pq.write_table(pa.Table.from_pylist(rows, schema=table.schema), path, compression="zstd")
+    manifest = inject_dirt(
+        sources,
+        tmp_path / "defects",
+        iso_week_id=WEEK,
+        seed=8,
+        rates=_rates(LATE_ARRIVING=1.0),
+    )
+    defect = next(d for d in manifest.defects if d.natural_key == target["ACTIVITY_ID"])
+    utc_week = datetime.fromisoformat(defect.raw_value).date().isocalendar()
+    assert defect.expected_value != f"{utc_week.year}-W{utc_week.week:02d}"
+    assert defect.expected_value in {"2026-W36", "2026-W35", "2026-W34"}
 
 
 def test_unparseable_client_delta_has_exact_csv_row(tmp_path: Path) -> None:
@@ -218,9 +353,7 @@ def test_upstream_assignment_and_book_changes_are_recorded_at_source_keys(tmp_pa
     db = sources / "teradata/edw.sqlite"
     write_advisors(roster, db)
     write_clients(batch, db)
-    rates = _rates(
-        ADVISOR_TRANSFER=1.0, ADVISOR_PROMOTION=1.0, ADVISOR_TERM=1.0, CLIENT_REASSIGNMENT=1.0
-    )
+    rates = _rates()
 
     def manifest_for(day):
         week = day.isocalendar()
@@ -280,3 +413,15 @@ def test_reject_invalid_rate_without_modifying_sources(tmp_path: Path, rate: flo
             rates=_rates(EXACT_DUPLICATE=rate),
         )
     assert _files(sources) == before
+
+
+def test_upstream_event_rates_cannot_hide_existing_events(tmp_path: Path) -> None:
+    sources = _sources(tmp_path)
+    with pytest.raises(ValueError, match="only the defects injected"):
+        inject_dirt(
+            sources,
+            tmp_path / "defects",
+            iso_week_id=WEEK,
+            seed=7,
+            rates={**_rates(), DefectKind.ADVISOR_TRANSFER: 0.5},
+        )

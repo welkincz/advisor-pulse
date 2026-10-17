@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -23,7 +24,7 @@ from pulse.contracts.defects import Defect, DefectKind, DefectManifest
 from pulse.contracts.enums import AssignmentReason, DqAction
 from pulse.contracts.patterns import POSTAL_CODE
 from pulse.contracts.sources import SnowflakeActivity
-from pulse.generate.advisors import AdvisorRoster
+from pulse.generate.advisors import AdvisorRoster, assignment_ranges
 from pulse.generate.clients import ClientBatch, delta_rows
 
 DEFAULT_RATES: Mapping[DefectKind, float] = {
@@ -37,10 +38,6 @@ DEFAULT_RATES: Mapping[DefectKind, float] = {
     DefectKind.UNKNOWN_ADVISOR: 0.003,
     DefectKind.DIRTY_POSTAL_CODE: 0.08,
     DefectKind.LATE_ARRIVING: 0.04,
-    DefectKind.ADVISOR_TRANSFER: 1.0,
-    DefectKind.ADVISOR_PROMOTION: 1.0,
-    DefectKind.ADVISOR_TERM: 1.0,
-    DefectKind.CLIENT_REASSIGNMENT: 1.0,
 }
 
 POSTAL_VARIANTS = (
@@ -99,7 +96,11 @@ def _note(
 
 
 def _activity(
-    root: Path, week: str, rates: Mapping[DefectKind, float], rng: random.Random
+    root: Path,
+    week: str,
+    rates: Mapping[DefectKind, float],
+    rng: random.Random,
+    advisor_roster: AdvisorRoster | None,
 ) -> list[Defect]:
     year, number = map(int, week.split("-W"))
     sunday = date.fromisocalendar(year, number, 7)
@@ -108,7 +109,21 @@ def _activity(
     if not directory.exists():
         directory = base / f"extract_date={sunday}"
     defects: list[Defect] = []
-    for path in sorted(directory.glob("part-*.parquet")):
+    paths = sorted(directory.glob("part-*.parquet"))
+    booked = {
+        value
+        for path in paths
+        for value in pq.read_table(path, columns=["BOOKED_FROM_ACTIVITY_ID"])
+        .column("BOOKED_FROM_ACTIVITY_ID")
+        .to_pylist()
+        if value is not None
+    }
+    ranges = assignment_ranges(advisor_roster) if advisor_roster is not None else ()
+    by_advisor: dict[str, list[tuple[date, date | None]]] = {}
+    for advisor, _branch, _role, start, end in ranges:
+        by_advisor.setdefault(advisor, []).append((start, end))
+    toronto = ZoneInfo("America/Toronto")
+    for path in paths:
         table = pq.read_table(path)
         rows = table.to_pylist()
         file = path.relative_to(root).as_posix()
@@ -133,27 +148,65 @@ def _activity(
             DefectKind.RESENT_UPDATE,
             DefectKind.EXACT_DUPLICATE,
         ):
-            for index in _select(available, rates[kind], rng):
+            late_offsets: dict[int, list[int]] = {}
+            if kind is DefectKind.LATE_ARRIVING:
+                for index in available:
+                    row = rows[index]
+                    if row["ACTIVITY_TYPE"] != "CALL_IN" or row["ACTIVITY_ID"] in booked:
+                        continue
+                    offsets = []
+                    for weeks in range(1, 4):
+                        shifted = (
+                            (row["ACTIVITY_TS"] - timedelta(weeks=weeks)).astimezone(toronto).date()
+                        )
+                        if advisor_roster is None or any(
+                            start <= shifted and (end is None or shifted < end)
+                            for start, end in by_advisor.get(row["ADVISOR_ID"], ())
+                        ):
+                            offsets.append(weeks)
+                    late_offsets[index] = offsets
+                eligible = [index for index in available if late_offsets.get(index)]
+            elif kind is DefectKind.RESENT_UPDATE:
+                eligible = [
+                    index
+                    for index in available
+                    if rows[index]["ACTIVITY_TYPE"] == "APPOINTMENT"
+                    and rows[index]["STATUS"] in ("COMPLETED", "NO_SHOW")
+                ]
+            else:
+                eligible = available
+            chosen = rng.sample(
+                eligible, min(len(eligible), _count(len(available), rates[kind], rng))
+            )
+            for index in chosen:
+                available.remove(index)
                 original = rows[index]
                 key = original["ACTIVITY_ID"]
                 column: str | None
                 rule: str | None
                 expected: str | None
+                raw: Any
                 if kind is DefectKind.EXACT_DUPLICATE:
                     rows.append(dict(original))
                     position, column, raw, expected = len(rows) - 1, None, None, None
                     rule, action = "DQ010", DqAction.DEDUPE
                 elif kind is DefectKind.RESENT_UPDATE:
                     copy = dict(original)
-                    previous = str(copy["STATUS"])
-                    copy["STATUS"] = "CANCELLED" if previous != "CANCELLED" else "COMPLETED"
-                    copy["UPDATED_TS"] += timedelta(minutes=1)
+                    final_status = str(copy["STATUS"])
+                    copy.update(
+                        STATUS="BOOKED",
+                        ACTIVITY_TS=copy["CREATED_TS"],
+                        UPDATED_TS=copy["UPDATED_TS"] - timedelta(minutes=1),
+                        OUTCOME=None,
+                        PRODUCT_LINE=None,
+                        DURATION_MIN=None,
+                    )
                     rows.append(copy)
                     position, column, raw, expected = (
                         len(rows) - 1,
                         "STATUS",
-                        previous,
-                        copy["STATUS"],
+                        "BOOKED",
+                        final_status,
                     )
                     rule, action = "DQ010", DqAction.DEDUPE
                 else:
@@ -202,12 +255,18 @@ def _activity(
                         DefectKind.DURATION_OUT_OF_RANGE: -15,
                         DefectKind.ACTIVITY_TS_OUT_OF_RANGE: datetime(2014, 6, 2, tzinfo=UTC),
                         DefectKind.UNKNOWN_ADVISOR: "ADV-00000",
-                        DefectKind.LATE_ARRIVING: original["ACTIVITY_TS"]
-                        - timedelta(weeks=rng.randint(1, 3)),
-                    }[kind]
+                    }.get(kind)
+                    if kind is DefectKind.LATE_ARRIVING:
+                        raw = original["ACTIVITY_TS"] - timedelta(
+                            weeks=rng.choice(late_offsets[index])
+                        )
+                        offset = original["ACTIVITY_TS"] - raw
                     rows[index][column] = raw
                     if kind is DefectKind.LATE_ARRIVING:
-                        prior = raw.date().isocalendar()
+                        for timestamp in ("CREATED_TS", "UPDATED_TS", "SCHEDULED_TS"):
+                            if original[timestamp] is not None:
+                                rows[index][timestamp] = original[timestamp] - offset
+                        prior = raw.astimezone(toronto).date().isocalendar()
                         expected = f"{prior.year}-W{prior.week:02d}"
                 defects.append(
                     _note(
@@ -351,8 +410,6 @@ def _clients(
 def _source_events(
     root: Path,
     week: str,
-    rates: Mapping[DefectKind, float],
-    rng: random.Random,
     client_batch: ClientBatch | None,
     advisor_roster: AdvisorRoster | None,
 ) -> list[Defect]:
@@ -374,8 +431,6 @@ def _source_events(
                 kind = kinds.get(event.reason_code)
                 calendar = event.effective_date.isocalendar()
                 if kind is None or (calendar.year, calendar.week) != (year, number):
-                    continue
-                if rng.random() >= rates[kind]:
                     continue
                 column = "ROLE_CD" if kind is DefectKind.ADVISOR_PROMOTION else "BRNCH_ID"
                 prior = previous.role_code if column == "ROLE_CD" else previous.branch_id
@@ -409,8 +464,6 @@ def _source_events(
                 continue
             calendar = change.day.isocalendar()
             if (calendar.year, calendar.week) != (year, number):
-                continue
-            if rng.random() >= rates[DefectKind.CLIENT_REASSIGNMENT]:
                 continue
             file, row = locations[(change.day, change.after.client_id)]
             if not (root / file).exists():
@@ -447,13 +500,14 @@ def inject_dirt(
     """Mutate clean extracts in place and write a contract-validated weekly manifest.
 
     The caller enables snapshot injection only for its initial week. Later weeks only
-    touch their own client deltas. HR and book changes are generated upstream.
+    touch their own client deltas. Rates control only defects injected here; HR and
+    book changes are generated upstream and every supplied event is recorded.
     """
     year, number = map(int, iso_week_id.split("-W"))
     monday = date.fromisocalendar(year, number, 1)
     configured = dict(DEFAULT_RATES if rates is None else rates)
-    if set(configured) != set(DefectKind):
-        raise ValueError("rates must configure every defect kind")
+    if set(configured) != set(DEFAULT_RATES):
+        raise ValueError("rates must configure only the defects injected by this module")
     if any(
         isinstance(rate, bool) or not math.isfinite(rate) or not 0 <= rate <= 1
         for rate in configured.values()
@@ -467,11 +521,9 @@ def inject_dirt(
         return existing
     rng_seed = int.from_bytes(hashlib.sha256(f"{seed}|{iso_week_id}".encode()).digest()[:8], "big")
     rng = random.Random(rng_seed)
-    defects = _activity(sources_root, iso_week_id, configured, rng)
+    defects = _activity(sources_root, iso_week_id, configured, rng, advisor_roster)
     defects += _clients(sources_root, iso_week_id, configured, rng, include_client_snapshot)
-    defects += _source_events(
-        sources_root, iso_week_id, configured, rng, client_batch, advisor_roster
-    )
+    defects += _source_events(sources_root, iso_week_id, client_batch, advisor_roster)
     defects.sort(key=lambda d: (d.file, -1 if d.row is None else d.row, d.kind.value))
     manifest = DefectManifest(
         generated_at=datetime.combine(monday + timedelta(days=7), time(3), tzinfo=UTC),
