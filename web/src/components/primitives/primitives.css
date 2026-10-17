@@ -30,6 +30,7 @@
 .stat-emphasis .stat-value { font-size: var(--text-3xl); }
 .stat-unit { font-size: var(--text-md); color: var(--muted); margin-left: var(--space-1); letter-spacing: 0; }
 .stat-context { margin: var(--space-2) 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--muted); font-size: var(--text-sm); }
+.stat-footer { margin: 0; }
 
 /* Delta: text in ink, the glyph carries the verdict colour. */
 .delta { display: inline-flex; align-items: baseline; gap: var(--space-1); color: var(--ink); font-size: var(--text-sm); }

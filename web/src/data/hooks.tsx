@@ -75,6 +75,10 @@ export function useWeeklyReport(week: string, filter: { nodeId: string } | { par
   return useData(`report:${week}:${target}`, (d) => d.weeklyReport(week, filter))
 }
 
+export function useWeeklyReportHistory(nodeId: string, weeks: readonly string[]): DataResult<WeeklyReport[]> {
+  return useData(`report-history:${nodeId}:${weeks.join(',')}`, (d) => d.weeklyReportHistory(nodeId, weeks))
+}
+
 export function useGeoWeekly(week: string, districtCode?: string): DataResult<GeoWeekly[]> {
   return useData(`geo:${week}:${districtCode ?? '*'}`, (d) => d.geoWeekly(week, districtCode))
 }

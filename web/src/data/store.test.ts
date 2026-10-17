@@ -31,6 +31,16 @@ describe('PulseData on fixtures/exports', () => {
     expect(regions.every((r) => r.level === 'REGION')).toBe(true)
   })
 
+  it('reads national KPI history from the fixture export in week order', async () => {
+    const data = fixtureData()
+    const weeks = (await data.manifest()).weeks_available
+    const rows = await data.weeklyReportHistory('CA', weeks)
+    expect(rows).toHaveLength(weeks.length * 12)
+    expect(rows[0]?.iso_week_id).toBe(weeks[0])
+    expect(rows.at(-1)).toMatchObject({ iso_week_id: '2026-W40', node_id: 'CA' })
+    expect(rows.find((row) => row.kpi_code === 'LATE_RATE' && row.iso_week_id === '2026-W40')?.flag).toBe('ANOMALY')
+  })
+
   it('filters geo_weekly by district', async () => {
     const data = fixtureData()
     const all = await data.geoWeekly('2026-W40')
