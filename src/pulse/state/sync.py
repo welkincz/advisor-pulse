@@ -90,7 +90,7 @@ def backfill_rebuild(ctx: StageContext, weeks: Sequence[str]) -> StageResult:
     return StageResult(rows_out=len(weeks))
 
 
-def _clear_local(data_dir: Path) -> None:
+def clear_local(data_dir: Path) -> None:
     """Cold start begins from nothing so the rebuild is deterministic."""
     for name in (WAREHOUSE_FILE, f"{WAREHOUSE_FILE}.wal"):
         (data_dir / name).unlink(missing_ok=True)
@@ -168,7 +168,7 @@ class StateSync:
             return StageResult(message=f"Rebuild starts from empty local state.{note}")
 
         if not store.exists(WAREHOUSE_FILE):
-            _clear_local(ctx.data_dir)
+            clear_local(ctx.data_dir)
             weeks = weeks_between(self.start_week, ctx.iso_week_id)
             if not weeks:
                 return StageResult(message=f"Cold start: no state in R2.{note}")

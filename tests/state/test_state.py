@@ -261,6 +261,20 @@ def replace_fn(stage: Stage, fn: object) -> Stage:
 # ── Cold rebuild ────────────────────────────────────────────────────────────
 
 
+def test_clear_local_is_public_and_preserves_unrelated_files(tmp_path: Path) -> None:
+    from pulse.state.sync import clear_local
+
+    (tmp_path / WAREHOUSE_FILE).write_bytes(b"stale")
+    (tmp_path / "defects.json").write_text("stale")
+    (tmp_path / "keep.txt").write_text("keep")
+
+    clear_local(tmp_path)
+
+    assert not (tmp_path / WAREHOUSE_FILE).exists()
+    assert not (tmp_path / "defects.json").exists()
+    assert (tmp_path / "keep.txt").read_text() == "keep"
+
+
 def test_weeks_between_crosses_iso_year() -> None:
     assert weeks_between("2026-W52", "2027-W02") == ["2026-W52", "2026-W53", "2027-W01"]
     assert weeks_between("2026-W40", "2026-W40") == []

@@ -10,7 +10,7 @@ from pulse.contracts.enums import RunType
 from pulse.generate.cli import activity_dir, week_range
 from pulse.runner.command import run_week
 from pulse.runner.stage import Clock, Stage, StageContext, StageResult
-from pulse.state.sync import _clear_local
+from pulse.state.sync import clear_local
 
 
 def _rebuild_restore(ctx: StageContext) -> StageResult:
@@ -38,7 +38,7 @@ def backfill_range(
 
         stages = WEEKLY_STAGES
     if rebuild:
-        _clear_local(data_dir)
+        clear_local(data_dir)
     for index, week in enumerate(weeks):
         week_stages = stages
         if rebuild and index == 0:
