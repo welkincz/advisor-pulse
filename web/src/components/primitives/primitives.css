@@ -1,0 +1,65 @@
+/* Primitives. Tokens only; rules in docs/design.md. */
+
+/* Section: margin column for the heading on wide screens, stacked below 64rem. */
+.section { display: grid; gap: var(--space-4) var(--space-8); padding: var(--space-12) 0; border-top: 1px solid var(--rule); }
+.section-lede { color: var(--muted); font-size: var(--text-sm); margin: 0; }
+@media (min-width: 64rem) {
+  .section { grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); }
+  .section-margin { position: sticky; top: var(--space-8); align-self: start; }
+}
+.section-body { display: grid; gap: var(--space-12); min-width: 0; }
+
+/* Figure: sits on the paper, no card, no shadow. */
+.figure { margin: 0; min-width: 0; }
+.figure-title { margin: 0; }
+.figure-reading { color: var(--muted); margin: var(--space-1) 0 var(--space-4); }
+.figure-plot { min-width: 0; }
+.figure-note { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--rule); color: var(--muted); font-size: var(--text-xs); }
+.figure-table summary { cursor: pointer; margin-top: var(--space-2); color: var(--ink); font-size: var(--text-sm); }
+.figure-table table { width: 100%; border-collapse: collapse; margin-top: var(--space-2); font-size: var(--text-sm); }
+.figure-table th, .figure-table td { text-align: left; padding: var(--space-1) var(--space-2) var(--space-1) 0; border-bottom: 1px solid var(--rule); }
+.figure-table .num { text-align: right; }
+.chart { width: 100%; }
+
+/* Stat: label, value, context. A gold rule marks the one stat the page leads with. */
+.stat-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: var(--space-8) var(--space-6); margin: 0; }
+.stat { border-top: 1px solid var(--rule); padding-top: var(--space-3); min-width: 0; }
+.stat-emphasis { border-top: 3px solid var(--signal); }
+.stat-label { color: var(--muted); font-size: var(--text-sm); }
+.stat-value { margin: var(--space-1) 0 0; font-size: var(--text-2xl); font-weight: 500; letter-spacing: -0.02em; line-height: var(--leading-tight); }
+.stat-emphasis .stat-value { font-size: var(--text-3xl); }
+.stat-unit { font-size: var(--text-md); color: var(--muted); margin-left: var(--space-1); letter-spacing: 0; }
+.stat-context { margin: var(--space-2) 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--muted); font-size: var(--text-sm); }
+
+/* Delta: text in ink, the glyph carries the verdict colour. */
+.delta { display: inline-flex; align-items: baseline; gap: var(--space-1); color: var(--ink); font-size: var(--text-sm); }
+.delta-glyph { font-size: 0.7em; }
+.delta-better .delta-glyph { color: var(--better-3); }
+.delta-worse .delta-glyph { color: var(--worse-3); }
+.delta-flat .delta-glyph, .delta-none { color: var(--muted); }
+
+.sparkline { color: var(--muted); overflow: visible; vertical-align: middle; }
+.sparkline-last { fill: var(--signal); }
+
+/* Breadcrumb */
+.breadcrumb ol { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--muted); }
+.breadcrumb li + li::before { content: '/'; margin-right: var(--space-2); color: var(--faint); }
+.breadcrumb [aria-current='page'] { color: var(--ink); font-weight: 600; }
+
+/* Status */
+.status { display: inline-flex; align-items: baseline; gap: var(--space-2); font-size: var(--text-sm); }
+.status-glyph { font-weight: 700; width: 1em; text-align: center; }
+.status-good .status-glyph { color: var(--status-good); }
+.status-warning .status-glyph { color: var(--status-warning); }
+.status-critical .status-glyph { color: var(--status-critical); }
+.status-neutral .status-glyph { color: var(--status-neutral); }
+.status-running .status-glyph { color: var(--status-running); }
+
+/* Kitchen sink only */
+.ks-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--space-3); }
+.ks-swatch { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--muted); }
+.ks-chip { width: 2rem; height: 2rem; flex: none; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--field); }
+.ks-type { display: grid; gap: var(--space-4); }
+.ks-status { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-8); }
+.ks-trail { margin: var(--space-8) 0 var(--space-4); }
+.ks-group h3 { font-size: var(--text-sm); color: var(--muted); font-weight: 500; }

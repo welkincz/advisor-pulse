@@ -79,3 +79,19 @@ test('a failed manifest fetch shows a calm notice with the last run time', async
   await expect(page.getByText(/Last weekly run: Oct 5, 2026/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
 })
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`kitchen sink renders primitives and themed charts in ${colorScheme}`, async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.emulateMedia({ colorScheme })
+    await page.goto('/_kitchen-sink')
+    await expect(page.getByRole('heading', { name: 'Kitchen sink', exact: true })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]')).toHaveText('BR-0412')
+    await expect(page.getByLabel('−29.7%, better than last week')).toBeVisible()
+    await expect(page.locator('.chart svg')).toHaveCount(2)
+    // The ECharts theme takes its series colours from tokens.css for the active scheme.
+    const series1 = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--series-1').trim())
+    await expect(page.locator(`.chart svg path[stroke="${series1}" i]`).first()).toBeAttached()
+    expect(errors).toEqual([])
+  })
+}

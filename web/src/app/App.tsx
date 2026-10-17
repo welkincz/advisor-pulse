@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes, useParams } from 'react-router-dom'
 import { Overview } from './Overview'
 import { useReducedMotion } from './useReducedMotion'
+
+// Dev-only reference page for the design system; tree-shaken out of production builds.
+const KitchenSink = import.meta.env.DEV ? lazy(() => import('../components/primitives/KitchenSink')) : null
 
 const navigation = [
   ['/', 'Overview'], ['/map', 'Map'], ['/pipeline', 'Pipeline'],
@@ -33,6 +36,7 @@ function Shell() {
       <Route path="/pipeline" element={<Page title="Pipeline" />} />
       <Route path="/quality" element={<Page title="Data quality" />} />
       <Route path="/case-study" element={<Page title="Case study" />} />
+      {KitchenSink && <Route path="/_kitchen-sink" element={<Suspense fallback={null}><KitchenSink /></Suspense>} />}
       <Route path="*" element={<Page title="Page not found" />} />
     </Routes>
     <footer className="site-footer">Weekly batch report · synthetic data · fictional bank</footer>
