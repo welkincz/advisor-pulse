@@ -1,0 +1,13 @@
+.quality-picker { display: grid; gap: var(--space-1); max-width: 28rem; color: var(--muted); font-size: var(--text-sm); }
+.quality-picker select { width: 100%; padding: var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; }
+.quality-picker select:focus-visible, .quality-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.quality-scroll { max-width: 100%; overflow-x: auto; }
+.quality-table-wrap { min-width: 0; }
+.quality-table { width: 100%; min-width: 38rem; border-collapse: collapse; font-size: var(--text-sm); }
+.quality-table th, .quality-table td { padding: var(--space-2) var(--space-3) var(--space-2) 0; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.quality-table thead th { color: var(--muted); font-weight: 500; }
+.quality-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.quality-table a { color: var(--ink); text-underline-offset: 2px; }
+.quality-run { margin: 0; color: var(--muted); font-size: var(--text-sm); text-transform: capitalize; }
+.quality-scroll-hint { display: none; margin: 0; color: var(--muted); font-size: var(--text-xs); }
+@media (max-width: 40rem) { .quality-scroll-hint { display: block; } }

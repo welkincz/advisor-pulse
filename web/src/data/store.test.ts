@@ -70,6 +70,14 @@ describe('PulseData on fixtures/exports', () => {
     expect(log.runs[0]?.run_id).toBe('weekly-2026-W40-1')
   })
 
+  it('reads DQ rule history in week and rule order from the verified export', async () => {
+    const rows = await fixtureData().dqWeekly()
+    expect(rows[0]).toMatchObject({ iso_week_id: '2026-W37', rule_id: 'DQ001', action: 'QUARANTINE' })
+    expect(rows.at(-1)).toMatchObject({ iso_week_id: '2026-W40', rule_id: 'DQ012' })
+    expect(rows.find((row) => row.iso_week_id === '2026-W40' && row.rule_id === 'DQ010'))
+      .toMatchObject({ rows_affected: 18, rows_in_batch: 175, rate: 0.1029 })
+  })
+
   it('rejects a file whose checksum differs from the manifest', async () => {
     const real = await readFile(join(FIXTURES, 'org_weekly.parquet'))
     const tampered = new Uint8Array(real)

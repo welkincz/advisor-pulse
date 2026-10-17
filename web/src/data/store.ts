@@ -1,5 +1,6 @@
 import type { QueryEngine } from './engine'
 import type { AdvisorWeekly } from './generated/advisor_weekly'
+import type { DqWeekly } from './generated/dq_weekly'
 import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { Narrative, NodeNarrative } from './generated/narrative'
@@ -92,6 +93,10 @@ export class PulseData {
 
   geoWeekly(week: string, districtCode?: string): Promise<GeoWeekly[]> {
     return this.select<GeoWeekly>('geo_weekly', geoWeeklySql(week, districtCode))
+  }
+
+  dqWeekly(): Promise<DqWeekly[]> {
+    return this.select<DqWeekly>('dq_weekly', 'select * from dq_weekly order by iso_week_id, rule_id')
   }
 
   /** Start loading the engine early, e.g. once the first paint is done. */

@@ -1,7 +1,7 @@
 export { DataNotice } from './DataNotice'
 export { DataError } from './manifest'
 export type { DataResult, DataState } from './hooks'
-export { DataProvider, useAdvisorWeekly, useChildReportHistory, useGeoWeekly, useManifest, useNarrative, useNodeNames, useOrgWeekly, usePipelineGraph, usePulseData, useRunLog, useWeeklyReport, useWeeklyReportHistory } from './hooks'
+export { DataProvider, useAdvisorWeekly, useChildReportHistory, useDqWeekly, useGeoWeekly, useManifest, useNarrative, useNodeNames, useOrgWeekly, usePipelineGraph, usePulseData, useRunLog, useWeeklyReport, useWeeklyReportHistory } from './hooks'
 export { KPI_LABELS, formatKpi, formatWow } from './kpi'
 export { PulseData } from './store'
 export { createWasmEngine } from './wasm'
