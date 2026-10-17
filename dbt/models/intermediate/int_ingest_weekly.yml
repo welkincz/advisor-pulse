@@ -49,8 +49,9 @@ models:
         data_tests: [not_null]
       - name: late_rows
         description: >
-          Loaded activity rows whose activity week is before the batch week, the same test
-          as stg_activity.is_late_arriving; the LATE_RATE numerator.
+          Loaded activity rows whose activity week is before the batch week, counting only
+          the first load of each ACTIVITY_ID: a re-sent copy of a row loaded earlier is a
+          dedupe row (DQ010), not a late one. The LATE_RATE numerator.
         data_tests: [not_null]
       - name: dedupe_rows
         description: >
@@ -69,3 +70,32 @@ models:
       - name: dq005_rows
         description: CLNT rows quarantined for an unparseable value.
         data_tests: [not_null]
+
+unit_tests:
+  - name: int_ingest_weekly_counts_a_stale_resend_as_dedupe_not_late
+    description: >
+      A-1 loads in W38. In W40 a stale BOOKED copy of A-1 arrives with its W38 booking
+      time: it is a dedupe row, not a late one. A-2 first arrives in W39 with a W38
+      timestamp, so it is late.
+    model: int_ingest_weekly
+    given:
+      - input: source('meta', 'load_manifest')
+        rows:
+          - {file_path: 'snowflake/activity/extract_date=2026-09-14/part-0.parquet', batch_id: b38, run_id: r1, table_name: activity, row_count: 1, status: LOADED}
+          - {file_path: 'snowflake/activity/extract_date=2026-09-21/part-0.parquet', batch_id: b39, run_id: r1, table_name: activity, row_count: 1, status: LOADED}
+          - {file_path: 'snowflake/activity/extract_date=2026-09-28/part-0.parquet', batch_id: b40, run_id: r1, table_name: activity, row_count: 1, status: LOADED}
+      - input: source('quarantine', 'rejected_rows')
+        rows: []
+      - input: source('raw', 'snowflake__activity')
+        rows:
+          - {ACTIVITY_ID: A-1, ADVISOR_ID: ADV-1, ACTIVITY_TS: '2026-09-15 14:00:00+00', _batch_id: b38, _source_file: f38, _source_row: 1}
+          - {ACTIVITY_ID: A-2, ADVISOR_ID: ADV-1, ACTIVITY_TS: '2026-09-16 14:00:00+00', _batch_id: b39, _source_file: f39, _source_row: 1}
+          - {ACTIVITY_ID: A-1, ADVISOR_ID: ADV-1, ACTIVITY_TS: '2026-09-15 14:00:00+00', _batch_id: b40, _source_file: f40, _source_row: 1}
+      - input: ref('stg_advisor')
+        rows:
+          - {advisor_id: ADV-1}
+    expect:
+      rows:
+        - {iso_week_id: '2026-W38', activity_loaded: 1, late_rows: 0, dedupe_rows: 0}
+        - {iso_week_id: '2026-W39', activity_loaded: 1, late_rows: 1, dedupe_rows: 0}
+        - {iso_week_id: '2026-W40', activity_loaded: 1, late_rows: 0, dedupe_rows: 1}
