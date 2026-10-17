@@ -2,8 +2,8 @@
 -- in the latest week and one district's coverage_rate_13w is set to 1.2. The check must
 -- then report exactly the branch's district for DQ022 (its region still matches the
 -- unchanged districts) and the altered district for DQ023. Returns a row for anything
--- missed or unexpected. It tests the macro, not the data, so it runs on the fixtures only.
-{{ config(enabled=target.name == 'ci') }}
+-- missed or unexpected. It tests the macro, not the data, so it runs on the fixtures only
+-- (enabled in reconcile_tests.yml, so the yml patch has a node on every target).
 
 {% set altered %}
     select * replace (
