@@ -1,0 +1,117 @@
+version: 2
+
+models:
+  - name: fct_activity
+    description: >
+      Activity fact (PLAN.md §6.8), one row per activity. `branch_sk` is the advisor's
+      branch on the activity date (SCD2 attribution, PLAN.md §7), not their current branch.
+      An advisor with no history range on that date maps to `advisor_sk = 'UNKNOWN'` (DQ012);
+      an unknown client keeps a null `client_sk` (DQ013). Incremental `delete+insert` on
+      `activity_id`: each run rebuilds every activity dated within `fct_activity_lookback_days`
+      (default 28) of the latest loaded `activity_date`, so late rows land in their original
+      week and a full refresh produces the same table.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "not is_conversion or (is_appointment and is_completed)"
+      - expression_is_true:
+          arguments:
+            expression: "(advisor_sk = 'UNKNOWN') = (advisor_sk not in (select advisor_sk from {{ ref('dim_advisor') }} where advisor_sk <> 'UNKNOWN'))"
+    columns:
+      - name: activity_id
+        description: Natural key, `ACT-` plus 12 hex characters.
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests: [unique, not_null]
+      - name: activity_date
+        description: Business date of the activity (America/Toronto). References `dim_date`.
+        data_type: date
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: iso_week_id
+        description: ISO week of `activity_date` (`YYYY-Www`). Late rows keep their original week.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: advisor_sk
+        description: The `dim_advisor` row in force on `activity_date`; `UNKNOWN` when none (DQ012).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_advisor')
+                field: advisor_sk
+      - name: advisor_id
+        description: Advisor on the source row, kept for unknown advisors and drill-through.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: branch_sk
+        description: md5 of the attributed branch id (the advisor's branch on `activity_date`); joins `dim_org.branch_sk`.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: client_sk
+        description: md5 of `client_id` when the client is in `dim_client`; null for prospecting calls and unknown clients (DQ013).
+        data_type: varchar
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_client')
+                field: client_sk
+      - name: fsa_code
+        description: The client's FSA, or `UNK`; joins `dim_geography.fsa_code`.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: activity_type
+        description: References `dim_activity_type`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_activity_type')
+                field: activity_type
+      - name: channel
+        description: "`IN_BRANCH`, `PHONE`, or `VIDEO`."
+        data_type: varchar
+      - name: status
+        description: Contract status (`COMPLETED`, `NO_SHOW`, `CANCELLED`, …).
+        data_type: varchar
+        data_tests: [not_null]
+      - name: outcome
+        description: Contract outcome.
+        data_type: varchar
+      - name: product_line
+        description: Contract product line.
+        data_type: varchar
+      - name: duration_min
+        description: Duration in minutes.
+        data_type: integer
+      - name: is_completed
+        description: "`status = 'COMPLETED'`."
+        data_type: boolean
+        data_tests: [not_null]
+      - name: is_appointment
+        description: "`activity_type = 'APPOINTMENT'`."
+        data_type: boolean
+        data_tests: [not_null]
+      - name: is_conversion
+        description: A held appointment with outcome `PLAN_CREATED` or `PRODUCT_OPENED` (the APPT_CONV numerator).
+        data_type: boolean
+        data_tests: [not_null]
+      - name: is_late_arriving
+        description: True when the activity arrived in a later week's extract.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: booked_from_activity_id
+        description: For an appointment, the call that booked it (CALL_TO_APPT).
+        data_type: varchar
+      - name: _batch_id
+        description: Load batch of the surviving source row.
+        data_type: varchar
+        data_tests: [not_null]
