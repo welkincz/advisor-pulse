@@ -7,7 +7,7 @@
 
 Properties per case: the answer fits the contract and cites only known facts (``contract``),
 every number matches a cited fact with the right sign (``grounded``), no banned phrase
-(``phrases``), and the headline's direction agrees with the headline KPI (``direction``).
+(``phrases``), and the headline's lead direction agrees with the headline KPI (``direction``).
 The live mode scores the model's *first* answer, before any regeneration.
 """
 
@@ -101,11 +101,11 @@ def score(case: Case, answer: dict[str, Any], model: str = "recorded") -> dict[s
         return dict.fromkeys(PROPERTIES, False)
     problems = validate(narrative, case.node.facts)
     headline = narrative.headline.lower()
-    said_up, said_down = any(w in headline for w in _UP), any(w in headline for w in _DOWN)
+    said = _lead_direction(headline)
     direction = {
-        "up": not said_down,
-        "down": not said_up,
-        "flat": not (said_up or said_down) or "held" in headline,
+        "up": said != "down",
+        "down": said != "up",
+        "flat": said is None or "held" in headline,
     }[case.direction]
     return {
         "contract": True,
@@ -113,6 +113,18 @@ def score(case: Case, answer: dict[str, Any], model: str = "recorded") -> dict[s
         "phrases": not any(p.kind == "banned" for p in problems),
         "direction": direction,
     }
+
+
+def _lead_direction(headline: str) -> str | None:
+    """The first direction word decides: the lead clause carries the headline KPI, and a
+    later "while show rate fell" contrast is about another KPI."""
+    hits = [
+        (i, d)
+        for d, words in (("up", _UP), ("down", _DOWN))
+        for w in words
+        if (i := headline.find(w)) >= 0
+    ]
+    return min(hits)[1] if hits else None
 
 
 def recorded(case_id: str) -> dict[str, Any]:
