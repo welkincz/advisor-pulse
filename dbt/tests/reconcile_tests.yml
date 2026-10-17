@@ -1,0 +1,15 @@
+version: 2
+
+data_tests:
+  - name: reconcile_org_weekly
+    description: >
+      DQ022 and DQ023 on mart_org_weekly via `reconcile_rollup`: every additive measure on
+      a national, region or district row equals the sum over its children in each week, and
+      every rate lies within [0, 1]. `unique_clients_contacted` is a distinct count and is
+      excluded from DQ022.
+  - name: reconcile_catches_a_changed_branch
+    description: >
+      Proves `reconcile_rollup` catches a broken roll-up. It raises one branch's calls_out
+      by 1 and sets one district's coverage_rate_13w to 1.2 in the latest week, then
+      expects exactly two failures: DQ022 on that branch's district, and DQ023 on the
+      altered district. Runs on the `ci` target (fixtures) only.

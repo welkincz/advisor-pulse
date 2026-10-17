@@ -1,0 +1,34 @@
+version: 2
+
+macros:
+  - name: reconcile_rollup
+    description: >
+      Roll-up reconciliation for a hierarchy table (PLAN.md §8, DQ022 and DQ023). Returns
+      one row per failure, with `rule_id`, `measure`, the grain columns, `node_id`,
+      `observed` and `expected`. DQ022: on every non-leaf row, each additive measure equals
+      the sum over its children (0 when it has none). The additive measures are every integer
+      column not listed in `non_additive`, read from the relation at compile time, so new
+      count columns are covered automatically. DQ023: every column whose name contains
+      `_rate` is null or within [0, 1]. Used by `dbt/tests/reconcile_*.sql`.
+    arguments:
+      - name: relation
+        type: relation
+        description: The hierarchy table, e.g. `ref('mart_org_weekly')`. Its columns decide the measures.
+      - name: leaf_where
+        type: string
+        description: SQL predicate for leaf rows, which have no children to sum, e.g. `level = 'BRANCH'`.
+      - name: non_additive
+        type: list
+        description: Integer columns that must not be summed, such as distinct client counts.
+      - name: grain
+        type: list
+        description: Columns a parent and its children share. Defaults to `['iso_week_id']`.
+      - name: node
+        type: string
+        description: The node id column. Defaults to `node_id`.
+      - name: parent
+        type: string
+        description: The parent id column, null at the top. Defaults to `parent_id`.
+      - name: from_sql
+        type: string
+        description: Optional SELECT returning the relation's columns, checked instead of the relation. Used to prove a broken roll-up is caught.
