@@ -24,7 +24,7 @@ test('replays the last weekly run, then can restart it', async ({ page }) => {
 test('a retried stage opens a panel with each attempt; checks list their results', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/pipeline')
-  await page.getByRole('combobox', { name: /^Run/ }).selectOption('weekly-2026-W39-1')
+  await page.getByRole('button', { name: /2026-W39/ }).click()
   // Nodes off the canvas edge cannot be clicked, so the mouse takes the leftmost stage and
   // the keyboard (focus, Enter) reaches the rest.
   await page.locator('.react-flow__node[data-id="restore_state"]').click()
@@ -41,6 +41,23 @@ test('a retried stage opens a panel with each attempt; checks list their results
   await page.locator('.react-flow__node[data-id="checks"]').focus()
   await page.keyboard.press('Enter')
   await expect(panel).toContainText('Check results')
+})
+
+test('history shows status with an icon and selecting a run updates the canvas', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/pipeline')
+  const history = page.getByRole('region', { name: 'Run history' })
+  await expect(history.getByRole('button')).toHaveCount(4)
+  await expect(history.getByRole('button', { name: /2026-W40/ })).toHaveAttribute('aria-pressed', 'true')
+  const older = history.getByRole('button', { name: /2026-W38/ })
+  await expect(older).toContainText('✓')
+  await expect(older).toContainText('Succeeded')
+  await older.focus()
+  await page.keyboard.press('Enter')
+  await expect(older).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByText(/^Weekly run of September 21, 2026/)).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
 test('reduced motion shows the final state with replay off', async ({ page }) => {

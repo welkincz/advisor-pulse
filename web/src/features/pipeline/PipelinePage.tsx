@@ -7,6 +7,7 @@ import { DataNotice, usePipelineGraph, useRunLog } from '../../data'
 import type { PipelineGraph, PipelineNode } from '../../data/generated/pipeline_graph'
 import type { RunSummary } from '../../data/generated/run_log'
 import { FlowEdge, type PipelineFlowEdge } from './FlowEdge'
+import { RunHistory } from './history/RunHistory'
 import { StageNode, type StageFlowNode, formatDuration } from './StageNode'
 import { type NodeState, edgeActive, nodeStages, replayEvents, summarize } from './timeline'
 import { useReplay } from './useReplay'
@@ -155,11 +156,7 @@ export function PipelinePage() {
     {graph.status === 'error' && <DataNotice what="the pipeline graph" onRetry={graph.retry} />}
     {runLog.status === 'error' && <DataNotice what="the run log" onRetry={runLog.retry} />}
     {runLog.status === 'empty' && <p>No weekly run has been recorded yet.</p>}
-    {runs.length > 1 && <label className="pipe-picker">Run
-      <select value={run?.run_id} onChange={(event) => setRunId(event.target.value)}>
-        {runs.map((r) => <option key={r.run_id} value={r.run_id}>{r.iso_week_id} ({r.run_type.toLowerCase()}, {r.status.toLowerCase()})</option>)}
-      </select>
-    </label>}
+    {runs.length > 1 && run && <RunHistory runs={runs} selectedId={run.run_id} onSelect={setRunId} />}
     {graph.status === 'ready' && run && <Canvas graph={graph.data} run={run} />}
   </main>
 }
