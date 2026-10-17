@@ -3,47 +3,63 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1",
+     "F19",
+     "F20"
     ],
-    "text": "Outbound calls 32, from 31 the week before."
+    "text": "Activities per advisor reached 11.2 this week, above the trailing 13-week average of 10.6 and the third straight weekly increase (9.8, 10.8, 11.2)."
    },
    {
     "fact_ids": [
+     "F11",
+     "F15"
+    ],
+    "text": "Among the two branches, BR-0202 leads on activities per advisor at 12.0 (up 9.1% weekly), while BR-0201 is flat at 10.7."
+   },
+   {
+    "fact_ids": [
+     "F2",
+     "F7"
+    ],
+    "text": "Weekly outbound calls rose 3.2% to 32.0 and clients contacted rose 8.8% to 37.0."
+   },
+   {
+    "fact_ids": [
+     "F3",
+     "F6",
+     "F13",
+     "F17"
+    ],
+    "text": "Appointments booked fell 27.3% to 8.0, and appointment conversion fell 45.5% to 36.4%. BR-0201 conversion dropped to 33.3% and BR-0202 to 40.0%."
+   },
+   {
+    "fact_ids": [
+     "F8",
+     "F14",
+     "F18",
      "F5"
     ],
-    "text": "Show rate 91.7%, from 92.3% the week before."
-   },
-   {
-    "fact_ids": [
-     "F8"
-    ],
-    "text": "13-week coverage 85.7%, from 67.1% the week before."
-   },
-   {
-    "fact_ids": [
-     "F6"
-    ],
-    "text": "Appointment conversion 36.4%, from 66.7% the week before."
-   },
-   {
-    "fact_ids": [
-     "F14"
-    ],
-    "text": "ByWard Market Branch trails its peers on 13-week coverage at 79.1%."
+    "text": "13-week coverage rose to 85.7%; BR-0202 is at 96.3% and BR-0201 at 79.1%. EON show rate was 91.7%."
    }
   ],
-  "headline": "Eastern Ontario: activities per advisor rose 3.7% week over week to 11.2.",
+  "headline": "EON activities per advisor rose 3.7% this week to 11.2, up from 10.8.",
   "watchlist": [
    {
     "fact_ids": [
-     "F14"
+     "F11",
+     "F15",
+     "F12",
+     "F16",
+     "F13",
+     "F17",
+     "F14",
+     "F18"
     ],
     "node_id": "BR-0201",
-    "reason": "Lowest 13-week coverage under Eastern Ontario (79.1%)."
+    "reason": "Trails its peer on activities per advisor (10.7 vs 12.0), show rate (85.7% vs 100.0%), appointment conversion (33.3% vs 40.0%) and 13-week coverage (79.1% vs 96.3%)."
    }
   ]
  },
- "expected_pass": true,
- "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
- "source": "template-seed"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }

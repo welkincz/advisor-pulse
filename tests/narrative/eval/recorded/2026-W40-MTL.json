@@ -3,47 +3,65 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1",
+     "F21"
     ],
-    "text": "Outbound calls 35, from 29 the week before."
+    "text": "Activities per advisor of 14.0 compares with a trailing 13-week average of 10.9 and 10.0 in 2026-W39."
    },
    {
     "fact_ids": [
-     "F5"
+     "F2",
+     "F7"
     ],
-    "text": "Show rate 85.7%, from 42.9% the week before."
+    "text": "Outbound calls reached 35.0, up 20.7% from 29.0, and clients contacted reached 36.0, up 33.3% from 27.0."
    },
    {
     "fact_ids": [
-     "F8"
-    ],
-    "text": "13-week coverage 92.9%, from 85.5% the week before."
-   },
-   {
-    "fact_ids": [
+     "F4",
+     "F3",
      "F6"
     ],
-    "text": "Appointment conversion 58.3%, from 66.7% the week before."
+    "text": "Call-to-appointment rate rose to 31.4% from 27.6%, while appointments booked held at 11.0. Appointment conversion fell to 58.3% from 66.7%."
    },
    {
     "fact_ids": [
+     "F5",
+     "F10",
+     "F8"
+    ],
+    "text": "Show rate rose to 85.7% from 42.9%, and no-show rate fell to 14.3% from 57.1%. 13-week coverage rose to 92.9% from 85.5%."
+   },
+   {
+    "fact_ids": [
+     "F15",
+     "F11",
+     "F18",
      "F14"
     ],
-    "text": "Ville-Marie Branch trails its peers on 13-week coverage at 89.7%."
+    "text": "BR-0502 (Plateau Mont-Royal) leads on activities per advisor at 17.5 versus 10.5 for BR-0501 (Ville-Marie). BR-0502 coverage is 96.3% versus 89.7% for BR-0501."
    }
   ],
-  "headline": "Greater Montr\u00e9al: activities per advisor rose 40.0% week over week to 14.",
+  "headline": "Activities per advisor rose to 14.0 this week, up 40.0% from 10.0 the prior week.",
   "watchlist": [
    {
     "fact_ids": [
-     "F14"
+     "F11",
+     "F12",
+     "F14",
+     "F13"
     ],
     "node_id": "BR-0501",
-    "reason": "Lowest 13-week coverage under Greater Montr\u00e9al (89.7%)."
+    "reason": "Ranks second of two on activities per advisor (10.5), show rate (71.4%) and 13-week coverage (89.7%). Appointment conversion fell to 80.0% from 100.0%."
+   },
+   {
+    "fact_ids": [
+     "F17"
+    ],
+    "node_id": "BR-0502",
+    "reason": "Ranks second of two on appointment conversion at 42.9%, down from 50.0% the prior week and below its 13-week average of 60.7%."
    }
   ]
  },
- "expected_pass": true,
- "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
- "source": "template-seed"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }

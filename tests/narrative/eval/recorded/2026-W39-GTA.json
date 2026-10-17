@@ -3,47 +3,67 @@
   "bullets": [
    {
     "fact_ids": [
-     "F2"
+     "F1",
+     "F11",
+     "F15"
     ],
-    "text": "Outbound calls 29, from 37 the week before."
+    "text": "Activities per advisor of 9.0 is below the 13-week average of 9.5. BR-0101 rose 5.0% to 10.5, while BR-0102 fell 30.4% to 8.0."
    },
    {
     "fact_ids": [
-     "F5"
+     "F2",
+     "F7"
     ],
-    "text": "Show rate 87.5%, from 50.0% the week before."
+    "text": "Outbound calls fell 21.6% to 29.0 from 37.0, and clients contacted fell 20.0% to 28.0 from 35.0."
    },
    {
     "fact_ids": [
-     "F8"
+     "F3",
+     "F4",
+     "F5",
+     "F10"
     ],
-    "text": "13-week coverage 77.5%, from 67.6% the week before."
+    "text": "Appointments booked were flat at 9.0, and call-to-appointment rose to 24.1% from 18.9%. The weekly show rate rose to 87.5% from 50.0%, and the no-show rate fell to 12.5% from 50.0%."
    },
    {
     "fact_ids": [
-     "F6"
+     "F6",
+     "F13",
+     "F17"
     ],
-    "text": "Appointment conversion 57.1%, from 50.0% the week before."
+    "text": "Appointment conversion rose to 57.1% from 50.0%. BR-0101 reached 75.0% (from 0.0%), while BR-0102 fell to 33.3% from 66.7%."
    },
    {
     "fact_ids": [
-     "F14"
+     "F8",
+     "F14",
+     "F18"
     ],
-    "text": "King & Bay Branch trails its peers on 13-week coverage at 72.4%."
+    "text": "13-week coverage rose to 77.5% from 67.6%. BR-0102 is at 81.0% and BR-0101 at 72.4%."
    }
   ],
-  "headline": "GTA: activities per advisor fell 15.1% week over week to 9.",
+  "headline": "GTA activities per advisor fell 15.1% week over week to 9.0 in 2026-W39, from 10.6.",
   "watchlist": [
    {
     "fact_ids": [
-     "F14"
+     "F15",
+     "F17"
+    ],
+    "node_id": "BR-0102",
+    "reason": "Trails its peer on activities per advisor (8.0, down 30.4%) and appointment conversion (33.3%, down from 66.7%)."
+   },
+   {
+    "fact_ids": [
+     "F12",
+     "F16",
+     "F14",
+     "F18"
     ],
     "node_id": "BR-0101",
-    "reason": "Lowest 13-week coverage under GTA (72.4%)."
+    "reason": "Trails its peer on weekly show rate (80.0% vs 100.0%) and 13-week coverage (72.4% vs 81.0%)."
    }
   ]
  },
- "expected_pass": true,
- "note": "Seed recording built from the deterministic template; replace with `make narrative-eval RECORD=1`.",
- "source": "template-seed"
+ "model": "claude-sonnet-5-5",
+ "source": "model"
 }

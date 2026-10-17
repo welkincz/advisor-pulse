@@ -42,7 +42,21 @@ def test_recorded_answer_gets_the_expected_verdict(case: object) -> None:
 def test_offline_eval_prints_a_pass_rate_table(capsys: pytest.CaptureFixture[str]) -> None:
     assert run_eval.main([]) == 0
     out = capsys.readouterr().out
-    assert "pass rate" in out and "8/10" in out
+    assert "pass rate" in out and "10/10" in out
+
+
+@pytest.mark.parametrize(
+    ("headline", "passes"),
+    [
+        ("Activity per advisor fell this week, while show rate rose.", False),
+        ("Activity per advisor rose this week, while show rate fell.", True),
+    ],
+)
+def test_direction_is_judged_by_the_lead_clause(headline: str, passes: bool) -> None:
+    case = next(c for c in CASES if c.direction == "up")
+    doc = json.loads((HERE / "recorded" / f"{case.case_id}.json").read_text())
+    answer = {**doc["answer"], "headline": headline}
+    assert run_eval.score(case, answer)["direction"] is passes
 
 
 def test_live_eval_needs_a_key(capsys: pytest.CaptureFixture[str]) -> None:
