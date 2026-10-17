@@ -117,7 +117,15 @@ def backfill(
     rebuild: Annotated[bool, typer.Option("--rebuild", help="Start from empty state.")] = False,
 ) -> None:
     """Run the weekly pipeline for every week in a range."""
-    _not_implemented("backfill", 49)
+    from pulse.runner.backfill import backfill_range
+
+    try:
+        code = backfill_range(
+            from_week, to_week, data_dir=data_dir(), rebuild=rebuild, echo=typer.echo
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    raise typer.Exit(code)
 
 
 @app.command()
