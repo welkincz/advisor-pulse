@@ -93,6 +93,10 @@ export function useAdvisorWeekly(branchId: string, weeks: readonly string[]): Da
   return useData(`advisors:${branchId}:${weeks.join(',')}`, (d) => d.advisorWeekly(branchId, weeks))
 }
 
+export function useNodeNames(nodeIds: readonly string[]): DataResult<Map<string, string>> {
+  return useData(`names:${nodeIds.join(',')}`, (d) => d.nodeNames(nodeIds))
+}
+
 export function useGeoWeekly(week: string, districtCode?: string): DataResult<GeoWeekly[]> {
   return useData(`geo:${week}:${districtCode ?? '*'}`, (d) => d.geoWeekly(week, districtCode))
 }

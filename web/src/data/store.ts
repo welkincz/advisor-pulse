@@ -8,7 +8,7 @@ import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
-import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
+import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, nodeNamesSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
 
 export interface PulseDataOptions {
   /** URL prefix of the weekly export: `/data` on the site and in `make web-dev`. */
@@ -83,6 +83,11 @@ export class PulseData {
 
   advisorWeekly(branchId: string, weeks: readonly string[]): Promise<AdvisorWeekly[]> {
     return this.select<AdvisorWeekly>('advisor_weekly', advisorWeeklySql(branchId, weeks))
+  }
+
+  async nodeNames(nodeIds: readonly string[]): Promise<Map<string, string>> {
+    const rows = await this.select<{ node_id: string; node_name: string }>('org_weekly', nodeNamesSql(nodeIds))
+    return new Map(rows.map((r) => [r.node_id, r.node_name]))
   }
 
   geoWeekly(week: string, districtCode?: string): Promise<GeoWeekly[]> {

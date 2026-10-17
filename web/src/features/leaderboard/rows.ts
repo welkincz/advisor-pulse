@@ -40,6 +40,11 @@ const ADVISOR_VALUE: Partial<Record<KpiCode, (row: AdvisorWeekly) => number | nu
 
 export const ADVISOR_KPIS: readonly KpiCode[] = ORG_KPIS.filter((code) => code in ADVISOR_VALUE)
 
+/** One advisor's value for a KPI, with the mart_org_weekly formula; null if it has none. */
+export function advisorValue(code: KpiCode, row: AdvisorWeekly): number | null {
+  return ADVISOR_VALUE[code]?.(row) ?? null
+}
+
 /** Dense rank, best first in the KPI's direction (as mart_weekly_report ranks). */
 export function denseRank(values: ReadonlyMap<string, number | null>, code: KpiCode): Map<string, number> {
   const sign = LOWER_IS_BETTER.has(code) ? 1 : -1

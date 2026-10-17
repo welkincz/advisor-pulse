@@ -31,7 +31,6 @@ h2 { font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.01em; line-
 h3 { font-size: var(--text-md); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
 p { max-width: var(--measure); }
 .intro { max-width: var(--measure); color: var(--muted); font-size: var(--text-lg); line-height: 1.45; margin: 0; }
-.drill-trail { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-8); color: var(--muted); }
 .site-footer { border-top: 1px solid var(--rule); padding-top: var(--space-4); color: var(--muted); font-size: var(--text-sm); }
 
 /* Numbers: tabular lining figures wherever values line up or change in place. */

@@ -38,6 +38,11 @@ export function advisorWeeklySql(branchId: string, weeks: readonly string[]): st
   return `select * from advisor_weekly where branch_id = ${sqlString(branchId)} and iso_week_id in ${inList(weeks)} order by iso_week_id, advisor_id`
 }
 
+/** Display names of org nodes, for breadcrumbs and headings. */
+export function nodeNamesSql(nodeIds: readonly string[]): string {
+  return `select distinct node_id, node_name from org_weekly where node_id in ${inList(nodeIds)} order by node_id`
+}
+
 export function geoWeeklySql(week: string, districtCode?: string): string {
   const district = districtCode ? ` and district_code = ${sqlString(districtCode)}` : ''
   return `select * from geo_weekly where iso_week_id = ${sqlString(week)}${district} order by fsa_code`

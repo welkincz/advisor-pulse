@@ -3,10 +3,11 @@ import { expect, test } from '@playwright/test'
 
 const routes = [
   ['/', 'Overview'],
-  ['/r/ON', 'Region'],
-  ['/r/ON/d/GTA', 'District'],
-  ['/r/ON/d/GTA/b/BR-0412', 'Branch'],
-  ['/r/ON/d/GTA/b/BR-0412/a/AD-001', 'Advisor'],
+  // Drill pages head with the node's name; with no data here, its id.
+  ['/r/ON', 'ON'],
+  ['/r/ON/d/GTA', 'GTA'],
+  ['/r/ON/d/GTA/b/BR-0412', 'BR-0412'],
+  ['/r/ON/d/GTA/b/BR-0412/a/AD-001', 'AD-001'],
   ['/map', 'Map'],
   ['/pipeline', 'Pipeline'],
   ['/quality', 'Data quality'],
