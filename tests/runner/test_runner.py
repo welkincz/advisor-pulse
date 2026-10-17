@@ -81,10 +81,13 @@ def flaky(
     return fn
 
 
-# The weekly DAG with the stages that shell out to dbt or read marts swapped for
-# placeholders, so runner tests stay fast. tests/runner/test_stages.py covers those.
+# The weekly DAG with the stages that write sources, shell out to dbt or read marts swapped
+# for placeholders, so runner tests stay fast. tests/runner/test_stages.py and
+# tests/generate/test_stage.py cover those.
 PLACEHOLDERS = [
-    replace(s, fn=not_implemented(103)) if s.name in {"dbt_build", "checks", "export"} else s
+    replace(s, fn=not_implemented(103))
+    if s.name in {"generate", "dbt_build", "checks", "export"}
+    else s
     for s in WEEKLY_STAGES
 ]
 
@@ -122,7 +125,7 @@ def test_placeholder_stages_log_one_skipped_row_each() -> None:
     assert {r.status for r in rows} == {StageStatus.SKIPPED}
     assert all(r.attempt == 1 and r.ended_at is not None for r in rows)
     assert "R2 credentials absent" in (rows[0].message or "")
-    assert "issue #16" in (rows[1].message or "")
+    assert "issue #103" in (rows[1].message or "")
     assert status is StageStatus.SKIPPED
 
 
@@ -277,8 +280,9 @@ def test_cli_exit_code_follows_the_run(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setenv("PULSE_DATA_DIR", str(tmp_path))
     result = CliRunner().invoke(app, ["run", "--week", WEEK, "--run-type", "weekly"])
     assert result.exit_code == 0, result.output
-    # Real stages on an empty data dir: dbt builds the (empty) staging views and passes.
-    assert f"weekly-{WEEK}-1: SUCCESS" in result.output
+    # Real stages on an empty data dir: generate writes the week, the rest runs on it.
+    assert f"weekly-{WEEK}-1:" in result.output
+    assert (tmp_path / "web-data" / "weekly_report.parquet").exists()
     assert (tmp_path / RUN_LOG_JSON).exists()
 
 
