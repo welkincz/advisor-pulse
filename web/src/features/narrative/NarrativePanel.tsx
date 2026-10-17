@@ -15,7 +15,13 @@ function CitedFacts({ ids, facts }: { ids: readonly string[]; facts: readonly Na
           <dd>{fact && <>
             <span className="figure-num">{formatKpi(fact.kpi_code, fact.value)}</span>
             <span className="narrative-fact-context">{fact.node_id}, {fact.iso_week_id}</span>
+            {fact.prior_week_value != null && <span className="narrative-fact-context">
+              Prior week: {formatKpi(fact.kpi_code, fact.prior_week_value)}
+            </span>}
             {fact.wow_pct != null && <span className="narrative-fact-context">{formatWow(fact.wow_pct)}</span>}
+            {fact.rank_in_parent != null && fact.peer_count != null && <span className="narrative-fact-context">
+              Rank {fact.rank_in_parent} of {fact.peer_count}
+            </span>}
           </>}</dd>
         </div>
       })}

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes, useParams } from 'react-router-dom'
-import { useManifest } from '../data'
+import { DataNotice, useManifest } from '../data'
 import { NarrativePanel } from '../features/narrative/NarrativePanel'
 import { Overview } from './Overview'
 import { useReducedMotion } from './useReducedMotion'
@@ -27,6 +27,8 @@ function DrillPage({ title }: { title: string }) {
     <h1>{title}</h1>
     <p className="intro">Weekly advisor activity for {nodeId}.</p>
     <nav className="drill-trail" aria-label="Drill path">{levels.map((level, index) => <span key={index}>{index > 0 && ' / '}{level}</span>)}</nav>
+    {manifest.status === 'loading' && <p aria-busy="true">Loading the latest weekly report…</p>}
+    {manifest.status === 'error' && <DataNotice what="this week's report" onRetry={manifest.retry} />}
     {manifest.status === 'ready' && nodeId && <NarrativePanel week={manifest.data.latest_week} nodeId={nodeId} />}
   </main>
 }

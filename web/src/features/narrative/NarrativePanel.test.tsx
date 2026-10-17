@@ -43,6 +43,9 @@ it('renders the fixture narrative and reveals facts per bullet', async () => {
   expect(disclosures[0].open).toBe(true)
   expect(disclosures[0].textContent).toContain('Outbound calls')
   expect(disclosures[0].textContent).toContain('59')
+  expect(disclosures[0].textContent).toContain('Prior week: 61')
+  await act(async () => disclosures[3].querySelector('summary')!.click())
+  expect(disclosures[3].textContent).toContain('Rank 2 of 2')
 })
 
 it('labels fixture fallback as a template summary', async () => {
