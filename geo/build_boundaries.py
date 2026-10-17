@@ -29,7 +29,6 @@ ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = ROOT / "data" / "geo" / "cache"
 RAW_DIR = ROOT / "data" / "geo" / "raw"
 OUT_DIR = ROOT / "web" / "public" / "geo"
-ADR_PATH = ROOT / "docs" / "adr" / "0002-geo-size-budget.md"
 
 ZIP_NAME = "lfsa000b21a_e.zip"
 DOWNLOAD_URL = (
@@ -285,64 +284,6 @@ def _write_district_fallback(src: Path, codes: list[str], dest: Path) -> tuple[i
     return _gzip_size(dest), "district"
 
 
-def _write_adr(*, level: str, gzip_bytes: int, simplify: str | None, fsa_count: int) -> None:
-    ADR_PATH.parent.mkdir(parents=True, exist_ok=True)
-    mb = gzip_bytes / (1024 * 1024)
-    if level == "fsa":
-        decision = (
-            f"Ship **FSA-level** TopoJSON (`web/public/geo/fsa.topo.json`). "
-            f"Gzip size is **{mb:.2f} MB** (budget ≤ 3.00 MB) at mapshaper "
-            f"Douglas-Peucker simplify `{simplify}` keep-shapes, {fsa_count} FSAs "
-            f"from `reference/org.yaml`."
-        )
-        status = "Accepted — FSA layer within budget"
-    else:
-        decision = (
-            f"FSA-level TopoJSON exceeded the **3 MB gzip** budget at every "
-            f"tried simplify step ({', '.join(SIMPLIFY_STEPS)}). "
-            f"Fall back to **district-level** polygons "
-            f"(`web/public/geo/district.topo.json`), gzip **{mb:.2f} MB**, "
-            f"dissolved from the same {fsa_count} branch FSAs."
-        )
-        status = "Accepted — district fallback"
-    ADR_PATH.write_text(
-        f"""# ADR 0002 — Geo size budget (FSA vs district)
-
-- Status: {status}
-- Date: 2026-10-14
-- Issue: #31
-
-## Context
-
-The weekly report map may show StatCan FSA boundaries (optional layer). PLAN.md
-caps the shipped geo payload at **3 MB gzip**. If FSA fidelity cannot stay under
-that budget, ship only district (and later region) polygons.
-
-## Decision
-
-{decision}
-
-Client-pool FSAs from the synthetic generator (#13) are not in the filter set yet;
-re-run `make geo` when that pool exists so neighbouring FSAs used by clients are
-included.
-
-`make geo` prefers the official `lfsa000b21a_e.zip` package (cached under
-`data/geo/cache/`). If the CDN blocks automated downloads, it falls back to the
-same 2021 cartographic FSA layer on Statistics Canada's public MapServer and
-caches the filtered GeoJSON under `data/geo/cache/` — still not committed.
-
-## Consequences
-
-- `manifest.json` `has_fsa_boundaries` is true only when `fsa.topo.json` is shipped.
-- Issue #32 derives district/region dissolves from the FSA layer when FSA ships;
-  if this ADR chose district fallback, #32 should start from `district.topo.json`
-  or re-evaluate the budget after further simplification.
-- Raw StatCan downloads remain under `data/geo/` and are never committed.
-""",
-        encoding="utf-8",
-    )
-
-
 def main() -> int:
     codes = _fsa_codes()
     print(f"target FSAs: {len(codes)} (from reference/org.yaml)")
@@ -358,7 +299,6 @@ def main() -> int:
         if stale.exists():
             stale.unlink()
 
-    chosen_simplify: str | None = None
     gzip_bytes = 0
     level = "fsa"
 
@@ -372,7 +312,6 @@ def main() -> int:
             f"({gzip_bytes / (1024 * 1024):.2f} MB)"
         )
         if gzip_bytes <= MAX_GZIP_BYTES:
-            chosen_simplify = simplify
             break
     else:
         print("FSA layer over budget at all simplify steps; dissolving to district")
@@ -381,14 +320,7 @@ def main() -> int:
         gzip_bytes, level = _write_district_fallback(src, codes, district_out)
         print(f"district gzip={gzip_bytes:,} bytes ({gzip_bytes / (1024 * 1024):.2f} MB)")
 
-    _write_adr(
-        level=level,
-        gzip_bytes=gzip_bytes,
-        simplify=chosen_simplify,
-        fsa_count=len(codes),
-    )
     print(f"wrote attribution → {OUT_DIR / 'ATTRIBUTION.txt'}")
-    print(f"wrote ADR → {ADR_PATH}")
     shipped = fsa_out if level == "fsa" else district_out
     print(f"shipped {level} layer → {shipped} (gzip {gzip_bytes:,} bytes)")
     return 0
