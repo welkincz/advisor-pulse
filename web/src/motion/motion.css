@@ -1,0 +1,5 @@
+.motion-number { display: inline-grid; font-variant-numeric: tabular-nums lining-nums; }
+.motion-number-reserve, .motion-number-visual { grid-area: 1 / 1; text-align: right; }
+.motion-number-reserve { visibility: hidden; }
+.motion-number-reserve::before { content: attr(data-reserve); }
+.motion-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

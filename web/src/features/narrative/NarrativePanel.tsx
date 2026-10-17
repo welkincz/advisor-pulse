@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Section } from '../../components/primitives/Section'
 import { DataNotice, KPI_LABELS, formatKpi, formatWow, useNarrative } from '../../data'
 import type { NarrativeFact } from '../../data/generated/narrative'
@@ -32,12 +33,18 @@ function CitedFacts({ ids, facts }: { ids: readonly string[]; facts: readonly Na
 /** A narrative for the selected node and reporting week; absent nodes leave no empty shell. */
 export function NarrativePanel({ week, nodeId }: { week: string; nodeId: string }) {
   const result = useNarrative(week, nodeId)
+  const appeared = useRef(false)
+  const [firstView, setFirstView] = useState(true)
+  useEffect(() => {
+    if (result.status === 'ready') appeared.current = true
+    else if (appeared.current) setFirstView(false)
+  }, [result.status])
   if (result.status === 'loading') return <p aria-busy="true">Loading weekly narrative…</p>
   if (result.status === 'error') return <DataNotice what="the weekly narrative" onRetry={result.retry} />
   if (result.status === 'empty') return null
 
   const narrative = result.data
-  return <Section id="weekly-narrative" title="Weekly interpretation" lede={`Week ${week}`}>
+  return <Section id="weekly-narrative" title="Weekly interpretation" lede={`Week ${week}`} revealOrder={firstView ? 1 : undefined}>
     <div className="narrative-panel">
       <p className="narrative-disclosure">
         {narrative.fallback ? 'Template summary' : "AI-generated from this week's figures"}
