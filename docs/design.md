@@ -127,6 +127,13 @@ Use `Chart` (ECharts with the Pulse theme) for line and bar charts, inside a `Fi
 Use `Sparkline` (plain SVG) for word-sized trends in stats. Use deck.gl for the map (#38),
 with the sequential tokens read through `token()`.
 
+The map colours the shipped region or district polygons for the selected week and KPI.
+Those polygons cover only FSAs with fictional branch locations, so unmapped land stays
+blank; the adjacent list gives region and district values with a keyboard path into
+each report, while FSA mode shows its coverage values in a table.
+The FSA coverage layer appears only when the export manifest enables FSA boundaries.
+There are no basemap tiles; the Statistics Canada source is credited under the figure.
+
 The theme (`web/src/theme/echarts.ts`) is built from `tokens.css` when a chart mounts, and
 rebuilt when the colour scheme changes. It sets:
 
