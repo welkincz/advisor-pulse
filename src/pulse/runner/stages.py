@@ -184,9 +184,9 @@ def load_narratives(data_dir: Path) -> dict[str, NarrativeFile]:
 def export(ctx: StageContext) -> StageResult:
     """Publish the weekly report. An ``always`` stage: after a failure it publishes only
     ``run_log.json``, so the site says the last run failed and keeps the previous week."""
+    from pulse.export.pipeline_graph import build_pipeline_graph, read_manifest
     from pulse.export.web import export_web
     from pulse.runner.dag import WEEKLY_STAGES
-    from pulse.runner.graph import stage_graph
     from pulse.runner.run_log import export_from_warehouse
 
     now = ctx.clock.now()
@@ -218,7 +218,9 @@ def export(ctx: StageContext) -> StageResult:
             con,
             export_dir(),
             run_log=run_log,
-            pipeline_graph=stage_graph(WEEKLY_STAGES),
+            pipeline_graph=build_pipeline_graph(
+                WEEKLY_STAGES, read_manifest(ctx.data_dir / DBT_TARGET_DIR / "manifest.json")
+            ),
             narratives=load_narratives(ctx.data_dir),
             run_id=ctx.run_id,
             generated_at=now,
