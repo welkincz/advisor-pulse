@@ -138,10 +138,11 @@ web-dev: ## Vite dev server on fixtures
 	pnpm -C web dev
 
 .PHONY: web-check
-web-check: ## Web lint + typecheck + build (+ smoke)
+web-check: ## Web lint + typecheck + unit tests + build (+ smoke)
 	pnpm -C web types:check
 	pnpm -C web lint
 	pnpm -C web typecheck
+	pnpm -C web test
 	pnpm -C web build
 	pnpm -C web test:smoke
 
