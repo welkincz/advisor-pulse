@@ -13,6 +13,21 @@ from pulse.runner.stage import Clock, Stage, StageContext, StageResult
 from pulse.state.sync import clear_local
 
 
+def _template_narrate(ctx: StageContext) -> StageResult:
+    """Historical backfill weeks write grounded templates without model calls."""
+    from pulse.narrative.stage import narrate
+
+    result = narrate(ctx, client_factory=lambda: None)
+    if result.rows_out is not None:
+        return replace(
+            result,
+            message=(
+                f"Backfill history: wrote {result.rows_out} template narratives; model skipped."
+            ),
+        )
+    return result
+
+
 def _rebuild_restore(ctx: StageContext) -> StageResult:
     """Acquire the state lock for the first week without fetching the old warehouse."""
     from pulse.state import STATE
@@ -41,10 +56,15 @@ def backfill_range(
         clear_local(data_dir)
     for index, week in enumerate(weeks):
         week_stages = stages
+        if require_extract and index < len(weeks) - 1:
+            week_stages = tuple(
+                replace(stage, fn=_template_narrate) if stage.name == "narrate" else stage
+                for stage in week_stages
+            )
         if rebuild and index == 0:
             week_stages = tuple(
                 replace(stage, fn=_rebuild_restore) if stage.name == "restore_state" else stage
-                for stage in stages
+                for stage in week_stages
             )
         echo(f"Backfill {index + 1}/{len(weeks)}: {week}")
         code = run_week(

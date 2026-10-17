@@ -418,7 +418,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 - **File manifest:** a file is loaded at most once per `(path, sha256)`. A re-run sees the file as `SKIPPED_DUPLICATE`. A changed file (same path, new hash) loads as a new batch, and its upserts win by `updated_ts`.
 - **Idempotency:** each batch is written in one transaction as `DELETE WHERE _batch_id = ?` + `INSERT`. Watermark and manifest are updated **in the same transaction**. Re-running a week end to end yields identical row counts and identical mart hashes (tested).
 - **Quarantine:** row-level rules run before insert; rejects go to `quarantine.rejected_rows` with rule and payload. The batch continues unless the quarantine rate breaches DQ032.
-- **Backfill:** `pulse backfill --from 2024-W41 --to 2026-W40` loops weeks in order through the same code path as weekly runs, so there is no separate backfill logic. `--rebuild` drops the warehouse first (cold start).
+- **Backfill:** `pulse backfill --from 2024-W41 --to 2026-W40` loops weeks in order through the same code path as weekly runs. Historical weeks write template narratives without model calls; only the last week uses the configured backend. `--rebuild` drops the warehouse first (cold start). An automatic cold rebuild for a weekly run builds historical data without narratives, then narrates the current week.
 
 ---
 

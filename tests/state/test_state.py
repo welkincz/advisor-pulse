@@ -304,6 +304,7 @@ def test_missing_warehouse_triggers_cold_rebuild(
     backfills = sorted({r.run_id for r in rows if r.run_type is RunType.BACKFILL})
     assert backfills == ["backfill-2026-W37-1", "backfill-2026-W38-1", "backfill-2026-W39-1"]
     assert not {r.stage for r in rows if r.run_type is RunType.BACKFILL} & pulse.state.STATE_STAGES
+    assert not {r.stage for r in rows if r.run_type is RunType.BACKFILL} & {"narrate"}
     assert not stale.exists()  # cold start begins from nothing
     assert store.exists(WAREHOUSE_FILE)  # persisted, so the next run restores instead
     assert lock.holder(store) is None
