@@ -21,7 +21,7 @@ function trendOption(code: KpiCode, rows: WeeklyReport[]): EChartsCoreOption {
   return {
     aria: { enabled: false },
     grid: { left: 8, right: hasAverage ? 72 : 40, top: 12, bottom: hasAverage ? 40 : 12, containLabel: true },
-    tooltip: { trigger: 'axis', valueFormatter: (value: unknown) => `${Number(value).toFixed(1)}${suffix}` },
+    tooltip: { trigger: 'axis', valueFormatter: (value: unknown) => typeof value === 'number' ? formatKpi(code, RATE_CODES.has(code) ? value / 100 : value) : '–' },
     legend: hasAverage ? { data: ['Weekly value', '13-week average'], bottom: 0 } : { show: false },
     xAxis: { type: 'category', data: weeks, boundaryGap: false, axisLabel: { interval: 0, formatter: (value: string, index: number) => index === 0 || index === weeks.length - 1 ? value : '' } },
     yAxis: { type: 'value', scale: true, axisLabel: { formatter: `{value}${suffix}` } },
@@ -72,18 +72,16 @@ function Trend({ manifest }: { manifest: Manifest }) {
 export function OverviewKpis({ manifest }: { manifest: Manifest }) {
   const summary = new Map(manifest.summary.map((row) => [row.kpi_code, row]))
   return <>
-    <Section id="national" title={`National, week ${manifest.latest_week}`} lede="Maplecrest Bank · fictional weekly report">
+    <Section id="national" title={`National, week ${manifest.latest_week}`} lede="Change is against the prior week. Anomaly means more than two standard deviations from the 13 weeks before.">
       <StatGroup label="National key performance indicators">
         {KPI_CODES.map((code, index) => {
           const kpi = summary.get(code)
-          return <div key={code} data-kpi={code}>
-            <Stat label={KPI_LABELS[code]} value={formatKpi(code, kpi?.value)} emphasis={index === 0}>
-              <Delta value={kpi?.wow_pct} better={code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'} />
-              {kpi?.wow_pct != null && <span> WoW</span>}
-              {kpi?.flag === 'ANOMALY' && <span className="kpi-anomaly">Anomaly</span>}
-            </Stat>
-            <details className="kpi-definition"><summary>Definition</summary><p>{KPI_DEFINITIONS[code]}</p></details>
-          </div>
+          return <Stat key={code} data-kpi={code} label={KPI_LABELS[code]} value={formatKpi(code, kpi?.value)} emphasis={index === 0}
+            footer={<details className="kpi-definition"><summary>Definition</summary><p>{KPI_DEFINITIONS[code]}</p></details>}>
+            <Delta value={kpi?.wow_pct} better={code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'} />
+            {kpi?.wow_pct != null && <span> WoW</span>}
+            {kpi?.flag === 'ANOMALY' && <span className="kpi-anomaly">Anomaly</span>}
+          </Stat>
         })}
       </StatGroup>
     </Section>
