@@ -180,6 +180,7 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
 - Drill down: the chosen node's row or region expands into the next page, so the reader
   keeps their place. Drill up reverses it.
 - Pipeline replay (#42) steps through stages at 400 ms each, and can be paused.
+- Run history names each run type (weekly, manual, or backfill) beside its week and status.
 - No entrance animations on scroll, no staggered fade-ins, no looping motion.
 - `prefers-reduced-motion: reduce` sets every duration token to 0, and `Chart` turns off
   ECharts animation. Content must make sense with no motion at all.

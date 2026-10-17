@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
@@ -24,7 +25,7 @@ test('replays the last weekly run, then can restart it', async ({ page }) => {
 test('a retried stage opens a panel with each attempt; checks list their results', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/pipeline')
-  await page.getByRole('combobox', { name: /^Run/ }).selectOption('weekly-2026-W39-1')
+  await page.getByRole('button', { name: /2026-W39/ }).click()
   // Nodes off the canvas edge cannot be clicked, so the mouse takes the leftmost stage and
   // the keyboard (focus, Enter) reaches the rest.
   await page.locator('.react-flow__node[data-id="restore_state"]').click()
@@ -41,6 +42,37 @@ test('a retried stage opens a panel with each attempt; checks list their results
   await page.locator('.react-flow__node[data-id="checks"]').focus()
   await page.keyboard.press('Enter')
   await expect(panel).toContainText('Check results')
+})
+
+test('history shows status with an icon and selecting a run updates the canvas', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/pipeline')
+  const history = page.getByRole('region', { name: 'Run history' })
+  await expect(history.getByRole('button')).toHaveCount(4)
+  await expect(history.getByRole('button', { name: /2026-W40/ })).toHaveAttribute('aria-pressed', 'true')
+  const older = history.getByRole('button', { name: /2026-W38/ })
+  await expect(older).toContainText('✓')
+  await expect(older).toContainText('Succeeded')
+  await older.focus()
+  await page.keyboard.press('Enter')
+  await expect(older).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByText(/^Weekly run of September 21, 2026/)).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('history and replay identify manual and backfill runs', async ({ page }) => {
+  const log = JSON.parse(readFileSync(resolve(exportsDir, 'run_log.json'), 'utf8'))
+  log.runs[0].run_type = 'MANUAL'
+  log.runs[1].run_type = 'BACKFILL'
+  await page.route('**/data/run_log.json', (route) => route.fulfill({ json: log }))
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/pipeline')
+  const history = page.getByRole('region', { name: 'Run history' })
+  await expect(history.getByRole('button', { name: /2026-W40 Manual/ })).toBeVisible()
+  await expect(page.getByText(/^Manual run of October 5, 2026/)).toBeVisible()
+  await history.getByRole('button', { name: /2026-W39 Backfill/ }).click()
+  await expect(page.getByText(/^Backfill run of September 28, 2026/)).toBeVisible()
 })
 
 test('reduced motion shows the final state with replay off', async ({ page }) => {
