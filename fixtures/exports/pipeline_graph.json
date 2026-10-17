@@ -2,47 +2,14 @@
   "schema_version": "1.0.0",
   "nodes": [
     {
-      "id": "src_snowflake",
-      "label": "'Snowflake' activity",
-      "kind": "SOURCE",
-      "stage": null,
-      "models": [],
-      "position": {
-        "x": 0.0,
-        "y": 0.0
-      }
-    },
-    {
-      "id": "src_teradata",
-      "label": "'Teradata' EDW",
-      "kind": "SOURCE",
-      "stage": null,
-      "models": [],
-      "position": {
-        "x": 0.0,
-        "y": 120.0
-      }
-    },
-    {
-      "id": "src_reference",
-      "label": "Reference: org.yaml",
-      "kind": "SOURCE",
-      "stage": null,
-      "models": [],
-      "position": {
-        "x": 0.0,
-        "y": 240.0
-      }
-    },
-    {
       "id": "restore_state",
       "label": "Restore state",
       "kind": "STAGE",
       "stage": "restore_state",
       "models": [],
       "position": {
-        "x": 240.0,
-        "y": -120.0
+        "x": 0.0,
+        "y": 0.0
       }
     },
     {
@@ -57,14 +24,47 @@
       }
     },
     {
+      "id": "src_snowflake",
+      "label": "'Snowflake' activity",
+      "kind": "SOURCE",
+      "stage": null,
+      "models": [],
+      "position": {
+        "x": 480.0,
+        "y": -80.0
+      }
+    },
+    {
+      "id": "src_teradata",
+      "label": "'Teradata' EDW",
+      "kind": "SOURCE",
+      "stage": null,
+      "models": [],
+      "position": {
+        "x": 480.0,
+        "y": 80.0
+      }
+    },
+    {
       "id": "ingest",
       "label": "Ingest + validate",
       "kind": "STAGE",
       "stage": "ingest",
       "models": [],
       "position": {
-        "x": 480.0,
-        "y": 60.0
+        "x": 720.0,
+        "y": -80.0
+      }
+    },
+    {
+      "id": "src_reference",
+      "label": "Reference seeds",
+      "kind": "SOURCE",
+      "stage": null,
+      "models": [],
+      "position": {
+        "x": 720.0,
+        "y": 80.0
       }
     },
     {
@@ -74,36 +74,21 @@
       "stage": "dbt_build",
       "models": [],
       "position": {
-        "x": 720.0,
-        "y": 60.0
-      }
-    },
-    {
-      "id": "dbt_staging",
-      "label": "Staging",
-      "kind": "DBT_LAYER",
-      "stage": "dbt_build",
-      "models": [
-        "stg_activity",
-        "stg_client",
-        "stg_advisor",
-        "stg_advisor_assignment",
-        "stg_branch"
-      ],
-      "position": {
         "x": 960.0,
         "y": 0.0
       }
     },
     {
-      "id": "dbt_intermediate",
-      "label": "Intermediate",
+      "id": "dbt_staging",
+      "label": "Staging (5 models)",
       "kind": "DBT_LAYER",
       "stage": "dbt_build",
       "models": [
-        "int_advisor_history",
-        "int_client_book_weekly",
-        "int_activity_enriched"
+        "stg_activity",
+        "stg_advisor",
+        "stg_advisor_assignment",
+        "stg_branch",
+        "stg_client"
       ],
       "position": {
         "x": 1200.0,
@@ -111,26 +96,41 @@
       }
     },
     {
-      "id": "dbt_marts",
-      "label": "Marts",
+      "id": "dbt_intermediate",
+      "label": "Intermediate (3 models)",
       "kind": "DBT_LAYER",
       "stage": "dbt_build",
       "models": [
-        "dim_date",
-        "dim_org",
-        "dim_geography",
-        "dim_advisor",
-        "dim_client",
-        "dim_activity_type",
-        "fct_activity",
-        "mart_advisor_weekly",
-        "mart_org_weekly",
-        "mart_weekly_report",
-        "mart_geo_weekly",
-        "mart_dq_weekly"
+        "int_activity_enriched",
+        "int_advisor_history",
+        "int_client_book_weekly"
       ],
       "position": {
         "x": 1440.0,
+        "y": 0.0
+      }
+    },
+    {
+      "id": "dbt_marts",
+      "label": "Marts (12 models)",
+      "kind": "DBT_LAYER",
+      "stage": "dbt_build",
+      "models": [
+        "dim_activity_type",
+        "dim_advisor",
+        "dim_client",
+        "dim_date",
+        "dim_geography",
+        "dim_org",
+        "fct_activity",
+        "mart_advisor_weekly",
+        "mart_dq_weekly",
+        "mart_geo_weekly",
+        "mart_org_weekly",
+        "mart_weekly_report"
+      ],
+      "position": {
+        "x": 1680.0,
         "y": 0.0
       }
     },
@@ -141,8 +141,8 @@
       "stage": "checks",
       "models": [],
       "position": {
-        "x": 1680.0,
-        "y": 60.0
+        "x": 1920.0,
+        "y": 0.0
       }
     },
     {
@@ -152,8 +152,8 @@
       "stage": "narrate",
       "models": [],
       "position": {
-        "x": 1920.0,
-        "y": 60.0
+        "x": 2160.0,
+        "y": 0.0
       }
     },
     {
@@ -163,8 +163,8 @@
       "stage": "export",
       "models": [],
       "position": {
-        "x": 2160.0,
-        "y": 60.0
+        "x": 2400.0,
+        "y": 0.0
       }
     },
     {
@@ -174,8 +174,8 @@
       "stage": "publish_sheets",
       "models": [],
       "position": {
-        "x": 2400.0,
-        "y": 180.0
+        "x": 2640.0,
+        "y": -160.0
       }
     },
     {
@@ -185,19 +185,8 @@
       "stage": "persist_state",
       "models": [],
       "position": {
-        "x": 2400.0,
-        "y": -60.0
-      }
-    },
-    {
-      "id": "release_lock",
-      "label": "Release lock",
-      "kind": "STAGE",
-      "stage": "release_lock",
-      "models": [],
-      "position": {
         "x": 2640.0,
-        "y": -60.0
+        "y": 0.0
       }
     },
     {
@@ -208,7 +197,18 @@
       "models": [],
       "position": {
         "x": 2640.0,
-        "y": 60.0
+        "y": 160.0
+      }
+    },
+    {
+      "id": "release_lock",
+      "label": "Release lock",
+      "kind": "STAGE",
+      "stage": "release_lock",
+      "models": [],
+      "position": {
+        "x": 2880.0,
+        "y": -80.0
       }
     },
     {
@@ -218,12 +218,17 @@
       "stage": null,
       "models": [],
       "position": {
-        "x": 2640.0,
-        "y": 180.0
+        "x": 2880.0,
+        "y": 80.0
       }
     }
   ],
   "edges": [
+    {
+      "id": "src_reference->dbt_build",
+      "source": "src_reference",
+      "target": "dbt_build"
+    },
     {
       "id": "restore_state->generate",
       "source": "restore_state",
@@ -235,14 +240,14 @@
       "target": "src_snowflake"
     },
     {
-      "id": "generate->src_teradata",
-      "source": "generate",
-      "target": "src_teradata"
-    },
-    {
       "id": "src_snowflake->ingest",
       "source": "src_snowflake",
       "target": "ingest"
+    },
+    {
+      "id": "generate->src_teradata",
+      "source": "generate",
+      "target": "src_teradata"
     },
     {
       "id": "src_teradata->ingest",
@@ -252,11 +257,6 @@
     {
       "id": "ingest->dbt_build",
       "source": "ingest",
-      "target": "dbt_build"
-    },
-    {
-      "id": "src_reference->dbt_build",
-      "source": "src_reference",
       "target": "dbt_build"
     },
     {

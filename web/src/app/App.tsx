@@ -6,6 +6,8 @@ import { NarrativePanel } from '../features/narrative/NarrativePanel'
 import { Overview } from './Overview'
 import { useReducedMotion } from './useReducedMotion'
 
+// React Flow loads only with the pipeline page.
+const PipelinePage = lazy(() => import('../features/pipeline/PipelinePage').then((m) => ({ default: m.PipelinePage })))
 // Dev-only reference page for the design system; tree-shaken out of production builds.
 const KitchenSink = import.meta.env.DEV ? lazy(() => import('../components/primitives/KitchenSink')) : null
 
@@ -52,7 +54,7 @@ function Shell() {
       <Route path="/r/:region/d/:district/b/:branch" element={<DrillPage title="Branch" />} />
       <Route path="/r/:region/d/:district/b/:branch/a/:advisor" element={<DrillPage title="Advisor" />} />
       <Route path="/map" element={<Page title="Map" />} />
-      <Route path="/pipeline" element={<Page title="Pipeline" />} />
+      <Route path="/pipeline" element={<Suspense fallback={<main aria-busy="true" />}><PipelinePage /></Suspense>} />
       <Route path="/quality" element={<Page title="Data quality" />} />
       <Route path="/case-study" element={<Page title="Case study" />} />
       {KitchenSink && <Route path="/_kitchen-sink" element={<Suspense fallback={null}><KitchenSink /></Suspense>} />}

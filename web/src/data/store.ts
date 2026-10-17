@@ -4,6 +4,7 @@ import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { Narrative, NodeNarrative } from './generated/narrative'
 import type { OrgWeekly } from './generated/org_weekly'
+import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
@@ -40,6 +41,14 @@ export class PulseData {
   /** Not in the manifest (it is written after it), so it is not checksum-verified. */
   runLog(): Promise<RunLog> {
     return this.memo('run_log', () => fetchJson<RunLog>(this.fetcher, `${this.base}/run_log.json`))
+  }
+
+  /** Checksum-verified through the manifest, like the Parquet tables. */
+  pipelineGraph(): Promise<PipelineGraph> {
+    return this.memo('pipeline_graph', async () => {
+      const bytes = await fetchVerified(this.fetcher, this.base, manifestFile(await this.manifest(), 'pipeline_graph.json'))
+      return JSON.parse(new TextDecoder().decode(bytes)) as PipelineGraph
+    })
   }
 
   /** Null when that week has no narrative file. */

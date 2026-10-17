@@ -58,7 +58,6 @@ from pulse.contracts.enums import (
     KpiCode,
     OrgLevel,
     Outcome,
-    PipelineNodeKind,
     ProductLine,
     ReportFlag,
     Role,
@@ -77,10 +76,7 @@ from pulse.contracts.exports import (
     NarrativeFile,
     NodeNarrative,
     OrgWeekly,
-    PipelineEdge,
     PipelineGraph,
-    PipelineNode,
-    Position,
     RunCheck,
     RunLogExport,
     RunSummary,
@@ -1679,70 +1675,29 @@ DBT_MODELS = {
 
 
 def pipeline_graph() -> PipelineGraph:
-    k = PipelineNodeKind
-    spec: list[tuple[str, str, PipelineNodeKind, str | None, list[str], float, float]] = [
-        ("src_snowflake", "'Snowflake' activity", k.SOURCE, None, [], 0, 0),
-        ("src_teradata", "'Teradata' EDW", k.SOURCE, None, [], 0, 120),
-        ("src_reference", "Reference: org.yaml", k.SOURCE, None, [], 0, 240),
-        ("restore_state", "Restore state", k.STAGE, "restore_state", [], 240, -120),
-        ("generate", "Generate week", k.STAGE, "generate", [], 240, 0),
-        ("ingest", "Ingest + validate", k.STAGE, "ingest", [], 480, 60),
-        ("dbt_build", "dbt build", k.STAGE, "dbt_build", [], 720, 60),
-        ("dbt_staging", "Staging", k.DBT_LAYER, "dbt_build", DBT_MODELS["staging"], 960, 0),
-        (
-            "dbt_intermediate",
-            "Intermediate",
-            k.DBT_LAYER,
-            "dbt_build",
-            DBT_MODELS["intermediate"],
-            1200,
-            0,
-        ),
-        ("dbt_marts", "Marts", k.DBT_LAYER, "dbt_build", DBT_MODELS["marts"], 1440, 0),
-        ("checks", "Run checks", k.STAGE, "checks", [], 1680, 60),
-        ("narrate", "AI narrative", k.STAGE, "narrate", [], 1920, 60),
-        ("export", "Export", k.STAGE, "export", [], 2160, 60),
-        ("publish_sheets", "Google Sheets", k.STAGE, "publish_sheets", [], 2400, 180),
-        ("persist_state", "Persist state", k.STAGE, "persist_state", [], 2400, -60),
-        ("release_lock", "Release lock", k.STAGE, "release_lock", [], 2640, -60),
-        ("out_web", "pulse.charliebuild.com", k.OUTPUT, None, [], 2640, 60),
-        ("out_tableau", "Tableau Public", k.OUTPUT, None, [], 2640, 180),
-    ]
-    edges = [
-        ("restore_state", "generate"),
-        ("generate", "src_snowflake"),
-        ("generate", "src_teradata"),
-        ("src_snowflake", "ingest"),
-        ("src_teradata", "ingest"),
-        ("ingest", "dbt_build"),
-        ("src_reference", "dbt_build"),
-        ("dbt_build", "dbt_staging"),
-        ("dbt_staging", "dbt_intermediate"),
-        ("dbt_intermediate", "dbt_marts"),
-        ("dbt_marts", "checks"),
-        ("checks", "narrate"),
-        ("narrate", "export"),
-        ("export", "out_web"),
-        ("export", "publish_sheets"),
-        ("publish_sheets", "out_tableau"),
-        ("export", "persist_state"),
-        ("persist_state", "release_lock"),
-        ("publish_sheets", "release_lock"),
-    ]
-    return PipelineGraph(
-        nodes=[
-            PipelineNode(
-                id=i,
-                label=label,
-                kind=kind,
-                stage=stage,
-                models=models,
-                position=Position(x=x, y=y),
-            )
-            for i, label, kind, stage, models, x, y in spec
-        ],
-        edges=[PipelineEdge(id=f"{s}->{t}", source=s, target=t) for s, t in edges],
-    )
+    """The graph export builds from the weekly stages and a dbt manifest: here a small
+    manifest holding the fixture models, each layer reading the one before."""
+    from pulse.export.pipeline_graph import build_pipeline_graph
+    from pulse.runner.dag import WEEKLY_STAGES
+
+    nodes: dict[str, Any] = {}
+    previous: list[str] = []
+    for layer, models in DBT_MODELS.items():
+        for name in models:
+            nodes[f"model.advisor_pulse.{name}"] = {
+                "resource_type": "model",
+                "package_name": "advisor_pulse",
+                "name": name,
+                "fqn": ["advisor_pulse", layer, name],
+                "depends_on": {"nodes": [f"model.advisor_pulse.{p}" for p in previous[:1]]},
+            }
+        previous = models
+    nodes["seed.advisor_pulse.org_branch"] = {"resource_type": "seed", "name": "org_branch"}
+    sources = {
+        f"source.advisor_pulse.raw.{name}": {"source_name": "raw", "name": name}
+        for name in ("snowflake__activity", "teradata__clnt", "teradata__advsr")
+    }
+    return build_pipeline_graph(WEEKLY_STAGES, {"nodes": nodes, "sources": sources})
 
 
 def _fmt(kpi: KpiCode, value: float) -> str:

@@ -1,0 +1,47 @@
+.pipe-picker { display: grid; gap: var(--space-1); max-width: 22rem; margin-top: var(--space-6); color: var(--muted); font-size: var(--text-sm); }
+.pipe-picker select { padding: var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; }
+.pipe-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin: var(--space-6) 0 var(--space-3); }
+.pipe-replay { margin: 0; font-weight: 600; display: inline-flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.pipe-bar button, .pipe-panel-head button { padding: var(--space-2) var(--space-3); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.pipe-bar button:disabled { color: var(--faint); cursor: default; }
+.pipe-note { color: var(--muted); font-size: var(--text-sm); }
+.pipe-layout { display: grid; gap: var(--space-4); }
+@media (min-width: 64rem) { .pipe-layout:has(.pipe-panel) { grid-template-columns: minmax(0, 1fr) 22rem; } }
+.pipe-canvas { height: 26rem; border: 1px solid var(--rule); border-radius: 2px; background: var(--paper);
+  --xy-background-pattern-dots-color-default: var(--rule); --xy-edge-stroke-default: var(--faint); }
+.pipe-canvas .react-flow__controls { display: grid; gap: var(--space-1); }
+.pipe-canvas .react-flow__controls-button { display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); cursor: pointer; }
+.pipe-canvas .react-flow__controls-button svg { width: 0.75rem; height: 0.75rem; fill: currentColor; }
+.pipe-canvas .react-flow__controls-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pipe-canvas .react-flow__node:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
+
+.pipe-node { display: grid; gap: var(--space-1); width: 11rem; padding: var(--space-2) var(--space-3); border: 1px solid var(--rule); border-left-width: 3px; border-radius: 2px; background: var(--paper); color: var(--ink); font-size: var(--text-xs); cursor: pointer; }
+.pipe-node.is-selected { border-color: var(--focus); }
+.pipe-node[data-state="SUCCESS"] { border-left-color: var(--status-good); }
+.pipe-node[data-state="WARN"] { border-left-color: var(--status-warning); }
+.pipe-node[data-state="FAILED"] { border-left-color: var(--status-critical); }
+.pipe-node[data-state="SKIPPED"], .pipe-node[data-state="PENDING"] { border-left-color: var(--status-neutral); }
+.pipe-node[data-state="RUNNING"] { border-left-color: var(--status-running); }
+.pipe-node-source, .pipe-node-output { border-style: dashed; border-left-width: 1px; }
+.pipe-kind { color: var(--muted); }
+.pipe-label { font-size: var(--text-sm); font-weight: 600; }
+.pipe-node .status { font-size: var(--text-xs); }
+.pipe-meta, .pipe-pending { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pipe-node .react-flow__handle { opacity: 0; }
+
+.pipe-edge { stroke: var(--faint); stroke-width: 1.5; }
+.pipe-edge.is-active { stroke: var(--status-running); }
+.pipe-particle { fill: var(--status-running); }
+
+.pipe-panel { border-top: 2px solid var(--ink); padding-top: var(--space-3); font-size: var(--text-sm); min-width: 0; }
+.pipe-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
+.pipe-panel h3 { margin: 0; font-size: var(--text-lg); }
+.pipe-panel h4 { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-sm); }
+.pipe-models, .pipe-messages { margin: 0; padding-left: var(--space-4); color: var(--muted); }
+.pipe-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.pipe-table th, .pipe-table td { text-align: left; padding: var(--space-1) var(--space-2) var(--space-1) 0; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
+.pipe-table thead th { color: var(--muted); font-weight: 500; }
+.pipe-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.pipe-list { margin-top: var(--space-6); }
+.pipe-list summary { cursor: pointer; font-size: var(--text-sm); }
+.pipe-link { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-decoration: underline; cursor: pointer; }

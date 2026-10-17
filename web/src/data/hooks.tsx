@@ -4,6 +4,7 @@ import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { NodeNarrative } from './generated/narrative'
 import type { OrgWeekly } from './generated/org_weekly'
+import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { WeeklyReport } from './generated/weekly_report'
 import type { PulseData } from './store'
@@ -61,6 +62,10 @@ export function useManifest(): DataResult<Manifest> {
 
 export function useRunLog(): DataResult<RunLog> {
   return useData('run_log', (d) => d.runLog())
+}
+
+export function usePipelineGraph(): DataResult<PipelineGraph> {
+  return useData('pipeline_graph', (d) => d.pipelineGraph())
 }
 
 export function useNarrative(week: string, nodeId: string): DataResult<NodeNarrative> {
