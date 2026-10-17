@@ -47,6 +47,12 @@ def downstream(stages: Sequence[Stage], name: str) -> set[str]:
     return found
 
 
+def _generate(ctx: StageContext) -> StageResult:
+    from pulse.generate.stage import generate
+
+    return generate(ctx)
+
+
 def _ingest(ctx: StageContext) -> StageResult:
     # Imported on call: the loaders import pulse.runner.stage, so a module-level import here
     # would be circular whenever pulse.ingest is imported first.
@@ -82,7 +88,7 @@ def _release_lock(ctx: StageContext) -> StageResult:
 # Stages land one issue at a time; until then each is a SKIPPED placeholder naming its issue.
 WEEKLY_STAGES: tuple[Stage, ...] = (
     Stage("restore_state", "Restore state", _restore_state),
-    Stage("generate", "Generate week", not_implemented(16), ("restore_state",)),
+    Stage("generate", "Generate week", _generate, ("restore_state",)),
     Stage("ingest", "Ingest + validate", _ingest, ("generate",)),
     Stage("dbt_build", "dbt build", stages.dbt_build, ("ingest",)),
     Stage("checks", "Run checks", stages.checks, ("dbt_build",)),

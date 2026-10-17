@@ -14,6 +14,8 @@ from pulse.cli import app
 from pulse.contracts.enums import RunType, StageStatus
 from pulse.contracts.exports import RunLogExport
 from pulse.contracts.meta import CheckResult, RunLogRow
+from pulse.generate import stage as generate_stage
+from pulse.generate.cli import Sizes
 from pulse.ingest import meta
 from pulse.runner import (
     WEEKLY_STAGES,
@@ -81,10 +83,13 @@ def flaky(
     return fn
 
 
-# The weekly DAG with the stages that shell out to dbt or read marts swapped for
-# placeholders, so runner tests stay fast. tests/runner/test_stages.py covers those.
+# The weekly DAG with the stages that write sources, shell out to dbt or read marts swapped
+# for placeholders, so runner tests stay fast. tests/runner/test_stages.py and
+# tests/generate/test_stage.py cover those.
 PLACEHOLDERS = [
-    replace(s, fn=not_implemented(103)) if s.name in {"dbt_build", "checks", "export"} else s
+    replace(s, fn=not_implemented(103))
+    if s.name in {"generate", "dbt_build", "checks", "export"}
+    else s
     for s in WEEKLY_STAGES
 ]
 
@@ -122,7 +127,7 @@ def test_placeholder_stages_log_one_skipped_row_each() -> None:
     assert {r.status for r in rows} == {StageStatus.SKIPPED}
     assert all(r.attempt == 1 and r.ended_at is not None for r in rows)
     assert "R2 credentials absent" in (rows[0].message or "")
-    assert "issue #16" in (rows[1].message or "")
+    assert "issue #103" in (rows[1].message or "")
     assert status is StageStatus.SKIPPED
 
 
@@ -275,10 +280,15 @@ def test_successful_run_exits_zero(tmp_path: Path) -> None:
 
 def test_cli_exit_code_follows_the_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PULSE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PULSE_EXPORT_DIR", str(tmp_path / "export"))
+    monkeypatch.setattr(generate_stage, "SIZES", Sizes(advisors=120, clients=3000))
+    monkeypatch.delenv("PULSE_NARRATIVE_BACKEND", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     result = CliRunner().invoke(app, ["run", "--week", WEEK, "--run-type", "weekly"])
     assert result.exit_code == 0, result.output
-    # Real stages on an empty data dir: dbt builds the (empty) staging views and passes.
-    assert f"weekly-{WEEK}-1: SUCCESS" in result.output
+    # Real stages on an empty data dir: generate writes the week, the rest runs on it.
+    assert f"weekly-{WEEK}-1:" in result.output
+    assert (tmp_path / "export" / "weekly_report.parquet").exists()
     assert (tmp_path / RUN_LOG_JSON).exists()
 
 
