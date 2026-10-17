@@ -11,7 +11,7 @@ import duckdb
 from pulse.contracts import column_names
 from pulse.contracts.enums import StageStatus
 from pulse.contracts.exports import NarrativeFile, WeeklyReport
-from pulse.narrative.client import AnthropicClient, NarrativeClient
+from pulse.narrative.client import NarrativeClient, client_from_env
 from pulse.narrative.facts import HISTORY_WEEKS, build_facts, narrated_nodes, weeks_back
 from pulse.narrative.generate import ResponseCache, narrate_node
 from pulse.runner.stage import StageContext, StageResult
@@ -76,7 +76,7 @@ def write_narratives(
         return StageResult(
             StageStatus.WARN,
             rows_out=total,
-            message=f"ANTHROPIC_API_KEY not set: wrote {total} template narratives.",
+            message=f"No model backend configured: wrote {total} template narratives.",
         )
     if fell_back:
         reasons = sorted({o.reason or "unknown" for o in fell_back})
@@ -89,9 +89,7 @@ def write_narratives(
     return StageResult(rows_out=total, message=f"{total} narratives validated ({hits} from cache).")
 
 
-def narrate(
-    ctx: StageContext, client_factory: ClientFactory = AnthropicClient.from_env
-) -> StageResult:
+def narrate(ctx: StageContext, client_factory: ClientFactory = client_from_env) -> StageResult:
     warehouse = ctx.data_dir / WAREHOUSE_FILE
     if not warehouse.exists():
         return StageResult(StageStatus.SKIPPED, message="No warehouse yet.")

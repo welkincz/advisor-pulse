@@ -106,7 +106,7 @@ On failure, data is **not** redeployed: the site keeps the last good week, and o
 | Orchestration | GitHub Actions cron + a thin Python runner (`pulse run`) | Free; runs weekly online for real; the run log feeds the pipeline viz | Dagster has a stronger asset UI, but would need hosting, or the UI only exists locally |
 | State between runs | Cloudflare R2 (S3 API) | Actions runners are ephemeral; the Actions cache evicts after 7 days, which is exactly one weekly interval | A data branch in git: repo bloat. Fallback: deterministic cold rebuild |
 | Retries | `tenacity` with exponential backoff per stage | Explicit, testable | Workflow-level retry reruns everything |
-| AI narrative | Anthropic API (`claude-opus-5-5`, configurable via `PULSE_NARRATIVE_MODEL`), structured JSON output | Grounded on mart rows only; tiny weekly volume, so cost stays in cents | Generating in the browser would expose the API key on a static site |
+| AI narrative | Claude, structured JSON output, through one of two backends picked by `PULSE_NARRATIVE_BACKEND`: `api` (Anthropic API, `claude-opus-5-5`) or `claude-code` (`claude -p --json-schema` on a Claude subscription, `claude-sonnet-5-5`); model overridable via `PULSE_NARRATIVE_MODEL` | Grounded on mart rows only; tiny weekly volume. The `claude-code` backend needs no separate API billing | Generating in the browser would expose the API key on a static site |
 | Frontend | Vite + React + TypeScript | Static build, fast, agent-friendly | Next.js: SSR not needed |
 | In-browser query | DuckDB-WASM over exported Parquet | Real SQL in the browser, so drill-downs need no backend | Pre-baked JSON is simpler but rigid. Budget: ≤ 20 MB total data |
 | Charts | Apache ECharts with a custom theme | Rich, performant, themeable | Recharts / visx: less out-of-the-box depth |
@@ -450,7 +450,8 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 - **Guardrails:** every number in the text must match a cited fact (tolerance-based rounding). No advice or speculation about individuals beyond the data. Prompt version pinned.
 - **Fallback:** a deterministic template ("Activities per advisor rose 4.2% WoW to 31.5…").
 - **Cache:** keyed by `sha256(prompt_version + model + facts)`; reruns cost nothing.
-- **Eval:** 10 frozen fixture weeks, with pytest assertions on validator pass rate and banned phrases. The live API is called only when `ANTHROPIC_API_KEY` is set (skipped in normal CI).
+- **Eval:** 10 frozen fixture weeks, with pytest assertions on validator pass rate and banned phrases. The live model is called only by `make narrative-eval` / the `live` test, never in normal CI.
+- **Backends:** `api` uses `ANTHROPIC_API_KEY`. `claude-code` runs the `claude` CLI with no tools, MCP servers, settings or session, in an empty working directory, and removes `ANTHROPIC_API_KEY` from its environment so it never bills the API; locally it uses the logged-in account, in CI `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`). With neither a key nor the CLI, the stage writes template narratives and warns.
 - **Disclosure:** the UI labels narratives "AI-generated from this week's figures", with a toggle to show the cited facts.
 
 ---
@@ -475,7 +476,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 
 Branch protection on `main`: CI required, squash merge only, linear history, no direct pushes.
 
-**Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `ANTHROPIC_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GSHEET_ID`, optional `ALERT_WEBHOOK_URL`.
+**Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` (narrative backend), `GOOGLE_SERVICE_ACCOUNT_JSON`, `GSHEET_ID`, optional `ALERT_WEBHOOK_URL`.
 
 ---
 
