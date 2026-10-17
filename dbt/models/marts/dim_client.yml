@@ -1,0 +1,118 @@
+version: 2
+
+models:
+  - name: dim_client
+    description: >
+      Current client dimension (PLAN.md §6.8), one row per `stg_client` client.
+      `client_sk` is md5 of `client_id`, so it is stable across full rebuilds.
+      Tenure is completed years from `client_since` to the as-of date, in bands
+      `<1`, `1-2`, `3-4`, `5-9`, and `10+`. Age is the as-of year minus `birth_year`
+      (the source has no full date of birth), in bands `<25`, `25-34`, `35-44`,
+      `45-54`, `55-64`, and `65+`. The as-of date is the var `client_as_of_date`,
+      or the latest client update (America/Toronto) when the var is unset.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "client_sk = md5(client_id)"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(client_id, '^CLI-[0-9]{8}$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(primary_advisor_id, '^ADV-[0-9]{5}$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(primary_branch_id, '^BR-[0-9]{4}$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(fsa_code, '^([ABCEGHJ-NPRSTVXY][0-9][ABCEGHJ-NPRSTV-Z]|UNK)$')"
+    columns:
+      - name: client_sk
+        description: Surrogate key, md5 of `client_id`.
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests: [unique, not_null]
+      - name: client_id
+        description: Client natural key, `CLI-` plus 8 digits.
+        data_type: varchar
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_client')
+                field: client_id
+      - name: segment_code
+        description: "`MASS`, `MAFF` (mass affluent), `AFFL`, or `SMBS` (small business)."
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["MASS", "MAFF", "AFFL", "SMBS"]
+      - name: tenure_band
+        description: >
+          Completed years from `client_since` to the as-of date: `<1`, `1-2` (1 or 2),
+          `3-4`, `5-9`, `10+`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["<1", "1-2", "3-4", "5-9", "10+"]
+      - name: age_band
+        description: >
+          As-of year minus birth year: `<25`, `25-34`, `35-44`, `45-54`, `55-64`, `65+`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["<25", "25-34", "35-44", "45-54", "55-64", "65+"]
+      - name: fsa_code
+        description: First three characters of the normalized postal code, or `UNK`.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: province_code
+        description: Province code from the client master.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["ON", "QC", "BC", "AB", "SK", "MB", "NS", "PE", "NB", "NL"]
+      - name: postal_valid_flag
+        description: True when the postal code matched the Canadian pattern after normalization.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: primary_advisor_id
+        description: Primary advisor on the latest client version.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_advisor')
+                field: advisor_id
+      - name: primary_branch_id
+        description: Home branch on the latest client version.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_branch')
+                field: branch_id
+      - name: is_active
+        description: True when the latest status is `A`. Closed clients stay on the dimension.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: client_since
+        description: Date the relationship started.
+        data_type: date
+        data_tests: [not_null]

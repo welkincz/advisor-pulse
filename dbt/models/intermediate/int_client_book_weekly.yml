@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: int_client_book_weekly
+    description: >
+      Client × ISO week (PLAN.md §6.7). `primary_advisor_id` is the client's primary
+      advisor on the version in force at `week_end` 23:59 America/Toronto, and
+      `is_active` is true when that version's status is `A`. A closure at or before
+      that cut-off drops the client for that week and every later week (PLAN.md §7,
+      active book at week end). The coverage denominator is `where is_active`.
+      Reassignments are read from every loaded CLNT version, not from `stg_client`.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "isodow(week_end) = 7"
+      - expression_is_true:
+          arguments:
+            expression: "primary_advisor_id <> 'UNKNOWN'"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(client_id, '^CLI-[0-9]{8}$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(primary_advisor_id, '^ADV-[0-9]{5}$')"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(primary_branch_id, '^BR-[0-9]{4}$')"
+    columns:
+      - name: client_id
+        description: Client natural key.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_client')
+                field: client_id
+      - name: iso_week_id
+        description: ISO week label, e.g. `2026-W40`. The grain with `client_id`.
+        data_tests:
+          - not_null
+          - iso_week_id_format
+      - name: week_end
+        description: Sunday of `iso_week_id`. The book is as of 23:59 America/Toronto on this date.
+        data_tests: [not_null]
+      - name: primary_advisor_id
+        description: Primary advisor on the client version in force at week end.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_advisor')
+                field: advisor_id
+      - name: primary_branch_id
+        description: Home branch on the client version in force at week end.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_branch')
+                field: branch_id
+      - name: is_active
+        description: >
+          True when the week-end version is status `A`. Closed clients stay in the
+          history with this flag false; they are not part of the coverage book.
+        data_tests: [not_null]
