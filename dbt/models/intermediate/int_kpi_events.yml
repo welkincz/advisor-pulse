@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: int_kpi_events
+    description: >
+      KPI building blocks (PLAN.md §7): one row per event with the ISO week it counts in,
+      the credited branch and its additive parts, so the weekly marts rebuild every ratio
+      from summed parts. Event kinds: `completed` (by activity date), `scheduled`
+      (appointments and reviews, by SCHEDULED_TS), `booked` (by CREATED_TS), `advisor`
+      (an active advisor at week start, not a branch manager) and `book` (an active book
+      client of an active advisor at week end, with 13-week coverage).
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "clients_covered_13w <= book_size"
+      - expression_is_true:
+          arguments:
+            expression: "(event_kind in ('advisor', 'book')) <= (advisor_id is not null)"
+    columns:
+      - name: iso_week_id
+        description: ISO week the event counts in.
+        data_type: varchar
+        data_tests: [not_null, iso_week_id_format]
+      - name: advisor_id
+        description: The advisor; null for activity whose advisor has no history on that date (DQ012).
+        data_type: varchar
+      - name: branch_id
+        description: Credited branch (activity events) or the advisor's branch at week start (advisor and book events).
+        data_type: varchar
+        data_tests: [not_null]
+      - name: event_kind
+        description: completed, scheduled, booked, advisor or book.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['completed', 'scheduled', 'booked', 'advisor', 'book']
+      - name: activities_completed
+        description: 1 for a completed activity.
+      - name: calls_out
+        description: 1 for a completed CALL_OUT.
+      - name: calls_in
+        description: 1 for a completed CALL_IN.
+      - name: appointments_booked
+        description: 1 for an appointment or review created this week.
+      - name: booked_from_call
+        description: 1 for a booked appointment with booked_from_activity_id set.
+      - name: appointments_held
+        description: 1 for an appointment or review scheduled this week and completed.
+      - name: no_shows
+        description: 1 for an appointment or review scheduled this week with status NO_SHOW.
+      - name: conversions
+        description: 1 for a held appointment with outcome PLAN_CREATED or PRODUCT_OPENED.
+      - name: meeting_minutes
+        description: duration_min of a completed appointment or review.
+      - name: meetings_held
+        description: 1 for a completed appointment or review (the AVG_MEET_MIN denominator).
+      - name: contacted_client_id
+        description: Client of a completed contact activity; counted distinct per grain.
+      - name: active_advisors
+        description: 1 for an advisor event.
+      - name: book_size
+        description: 1 for a book event.
+      - name: clients_covered_13w
+        description: 1 for a book client with a completed activity in the trailing 13 weeks.

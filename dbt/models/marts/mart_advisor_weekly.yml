@@ -1,0 +1,89 @@
+version: 2
+
+models:
+  - name: mart_advisor_weekly
+    description: >
+      Advisor × ISO week KPI parts (PLAN.md §6.8, §7), exported as advisor_weekly.parquet.
+      One row per active advisor and week: employed at week start and not a branch
+      manager. Activity counts toward the advisor wherever it was logged; activity with an
+      unknown advisor (DQ012) is left out here and credited to its branch in mart_org_weekly.
+      Built from int_kpi_events.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "coverage_rate_13w is null or coverage_rate_13w between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "clients_covered_13w <= book_size"
+    columns:
+      - name: iso_week_id
+        description: ISO week, YYYY-Www.
+        data_type: varchar
+        data_tests: [not_null, iso_week_id_format]
+      - name: advisor_id
+        description: Advisor natural key. References dim_advisor.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: branch_id
+        description: The advisor's branch at week start (as-of branch for the week). References dim_org.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_org')
+                field: branch_id
+      - name: district_code
+        description: District of branch_id.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: region_code
+        description: Region of branch_id.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: activities_completed
+        description: "Completed activities with activity date in the week (numerator of ACT_PER_ADV)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: calls_out
+        description: "CALLS_OUT: count of completed CALL_OUT activities in the week."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: calls_in
+        description: "Completed CALL_IN activities in the week."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: appointments_booked
+        description: "APPT_BOOKED: appointments (and reviews) with created_ts in the week."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: appointments_held
+        description: "Appointments and reviews scheduled in the week with status COMPLETED (numerator of SHOW_RATE, denominator of APPT_CONV)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: no_shows
+        description: "Appointments and reviews scheduled in the week with status NO_SHOW."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: conversions
+        description: "Held appointments with outcome in {PLAN_CREATED, PRODUCT_OPENED} (numerator of APPT_CONV)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: unique_clients_contacted
+        description: "CLIENTS_CONTACTED: distinct clients with at least one completed contact activity in the week. Counted at this grain, never summed from finer grains."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: book_size
+        description: "Active book clients at week end: clients whose primary advisor as of Sunday 23:59 Toronto is an active advisor here (denominator of COVERAGE_13W)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: clients_covered_13w
+        description: "Active book clients with a completed activity (by anyone) in the trailing 13 weeks ending week end (numerator of COVERAGE_13W)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: coverage_rate_13w
+        description: "COVERAGE_13W = distinct active book clients contacted in trailing 13 weeks ÷ active book clients at week end. Null when the book is empty. 4 decimals."
+        data_type: double
+      - name: avg_meeting_duration_min
+        description: "AVG_MEET_MIN = mean duration_min for completed APPOINTMENT + REVIEW in the week. Null when none. 2 decimals."
+        data_type: double
