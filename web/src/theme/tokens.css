@@ -1,4 +1,8 @@
+/* Design tokens: the only file that may hold raw colour values (scripts/check-colors.mjs).
+   Rules for using them live in docs/design.md. Palettes were generated in OKLCH and
+   checked with the dataviz validator against --paper in each mode. */
 :root {
+  /* Surfaces and ink */
   --paper: #F6F7F5;
   --ink: #1B222B;
   --muted: #586371;
@@ -7,6 +11,72 @@
   --signal: #8A6A1C;
   --focus: #2F5FA8;
   --field: rgba(27, 34, 43, 0.082);
+
+  /* Categorical: regions and other identities, fixed order, never cycled.
+     Validated all-pairs (worst CVD dE 12.7, normal vision 16.3), so any chart form may use all four. */
+  --series-1: #195DAA;
+  --series-2: #00AEAE;
+  --series-3: #9D381F;
+  --series-4: #BF9007;
+
+  /* Sequential: magnitude, one hue (signal gold), light to dark. Ordinal use starts at step 3. */
+  --seq-1: #F3E7CE;
+  --seq-2: #E3CB99;
+  --seq-3: #CEAC64;
+  --seq-4: #B78F2F;
+  --seq-5: #9A7403;
+  --seq-6: #7A5B04;
+  --seq-7: #5C4302;
+
+  /* Diverging: week over week, better (blue) vs worse (vermilion), neutral midpoint. */
+  --better-1: #91C1FF;
+  --better-2: #578ED4;
+  --better-3: #285E9F;
+  --worse-1: #FFA28A;
+  --worse-2: #D3694F;
+  --worse-3: #9D381F;
+  --diverging-mid: #D9DDD8;
+
+  /* Status: pipeline state only, always with an icon and a word. */
+  --status-good: #1B7E2A;
+  --status-warning: #A46E01;
+  --status-critical: #AF3D34;
+  --status-neutral: #626D7A;
+  --status-running: #2F5FA8;
+
+  /* Type: Avenir Next with tabular lining figures for numbers. Scale from The Elements of Typographic Style. */
+  --font-text: "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  --text-xs: 0.75rem;   /* 12 */
+  --text-sm: 0.875rem;  /* 14 */
+  --text-md: 1rem;      /* 16 */
+  --text-lg: 1.3125rem; /* 21 */
+  --text-xl: 1.5rem;    /* 24 */
+  --text-2xl: 2.25rem;  /* 36 */
+  --text-3xl: 3rem;     /* 48 */
+  --text-display: clamp(3rem, 9vw, 4.5rem); /* 48 to 72 */
+  --leading-tight: 1.1;
+  --leading-text: 1.55;
+  --measure: 38rem;
+
+  /* Space: a 4 px base; layout uses the 8 px steps. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --gutter: clamp(1rem, 3vw, 2.5rem);
+  --page-max: 72rem;
+
+  /* Motion: answers a change of data or place, never decoration. */
+  --duration-quick: 120ms;
+  --duration-standard: 240ms;
+  --duration-tween: 600ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
   color-scheme: light;
 }
 
@@ -20,6 +90,43 @@
     --signal: #D0A64C;
     --focus: #82ADE7;
     --field: rgba(226, 229, 232, 0.095);
+
+    --series-1: #346FB8;
+    --series-2: #05A7A7;
+    --series-3: #AD4E37;
+    --series-4: #B68B16;
+
+    /* Dark flips the anchor: low values recede into the surface. */
+    --seq-1: #392C0C;
+    --seq-2: #574109;
+    --seq-3: #765809;
+    --seq-4: #957116;
+    --seq-5: #B48C2B;
+    --seq-6: #CFA851;
+    --seq-7: #E6C686;
+
+    --better-1: #164781;
+    --better-2: #4273B0;
+    --better-3: #6EA1E2;
+    --worse-1: #7F230B;
+    --worse-2: #B05139;
+    --worse-3: #E37F65;
+    --diverging-mid: #303740;
+
+    --status-good: #61BD67;
+    --status-warning: #EFA831;
+    --status-critical: #F47C6E;
+    --status-neutral: #848E99;
+    --status-running: #82ADE7;
+
     color-scheme: dark;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-quick: 0ms;
+    --duration-standard: 0ms;
+    --duration-tween: 0ms;
   }
 }
