@@ -24,7 +24,7 @@ from pulse.runner.stage import Stage
 log = logging.getLogger(__name__)
 
 COLUMN_WIDTH = 240.0
-ROW_HEIGHT = 120.0
+ROW_HEIGHT = 160.0
 RAW_SOURCE = "raw"
 GENERATE_STAGE = "generate"
 INGEST_STAGE = "ingest"
