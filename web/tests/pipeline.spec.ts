@@ -25,8 +25,13 @@ test('a retried stage opens a panel with each attempt; checks list their results
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/pipeline')
   await page.getByRole('combobox', { name: /^Run/ }).selectOption('weekly-2026-W39-1')
-  await page.locator('.react-flow__node[data-id="ingest"]').click()
+  // Nodes off the canvas edge cannot be clicked, so the mouse takes the leftmost stage and
+  // the keyboard (focus, Enter) reaches the rest.
+  await page.locator('.react-flow__node[data-id="restore_state"]').click()
   const panel = page.getByRole('complementary')
+  await expect(panel.getByRole('heading', { name: 'Restore state' })).toBeVisible()
+  await page.locator('.react-flow__node[data-id="ingest"]').focus()
+  await page.keyboard.press('Enter')
   await expect(panel.getByRole('heading', { name: 'Ingest + validate' })).toBeVisible()
   await expect(panel).toContainText('after 2 attempts')
   await expect(panel.locator('tbody tr')).toHaveCount(2)
