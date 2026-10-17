@@ -20,7 +20,7 @@ import duckdb
 
 from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import StageStatus
-from pulse.contracts.exports import NarrativeFile
+from pulse.contracts.exports import EXPORT_TABLE_CONTRACTS, NarrativeFile
 from pulse.runner.stage import StageContext, StageResult
 from pulse.warehouse import WAREHOUSE_FILE, connect, init_warehouse
 
@@ -151,9 +151,10 @@ def checks(ctx: StageContext, policy_path: Path | None = POLICY_FILE) -> StageRe
     try:
         init_warehouse(con)
         if not _has_table(con, *ORG_MART):
-            return StageResult(
-                StageStatus.SKIPPED, message="marts.mart_org_weekly not built yet (issue #27)."
-            )
+            return StageResult(StageStatus.SKIPPED, message="marts.mart_org_weekly not built yet.")
+        if con.execute("SELECT count(*) FROM marts.mart_org_weekly").fetchone() == (0,):
+            # Nothing has been loaded yet, so there is no week to judge; stale data still fails.
+            return StageResult(StageStatus.SKIPPED, message="No activity loaded yet.")
         manifest = load_defects(ctx.data_dir, ctx.iso_week_id, ctx.clock.now())
         return run_checks(
             con,
@@ -201,10 +202,18 @@ def export(ctx: StageContext) -> StageResult:
             update={"runs": [current, *(r for r in run_log.runs if r.run_id != ctx.run_id)]}
         )
         failed = current.status is StageStatus.FAILED
-        if not failed and not _has_table(con, *ORG_MART):
-            return StageResult(
-                StageStatus.SKIPPED, message="marts.mart_org_weekly not built yet (issue #27)."
-            )
+        if not failed:
+            missing = [
+                f"mart_{m.contract_name}"
+                for m in EXPORT_TABLE_CONTRACTS
+                if not _has_table(con, "marts", f"mart_{m.contract_name}")
+            ]
+            if missing:
+                return StageResult(
+                    StageStatus.SKIPPED, message=f"Marts not built yet: {', '.join(missing)}."
+                )
+            if con.execute("SELECT count(*) FROM marts.mart_org_weekly").fetchone() == (0,):
+                return StageResult(StageStatus.SKIPPED, message="No activity loaded yet.")
         manifest = export_web(
             con,
             export_dir(),

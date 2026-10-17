@@ -1,0 +1,116 @@
+version: 2
+
+models:
+  - name: mart_org_weekly
+    description: >
+      Node × ISO week KPIs at every level (PLAN.md §6.8, §7), exported as org_weekly.parquet:
+      NATIONAL (CA), REGION, DISTRICT and BRANCH, from one GROUPING SETS pass over
+      int_kpi_events. Counts are summed, distinct clients are counted at each level, and
+      every ratio is recomputed from summed parts after the roll-up, never averaged.
+      Activity is credited to the advisor's branch on the activity date; unknown-advisor
+      activity to the branch it was logged at.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "coverage_rate_13w is null or coverage_rate_13w between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "clients_covered_13w <= book_size"
+      - expression_is_true:
+          arguments:
+            expression: "show_rate is null or show_rate between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "conversion_rate is null or conversion_rate between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "call_to_appt_rate is null or call_to_appt_rate between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "(level = 'NATIONAL') = (parent_id is null)"
+    columns:
+      - name: iso_week_id
+        description: ISO week, YYYY-Www.
+        data_type: varchar
+        data_tests: [not_null, iso_week_id_format]
+      - name: level
+        description: NATIONAL, REGION, DISTRICT or BRANCH.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['NATIONAL', 'REGION', 'DISTRICT', 'BRANCH']
+      - name: node_id
+        description: CA for national, else the region code, district code or branch id.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: node_name
+        description: Display name of the node.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: parent_id
+        description: The node one level up; null for national.
+        data_type: varchar
+      - name: active_advisors
+        description: "Advisors employed at week start, not branch managers, at a branch in this node (denominator of ACT_PER_ADV)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: activities_completed
+        description: "Completed activities with activity date in the week (numerator of ACT_PER_ADV)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: calls_out
+        description: "CALLS_OUT: count of completed CALL_OUT activities in the week."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: calls_in
+        description: "Completed CALL_IN activities in the week."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: appointments_booked
+        description: "APPT_BOOKED: appointments (and reviews) with created_ts in the week."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: appointments_held
+        description: "Appointments and reviews scheduled in the week with status COMPLETED (numerator of SHOW_RATE, denominator of APPT_CONV)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: no_shows
+        description: "Appointments and reviews scheduled in the week with status NO_SHOW."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: conversions
+        description: "Held appointments with outcome in {PLAN_CREATED, PRODUCT_OPENED} (numerator of APPT_CONV)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: unique_clients_contacted
+        description: "CLIENTS_CONTACTED: distinct clients with at least one completed contact activity in the week. Counted at this grain, never summed from finer grains."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: book_size
+        description: "Active book clients at week end: clients whose primary advisor as of Sunday 23:59 Toronto is an active advisor here (denominator of COVERAGE_13W)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: clients_covered_13w
+        description: "Active book clients with a completed activity (by anyone) in the trailing 13 weeks ending week end (numerator of COVERAGE_13W)."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: coverage_rate_13w
+        description: "COVERAGE_13W = distinct active book clients contacted in trailing 13 weeks ÷ active book clients at week end. Null when the book is empty. 4 decimals."
+        data_type: double
+      - name: avg_meeting_duration_min
+        description: "AVG_MEET_MIN = mean duration_min for completed APPOINTMENT + REVIEW in the week. Null when none. 2 decimals."
+        data_type: double
+      - name: activities_per_advisor
+        description: "ACT_PER_ADV = completed activities ÷ active advisors in week. Null with no active advisors. 2 decimals."
+        data_type: double
+      - name: show_rate
+        description: "SHOW_RATE = held ÷ (held + no-show), for appointments scheduled in week; cancelled excluded. NO_SHOW_RATE = 1 − show rate. 4 decimals."
+        data_type: double
+      - name: conversion_rate
+        description: "APPT_CONV = held appointments with outcome in {PLAN_CREATED, PRODUCT_OPENED} ÷ held appointments. 4 decimals."
+        data_type: double
+      - name: call_to_appt_rate
+        description: "CALL_TO_APPT = appointments booked from a call in week (booked_from_activity_id set) ÷ completed outbound calls in week. 4 decimals."
+        data_type: double
