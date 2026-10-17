@@ -1,0 +1,6 @@
+.trend-picker { display: grid; gap: var(--space-1); max-width: 22rem; color: var(--muted); font-size: var(--text-sm); }
+.trend-picker select { width: 100%; padding: var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; }
+.kpi-definition { margin-top: var(--space-2); color: var(--muted); font-size: var(--text-xs); }
+.kpi-definition summary { cursor: pointer; width: fit-content; }
+.kpi-definition p { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
+.kpi-anomaly { color: var(--status-warning); font-weight: 600; }

@@ -6,7 +6,7 @@ import type { OrgWeekly } from './generated/org_weekly'
 import type { RunLog } from './generated/run_log'
 import type { WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
-import { TABLES, type Table, geoWeeklySql, orgWeeklySql, weeklyReportSql } from './queries'
+import { TABLES, type Table, geoWeeklySql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
 
 export interface PulseDataOptions {
   /** URL prefix of the weekly export: `/data` on the site and in `make web-dev`. */
@@ -61,6 +61,10 @@ export class PulseData {
 
   weeklyReport(week: string, filter: { nodeId: string } | { parentId: string }): Promise<WeeklyReport[]> {
     return this.select<WeeklyReport>('weekly_report', weeklyReportSql(week, filter))
+  }
+
+  weeklyReportHistory(nodeId: string, weeks: readonly string[]): Promise<WeeklyReport[]> {
+    return this.select<WeeklyReport>('weekly_report', weeklyReportHistorySql(nodeId, weeks))
   }
 
   geoWeekly(week: string, districtCode?: string): Promise<GeoWeekly[]> {

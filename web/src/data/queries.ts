@@ -25,6 +25,10 @@ export function weeklyReportSql(week: string, filter: { nodeId: string } | { par
   return `select * from weekly_report where iso_week_id = ${sqlString(week)} and ${where} order by node_id, kpi_code`
 }
 
+export function weeklyReportHistorySql(nodeId: string, weeks: readonly string[]): string {
+  return `select * from weekly_report where node_id = ${sqlString(nodeId)} and iso_week_id in ${inList(weeks)} order by iso_week_id, kpi_code`
+}
+
 export function geoWeeklySql(week: string, districtCode?: string): string {
   const district = districtCode ? ` and district_code = ${sqlString(districtCode)}` : ''
   return `select * from geo_weekly where iso_week_id = ${sqlString(week)}${district} order by fsa_code`
