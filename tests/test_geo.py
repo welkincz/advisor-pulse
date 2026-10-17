@@ -7,10 +7,19 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from pulse.contracts.enums import RegionCode
 from pulse.reference import org
 
 ROOT = Path(__file__).resolve().parents[1]
+_BUILD_SPEC = importlib.util.spec_from_file_location(
+    "geo_build_boundaries", ROOT / "geo" / "build_boundaries.py"
+)
+assert _BUILD_SPEC is not None and _BUILD_SPEC.loader is not None
+build = importlib.util.module_from_spec(_BUILD_SPEC)
+sys.modules["geo_build_boundaries"] = build
+_BUILD_SPEC.loader.exec_module(build)
 _SPEC = importlib.util.spec_from_file_location("geo_dissolve", ROOT / "geo" / "dissolve.py")
 assert _SPEC is not None and _SPEC.loader is not None
 dissolve = importlib.util.module_from_spec(_SPEC)
@@ -20,6 +29,33 @@ _SPEC.loader.exec_module(dissolve)
 
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_geo_build_preserves_hand_written_docs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    docs = tmp_path / "docs"
+    (docs / "adr").mkdir(parents=True)
+    adr = docs / "adr" / "0002-geo-size-budget.md"
+    adr.write_text("The approved hand-written decision.\n", encoding="utf-8")
+    before = {
+        path.relative_to(docs): path.read_bytes() for path in docs.rglob("*") if path.is_file()
+    }
+
+    monkeypatch.setattr(build, "ROOT", tmp_path)
+    monkeypatch.setattr(build, "OUT_DIR", tmp_path / "web" / "public" / "geo")
+    monkeypatch.setattr(build, "ADR_PATH", adr, raising=False)
+    monkeypatch.setattr(build, "_resolve_input", lambda codes: tmp_path / "input.geojson")
+    monkeypatch.setattr(
+        build, "_write_fsa_topojson", lambda src, codes, simplify, dest: dest.write_text("{}")
+    )
+    monkeypatch.setattr(build, "_gzip_size", lambda path: 2)
+
+    assert build.main() == 0
+    after = {
+        path.relative_to(docs): path.read_bytes() for path in docs.rglob("*") if path.is_file()
+    }
+    assert after == before
 
 
 def test_nearest_branch_wins_when_fsa_is_not_a_branch_site() -> None:
