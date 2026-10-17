@@ -7,7 +7,7 @@ import { DataNotice, usePipelineGraph, useRunLog } from '../../data'
 import type { PipelineGraph, PipelineNode } from '../../data/generated/pipeline_graph'
 import type { RunSummary } from '../../data/generated/run_log'
 import { FlowEdge, type PipelineFlowEdge } from './FlowEdge'
-import { RunHistory } from './history/RunHistory'
+import { RunHistory, runTypeLabel } from './history/RunHistory'
 import { StageNode, type StageFlowNode, formatDuration } from './StageNode'
 import { type NodeState, edgeActive, nodeStages, replayEvents, summarize } from './timeline'
 import { useReplay } from './useReplay'
@@ -99,10 +99,11 @@ function Canvas({ graph, run }: { graph: PipelineGraph; run: RunSummary }) {
   }, [graph])
   const node = graph.nodes.find((n) => n.id === selected)
   const date = runDate(run)
+  const runType = runTypeLabel(run.run_type)
 
   return <>
     <div className="pipe-bar">
-      <p className="pipe-replay" aria-live="polite">{replaying ? `Replaying weekly run of ${date}` : `Weekly run of ${date}`}: <StatusMark status={run.status} /></p>
+      <p className="pipe-replay" aria-live="polite">{replaying ? `Replaying ${runType.toLowerCase()} run of ${date}` : `${runType} run of ${date}`}: <StatusMark status={run.status} /></p>
       <button type="button" onClick={restart} disabled={reducedMotion || replaying}>Replay run</button>
       {reducedMotion && <span className="pipe-note">Replay is off because your system asks for reduced motion.</span>}
     </div>

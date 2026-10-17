@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
@@ -58,6 +59,20 @@ test('history shows status with an icon and selecting a run updates the canvas',
   await expect(older).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByText(/^Weekly run of September 21, 2026/)).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('history and replay identify manual and backfill runs', async ({ page }) => {
+  const log = JSON.parse(readFileSync(resolve(exportsDir, 'run_log.json'), 'utf8'))
+  log.runs[0].run_type = 'MANUAL'
+  log.runs[1].run_type = 'BACKFILL'
+  await page.route('**/data/run_log.json', (route) => route.fulfill({ json: log }))
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/pipeline')
+  const history = page.getByRole('region', { name: 'Run history' })
+  await expect(history.getByRole('button', { name: /2026-W40 Manual/ })).toBeVisible()
+  await expect(page.getByText(/^Manual run of October 5, 2026/)).toBeVisible()
+  await history.getByRole('button', { name: /2026-W39 Backfill/ }).click()
+  await expect(page.getByText(/^Backfill run of September 28, 2026/)).toBeVisible()
 })
 
 test('reduced motion shows the final state with replay off', async ({ page }) => {

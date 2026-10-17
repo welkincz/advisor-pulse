@@ -9,4 +9,5 @@
 .pipe-history-run[aria-pressed="true"] { border-top-color: var(--signal); }
 .pipe-history-run:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .pipe-history-week { font-size: var(--text-md); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pipe-history-type { color: var(--muted); font-size: var(--text-xs); }
 .pipe-history-stats { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }

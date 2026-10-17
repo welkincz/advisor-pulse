@@ -12,6 +12,10 @@ function duration(ms: number | null | undefined): string {
   return ms < 60_000 ? `${(ms / 1000).toFixed(1)} s` : `${(ms / 60_000).toFixed(1)} min`
 }
 
+export function runTypeLabel(type: RunSummary['run_type']): string {
+  return type === 'WEEKLY' ? 'Weekly' : type === 'BACKFILL' ? 'Backfill' : 'Manual'
+}
+
 /** Newest-first runs from the export, with a left-to-right oldest-to-newest duration trend. */
 export function RunHistory({ runs, selectedId, onSelect }: {
   runs: readonly RunSummary[]
@@ -24,7 +28,7 @@ export function RunHistory({ runs, selectedId, onSelect }: {
     <div className="pipe-history-head">
       <div>
         <h2>Recent runs</h2>
-        <p>Choose a weekly run to replay its stages.</p>
+        <p>Choose a run to replay its stages.</p>
       </div>
       <div className="pipe-history-trend">
         <span>Duration, oldest to newest</span>
@@ -37,6 +41,7 @@ export function RunHistory({ runs, selectedId, onSelect }: {
         return <button key={run.run_id} type="button" className="pipe-history-run"
           aria-pressed={run.run_id === selectedId} onClick={() => onSelect(run.run_id)}>
           <span className="pipe-history-week">{run.iso_week_id}</span>
+          <span className="pipe-history-type">{runTypeLabel(run.run_type)}</span>
           <StatusMark status={run.status} />
           <span className="pipe-history-stats"><span>{duration(run.duration_ms)}</span><span>{rows == null ? 'Rows unavailable' : `${rows.toLocaleString('en-CA')} rows out`}</span></span>
         </button>
