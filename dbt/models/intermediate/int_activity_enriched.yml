@@ -1,0 +1,98 @@
+version: 2
+
+models:
+  - name: int_activity_enriched
+    description: >
+      One row per activity from `stg_activity`, joined to the `int_advisor_history` range
+      in force on `activity_date` (PLAN.md §6.7). `attributed_branch_id` is the advisor's
+      branch on that date, which is the branch every KPI credits (PLAN.md §7). When the
+      advisor has no range on that date (DQ012) it falls back to the branch on the source row.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "is_advisor_matched = (advisor_valid_from is not null)"
+    columns:
+      - name: activity_id
+        description: Natural key from `stg_activity`.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: activity_date
+        description: Business date of the activity (America/Toronto).
+        data_type: date
+        data_tests: [not_null]
+      - name: iso_week_id
+        description: ISO week of `activity_date`, `YYYY-Www`.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: advisor_id
+        description: Advisor on the source row.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: advisor_valid_from
+        description: Start of the advisor history range in force on `activity_date`; null when none (DQ012).
+        data_type: date
+      - name: is_advisor_matched
+        description: True when an advisor history range covers `activity_date`.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: source_branch_id
+        description: Branch on the source row, as logged.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: attributed_branch_id
+        description: The advisor's branch on `activity_date`, else `source_branch_id`. KPIs credit this branch.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: client_id
+        description: Client on the source row; null for prospecting calls.
+        data_type: varchar
+      - name: is_client_matched
+        description: True when `client_id` is in `stg_client`. False for null and unknown clients (DQ013).
+        data_type: boolean
+        data_tests: [not_null]
+      - name: fsa_code
+        description: The client's FSA, or `UNK` when there is no known client or the postal code is invalid.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: activity_type
+        description: Contract activity type.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: channel
+        description: Contract channel.
+        data_type: varchar
+      - name: status
+        description: Contract status.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: outcome
+        description: Contract outcome.
+        data_type: varchar
+      - name: product_line
+        description: Contract product line.
+        data_type: varchar
+      - name: scheduled_ts
+        description: Scheduled time (UTC), for appointments and reviews.
+        data_type: timestamp with time zone
+      - name: activity_ts
+        description: When the activity happened (UTC).
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: created_ts
+        description: When the activity was created (UTC); APPT_BOOKED counts appointments by this.
+        data_type: timestamp with time zone
+        data_tests: [not_null]
+      - name: duration_min
+        description: Duration in minutes.
+        data_type: integer
+      - name: is_late_arriving
+        description: True when the activity week is earlier than its extract week.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: booked_from_activity_id
+        description: For an appointment, the call that booked it.
+        data_type: varchar
+      - name: _batch_id
+        description: Load batch of the surviving source row.
+        data_type: varchar
+        data_tests: [not_null]

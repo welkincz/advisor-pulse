@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: dim_activity_type
+    description: >
+      Activity type dimension (PLAN.md §6.8). One row per `ActivityType` in the source
+      contract. `counts_as_contact` marks types that count toward clients contacted;
+      `is_appointment_like` marks the meetings averaged by AVG_MEET_MIN.
+    columns:
+      - name: activity_type
+        description: Contract activity type code.
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['CALL_OUT', 'CALL_IN', 'APPOINTMENT', 'REVIEW']
+      - name: label
+        description: Display name.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: counts_as_contact
+        description: True when a completed activity of this type counts as contacting the client.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: is_appointment_like
+        description: True for meetings (APPOINTMENT, REVIEW), whose durations AVG_MEET_MIN averages.
+        data_type: boolean
+        data_tests: [not_null]
