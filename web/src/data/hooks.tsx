@@ -1,5 +1,6 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { AdvisorWeekly } from './generated/advisor_weekly'
+import type { DqWeekly } from './generated/dq_weekly'
 import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { NodeNarrative } from './generated/narrative'
@@ -62,6 +63,10 @@ export function useManifest(): DataResult<Manifest> {
 
 export function useRunLog(): DataResult<RunLog> {
   return useData('run_log', (d) => d.runLog())
+}
+
+export function useDqWeekly(): DataResult<DqWeekly[]> {
+  return useData('dq_weekly', (d) => d.dqWeekly())
 }
 
 export function usePipelineGraph(): DataResult<PipelineGraph> {
