@@ -124,7 +124,7 @@ geo: ## Download StatCan boundaries and dissolve district and region polygons
 dbt-build-ci: ## dbt build against fixtures (ARGS='-s model')
 	$(RUN) python scripts/ci_warehouse.py
 	$(DBT) seed $(DBT_DIRS) --target ci
-	$(DBT) build $(DBT_DIRS) --target ci --indirect-selection=cautious $(ARGS)
+	$(DBT) build $(DBT_DIRS) --target ci --indirect-selection=buildable $(ARGS)
 
 .PHONY: dbt-docs
 dbt-docs: ## dbt docs generate + serve (local warehouse)
