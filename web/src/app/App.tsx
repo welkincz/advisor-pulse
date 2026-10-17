@@ -6,6 +6,7 @@ import { useReducedMotion } from './useReducedMotion'
 
 // React Flow loads only with the pipeline page.
 const PipelinePage = lazy(() => import('../features/pipeline/PipelinePage').then((m) => ({ default: m.PipelinePage })))
+const MapPage = lazy(() => import('../features/map/MapPage').then((m) => ({ default: m.MapPage })))
 // Dev-only reference page for the design system; tree-shaken out of production builds.
 const KitchenSink = import.meta.env.DEV ? lazy(() => import('../components/primitives/KitchenSink')) : null
 
@@ -29,7 +30,7 @@ function Shell() {
       <Route path="/r/:region/d/:district" element={<DrillPage />} />
       <Route path="/r/:region/d/:district/b/:branch" element={<DrillPage />} />
       <Route path="/r/:region/d/:district/b/:branch/a/:advisor" element={<DrillPage />} />
-      <Route path="/map" element={<Page title="Map" />} />
+      <Route path="/map" element={<Suspense fallback={<main aria-busy="true" />}><MapPage /></Suspense>} />
       <Route path="/pipeline" element={<Suspense fallback={<main aria-busy="true" />}><PipelinePage /></Suspense>} />
       <Route path="/quality" element={<Page title="Data quality" />} />
       <Route path="/case-study" element={<Page title="Case study" />} />
