@@ -1,0 +1,215 @@
+version: 2
+
+models:
+  - name: mart_weekly_report
+    description: >
+      Long format, one row per ISO week, hierarchy node and KPI (PLAN.md §6.8, §7),
+      exported as weekly_report.parquet for the dashboard, Tableau and the AI narrative.
+      The ten activity KPIs come from mart_org_weekly at every level; LATE_RATE and
+      QUAR_RATE are national only, from int_ingest_weekly. Week-over-week fields compare
+      with the previous ISO week of the same node and KPI. rank_in_parent is a dense rank
+      among siblings (1 = best, ascending for NO_SHOW_RATE, LATE_RATE and QUAR_RATE).
+      flag is ANOMALY when |z| > 2 against the 13 weeks before (at least 8 non-null),
+      otherwise UP, DOWN or FLAT (|wow_pct| < 1% or no prior value).
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "(level = 'NATIONAL') = (parent_id is null)"
+      - expression_is_true:
+          arguments:
+            expression: "(rank_in_parent is null) = (peer_count is null) and coalesce(rank_in_parent <= peer_count, true)"
+      - expression_is_true:
+          arguments:
+            expression: "(rank_in_parent is null) = (parent_id is null or value is null)"
+      - expression_is_true:
+          arguments:
+            expression: "(wow_delta is null) = (value is null or prior_week_value is null)"
+      - expression_is_true:
+          arguments:
+            expression: "kpi_code not in ('LATE_RATE', 'QUAR_RATE') or level = 'NATIONAL'"
+      - expression_is_true:
+          arguments:
+            expression: "kpi_code not in ('CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE') or value is null or value between 0 and 1"
+    columns:
+      - name: iso_week_id
+        description: ISO week, YYYY-Www.
+        data_type: varchar
+        data_tests: [not_null, iso_week_id_format]
+      - name: level
+        description: NATIONAL, REGION, DISTRICT or BRANCH.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['NATIONAL', 'REGION', 'DISTRICT', 'BRANCH']
+      - name: node_id
+        description: CA for national, else the region code, district code or branch id.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: node_name
+        description: Display name of the node.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: parent_id
+        description: The node one level up; null for national.
+        data_type: varchar
+      - name: kpi_code
+        description: KPI code from PLAN.md §7.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'CLIENTS_CONTACTED', 'COVERAGE_13W', 'AVG_MEET_MIN', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE']
+      - name: value
+        description: "The KPI this week; null when its denominator is 0. NO_SHOW_RATE = 1 − SHOW_RATE."
+        data_type: double
+      - name: prior_week_value
+        description: The same node and KPI in the previous ISO week; null in the first week.
+        data_type: double
+      - name: wow_delta
+        description: "value − prior_week_value, 4 decimals."
+        data_type: double
+      - name: wow_pct
+        description: "wow_delta ÷ prior_week_value as a fraction (0.042 = +4.2%); null when the prior value is 0 or null."
+        data_type: double
+      - name: trailing_13w_avg
+        description: Mean of the non-null values in the 13 ISO weeks ending this week, 4 decimals.
+        data_type: double
+      - name: rank_in_parent
+        description: Dense rank among nodes with the same parent and a non-null value, 1 = best.
+        data_type: bigint
+      - name: peer_count
+        description: Nodes with the same parent, this one included.
+        data_type: bigint
+      - name: flag
+        description: UP, DOWN, FLAT or ANOMALY (see the model description).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['UP', 'DOWN', 'FLAT', 'ANOMALY']
+
+unit_tests:
+  - name: mart_weekly_report_flags_anomalies_against_the_weeks_before
+    description: >
+      CALLS_OUT holds near 100 for eight weeks (sd 3.0), then 120 in W09: |z| ≈ 6.6
+      against the 8 weeks before, so ANOMALY. APPT_BOOKED jumps 50 → 80 in W08, but with
+      only 7 prior weeks it stays UP; counting the current week in the baseline would
+      wrongly make it ANOMALY. KPIs with no value are FLAT.
+    model: mart_weekly_report
+    given:
+      - input: ref('mart_org_weekly')
+        rows:
+          - {iso_week_id: '2026-W01', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 100, appointments_booked: 50}
+          - {iso_week_id: '2026-W02', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 104, appointments_booked: 52}
+          - {iso_week_id: '2026-W03', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 96, appointments_booked: 48}
+          - {iso_week_id: '2026-W04', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 100, appointments_booked: 50}
+          - {iso_week_id: '2026-W05', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 104, appointments_booked: 52}
+          - {iso_week_id: '2026-W06', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 96, appointments_booked: 48}
+          - {iso_week_id: '2026-W07', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 100, appointments_booked: 50}
+          - {iso_week_id: '2026-W08', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 100, appointments_booked: 80}
+          - {iso_week_id: '2026-W09', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 120, appointments_booked: 50}
+      - input: ref('int_ingest_weekly')
+        rows: []
+      - input: ref('dim_date')
+        format: sql
+        rows: |
+          select
+              strftime(day, '%G-W%V') as iso_week_id,
+              cast(date_trunc('week', day) as date) as week_start
+          from generate_series(date '2025-12-29', date '2026-03-01', interval 1 day) as t(day)
+    expect:
+      rows:
+          - {iso_week_id: '2026-W01', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: CALLS_OUT, flag: UP}
+          - {iso_week_id: '2026-W02', kpi_code: APPT_BOOKED, flag: UP}
+          - {iso_week_id: '2026-W02', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: CALLS_OUT, flag: DOWN}
+          - {iso_week_id: '2026-W03', kpi_code: APPT_BOOKED, flag: DOWN}
+          - {iso_week_id: '2026-W03', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: CALLS_OUT, flag: UP}
+          - {iso_week_id: '2026-W04', kpi_code: APPT_BOOKED, flag: UP}
+          - {iso_week_id: '2026-W04', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: CALLS_OUT, flag: UP}
+          - {iso_week_id: '2026-W05', kpi_code: APPT_BOOKED, flag: UP}
+          - {iso_week_id: '2026-W05', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: CALLS_OUT, flag: DOWN}
+          - {iso_week_id: '2026-W06', kpi_code: APPT_BOOKED, flag: DOWN}
+          - {iso_week_id: '2026-W06', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: CALLS_OUT, flag: UP}
+          - {iso_week_id: '2026-W07', kpi_code: APPT_BOOKED, flag: UP}
+          - {iso_week_id: '2026-W07', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: APPT_BOOKED, flag: UP}
+          - {iso_week_id: '2026-W08', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: CALLS_OUT, flag: ANOMALY}
+          - {iso_week_id: '2026-W09', kpi_code: APPT_BOOKED, flag: DOWN}
+          - {iso_week_id: '2026-W09', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: NO_SHOW_RATE, flag: FLAT}

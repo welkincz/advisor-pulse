@@ -1,6 +1,6 @@
 -- One row per client_id: the latest LAST_UPD_TS across the snapshot and deltas.
 -- Postal codes normalize to `A1A 1A1`; anything that still fails the pattern gets fsa_code
--- 'UNK' (PLAN.md §6.6, DQ011). The pattern is patterns.POSTAL_CODE.
+-- 'UNK' (PLAN.md §6.6, DQ011); the rule is the normalized_postal macro.
 with renamed as (
     select
         "CLNT_ID" as client_id,
@@ -30,37 +30,11 @@ latest as (
     ) = 1
 ),
 
-compacted as (
-    select
-        *,
-        case
-            when postal_raw is null then null
-            else upper(replace(replace(trim(postal_raw), '-', ''), ' ', ''))
-        end as postal_compact
-    from latest
-),
-
-candidates as (
-    select
-        *,
-        case
-            when postal_compact is null then null
-            else substr(postal_compact, 1, 3) || ' ' || substr(postal_compact, 4)
-        end as postal_candidate
-    from compacted
-),
-
 validated as (
     select
         *,
-        coalesce(
-            regexp_full_match(
-                postal_candidate,
-                '^[ABCEGHJ-NPRSTVXY][0-9][ABCEGHJ-NPRSTV-Z] [0-9][ABCEGHJ-NPRSTV-Z][0-9]$'
-            ),
-            false
-        ) as postal_valid_flag
-    from candidates
+        {{ normalized_postal('postal_raw') }} as postal_code
+    from latest
 )
 
 select
@@ -68,11 +42,9 @@ select
     client_since_date,
     birth_year,
     segment_code,
-    case when postal_valid_flag then postal_candidate end as postal_code,
-    case
-        when postal_valid_flag then substr(postal_candidate, 1, 3) else 'UNK'
-    end as fsa_code,
-    postal_valid_flag,
+    postal_code,
+    coalesce(substr(postal_code, 1, 3), 'UNK') as fsa_code,
+    postal_code is not null as postal_valid_flag,
     province_code,
     primary_advisor_id,
     primary_branch_id,

@@ -1,0 +1,53 @@
+version: 2
+
+models:
+  - name: mart_geo_weekly
+    description: >
+      One row per FSA, district and ISO week (PLAN.md §6.8), exported as geo_weekly.parquet
+      for the map; the export keeps the last 13 weeks. Clients are the active book at week
+      end (int_client_book_weekly), placed by the FSA on that week's client version (`UNK`
+      when the postal code does not normalize, DQ011) and the district of their home
+      branch. An FSA that straddles two districts has one row per district.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "clients_contacted_13w <= active_clients"
+      - expression_is_true:
+          arguments:
+            expression: "coverage_rate_13w between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(fsa_code, '^([ABCEGHJ-NPRSTVXY][0-9][ABCEGHJ-NPRSTV-Z]|UNK)$')"
+    columns:
+      - name: iso_week_id
+        description: ISO week, YYYY-Www. Weeks are those of mart_org_weekly.
+        data_type: varchar
+        data_tests: [not_null, iso_week_id_format]
+      - name: fsa_code
+        description: Forward sortation area (first three postal characters), or UNK.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: district_code
+        description: District of the clients' home branch.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_org')
+                field: district_code
+      - name: active_clients
+        description: Active book clients at week end in this FSA and district (COVERAGE_13W denominator).
+        data_type: bigint
+        data_tests: [not_null]
+      - name: clients_contacted_13w
+        description: "Of those, clients with a completed activity by anyone from week_end − 90 days to week_end."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: coverage_rate_13w
+        description: "clients_contacted_13w ÷ active_clients, 4 decimals."
+        data_type: double
+      - name: activities_completed
+        description: Completed activities this week for these clients, by any advisor.
+        data_type: bigint
+        data_tests: [not_null]
