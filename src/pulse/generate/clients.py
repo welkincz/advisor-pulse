@@ -150,7 +150,11 @@ def generate_clients(
     for number in range(1, client_count + 1):
         since = snapshot_day - timedelta(days=rng.randrange(3653))
         updated = since + timedelta(days=rng.randrange((snapshot_day - since).days + 1))
-        activate(make_client(f"CLI-{number:08d}", rng.choice(initial_owners), since, updated))
+        owner = rng.choice(initial_owners)
+        # The row names its owner as of LAST_UPD_TS, so that is no earlier than the
+        # owner's current assignment.
+        updated = max(updated, owner[3])
+        activate(make_client(f"CLI-{number:08d}", owner, since, updated))
     snapshot = tuple(current.values())
 
     changes: list[ClientChange] = []
@@ -256,17 +260,21 @@ def write_clients(batch: ClientBatch, db_path: Path) -> None:
     with write_transaction(db_path) as conn:
         replace_table(conn, "CLNT", TeradataClient, batch.snapshot, "CLNT_ID")
 
-    names = column_names(TeradataClient)
     written: set[Path] = set()
     for day, rows in delta_rows(batch).items():
-        path = db_path.parent / f"client_{day:%Y%m%d}.csv"
-        with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.writer(handle, lineterminator="\n")
-            writer.writerow(names)
-            for row in rows:
-                values = row.model_dump(by_alias=True, mode="python").values()
-                writer.writerow("" if v is None else sql_value(v) for v in values)
-        written.add(path)
+        written.add(write_delta(db_path.parent, day, rows))
     for stale in db_path.parent.glob("client_*.csv"):
         if stale not in written:
             stale.unlink()
+
+
+def write_delta(directory: Path, day: date, rows: Sequence[TeradataClient]) -> Path:
+    """Write one day's ``client_YYYYMMDD.csv`` in the PLAN.md §6.2 text conventions."""
+    path = directory / f"client_{day:%Y%m%d}.csv"
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(column_names(TeradataClient))
+        for row in rows:
+            values = row.model_dump(by_alias=True, mode="python").values()
+            writer.writerow("" if v is None else sql_value(v) for v in values)
+    return path
