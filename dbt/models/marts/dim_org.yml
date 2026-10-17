@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: dim_org
+    description: >
+      Branch dimension (PLAN.md §6.8). One row per branch in the org seed
+      (`reference/org.yaml`, exported by `make seeds`), with district and region.
+      `close_date` is the latest raw branch close date; branches missing from the
+      extract are open. `branch_sk` is the md5 of `branch_id`.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "is_open = (close_date is null)"
+      - expression_is_true:
+          arguments:
+            expression: "close_date is null or close_date >= open_date"
+    columns:
+      - name: branch_sk
+        description: Surrogate key, md5 of `branch_id`. Stable across full rebuilds.
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests: [unique, not_null]
+      - name: branch_id
+        description: Natural key from the org seed (`BR-` plus 4 digits).
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: branch_name
+        description: Branch name from the org seed.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: district_code
+        description: District code from the org seed.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: district_name
+        description: District name from the org seed.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: region_code
+        description: Region code from the org seed (`ON`, `QC`, `WE`, `AT`).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["ON", "QC", "WE", "AT"]
+      - name: region_name
+        description: Region name from the org seed.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: fsa_code
+        description: Forward sortation area of the branch. References `dim_geography`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_geography')
+                field: fsa_code
+      - name: province_code
+        description: Province of the branch FSA (first letter).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["ON", "QC", "BC", "AB", "SK", "MB", "NS", "PE", "NB", "NL"]
+      - name: open_date
+        description: Date the branch opened, from the org seed.
+        data_type: date
+        data_tests: [not_null]
+      - name: close_date
+        description: Date the branch closed. Null while it is open or absent from the extract.
+        data_type: date
+      - name: is_open
+        description: True when `close_date` is null.
+        data_type: boolean
+        data_tests: [not_null]

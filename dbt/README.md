@@ -9,7 +9,8 @@ Run dbt through the Makefile, from the repo root:
 
 | Command | What it does |
 |---------|--------------|
-| `make dbt-build-ci` | Ingests `fixtures/sources` into `data/ci/warehouse.duckdb` with the real loaders (`scripts/ci_warehouse.py`), then `dbt build --target ci`. CI runs this. Pass `ARGS='-s model+'` to narrow it. |
+| `make dbt-build-ci` | Ingests `fixtures/sources` into `data/ci/warehouse.duckdb` with the real loaders (`scripts/ci_warehouse.py`), loads seeds, then `dbt build --target ci`. CI runs this. Pass `ARGS='-s model+'` to narrow it. |
+| `make seeds` | Regenerates `dbt/seeds/*.csv` from `reference/org.yaml` and the shipped FSA boundaries. `make check` fails if those CSVs are stale. |
 | `make dbt-docs` | `dbt docs generate` + `serve` against the local `dev` warehouse. |
 | `make run WEEK=…` | The weekly pipeline runs dbt against `dev` as one of its stages. |
 

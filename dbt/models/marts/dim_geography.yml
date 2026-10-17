@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: dim_geography
+    description: >
+      FSA dimension (PLAN.md §6.8). One row per forward sortation area that appears
+      on a branch or a current client, plus `UNK` for postal codes that fail
+      normalization (DQ011). `is_rural` is true when the second character is `0`.
+      `has_boundary` is true when the FSA is in the shipped StatCan layer.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "is_rural = (substr(fsa_code, 2, 1) = '0')"
+      - expression_is_true:
+          arguments:
+            expression: "has_boundary = (fsa_code in (select fsa_code from {{ ref('fsa_boundary') }}))"
+      - expression_is_true:
+          arguments:
+            expression: "fsa_code = 'UNK' or (province_code is not null and province_name is not null) or substr(fsa_code, 1, 1) in ('X', 'Y')"
+    columns:
+      - name: fsa_code
+        description: Forward sortation area, or `UNK` when the postal code is missing or invalid.
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key
+        data_tests: [unique, not_null]
+      - name: province_code
+        description: Province of the FSA's first letter. Null for `UNK` and for letters outside the network (X, Y).
+        data_type: varchar
+      - name: province_name
+        description: Province name. Null when `province_code` is null.
+        data_type: varchar
+      - name: is_rural
+        description: True when the second character is `0` (Canada Post rural FSA). False for `UNK`.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: district_code
+        description: District of the branch in this FSA. Null for `UNK` and for client FSAs with no branch.
+        data_type: varchar
+      - name: region_code
+        description: Region of that district. Null when `district_code` is null.
+        data_type: varchar
+      - name: has_boundary
+        description: True when this FSA is in the shipped StatCan boundary file.
+        data_type: boolean
+        data_tests: [not_null]

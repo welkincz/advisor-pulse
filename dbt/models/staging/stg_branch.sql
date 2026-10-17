@@ -1,6 +1,6 @@
--- One row per branch_id, the latest LAST_UPD_TS, plus district and region codes from
--- reference/org.yaml (PLAN.md §6.6). The seed export is a later issue, so the hierarchy
--- is inlined here. A missing district fails the not_null tests on the joined columns.
+-- One row per branch_id, the latest LAST_UPD_TS, plus district and region from the
+-- org_branch seed (`make seeds` exports reference/org.yaml, PLAN.md §6.6). A missing
+-- district fails the not_null tests on the joined columns.
 with renamed as (
     select
         "BRNCH_ID" as branch_id,
@@ -27,24 +27,13 @@ deduped as (
 ),
 
 org_district as (
-    select *
-    from (
-        values
-        ('GTA', 'GTA', 'ON', 'Ontario'),
-        ('EON', 'Eastern Ontario', 'ON', 'Ontario'),
-        ('SWO', 'Southwestern Ontario', 'ON', 'Ontario'),
-        ('NON', 'Northern Ontario', 'ON', 'Ontario'),
-        ('MTL', 'Greater Montréal', 'QC', 'Quebec'),
-        ('QCE', 'Québec City & East', 'QC', 'Quebec'),
-        ('WQC', 'Western Quebec', 'QC', 'Quebec'),
-        ('BCL', 'BC Lower Mainland', 'WE', 'West'),
-        ('BCI', 'BC Interior & North', 'WE', 'West'),
-        ('ABT', 'Alberta', 'WE', 'West'),
-        ('PRA', 'Prairies (SK/MB)', 'WE', 'West'),
-        ('NSP', 'Nova Scotia & PEI', 'AT', 'Atlantic'),
-        ('NBK', 'New Brunswick', 'AT', 'Atlantic'),
-        ('NFL', 'Newfoundland & Labrador', 'AT', 'Atlantic')
-    ) as district (district_code, district_name, region_code, region_name)
+    select
+        district_code,
+        min(district_name) as district_name,
+        min(region_code) as region_code,
+        min(region_name) as region_name
+    from {{ ref('org_branch') }}
+    group by district_code
 )
 
 select
