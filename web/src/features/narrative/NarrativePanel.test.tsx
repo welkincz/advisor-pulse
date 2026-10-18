@@ -17,10 +17,10 @@ beforeEach(() => {
 })
 afterEach(() => act(() => root.unmount()))
 
-async function render(nodeId: string, fetcher = fixtureFetch()) {
+async function render(nodeId: string, fetcher = fixtureFetch(), week = '2026-W40') {
   await act(async () => root.render(
     <DataProvider data={fixtureData(fetcher)}>
-      <NarrativePanel week="2026-W40" nodeId={nodeId} />
+      <NarrativePanel week={week} nodeId={nodeId} />
     </DataProvider>,
   ))
 }
@@ -59,6 +59,13 @@ it('hides the panel when this node has no narrative', async () => {
   await render('NOPE')
   await until(() => !container.textContent!.includes('Loading weekly narrative'))
   expect(container.querySelector('section')).toBeNull()
+})
+
+it('explains when an older week has no published narrative', async () => {
+  await render('ON', fixtureFetch(), '2026-W37')
+  await until(() => container.textContent!.includes('No narrative was published for 2026-W37'))
+  expect(container.querySelector('section[aria-labelledby="weekly-narrative-title"]')).not.toBeNull()
+  expect(container.textContent).toContain('No narrative was published for 2026-W37')
 })
 
 it('shows a retryable notice when the narrative cannot load', async () => {
