@@ -170,7 +170,7 @@ jobs:
         working-directory: web
         run: pnpm exec lhci collect && pnpm exec lhci assert
 
-      - name: JavaScript gzip budget
+      - name: Per-route JavaScript gzip budget
         id: bundle
         continue-on-error: true
         run: node web/tests/bundle-budget.mjs
