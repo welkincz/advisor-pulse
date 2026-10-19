@@ -8,8 +8,8 @@
 # counts toward this; the workflow checks existing bot comments before
 # running. On-demand "@claude review" comments bypass the cap.
 #
-# Auth: requires ANTHROPIC_API_KEY repo secret.
-# Estimated cost: ~$0.10–$0.50 per review depending on diff size.
+# Auth: requires CLAUDE_CODE_OAUTH_TOKEN repo secret (uses existing
+# Claude subscription; generate with `claude setup-token`).
 #
 # Skips:
 #   - Draft PRs
@@ -87,7 +87,7 @@ jobs:
         if: github.event_name != 'pull_request' || steps.cap.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Review this pull request.
             Follow the instructions in .github/review-prompt.md exactly.
