@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 import pytest
 import yaml
@@ -11,6 +14,7 @@ from pulse.contracts.enums import CheckStatus, StageStatus
 from pulse.contracts.exports import RunLogExport
 from pulse.runner import alert
 from pulse.runner.alert import sync_alert
+from pulse.runner.dag import WEEKLY_STAGES
 
 FIXTURE = Path(__file__).parents[2] / "fixtures" / "exports" / "run_log.json"
 WORKFLOW = Path(__file__).parents[2] / ".github" / "workflows" / "weekly.yml"
@@ -221,3 +225,85 @@ def test_weekly_workflow_wires_force_fail_and_always_alert() -> None:
     assert alert_step["if"] == "always()"
     assert "ALERT_WEBHOOK_URL" in alert_step["env"]
     assert "GITHUB_TOKEN" in alert_step["env"]
+    assert alert_step["run"] == "python src/pulse/runner/alert.py"
+
+
+def test_alert_script_imports_without_project_dependencies() -> None:
+    script = Path(alert.__file__).resolve()
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-S",
+            "-c",
+            "import runpy, sys; runpy.run_path(sys.argv[1], run_name='test')",
+            str(script),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_alert_stage_allowlist_matches_weekly_dag() -> None:
+    assert {stage.name for stage in WEEKLY_STAGES} == alert.STAGE_NAMES
+
+
+def test_github_request_retries_transient_api_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+    monkeypatch.setattr(alert, "sleep", lambda seconds: None)
+
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            pass
+
+        def read(self) -> bytes:
+            return b"{}"
+
+    def flaky(*_: object, **__: object) -> Response:
+        calls.append(1)
+        if len(calls) < 3:
+            raise HTTPError("https://api.github.com", 503, "unavailable", {}, None)
+        return Response()
+
+    monkeypatch.setattr(alert, "urlopen", flaky)
+    alert.RestGitHubIssues("welkincz/advisor-pulse", "test-token")._request("GET", "/issues")
+    assert len(calls) == 3
+
+
+def test_github_request_does_not_retry_nontransient_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    def rejected(*_: object, **__: object) -> None:
+        calls.append(1)
+        raise HTTPError("https://api.github.com", 403, "forbidden", {}, None)
+
+    monkeypatch.setattr(alert, "urlopen", rejected)
+    with pytest.raises(HTTPError):
+        alert.RestGitHubIssues("welkincz/advisor-pulse", "test-token")._request("GET", "/issues")
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "error", [TimeoutError("timeout"), URLError("network"), ValueError("bad URL")]
+)
+def test_optional_webhook_error_is_nonfatal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, error: Exception
+) -> None:
+    github = FakeGitHub()
+    path = tmp_path / "exports" / "run_log.json"
+    path.parent.mkdir()
+    path.write_text(_run_log(failed=True).model_dump_json(), encoding="utf-8")
+    monkeypatch.setattr(alert, "RestGitHubIssues", lambda repository, token: github)
+    monkeypatch.setattr(alert, "_post_webhook", lambda url, payload: (_ for _ in ()).throw(error))
+    monkeypatch.setenv("PULSE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GITHUB_TOKEN", SECRET)
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "welkincz/advisor-pulse")
+    monkeypatch.setenv("GITHUB_RUN_ID", "123")
+    monkeypatch.setenv("ALERT_WEBHOOK_URL", "https://example.test/hook")
+    alert.main()
+    assert github.created == 1

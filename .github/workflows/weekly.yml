@@ -103,4 +103,4 @@ jobs:
           PULSE_JOB_STATUS: ${{ job.status }}
           GITHUB_TOKEN: ${{ github.token }}
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
-        run: uv run python -m pulse.runner.alert
+        run: python src/pulse/runner/alert.py

@@ -8,19 +8,36 @@ import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from random import random
+from time import sleep
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
-from pulse.contracts.enums import CheckStatus, RunType, StageStatus
-from pulse.contracts.exports import RunLogExport, RunSummary, StageAttempt
-from pulse.runner.dag import WEEKLY_STAGES
+if TYPE_CHECKING:
+    from pulse.contracts.exports import RunLogExport, RunSummary, StageAttempt
 
 LABEL = "alert:pipeline"
 TITLE = "[Pipeline alert] Weekly report failed"
 Webhook = Callable[[dict[str, str]], None]
-STAGE_NAMES = frozenset(stage.name for stage in WEEKLY_STAGES)
+# This allowlist keeps arbitrary run-log text out of a public issue. Keep it in
+# sync with the weekly DAG; the test below verifies the names against that DAG.
+STAGE_NAMES = frozenset(
+    {
+        "restore_state",
+        "generate",
+        "ingest",
+        "dbt_build",
+        "checks",
+        "narrate",
+        "export",
+        "publish_sheets",
+        "persist_state",
+        "release_lock",
+    }
+)
 
 
 class GitHubIssues(Protocol):
@@ -52,8 +69,18 @@ class RestGitHubIssues:
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
-        with urlopen(request, timeout=15) as response:
-            contents = response.read()
+        for attempt in range(3):
+            try:
+                with urlopen(request, timeout=15) as response:
+                    contents = response.read()
+                break
+            except HTTPError as exc:
+                if attempt == 2 or exc.code not in {429, 500, 502, 503, 504}:
+                    raise
+            except (URLError, TimeoutError):
+                if attempt == 2:
+                    raise
+            sleep(2**attempt + random())
         return json.loads(contents) if contents else None
 
     def ensure_label(self) -> None:
@@ -95,19 +122,22 @@ def _failed_rows(run: RunSummary | None, *, workflow_failed: bool) -> list[str]:
             if stage.stage not in latest or stage.attempt >= latest[stage.stage].attempt:
                 latest[stage.stage] = stage
         for name, stage in latest.items():
-            if stage.status is StageStatus.FAILED:
+            if stage.status == "FAILED":
                 safe_name = name if name in STAGE_NAMES else "unknown stage"
                 rows.append(f"| Stage | {safe_name} | FAILED |")
         for check in run.checks:
-            if check.status is CheckStatus.FAIL:
-                rows.append(f"| Check | {check.check_id} | FAIL |")
+            if check.status == "FAIL":
+                check_id = (
+                    check.check_id if re.fullmatch(r"DQ\d{3}", check.check_id) else "unknown check"
+                )
+                rows.append(f"| Check | {check_id} | FAIL |")
     if len(rows) == 2 and workflow_failed:
         rows.append("| Workflow | setup or post-run step | FAILED |")
     return rows
 
 
 def _body(run: RunSummary | None, run_url: str, *, workflow_failed: bool) -> str:
-    week = run.iso_week_id if run is not None else "unknown"
+    week = _week(run)
     return "\n".join(
         [
             "## Weekly pipeline failure",
@@ -130,10 +160,10 @@ def sync_alert(
     workflow_failed: bool = False,
 ) -> None:
     """Reflect the latest weekly run in one alert issue. No free-text log fields leave here."""
-    run = next((r for r in log.runs if r.run_type is RunType.WEEKLY), None) if log else None
+    run = next((r for r in log.runs if r.run_type == "WEEKLY"), None) if log else None
     if run is None and not workflow_failed:
         return
-    failed = workflow_failed or (run is not None and run.status is StageStatus.FAILED)
+    failed = workflow_failed or (run is not None and run.status == "FAILED")
     if failed:
         github.ensure_label()
         body = _body(run, run_url, workflow_failed=workflow_failed)
@@ -143,21 +173,21 @@ def sync_alert(
         else:
             github.update_issue(number, body)
         status = "FAILED"
-    elif run is not None and run.status in {StageStatus.SUCCESS, StageStatus.WARN}:
+    elif run is not None and run.status in {"SUCCESS", "WARN"}:
         number = github.open_alert()
         if number is None:
             return
-        status = run.status.value
+        status = str(run.status)
         github.comment_issue(
             number,
-            f"Weekly report {run.iso_week_id} finished {status}. "
+            f"Weekly report {_week(run)} finished {status}. "
             f"[GitHub Actions run]({run_url}). Closing this alert.",
         )
         github.close_issue(number)
     else:
         return
     if webhook is not None:
-        week = run.iso_week_id if run is not None else "unknown"
+        week = _week(run)
         summary = f"Advisor Pulse weekly report {status} for {week}."
         webhook({"status": status, "week": week, "text": summary, "content": summary})
 
@@ -182,6 +212,12 @@ def _run_url() -> str:
     return f"{server}/{repository}/actions/runs/{run_id}"
 
 
+def _week(run: RunSummary | None) -> str:
+    if run is None:
+        return "unknown"
+    return run.iso_week_id if re.fullmatch(r"\d{4}-W\d{2}", run.iso_week_id) else "unknown"
+
+
 def _post_webhook(url: str, payload: dict[str, str]) -> None:
     request = Request(
         url,
@@ -196,7 +232,9 @@ def _post_webhook(url: str, payload: dict[str, str]) -> None:
 def main() -> None:
     path = Path(os.environ.get("PULSE_DATA_DIR", "data")) / "exports" / "run_log.json"
     log = (
-        RunLogExport.model_validate_json(path.read_text(encoding="utf-8"))
+        json.loads(
+            path.read_text(encoding="utf-8"), object_hook=lambda item: SimpleNamespace(**item)
+        )
         if path.exists()
         else None
     )
@@ -208,7 +246,7 @@ def main() -> None:
         if webhook_url:
             try:
                 _post_webhook(webhook_url, payload)
-            except URLError:
+            except Exception:
                 print("Optional alert webhook failed.", file=sys.stderr)
 
     sync_alert(
