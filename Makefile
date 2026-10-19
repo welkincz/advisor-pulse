@@ -33,7 +33,7 @@ help: ## List targets
 setup: ## Install Python, web and dbt dependencies
 	$(UV) sync
 ifneq ($(HAS_WEB),)
-	pnpm -C web install
+	cd web && pnpm install
 endif
 ifneq ($(HAS_DBT),)
 	$(DBT) deps $(DBT_DIRS)
@@ -139,20 +139,20 @@ dbt-docs-static: ## Static dbt docs into web/public/lineage
 
 .PHONY: web-dev
 web-dev: ## Vite dev server on fixtures
-	pnpm -C web dev
+	cd web && pnpm dev
 
 .PHONY: web-check
 web-check: ## Web lint + typecheck + unit tests + build (+ smoke)
-	pnpm -C web types:check
-	pnpm -C web lint
-	pnpm -C web typecheck
-	pnpm -C web test
-	pnpm -C web build
-	pnpm -C web test:smoke
+	cd web && pnpm types:check
+	cd web && pnpm lint
+	cd web && pnpm typecheck
+	cd web && pnpm test
+	cd web && pnpm build
+	cd web && pnpm test:smoke
 
 .PHONY: web-types
 web-types: ## Generate TS types from contracts/schemas
-	pnpm -C web types
+	cd web && pnpm types
 
 .PHONY: clean
 clean: ## Remove local data and build output
