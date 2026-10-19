@@ -146,6 +146,10 @@ def load_defects(data_dir: Path, iso_week_id: str, now: datetime) -> DefectManif
 
 
 def checks(ctx: StageContext, policy_path: Path | None = POLICY_FILE) -> StageResult:
+    if os.environ.get("PULSE_FORCE_FAIL") == "checks":
+        return StageResult(
+            StageStatus.FAILED, message="Checks stage forced to fail for alert test."
+        )
     from pulse.quality.checks import run_checks
 
     con = connect(ctx.data_dir / WAREHOUSE_FILE)

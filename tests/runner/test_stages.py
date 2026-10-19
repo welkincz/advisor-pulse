@@ -153,6 +153,15 @@ def test_checks_and_export_skip_until_marts_exist(tmp_path: Path) -> None:
     assert not stages.export_dir().exists()
 
 
+def test_force_fail_checks_stage_for_alert_drill(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PULSE_FORCE_FAIL", "checks")
+    result = stages.checks(ctx(tmp_path))
+    assert result.status is StageStatus.FAILED
+    assert result.message == "Checks stage forced to fail for alert test."
+
+
 def _org_mart(data_dir: Path) -> None:
     """A minimal mart_org_weekly: enough for run_checks, nothing loaded into raw."""
     con = connect(data_dir / WAREHOUSE_FILE)
