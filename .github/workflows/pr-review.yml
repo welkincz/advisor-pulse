@@ -1,0 +1,88 @@
+# Auto PR review using Claude Code GitHub Action (issue #67).
+#
+# Triggers:
+#   - pull_request opened / reopened / ready_for_review  (automatic)
+#   - issue_comment "@claude review"                     (on-demand re-review)
+#
+# Skips (both triggers): draft PRs and PRs labelled "skip-review".
+#
+# Hard cap: at most 2 automatic reviews per PR. Every summary comment starts
+# with the marker <!-- pulse-review -->, and the gate counts those comments.
+# On-demand "@claude review" comments bypass the cap. The action itself only
+# runs for commenters with write access to the repo.
+#
+# Auth: CLAUDE_CODE_OAUTH_TOKEN repo secret (the owner's Claude subscription;
+# generate with `claude setup-token`). No API billing.
+
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    name: Claude review
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request'
+      || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && contains(github.event.comment.body, '@claude review')
+      )
+
+    steps:
+      - name: Gate (draft, skip-review label, cap)
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.payload.pull_request?.number ?? context.payload.issue.number;
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            let reason = '';
+            if (pr.draft) reason = 'draft PR';
+            else if (pr.labels.some((l) => l.name === 'skip-review')) reason = 'skip-review label';
+            else if (context.eventName === 'pull_request') {
+              const comments = await github.paginate(github.rest.issues.listComments,
+                { owner, repo, issue_number: number });
+              const reviews = comments.filter((c) => c.body.startsWith('<!-- pulse-review -->')).length;
+              core.info(`Automatic reviews so far: ${reviews}`);
+              if (reviews >= 2) reason = 'cap of 2 automatic reviews reached';
+            }
+            if (reason) core.notice(`Skipping review: ${reason}`);
+            core.setOutput('run', reason ? 'false' : 'true');
+
+      - name: Checkout
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code review
+        if: steps.gate.outputs.run == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: "@claude"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            Review this pull request. Follow .github/review-prompt.md exactly.
+            Post the summary with `gh pr comment`; its body must start with the
+            line <!-- pulse-review -->. Use
+            mcp__github_inline_comment__create_inline_comment for concrete
+            defects only. Never approve, merge, or push commits.
+          claude_args: |
+            --max-turns 20
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Read,Glob,Grep"
