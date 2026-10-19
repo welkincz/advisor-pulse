@@ -8,6 +8,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from pulse.calendar import week_factor
 from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import CheckStatus, LoadStatus, RunType, StageStatus
 from pulse.contracts.meta import LoadManifest, RejectedRow
@@ -46,6 +47,11 @@ def test_freshness_uses_toronto_business_date(warehouse: duckdb.DuckDBPyConnecti
     assert meta.get_check_results(warehouse, "timezone")[0].status is CheckStatus.FAIL
 
 
+def _expected(week: int) -> int:
+    """A steady 1,330 a week, scaled by the calendar (W37 Labour Day, W40 Sept 30)."""
+    return round(1330 * week_factor(f"2026-W{week:02d}"))
+
+
 def test_volume_requires_eight_calendar_weeks(warehouse: duckdb.DuckDBPyConnection) -> None:
     source = warehouse.execute(
         "SELECT * FROM marts.mart_org_weekly "
@@ -54,14 +60,19 @@ def test_volume_requires_eight_calendar_weeks(warehouse: duckdb.DuckDBPyConnecti
     assert source is not None
     warehouse.execute("DELETE FROM marts.mart_org_weekly WHERE level = 'NATIONAL'")
     for week in [31, 32, 33, 34, 36, 37, 38, 39, 40]:
-        row = (f"2026-W{week:02d}", *source[1:6], 5000 if week == 31 else 133, *source[7:])
+        row = (
+            f"2026-W{week:02d}",
+            *source[1:6],
+            5000 if week == 31 else _expected(week),
+            *source[7:],
+        )
         warehouse.execute(
             "INSERT INTO marts.mart_org_weekly VALUES (" + ", ".join("?" * len(row)) + ")", row
         )
     defects = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
     run_checks(warehouse, run_id="gap", iso_week_id="2026-W40", defect_manifest=defects)
     assert meta.get_check_results(warehouse, "gap")[1].status is CheckStatus.WARN
-    row = ("2026-W35", *source[1:6], 133, *source[7:])
+    row = ("2026-W35", *source[1:6], _expected(35), *source[7:])
     warehouse.execute(
         "INSERT INTO marts.mart_org_weekly VALUES (" + ", ".join("?" * len(row)) + ")", row
     )
@@ -235,3 +246,25 @@ def test_failed_check_persists_results_and_blocks_export(
     checks = meta.get_check_results(warehouse, "next-run")
     assert [check.check_id for check in checks] == ["DQ030", "DQ031", "DQ032", "DQ033"]
     assert checks[0].status is CheckStatus.FAIL
+
+
+def test_volume_holds_holiday_weeks_to_a_holiday_expectation(
+    warehouse: duckdb.DuckDBPyConnection,
+) -> None:
+    """2026-W37 has Labour Day: raw volume drops ~7% but matches its calendar, so it passes."""
+    source = warehouse.execute(
+        "SELECT * FROM marts.mart_org_weekly "
+        "WHERE level = 'NATIONAL' AND node_id = 'CA' AND iso_week_id = '2026-W37'"
+    ).fetchone()
+    assert source is not None
+    warehouse.execute("DELETE FROM marts.mart_org_weekly WHERE level = 'NATIONAL'")
+    for week, count in [(w, 12500 + (w % 3) * 40) for w in range(29, 37)] + [(37, 11650)]:
+        row = (f"2026-W{week:02d}", *source[1:6], count, *source[7:])
+        warehouse.execute(
+            "INSERT INTO marts.mart_org_weekly VALUES (" + ", ".join("?" * len(row)) + ")", row
+        )
+    defects = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
+    run_checks(warehouse, run_id="holiday", iso_week_id="2026-W37", defect_manifest=defects)
+    dq031 = meta.get_check_results(warehouse, "holiday")[1]
+    assert dq031.status is CheckStatus.PASS, dq031.message
+    assert "calendar factor" in dq031.message

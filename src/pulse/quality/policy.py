@@ -18,6 +18,7 @@ class CheckPolicy:
     freshness_lag_days: int = 2
     volume_sigma: float = 3.0
     volume_fail_fraction: float = 0.5
+    volume_min_fraction: float = 0.05
     quarantine_max_rate: float = 0.02
     dq030_action: CheckSeverity = CheckSeverity.FAIL
     dq031_warn_action: CheckSeverity = CheckSeverity.WARN
@@ -27,13 +28,20 @@ class CheckPolicy:
     dq033_ci_action: CheckSeverity = CheckSeverity.FAIL
 
     def __post_init__(self) -> None:
-        thresholds = (self.volume_sigma, self.volume_fail_fraction, self.quarantine_max_rate)
+        thresholds = (
+            self.volume_sigma,
+            self.volume_fail_fraction,
+            self.volume_min_fraction,
+            self.quarantine_max_rate,
+        )
         if not all(math.isfinite(value) for value in thresholds):
             raise ValueError("quality thresholds must be finite")
         if self.freshness_lag_days < 0 or self.volume_sigma <= 0:
             raise ValueError("freshness lag must be nonnegative and volume sigma positive")
         if not 0 < self.volume_fail_fraction <= 1 or not 0 < self.quarantine_max_rate <= 1:
             raise ValueError("quality fractions must be in (0, 1]")
+        if not 0 <= self.volume_min_fraction < self.volume_fail_fraction:
+            raise ValueError("volume_min_fraction must be in [0, volume_fail_fraction)")
 
     @classmethod
     def from_toml(cls, path: Path | None) -> CheckPolicy:
@@ -65,6 +73,7 @@ class CheckPolicy:
             freshness_lag_days=lag,
             volume_sigma=number("volume_sigma", defaults.volume_sigma),
             volume_fail_fraction=number("volume_fail_fraction", defaults.volume_fail_fraction),
+            volume_min_fraction=number("volume_min_fraction", defaults.volume_min_fraction),
             quarantine_max_rate=number("quarantine_max_rate", defaults.quarantine_max_rate),
             dq030_action=action("dq030_action"),
             dq031_warn_action=action("dq031_warn_action"),
@@ -114,8 +123,21 @@ def freshness(
 
 
 def volume(
-    run_id: str, current: int | None, history: list[int], policy: CheckPolicy
+    run_id: str,
+    current: int | None,
+    history: list[int],
+    policy: CheckPolicy,
+    *,
+    current_factor: float = 1.0,
+    history_factors: list[float] | None = None,
 ) -> CheckResult:
+    """Compare this week's volume with the trailing 8 weeks, calendar-adjusted.
+
+    Each week is divided by its expected-volume factor (``pulse.calendar.week_factor``), so a
+    holiday week is held to a holiday expectation. WARN needs both more than ``volume_sigma``
+    σ and more than ``volume_min_fraction`` relative change: with a steady baseline, σ alone
+    flags 3% wobbles. FAIL is beyond ``volume_fail_fraction`` of the adjusted mean.
+    """
     if current is None:
         return _result(
             run_id,
@@ -136,25 +158,31 @@ def volume(
             "8 prior weeks",
             f"Only {len(history)} prior weeks; baseline pending",
         )
-    baseline = history[:8]
+    factors = (history_factors or [1.0] * len(history))[:8]
+    if len(factors) < 8 or min(factors) <= 0 or current_factor <= 0:
+        raise ValueError("volume factors must be positive, one per baseline week")
+    baseline = [count / factor for count, factor in zip(history[:8], factors, strict=True)]
     mean = statistics.mean(baseline)
     sigma = statistics.pstdev(baseline)
-    deviation = abs(current - mean)
-    fraction = deviation / mean if mean else (0.0 if current == 0 else float("inf"))
+    adjusted = current / current_factor
+    deviation = abs(adjusted - mean)
+    fraction = deviation / mean if mean else (0.0 if adjusted == 0 else float("inf"))
     if fraction > policy.volume_fail_fraction:
         action, failed = policy.dq031_fail_action, True
     else:
         action = policy.dq031_warn_action
-        failed = deviation > policy.volume_sigma * sigma
+        failed = deviation > policy.volume_sigma * sigma and fraction > policy.volume_min_fraction
+    calendar = f" (calendar factor {current_factor:.3f})" if current_factor != 1.0 else ""
     return _result(
         run_id,
         "DQ031",
         action,
         failed,
         float(current),
-        f"within {policy.volume_sigma:g}σ of {mean:g}; "
+        f"within {policy.volume_sigma:g}σ or {policy.volume_min_fraction:.0%} of {mean:.0f}; "
         f"fail beyond {policy.volume_fail_fraction:.0%}",
-        f"Current {current}; trailing mean {mean:g}, σ {sigma:g}",
+        f"Current {current}{calendar}, adjusted {adjusted:.0f}; "
+        f"trailing mean {mean:.0f}, σ {sigma:.0f}, change {fraction:.1%}",
     )
 
 

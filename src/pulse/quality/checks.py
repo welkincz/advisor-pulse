@@ -8,6 +8,7 @@ from pathlib import Path
 
 import duckdb
 
+from pulse.calendar import week_factor
 from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import CheckStatus, LoadStatus, StageStatus
 from pulse.ingest import meta
@@ -70,7 +71,9 @@ def run_checks(
     loaded = [entry for entry in meta.get_manifest(warehouse) if entry.status is LoadStatus.LOADED]
     first_week = first_reported_week([entry.file_path for entry in loaded]) or ""
     current = next((int(count) for week_id, count in national if week_id == iso_week_id), None)
-    history = [int(count) for week_id, count in national if first_week <= week_id < iso_week_id][:8]
+    prior = [(w, int(count)) for w, count in national if first_week <= w < iso_week_id][:8]
+    history = [count for _, count in prior]
+    history_factors = [week_factor(w) for w, _ in prior]
     batches = [entry for entry in loaded if entry.run_id == run_id]
     rows_in = sum(entry.row_count for entry in batches)
     quarantined = sum(entry.rows_quarantined for entry in batches)
@@ -102,7 +105,14 @@ def run_checks(
     }
     checks = [
         freshness(run_id, iso_week_id, latest, policy),
-        volume(run_id, current, history, policy),
+        volume(
+            run_id,
+            current,
+            history,
+            policy,
+            current_factor=week_factor(iso_week_id),
+            history_factors=history_factors,
+        ),
         quarantine_rate(run_id, quarantined, rows_in, policy),
         defect_reconciliation(run_id, expected, actual, policy, ci=ci),
     ]

@@ -75,7 +75,7 @@ This table covers a 104-week backfill plus two weekly runs:
 
 - **Reconciliation:** DQ033 passed in all 106 runs, with nothing missing and nothing unexpected.
 - **Quarantine:** the three quarantine defects add up to 5,906 rows, exactly the size of the quarantine table.
-- **Volume:** the volume check warned on 24 weeks and failed on none. Eight of those were weeks without enough history yet. Ten were statutory-holiday weeks, which the check doesn't know about yet, so that rule is due for a holiday-aware baseline.
+- **Volume:** the volume check warned on 24 weeks and failed on none. Eight of those were weeks without enough history yet. Ten were statutory-holiday weeks and six were dips of 3–5% on a very steady baseline. The check now compares each week with a business-calendar expectation and ignores changes under 5%, which takes those 16 warnings to zero.
 
 The full numbers are in [baseline.md](https://github.com/welkincz/advisor-pulse/blob/main/docs/baseline.md).
 
