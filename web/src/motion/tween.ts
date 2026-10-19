@@ -20,8 +20,10 @@ export const standardEase = cubicBezier(0.2, 0, 0, 1)
 /** Tween from `from` to `to` on animation frames; returns a stop function. */
 export function tween(from: number, to: number, duration: number, onFrame: (value: number) => void): () => void {
   let frame = 0
-  const start = performance.now()
+  let start: number | null = null
+  // Time from the first frame's own timestamp, so progress never starts below 0.
   const step = (now: number) => {
+    start ??= now
     const progress = Math.min(1, (now - start) / duration)
     onFrame(from + (to - from) * standardEase(progress))
     if (progress < 1) frame = requestAnimationFrame(step)
