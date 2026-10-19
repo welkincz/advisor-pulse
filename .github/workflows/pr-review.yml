@@ -1,19 +1,18 @@
 # Auto PR review using Claude Code GitHub Action (issue #67).
 #
 # Triggers:
-#   - pull_request opened / ready_for_review  (automatic, skips drafts)
-#   - issue_comment "@claude review"           (on-demand re-review)
+#   - pull_request opened / reopened / ready_for_review  (automatic)
+#   - issue_comment "@claude review"                     (on-demand re-review)
 #
-# Hard cap: at most 2 automatic reviews per PR. The action's own comment
-# counts toward this; the workflow checks existing bot comments before
-# running. On-demand "@claude review" comments bypass the cap.
+# Skips (both triggers): draft PRs and PRs labelled "skip-review".
 #
-# Auth: requires CLAUDE_CODE_OAUTH_TOKEN repo secret (uses existing
-# Claude subscription; generate with `claude setup-token`).
+# Hard cap: at most 2 automatic reviews per PR. Every summary comment starts
+# with the marker <!-- pulse-review -->, and the gate counts those comments.
+# On-demand "@claude review" comments bypass the cap. The action itself only
+# runs for commenters with write access to the repo.
 #
-# Skips:
-#   - Draft PRs
-#   - PRs labelled "skip-review"
+# Auth: CLAUDE_CODE_OAUTH_TOKEN repo secret (the owner's Claude subscription;
+# generate with `claude setup-token`). No API billing.
 
 name: PR Review
 
@@ -33,17 +32,8 @@ jobs:
   review:
     name: Claude review
     runs-on: ubuntu-latest
-
-    # ----- gate logic -----
-    # Case 1 (pull_request): run unless draft or skip-review label.
-    # Case 2 (issue_comment): run only when comment is on a PR and
-    #         contains "@claude review".
     if: >-
-      (
-        github.event_name == 'pull_request'
-        && github.event.pull_request.draft == false
-        && !contains(github.event.pull_request.labels.*.name, 'skip-review')
-      )
+      github.event_name == 'pull_request'
       || (
         github.event_name == 'issue_comment'
         && github.event.issue.pull_request
@@ -51,47 +41,48 @@ jobs:
       )
 
     steps:
-      # ── Cap check (automatic reviews only) ──
-      # Skip if Claude has already posted 2+ review comments on this PR.
-      # On-demand "@claude review" bypasses the cap.
-      - name: Check review cap
-        if: github.event_name == 'pull_request'
-        id: cap
+      - name: Gate (draft, skip-review label, cap)
+        id: gate
         uses: actions/github-script@v7
         with:
           script: |
-            const prNumber = context.payload.pull_request.number;
-            const comments = await github.paginate(
-              github.rest.issues.listComments,
-              { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber }
-            );
-            const botComments = comments.filter(
-              c => c.user.type === 'Bot' && c.body.includes('## PR Review')
-            );
-            const count = botComments.length;
-            console.log(`Claude review comments found: ${count}`);
-            core.setOutput('skip', count >= 2 ? 'true' : 'false');
+            const number = context.payload.pull_request?.number ?? context.payload.issue.number;
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            let reason = '';
+            if (pr.draft) reason = 'draft PR';
+            else if (pr.labels.some((l) => l.name === 'skip-review')) reason = 'skip-review label';
+            else if (context.eventName === 'pull_request') {
+              const comments = await github.paginate(github.rest.issues.listComments,
+                { owner, repo, issue_number: number });
+              const reviews = comments.filter((c) => c.body.startsWith('<!-- pulse-review -->')).length;
+              core.info(`Automatic reviews so far: ${reviews}`);
+              if (reviews >= 2) reason = 'cap of 2 automatic reviews reached';
+            }
+            if (reason) core.notice(`Skipping review: ${reason}`);
+            core.setOutput('run', reason ? 'false' : 'true');
 
-      - name: Skip if cap reached
-        if: github.event_name == 'pull_request' && steps.cap.outputs.skip == 'true'
-        run: |
-          echo "::notice::Hard cap of 2 automatic reviews reached — skipping."
-          exit 0
-
-      # ── Checkout & review ──
       - name: Checkout
-        if: github.event_name != 'pull_request' || steps.cap.outputs.skip != 'true'
+        if: steps.gate.outputs.run == 'true'
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Run Claude Code review
-        if: github.event_name != 'pull_request' || steps.cap.outputs.skip != 'true'
+        if: steps.gate.outputs.run == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            Review this pull request.
-            Follow the instructions in .github/review-prompt.md exactly.
-            Post one summary review comment. Add inline comments only for
-            concrete defects. Never approve, merge, or push commits.
           trigger_phrase: "@claude"
-          claude_args: "--max-turns 5"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            Review this pull request. Follow .github/review-prompt.md exactly.
+            Post the summary with `gh pr comment`; its body must start with the
+            line <!-- pulse-review -->. Use
+            mcp__github_inline_comment__create_inline_comment for concrete
+            defects only. Never approve, merge, or push commits.
+          claude_args: |
+            --max-turns 20
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Read,Glob,Grep"

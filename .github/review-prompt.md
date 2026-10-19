@@ -18,7 +18,7 @@ Read `AGENTS.md` (especially §9) and the linked issue before starting.
 
 ## Output format
 
-- Post **one summary review comment** with an overall assessment (looks good / needs changes) and a numbered list of findings.
-- Add **inline comments** only for concrete defects (bugs, missing error handling, contract mismatches, test gaps). Do not litter the diff with style nits.
+- Post **one summary comment** with `gh pr comment`. Its first line must be exactly `<!-- pulse-review -->` (the workflow counts these to enforce the cap). Then give an overall assessment (looks good / needs changes) and a numbered list of findings, each marked must-fix or nit.
+- Add **inline comments** (with `mcp__github_inline_comment__create_inline_comment`) only for concrete defects (bugs, missing error handling, contract mismatches, test gaps). Do not litter the diff with style nits.
 - **Never approve, merge, request changes, or push commits.** Comment only. Charlie decides when to merge.
 - Keep the tone constructive. If everything looks good, say so briefly.
