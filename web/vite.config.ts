@@ -7,6 +7,8 @@ const fixtures = resolve(process.env.PULSE_FIXTURES_DIR ?? resolve(import.meta.d
 
 export default defineConfig({
   test: { include: ['src/**/*.test.{ts,tsx}'], testTimeout: 20_000 },
+  // The case study page imports docs/case-study.md, which sits outside web/.
+  server: { fs: { allow: ['..'] } },
   plugins: [
     react(),
     {
