@@ -18,9 +18,9 @@ const manifest = JSON.parse(readFileSync(join(FIXTURES, 'manifest.json'), 'utf8'
 const runLog = JSON.parse(readFileSync(join(FIXTURES, 'run_log.json'), 'utf8')) as RunLog
 
 /** The fixture log plus a newer run for the next week with the given status. */
-function withNewestRun(status: string): RunLog {
+function withNewestRun(status: string, run_type = 'WEEKLY', started_at = '2026-10-12T11:00:00Z'): RunLog {
   const [latest] = runLog.runs
-  const next = { ...latest, run_id: 'weekly-2026-W41-1', iso_week_id: '2026-W41', status, started_at: '2026-10-12T11:00:00Z', ended_at: '2026-10-12T11:02:00Z' }
+  const next = { ...latest, run_id: `${run_type.toLowerCase()}-2026-W41-1`, run_type, iso_week_id: '2026-W41', status, started_at, ended_at: started_at }
   return { ...runLog, runs: [next, ...runLog.runs].slice(0, 12) } as RunLog
 }
 
@@ -66,4 +66,16 @@ it('picks the newest run by start time, not by its position in the file', () => 
   const reversed = { ...log, runs: [...log.runs].reverse() } as RunLog
   expect(failedLatestRun(reversed)?.iso_week_id).toBe('2026-W41')
   expect(failedLatestRun(runLog)).toBeNull()
+})
+
+it('ignores backfill and manual runs: only the newest weekly run decides', () => {
+  expect(failedLatestRun(withNewestRun('FAILED', 'BACKFILL'))).toBeNull()
+  const weeklyFailed = withNewestRun('FAILED')
+  const thenManualOk = { ...weeklyFailed, runs: [{ ...weeklyFailed.runs[0], run_type: 'MANUAL', status: 'SUCCESS', started_at: '2026-10-13T09:00:00Z' }, ...weeklyFailed.runs] } as RunLog
+  expect(failedLatestRun(thenManualOk)?.iso_week_id).toBe('2026-W41')
+})
+
+it('orders by instant, so a timestamp with an offset still sorts correctly', () => {
+  const log = withNewestRun('FAILED', 'WEEKLY', '2026-10-12T07:00:00-04:00')
+  expect(failedLatestRun({ ...log, runs: [...log.runs].reverse() } as RunLog)?.iso_week_id).toBe('2026-W41')
 })

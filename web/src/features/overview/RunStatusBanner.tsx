@@ -4,10 +4,13 @@ import type { Manifest } from '../../data/generated/manifest'
 import type { RunLog, RunSummary } from '../../data/generated/run_log'
 import './overview.css'
 
-/** The newest run in the log when it FAILED, else null. Runs are ordered by start time, not file order. */
+/**
+ * The newest WEEKLY run in the log when it FAILED, else null. Backfill and manual runs are left
+ * out: the banner speaks about the weekly report. Runs are ordered by start time, not file order.
+ */
 export function failedLatestRun(runLog: RunLog): RunSummary | null {
-  const runs: RunSummary[] = [...runLog.runs]
-  const latest = runs.sort((a, b) => b.started_at.localeCompare(a.started_at))[0]
+  const weekly = runLog.runs.filter((run) => run.run_type === 'WEEKLY')
+  const latest = weekly.sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at))[0]
   return latest?.status === 'FAILED' ? latest : null
 }
 
