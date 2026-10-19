@@ -359,7 +359,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 | dq_weekly.parquet | mart_dq_weekly |
 | run_log.json | Last 12 runs: stage timeline and check results |
 | pipeline_graph.json | Nodes and edges for React Flow (from runner DAG + dbt manifest) |
-| narratives/YYYY-Www.json | Per node: `headline`, `bullets[]`, `facts_used[]`, `model`, `prompt_version`, `validated`, `fallback` |
+| narratives/YYYY-Www.json | Latest 26 calendar weeks only; per node: `headline`, `bullets[]`, `facts_used[]`, `model`, `prompt_version`, `validated`, `fallback`. Older local narratives remain unpublished. |
 
 Size budget: total ≤ 20 MB; any single file ≤ 10 MB (Pages limit is 25 MiB per file).
 

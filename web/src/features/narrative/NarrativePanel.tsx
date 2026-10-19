@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Section } from '../../components/primitives/Section'
-import { DataNotice, KPI_LABELS, formatKpi, formatWow, useNarrative } from '../../data'
+import { DataNotice, KPI_LABELS, formatKpi, formatWow, useManifest, useNarrative } from '../../data'
 import type { NarrativeFact } from '../../data/generated/narrative'
 import './narrative.css'
 
@@ -30,8 +30,9 @@ function CitedFacts({ ids, facts }: { ids: readonly string[]; facts: readonly Na
   </details>
 }
 
-/** A narrative for the selected node and reporting week; absent nodes leave no empty shell. */
+/** A narrative for the selected node and reporting week. */
 export function NarrativePanel({ week, nodeId }: { week: string; nodeId: string }) {
+  const manifest = useManifest()
   const result = useNarrative(week, nodeId)
   const appeared = useRef(false)
   const [firstView, setFirstView] = useState(true)
@@ -41,7 +42,15 @@ export function NarrativePanel({ week, nodeId }: { week: string; nodeId: string 
   }, [result.status])
   if (result.status === 'loading') return <p aria-busy="true">Loading weekly narrative…</p>
   if (result.status === 'error') return <DataNotice what="the weekly narrative" onRetry={result.retry} />
-  if (result.status === 'empty') return null
+  if (result.status === 'empty') {
+    const published = manifest.status === 'ready' && manifest.data.files.some(
+      (file) => file.name === `narratives/${week}.json`,
+    )
+    if (manifest.status !== 'ready' || published) return null
+    return <Section id="weekly-narrative" title="Weekly interpretation" lede={`Week ${week}`}>
+      <p>No narrative was published for {week}. The weekly figures remain available above.</p>
+    </Section>
+  }
 
   const narrative = result.data
   return <Section id="weekly-narrative" title="Weekly interpretation" lede={`Week ${week}`} revealOrder={firstView ? 1 : undefined}>

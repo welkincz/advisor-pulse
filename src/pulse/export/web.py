@@ -34,6 +34,7 @@ from pulse.export.publish import (
 )
 
 ROW_GROUP_SIZE = 8_192
+NARRATIVE_WINDOW_WEEKS = 26
 
 _ORDER = {
     "org_weekly": "iso_week_id, level, node_id",
@@ -66,9 +67,10 @@ def _mart_rows(
     return [model.model_validate(dict(zip(columns, row, strict=True))) for row in cursor.fetchall()]
 
 
-def _write_json(path: Path, document: Contract) -> None:
+def _write_json(path: Path, document: Contract, *, compact: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(document.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    contents = document.model_dump_json(indent=None if compact else 2)
+    path.write_text(contents + "\n", encoding="utf-8")
 
 
 def _entry(root: Path, name: str, rows: int | None) -> ExportFile:
@@ -141,6 +143,10 @@ def export_web(
             raise ValueError("mart_org_weekly contains no reporting weeks")
         latest = weeks[-1]
         latest_monday = date.fromisocalendar(int(latest[:4]), int(latest[6:]), 1)
+        narrative_monday = latest_monday - timedelta(weeks=NARRATIVE_WINDOW_WEEKS - 1)
+        narrative_first = (
+            f"{narrative_monday.isocalendar().year}-W{narrative_monday.isocalendar().week:02d}"
+        )
         tables = {"org_weekly": org_rows}
         for model in EXPORT_TABLE_CONTRACTS:
             if model is OrgWeekly:
@@ -182,8 +188,10 @@ def export_web(
         for week, narrative in sorted(narratives.items()):
             if week != narrative.iso_week_id or "/" in week or ".." in week:
                 raise ValueError(f"Narrative week does not match key: {week}")
+            if not narrative_first <= week <= latest:
+                continue
             name = f"narratives/{week}.json"
-            _write_json(staging / name, narrative)
+            _write_json(staging / name, narrative, compact=True)
             files.append(_entry(staging, name, None))
 
         manifest = Manifest(
