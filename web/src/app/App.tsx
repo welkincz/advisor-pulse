@@ -7,6 +7,7 @@ import { useReducedMotion } from './useReducedMotion'
 // React Flow loads only with the pipeline page.
 const PipelinePage = lazy(() => import('../features/pipeline/PipelinePage').then((m) => ({ default: m.PipelinePage })))
 const MapPage = lazy(() => import('../features/map/MapPage').then((m) => ({ default: m.MapPage })))
+const CaseStudyPage = lazy(() => import('../features/case-study/CaseStudyPage').then((m) => ({ default: m.CaseStudyPage })))
 const QualityPage = lazy(() => import('../features/quality/QualityPage').then((m) => ({ default: m.QualityPage })))
 // Dev-only reference page for the design system; tree-shaken out of production builds.
 const KitchenSink = import.meta.env.DEV ? lazy(() => import('../components/primitives/KitchenSink')) : null
@@ -34,7 +35,7 @@ function Shell() {
       <Route path="/map" element={<Suspense fallback={<main aria-busy="true" />}><MapPage /></Suspense>} />
       <Route path="/pipeline" element={<Suspense fallback={<main aria-busy="true" />}><PipelinePage /></Suspense>} />
       <Route path="/quality" element={<Suspense fallback={<main aria-busy="true" />}><QualityPage /></Suspense>} />
-      <Route path="/case-study" element={<Page title="Case study" />} />
+      <Route path="/case-study" element={<Suspense fallback={<main aria-busy="true" />}><CaseStudyPage /></Suspense>} />
       {KitchenSink && <Route path="/_kitchen-sink" element={<Suspense fallback={null}><KitchenSink /></Suspense>} />}
       <Route path="*" element={<Page title="Page not found" />} />
     </Routes>
