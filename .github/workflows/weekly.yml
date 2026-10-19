@@ -4,9 +4,15 @@ on:
   schedule:
     - cron: '0 11 * * 1'
   workflow_dispatch:
+    inputs:
+      force_fail:
+        description: Force the checks stage to fail for an alert drill
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: weekly
@@ -58,6 +64,7 @@ jobs:
 
       - name: Run last complete week
         env:
+          PULSE_FORCE_FAIL: ${{ inputs.force_fail && 'checks' || '' }}
           PULSE_DATA_DIR: data
           PULSE_NARRATIVE_BACKEND: claude-code
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -88,3 +95,12 @@ jobs:
             web/dist/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Sync pipeline alert issue
+        if: always()
+        env:
+          PULSE_DATA_DIR: data
+          PULSE_JOB_STATUS: ${{ job.status }}
+          GITHUB_TOKEN: ${{ github.token }}
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: uv run python -m pulse.runner.alert
