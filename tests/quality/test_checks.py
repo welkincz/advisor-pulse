@@ -14,7 +14,7 @@ from pulse.contracts.meta import LoadManifest, RejectedRow
 from pulse.ingest import meta
 from pulse.ingest.snowflake import load_snowflake_activity
 from pulse.ingest.teradata_client import load_teradata_client
-from pulse.quality.checks import run_checks
+from pulse.quality.checks import first_reported_week, run_checks
 from pulse.runner.run import Runner
 from pulse.runner.stage import Stage, StageContext, StageResult
 from pulse.warehouse import connect, init_warehouse
@@ -67,6 +67,55 @@ def test_volume_requires_eight_calendar_weeks(warehouse: duckdb.DuckDBPyConnecti
     )
     run_checks(warehouse, run_id="complete", iso_week_id="2026-W40", defect_manifest=defects)
     assert meta.get_check_results(warehouse, "complete")[1].status is CheckStatus.PASS
+
+
+def test_volume_baseline_skips_partial_weeks_before_the_first_extract(
+    warehouse: duckdb.DuckDBPyConnection,
+) -> None:
+    """A history that starts at W33 carries late rows back into W30–W32. Those weeks are
+    partial: counted in the baseline, they drag the mean down and fail W40."""
+    source = warehouse.execute(
+        "SELECT * FROM marts.mart_org_weekly "
+        "WHERE level = 'NATIONAL' AND node_id = 'CA' AND iso_week_id = '2026-W37'"
+    ).fetchone()
+    assert source is not None
+    warehouse.execute("DELETE FROM marts.mart_org_weekly WHERE level = 'NATIONAL'")
+    for week in range(30, 41):
+        row = (f"2026-W{week:02d}", *source[1:6], 20 if week < 33 else 1700, *source[7:])
+        warehouse.execute(
+            "INSERT INTO marts.mart_org_weekly VALUES (" + ", ".join("?" * len(row)) + ")", row
+        )
+    meta.record_manifest(
+        warehouse,
+        LoadManifest(
+            file_path="snowflake/activity/extract_date=2026-08-16/part-000.parquet",
+            file_sha256="0" * 64,
+            source="snowflake",
+            table_name="activity",
+            batch_id="first-batch",
+            row_count=1700,
+            rows_loaded=1700,
+            rows_quarantined=0,
+            status=LoadStatus.LOADED,
+            loaded_at=datetime(2026, 8, 17, tzinfo=UTC),
+            run_id="backfill-2026-W33-1",
+        ),
+    )
+    defects = DefectManifest.model_validate_json((FIXTURES / "defects.json").read_text())
+    run_checks(warehouse, run_id="partial", iso_week_id="2026-W40", defect_manifest=defects)
+    dq031 = meta.get_check_results(warehouse, "partial")[1]
+    assert dq031.status is CheckStatus.WARN
+    assert dq031.message == "Only 7 prior weeks; baseline pending"
+
+
+def test_first_reported_week_reads_the_earliest_activity_extract() -> None:
+    files = [
+        "teradata/client_20260801.csv",
+        "snowflake/activity/extract_date=2026-08-23/part-000.parquet",
+        "snowflake/activity/extract_date=2026-08-16/part-001.parquet",
+    ]
+    assert first_reported_week(files) == "2026-W33"
+    assert first_reported_week(files[:1]) is None
 
 
 def test_defect_reconciliation_uses_prior_loaded_batch_on_rerun(

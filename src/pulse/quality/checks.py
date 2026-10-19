@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -19,6 +20,21 @@ from pulse.quality.policy import (
 )
 from pulse.runner.stage import StageResult
 from pulse.warehouse import transaction
+
+EXTRACT_DATE = re.compile(r"extract_date=(\d{4}-\d{2}-\d{2})")
+
+
+def first_reported_week(files: list[str]) -> str | None:
+    """ISO week of the earliest activity extract loaded, or None if none is.
+
+    Weeks before it hold only late rows that the first extract carried back (1–3 weeks),
+    so they are partial and must not enter the DQ031 baseline.
+    """
+    dates = sorted(m.group(1) for path in files if (m := EXTRACT_DATE.search(path)))
+    if not dates:
+        return None
+    first = date.fromisoformat(dates[0]).isocalendar()
+    return f"{first.year}-W{first.week:02d}"
 
 
 def run_checks(
@@ -51,9 +67,10 @@ def run_checks(
         "AND iso_week_id BETWEEN ? AND ? ORDER BY iso_week_id DESC",
         [baseline_week, iso_week_id],
     ).fetchall()
-    current = next((int(count) for week_id, count in national if week_id == iso_week_id), None)
-    history = [int(count) for week_id, count in national if week_id < iso_week_id][:8]
     loaded = [entry for entry in meta.get_manifest(warehouse) if entry.status is LoadStatus.LOADED]
+    first_week = first_reported_week([entry.file_path for entry in loaded]) or ""
+    current = next((int(count) for week_id, count in national if week_id == iso_week_id), None)
+    history = [int(count) for week_id, count in national if first_week <= week_id < iso_week_id][:8]
     batches = [entry for entry in loaded if entry.run_id == run_id]
     rows_in = sum(entry.row_count for entry in batches)
     quarantined = sum(entry.rows_quarantined for entry in batches)
