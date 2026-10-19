@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
@@ -30,4 +31,26 @@ test('overview trend reads fixture weeks and marks an anomaly in dark reduced-mo
   await page.getByText('Show the numbers').click()
   await expect(page.locator('.figure-table tbody tr')).toHaveCount(4)
   await expect(page.locator('html')).toHaveAttribute('data-motion', 'reduced')
+})
+
+test('a failed newest run shows a banner above the previous week\'s KPIs', async ({ page }) => {
+  const runLog = JSON.parse(readFileSync(resolve(exportsDir, 'run_log.json'), 'utf8'))
+  const failed = { ...runLog.runs[0], run_id: 'weekly-2026-W41-1', iso_week_id: '2026-W41', status: 'FAILED', started_at: '2026-10-12T11:00:00Z' }
+  await page.route('http://127.0.0.1:43719/data/run_log.json', (route) =>
+    route.fulfill({ json: { ...runLog, runs: [failed, ...runLog.runs].slice(0, 12) } }))
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/')
+  const banner = page.locator('.run-status-banner')
+  await expect(banner).toContainText('The last weekly run failed.')
+  await expect(banner).toContainText('still shows the 2026-W40 report')
+  await expect(page.locator('[data-kpi]')).toHaveCount(12)
+  await banner.getByRole('link', { name: 'See which stage failed' }).focus()
+  await expect(banner.getByRole('link')).toBeFocused()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+})
+
+test('a warn newest run shows no failure banner', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-kpi]')).toHaveCount(12)
+  await expect(page.locator('.run-status-banner')).toHaveCount(0)
 })
