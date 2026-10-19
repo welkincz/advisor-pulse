@@ -13,6 +13,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from pulse.business_calendar import WEEKDAY_WEIGHTS, holiday_factor, seasonal_factor
 from pulse.contracts import arrow_schema
 from pulse.contracts.enums import (
     ActivityStatus,
@@ -40,17 +41,6 @@ def _week_start(iso_week_id: str) -> date:
         return date.fromisocalendar(int(year), int(week), 1)
     except (ValueError, TypeError) as exc:
         raise ValueError(f"Invalid ISO week: {iso_week_id}") from exc
-
-
-def _holiday(day: date) -> bool:
-    """Common national/bank holidays; this is a synthetic weekday volume pattern."""
-    if (day.month, day.day) in {(1, 1), (7, 1), (9, 30), (11, 11), (12, 25), (12, 26)}:
-        return True
-    monday_number = (day.day - 1) // 7 + 1
-    return day.weekday() == 0 and (
-        (day.month, monday_number) in {(2, 3), (9, 1), (10, 2)}
-        or (day.month == 5 and 18 <= day.day <= 24)
-    )
 
 
 def _id(seed: int, week: str, advisor: str, sequence: int) -> str:
@@ -96,9 +86,9 @@ def generate_activity(
     for offset in range(5):
         day = monday + timedelta(days=offset)
         books, active_clients = pools[day]
-        weekday = (1.08, 1.12, 1.04, 0.98, 0.78)[offset]
-        seasonal = 1.10 if day.month == 2 else 1.0
-        holiday = 0.65 if _holiday(day) else 1.0
+        weekday = WEEKDAY_WEIGHTS[offset]
+        seasonal = seasonal_factor(day)
+        holiday = holiday_factor(day)
         active = sorted(
             (advisor, branch)
             for advisor, branch, role, start, end in assignments
