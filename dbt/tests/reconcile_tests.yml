@@ -13,3 +13,5 @@ data_tests:
       by 1 and sets one district's coverage_rate_13w to 1.2 in the latest week, then
       expects exactly two failures: DQ022 on that branch's district, and DQ023 on the
       altered district. Runs on the `ci` target (fixtures) only.
+    config:
+      enabled: "{{ target.name == 'ci' }}"

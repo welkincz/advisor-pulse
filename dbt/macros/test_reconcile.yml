@@ -18,10 +18,10 @@ macros:
         type: string
         description: SQL predicate for leaf rows, which have no children to sum, e.g. `level = 'BRANCH'`.
       - name: non_additive
-        type: list
+        type: list[string]
         description: Integer columns that must not be summed, such as distinct client counts.
       - name: grain
-        type: list
+        type: list[string]
         description: Columns a parent and its children share. Defaults to `['iso_week_id']`.
       - name: node
         type: string
