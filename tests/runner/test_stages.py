@@ -245,4 +245,4 @@ def test_cold_rebuild_does_not_export(tmp_path: Path, monkeypatch: pytest.Monkey
     )
     result = backfill_rebuild(ctx(tmp_path), ["2026-W39"])
     assert result.status is StageStatus.SUCCESS
-    assert seen == ["generate", "ingest", "dbt_build", "checks", "narrate"]
+    assert seen == ["generate", "ingest", "dbt_build", "checks"]

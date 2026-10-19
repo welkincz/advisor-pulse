@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -188,3 +189,46 @@ def test_default_pipeline_cannot_report_success_without_an_extract(
         == 1
     )
     assert "no activity extract" in lines[-1]
+
+
+def test_default_backfill_uses_templates_until_the_final_week(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import pulse.narrative.stage as narrative_stage
+    import pulse.runner.backfill as module
+
+    clients: list[tuple[str, object]] = []
+
+    def fake_narrate(
+        ctx: StageContext, client_factory: Callable[[], object] = lambda: "model"
+    ) -> StageResult:
+        client = client_factory()
+        clients.append((ctx.iso_week_id, client))
+        return StageResult(StageStatus.WARN if client is None else StageStatus.SUCCESS, rows_out=2)
+
+    def fake_run_week(
+        week: str,
+        *,
+        data_dir: Path,
+        run_type: RunType,
+        stages: tuple[Stage, ...],
+        clock: Clock | None,
+        echo: object,
+    ) -> int:
+        assert run_type is RunType.BACKFILL
+        narrate = next(s for s in stages if s.name == "narrate")
+        result = narrate.fn(StageContext("test-run", run_type, week, data_dir, clock or Clock()))
+        assert result.rows_out == 2
+        if week != "2026-W10":
+            assert "template" in (result.message or "")
+        return 0
+
+    monkeypatch.setattr(narrative_stage, "narrate", fake_narrate)
+    monkeypatch.setattr(module, "run_week", fake_run_week)
+    monkeypatch.setattr(module, "activity_dir", lambda *_: tmp_path)
+    assert backfill_range("2026-W08", "2026-W10", data_dir=tmp_path, clock=Clock()) == 0
+    assert clients == [
+        ("2026-W08", None),
+        ("2026-W09", None),
+        ("2026-W10", "model"),
+    ]
