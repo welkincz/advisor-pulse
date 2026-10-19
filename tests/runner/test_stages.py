@@ -197,6 +197,43 @@ def test_fail_check_fails_the_stage_and_blocks_export_data(tmp_path: Path) -> No
     assert run_log["runs"][0]["status"] == "FAILED"
 
 
+def test_export_keeps_this_run_after_a_cold_rebuild(tmp_path: Path) -> None:
+    """Issue #162: a cold rebuild runs its backfill weeks inside restore_state, so every one
+    starts after the weekly run. With more than MAX_RUNS of them, the weekly run fell off
+    the newest-first list and export raised "run_log has no rows"."""
+    from pulse.contracts.meta import RunLogRow
+    from pulse.runner.run_log import MAX_RUNS
+
+    _org_mart(tmp_path)
+    con = connect(tmp_path / WAREHOUSE_FILE)
+    try:
+        init_warehouse(con)
+        for n in range(MAX_RUNS + 3):
+            started = T0 + timedelta(hours=1, minutes=n)
+            meta.write_run_log(
+                con,
+                RunLogRow(
+                    run_id=f"backfill-2026-W{n + 10:02d}-1",
+                    run_type=RunType.BACKFILL,
+                    iso_week_id=f"2026-W{n + 10:02d}",
+                    stage="checks",
+                    attempt=1,
+                    status=StageStatus.SUCCESS,
+                    started_at=started,
+                    ended_at=started + timedelta(seconds=30),
+                    duration_ms=30_000,
+                ),
+            )
+    finally:
+        con.close()
+    ok = fake_dbt([], exit_code=0)
+    statuses = run(tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=ok)))
+    assert statuses["export"] is StageStatus.WARN  # checks fail on empty raw; log still ships
+    runs = json.loads((stages.export_dir() / "run_log.json").read_text())["runs"]
+    assert runs[0]["run_id"] == f"manual-{WEEK}-1"
+    assert len(runs) == MAX_RUNS
+
+
 def test_missing_defects_file_means_an_empty_manifest(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
