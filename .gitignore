@@ -32,3 +32,4 @@ web/public/lineage/
 service-account*.json
 .DS_Store
 .wrangler/
+web/.lighthouseci/
