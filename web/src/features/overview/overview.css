@@ -4,3 +4,9 @@
 .kpi-definition summary { cursor: pointer; width: fit-content; }
 .kpi-definition p { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
 .kpi-anomaly { color: var(--signal); font-weight: 600; }
+
+/* Failed-run banner (issue 154): calm, not an alarm; the figures below are still valid for their week. */
+.run-status-banner { margin: var(--space-6) 0 0; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--status-warning); background: var(--field); max-width: var(--measure); }
+.run-status-banner p { margin: 0; }
+.run-status-banner p + p { margin-top: var(--space-2); font-size: var(--text-sm); }
+.run-status-banner strong { font-weight: 600; }
