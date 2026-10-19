@@ -52,7 +52,7 @@ Every run finishes as WARN, never SUCCESS. Three things cause that, and each one
 
 The 16 non-pending warnings are 15% of weeks. That is noisy for a check people are meant to look at.
 
-**Since #156:** DQ031 divides each week by its business-calendar factor (`pulse.calendar.week_factor`: holidays 0.65×, February 1.10×, weighted by weekday) and warns only beyond 3σ **and** 5% of the adjusted mean. Replayed on the national weekly volumes from this run, that gives 0 warnings on the 98 full-baseline weeks. The 8 baseline-pending weeks still warn by design. In production the calendar factors would be estimated from prior years rather than shared with a generator.
+**Since #156:** DQ031 divides each week by its business-calendar factor (`pulse.business_calendar.week_factor`: holidays 0.65×, February 1.10×, weighted by weekday) and warns only beyond 3σ **and** 5% of the adjusted mean. Replayed on the national weekly volumes from this run, that gives 0 warnings on the 98 full-baseline weeks. The 8 baseline-pending weeks still warn by design. In production the calendar factors would be estimated from prior years rather than shared with a generator.
 
 ## Row counts per layer (after 2026-W42)
 

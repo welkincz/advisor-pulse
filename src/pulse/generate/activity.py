@@ -13,7 +13,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from pulse.calendar import WEEKDAY_WEIGHTS, holiday_factor, seasonal_factor
+from pulse.business_calendar import WEEKDAY_WEIGHTS, holiday_factor, seasonal_factor
 from pulse.contracts import arrow_schema
 from pulse.contracts.enums import (
     ActivityStatus,

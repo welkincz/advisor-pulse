@@ -133,8 +133,9 @@ def volume(
 ) -> CheckResult:
     """Compare this week's volume with the trailing 8 weeks, calendar-adjusted.
 
-    Each week is divided by its expected-volume factor (``pulse.calendar.week_factor``), so a
-    holiday week is held to a holiday expectation. WARN needs both more than ``volume_sigma``
+    Each week is divided by its expected-volume factor
+    (``pulse.business_calendar.week_factor``), so a holiday week is held to a holiday
+    expectation. WARN needs both more than ``volume_sigma``
     σ and more than ``volume_min_fraction`` relative change: with a steady baseline, σ alone
     flags 3% wobbles. FAIL is beyond ``volume_fail_fraction`` of the adjusted mean.
     """

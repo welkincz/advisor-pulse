@@ -8,7 +8,7 @@ from pathlib import Path
 
 import duckdb
 
-from pulse.calendar import week_factor
+from pulse.business_calendar import week_factor
 from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import CheckStatus, LoadStatus, StageStatus
 from pulse.ingest import meta

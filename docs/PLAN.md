@@ -406,7 +406,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 | DQ022 | marts | Child roll-up sums equal parent (every level, every additive measure) | Singular test, **error** |
 | DQ023 | marts | Ratios within [0, 1] | dbt test, **error** |
 | DQ030 | run | Freshness: max `activity_date` ≥ week end − 2 days | FAIL |
-| DQ031 | run | Volume: weekly completed activities, divided by the business-calendar factor (holidays, February; `pulse.calendar`), vs the trailing 8 adjusted weeks | WARN beyond 3σ **and** 5%; beyond ±50% FAIL |
+| DQ031 | run | Volume: weekly completed activities, divided by the business-calendar factor (holidays, February; `pulse.business_calendar`), vs the trailing 8 adjusted weeks | WARN beyond 3σ **and** 5%; beyond ±50% FAIL |
 | DQ032 | run | Quarantine rate ≤ 2% of batch | FAIL (circuit breaker) |
 | DQ033 | run | Defect manifest reconciliation (synthetic only): quarantined == injected | FAIL in CI, WARN in weekly |
 

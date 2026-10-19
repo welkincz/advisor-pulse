@@ -15,7 +15,7 @@ export const RULES = [
   { id: 'DQ022', description: 'Child roll-up differs from parent', action: 'dbt test error' },
   { id: 'DQ023', description: 'Ratio outside 0–1', action: 'dbt test error' },
   { id: 'DQ030', description: 'Activity freshness within two days of week end', action: 'Fail run' },
-  { id: 'DQ031', description: 'Completed activity volume vs trailing eight weeks', action: 'Warn beyond 3σ; fail beyond 50%' },
+  { id: 'DQ031', description: 'Calendar-adjusted completed activity volume vs trailing eight weeks', action: 'Warn beyond 3σ and 5%; fail beyond 50%' },
   { id: 'DQ032', description: 'Quarantine rate over 2% of batch', action: 'Fail run' },
   { id: 'DQ033', description: 'Quarantined rows vs injected defect manifest', action: 'Fail in CI; warn in weekly run' },
 ] as const
