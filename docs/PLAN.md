@@ -54,7 +54,7 @@ flowchart LR
   end
 
   subgraph OUT["Consumers"]
-    WEB["pulse.charliebuild.com<br/>React · DuckDB-WASM · ECharts · deck.gl · React Flow"]
+    WEB["pulse.charliebuild.com<br/>React · DuckDB-WASM · ECharts · SVG map · React Flow"]
     GS["Google Sheet"] --> TAB["Tableau Public<br/>(daily sync)"]
   end
 
@@ -110,9 +110,9 @@ On failure, data is **not** redeployed: the site keeps the last good week, and o
 | Frontend | Vite + React + TypeScript | Static build, fast, agent-friendly | Next.js: SSR not needed |
 | In-browser query | DuckDB-WASM over exported Parquet | Real SQL in the browser, so drill-downs need no backend | Pre-baked JSON is simpler but rigid. Budget: ≤ 20 MB total data |
 | Charts | Apache ECharts with a custom theme | Rich, performant, themeable | Recharts / visx: less out-of-the-box depth |
-| Map | deck.gl + MapLibre GL, TopoJSON from StatCan FSA boundaries | GPU layers, no API key | Mapbox needs a token. FSA layer is **optional** (size budget) |
+| Map | Hand-written SVG choropleth (Web Mercator), TopoJSON from StatCan FSA boundaries | No basemap or API key; about 5 KB gzip | deck.gl + MapLibre shipped first but cost about 250 KB gzip on `/map` (#152). FSA layer is **optional** (size budget) |
 | Pipeline viz | React Flow (`@xyflow/react`) | Custom nodes, animated edges | D3 by hand: more effort, not more signal |
-| Motion | Motion (Framer Motion) | React-native; respects `prefers-reduced-motion` | GSAP only if a scroll sequence needs it |
+| Motion | CSS transitions plus a small rAF tween (`web/src/motion/`) | No library weight; respects `prefers-reduced-motion` | Motion (Framer Motion) shipped first but cost about 50 KB gzip on every route (#152) |
 | Hosting | Cloudflare Pages project `advisor-pulse` on `pulse.charliebuild.com` | Matches the existing `orbit.` / `trip.` pattern; no coupling to the build-less main site | `/projects/advisor-pulse` subpath would need a Worker route or a build step in the main site |
 | Tableau | Weekly mart → Google Sheet (service account) → Tableau Public daily sync | Tableau Public only auto-refreshes from Google Sheets | One-off extract upload: goes stale |
 

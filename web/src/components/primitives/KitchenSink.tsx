@@ -1,6 +1,11 @@
 import { useMemo } from 'react'
+import { BarChart } from 'echarts/charts'
+import { use as registerEcharts } from 'echarts/core'
 import { DIVERGING, SEQUENTIAL, SERIES } from '../../theme/tokens'
 import { Breadcrumb, Chart, Delta, Figure, Section, Sparkline, Stat, StatGroup, StatusMark } from '.'
+
+// The report itself draws only line charts; the bar example registers its own chart type.
+registerEcharts([BarChart])
 
 /** Dev-only reference page (/_kitchen-sink): every primitive and palette, in the current scheme. */
 

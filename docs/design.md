@@ -123,9 +123,10 @@ Rules:
 
 ## 7. Charts
 
-Use `Chart` (ECharts with the Pulse theme) for line and bar charts, inside a `Figure`.
-Use `Sparkline` (plain SVG) for word-sized trends in stats. Use deck.gl for the map (#38),
-with the sequential tokens read through `token()`.
+Use `Chart` (ECharts with the Pulse theme) for line charts, inside a `Figure`; register any
+other ECharts chart type in `primitives/echarts.ts` first.
+Use `Sparkline` (plain SVG) for word-sized trends in stats. The map (#38) is plain SVG too
+(`features/map/ChoroplethSvg.tsx`), filled with `var(--seq-N)` so it follows the scheme.
 
 The map colours the shipped region or district polygons for the selected week and KPI.
 Those polygons cover only FSAs with fictional branch locations, so unmapped land stays
