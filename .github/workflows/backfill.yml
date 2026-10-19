@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: weekly
@@ -69,6 +70,7 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Backfill selected weeks
+        id: backfill_run
         env:
           FROM_WEEK: ${{ inputs.from }}
           TO_WEEK: ${{ inputs.to }}
@@ -86,7 +88,89 @@ jobs:
           uv run pulse backfill "${args[@]}"
 
       - name: Build backfilled site
+        id: build_site
         run: pnpm -C web build
+
+      - name: Check Cloudflare deployment credentials
+        id: cloudflare
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'Cloudflare Pages deploy skipped: credentials are not configured.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Deploy successful site
+        id: deploy_pages
+        if: steps.cloudflare.outputs.available == 'true' && steps.backfill_run.outcome == 'success' && steps.build_site.outcome == 'success'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.151.1 pages deploy web/dist --project-name advisor-pulse
+
+      - name: Save successful Pages artifact
+        if: steps.deploy_pages.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-deploy-${{ github.run_id }}
+          path: web/dist/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Restore prior Pages deployment on failed run
+        id: recovery
+        if: always() && steps.cloudflare.outputs.available == 'true' && steps.backfill_run.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! -s data/exports/run_log.json ]]; then
+            echo 'Pages recovery skipped: no failed run log was written.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! python -c '
+          import json, sys
+          from pathlib import Path
+          runs = json.loads(Path("data/exports/run_log.json").read_text()).get("runs") or []
+          sys.exit(0 if runs and runs[0].get("status") == "FAILED" else 1)
+          '; then
+            echo 'Pages recovery skipped: the run log does not record a failed run.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --paginate \
+            --jq '.artifacts[] | select(.expired == false and .workflow_run.head_branch == "main" and (.name | startswith("pages-deploy-"))) | [.created_at, .name] | @tsv' \
+            | sort -r | awk 'NR == 1 {print $2}')
+          if [[ ! "$artifact" =~ ^pages-deploy-[0-9]+$ ]]; then
+            echo 'Pages recovery skipped: no previous successful deployment artifact is available.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          previous="$RUNNER_TEMP/previous-pages"
+          mkdir -p "$previous"
+          if ! gh run download "${artifact#pages-deploy-}" -n "$artifact" -D "$previous"; then
+            echo 'Pages recovery skipped: the previous deployment artifact could not be downloaded.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [[ ! -f "$previous/index.html" || ! -f "$previous/data/manifest.json" ]]; then
+            echo 'Pages recovery skipped: the previous deployment artifact is incomplete.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          cp data/exports/run_log.json "$previous/data/run_log.json"
+          if [[ -e web/dist ]]; then mv web/dist "$RUNNER_TEMP/failed-site-build"; fi
+          mv "$previous" web/dist
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+      - name: Redeploy prior site with failed run log
+        if: always() && steps.cloudflare.outputs.available == 'true' && steps.recovery.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4.151.1 pages deploy web/dist --project-name advisor-pulse
+          echo 'Pages redeployed the previous report with the latest failed run log.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize runs and collect check results
         if: always()

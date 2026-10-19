@@ -5,6 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 WORKFLOWS = Path(__file__).resolve().parents[1] / ".github" / "workflows"
@@ -78,3 +79,145 @@ def test_summary_steps_handle_success_and_missing_log(tmp_path: Path) -> None:
             expected = (1 if name == "weekly.yml" else 2) if has_log else 0
             assert len(checks["runs"]) == expected
             assert ("| Stage |" if has_log else "No run log") in summary.read_text()
+
+
+@pytest.mark.parametrize(
+    "name,run_id", [("weekly.yml", "weekly_run"), ("backfill.yml", "backfill_run")]
+)
+def test_pages_deploy_is_guarded_and_can_restore_prior_artifact(name: str, run_id: str) -> None:
+    workflow = load(name)
+    assert workflow["permissions"]["actions"] == "read"
+    steps = workflow["jobs"]["run"]["steps"]
+    by_name = {step.get("name"): step for step in steps}
+    guard = by_name["Check Cloudflare deployment credentials"]
+    assert guard["if"] == "always()"
+    assert "CLOUDFLARE_API_TOKEN" in guard["env"]
+    assert "CLOUDFLARE_ACCOUNT_ID" in guard["env"]
+    assert "GITHUB_STEP_SUMMARY" in guard["run"]
+    success = by_name["Deploy successful site"]
+    assert "steps.cloudflare.outputs.available == 'true'" in success["if"]
+    deploy_command = "npx --yes wrangler@4.151.1 pages deploy web/dist --project-name advisor-pulse"
+    assert deploy_command in success["run"]
+    assert "CLOUDFLARE_API_TOKEN" in success["env"]
+    archive = by_name["Save successful Pages artifact"]
+    assert archive["if"] == "steps.deploy_pages.outcome == 'success'"
+    assert archive["with"]["name"] == "pages-deploy-${{ github.run_id }}"
+    recovery = by_name["Restore prior Pages deployment on failed run"]
+    assert f"steps.{run_id}.outcome == 'failure'" in recovery["if"]
+    assert "steps.cloudflare.outputs.available == 'true'" in recovery["if"]
+    assert "gh run download" in recovery["run"]
+    assert "data/exports/run_log.json" in recovery["run"]
+    assert "GITHUB_STEP_SUMMARY" in recovery["run"]
+    redeploy = by_name["Redeploy prior site with failed run log"]
+    assert "steps.recovery.outputs.ready == 'true'" in redeploy["if"]
+    assert deploy_command in redeploy["run"]
+
+
+def test_pages_cache_headers_and_spa_fallback() -> None:
+    public = Path(__file__).resolve().parents[1] / "web" / "public"
+    headers = (public / "_headers").read_text()
+    redirects = (public / "_redirects").read_text()
+    assert "/data/manifest.json\n  Cache-Control: no-cache" in headers
+    assert "/data/run_log.json\n  Cache-Control: no-cache" in headers
+    assert "/assets/*\n  Cache-Control: public, max-age=31536000, immutable" in headers
+    assert "/* /index.html 200" in redirects
+
+
+@pytest.mark.parametrize("name", ["weekly.yml", "backfill.yml"])
+@pytest.mark.parametrize("token,account", [("", "account"), ("token", ""), ("token", "account")])
+def test_cloudflare_credentials_guard_skips_without_both_secrets(
+    name: str, token: str, account: str, tmp_path: Path
+) -> None:
+    guard = next(
+        step for step in load(name)["jobs"]["run"]["steps"] if step.get("id") == "cloudflare"
+    )
+    summary = tmp_path / "summary.md"
+    output = tmp_path / "output.txt"
+    result = subprocess.run(
+        ["bash", "-eu", "-o", "pipefail", "-c", guard["run"]],
+        env={
+            "PATH": os.environ["PATH"],
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_STEP_SUMMARY": str(summary),
+            "CLOUDFLARE_API_TOKEN": token,
+            "CLOUDFLARE_ACCOUNT_ID": account,
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == result.stderr == ""
+    assert output.read_text() == ("available=true\n" if token and account else "available=false\n")
+    if not token or not account:
+        summary_text = summary.read_text()
+        assert "deploy skipped" in summary_text
+        for value in (token, account):
+            if value:
+                assert value not in summary_text
+
+
+@pytest.mark.parametrize("name", ["weekly.yml", "backfill.yml"])
+@pytest.mark.parametrize("artifact_present", [True, False])
+@pytest.mark.parametrize("run_status", ["FAILED", "SUCCESS"])
+def test_recovery_reuses_only_previous_site_and_new_run_log(
+    name: str, artifact_present: bool, run_status: str, tmp_path: Path
+) -> None:
+    recovery = next(
+        step for step in load(name)["jobs"]["run"]["steps"] if step.get("id") == "recovery"
+    )
+    previous = tmp_path / "previous"
+    (previous / "data").mkdir(parents=True)
+    (previous / "index.html").write_text("old site")
+    (previous / "data" / "manifest.json").write_text("old manifest")
+    (previous / "data" / "weekly.parquet").write_text("old data")
+    (previous / "data" / "run_log.json").write_text("old run log")
+    (tmp_path / "web" / "dist").mkdir(parents=True)
+    (tmp_path / "web" / "dist" / "bad-new-file").write_text("never deploy")
+    (tmp_path / "data" / "exports").mkdir(parents=True)
+    new_log = json.dumps({"runs": [{"status": run_status}]})
+    (tmp_path / "data" / "exports" / "run_log.json").write_text(new_log)
+    (tmp_path / "runner-temp").mkdir()
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    gh = fake_bin / "gh"
+    gh.write_text(
+        "#!/usr/bin/env bash\n"
+        "if [[ $1 == api ]]; then\n"
+        "  if [[ $ARTIFACT_PRESENT == true ]]; then\n"
+        "    printf '2026-10-18T00:00:00Z\\tpages-deploy-123\\n'\n"
+        "  fi\n"
+        "else\n"
+        "  while [[ $# -gt 0 ]]; do\n"
+        '    if [[ $1 == -D ]]; then cp -R "$PREVIOUS_ARTIFACT/." "$2/"; exit 0; fi\n'
+        "    shift\n"
+        "  done\n"
+        "fi\n"
+    )
+    gh.chmod(0o755)
+    summary = tmp_path / "summary.md"
+    output = tmp_path / "output.txt"
+    subprocess.run(
+        ["bash", "-eu", "-o", "pipefail", "-c", recovery["run"]],
+        cwd=tmp_path,
+        env={
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "GITHUB_REPOSITORY": "welkincz/advisor-pulse",
+            "GH_TOKEN": "fake",
+            "GITHUB_STEP_SUMMARY": str(summary),
+            "GITHUB_OUTPUT": str(output),
+            "RUNNER_TEMP": str(tmp_path / "runner-temp"),
+            "PREVIOUS_ARTIFACT": str(previous),
+            "ARTIFACT_PRESENT": str(artifact_present).lower(),
+        },
+        check=True,
+    )
+    dist = tmp_path / "web" / "dist"
+    if artifact_present and run_status == "FAILED":
+        assert output.read_text() == "ready=true\n"
+        assert (dist / "data" / "manifest.json").read_text() == "old manifest"
+        assert (dist / "data" / "weekly.parquet").read_text() == "old data"
+        assert (dist / "data" / "run_log.json").read_text() == new_log
+        assert not (dist / "bad-new-file").exists()
+    else:
+        assert not output.exists()
+        assert "recovery skipped" in summary.read_text()
