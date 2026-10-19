@@ -198,14 +198,10 @@ def export(ctx: StageContext) -> StageResult:
     con = connect(ctx.data_dir / WAREHOUSE_FILE)
     try:
         init_warehouse(con)
-        run_log = export_from_warehouse(con, generated_at=now)
-        current = next((r for r in run_log.runs if r.run_id == ctx.run_id), None)
-        if current is None:
+        run_log = export_from_warehouse(con, generated_at=now, current_run_id=ctx.run_id)
+        current = run_log.runs[0] if run_log.runs else None
+        if current is None or current.run_id != ctx.run_id:
             raise RuntimeError(f"run_log has no rows for {ctx.run_id}")
-        # Newest first; this run leads even when an older run started later.
-        run_log = run_log.model_copy(
-            update={"runs": [current, *(r for r in run_log.runs if r.run_id != ctx.run_id)]}
-        )
         failed = current.status is StageStatus.FAILED
         if not failed:
             missing = [

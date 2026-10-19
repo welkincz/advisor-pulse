@@ -67,15 +67,31 @@ def summarize(rows: Sequence[RunLogRow], checks: Sequence[CheckResult] = ()) -> 
 
 
 def build_export(
-    rows: Sequence[RunLogRow], checks: Sequence[CheckResult], generated_at: datetime
+    rows: Sequence[RunLogRow],
+    checks: Sequence[CheckResult],
+    generated_at: datetime,
+    *,
+    current_run_id: str | None = None,
 ) -> RunLogExport:
-    return RunLogExport(generated_at=generated_at, runs=summarize(rows, checks)[:MAX_RUNS])
+    """The newest ``MAX_RUNS`` runs. ``current_run_id`` always leads, even when other runs
+    started later: a cold rebuild runs its backfill weeks inside the weekly run's
+    restore_state stage, so all of them start after it."""
+    runs = summarize(rows, checks)
+    if current_run_id is not None:
+        current = [r for r in runs if r.run_id == current_run_id]
+        runs = current + [r for r in runs if r.run_id != current_run_id]
+    return RunLogExport(generated_at=generated_at, runs=runs[:MAX_RUNS])
 
 
-def export_from_warehouse(con: duckdb.DuckDBPyConnection, generated_at: datetime) -> RunLogExport:
+def export_from_warehouse(
+    con: duckdb.DuckDBPyConnection,
+    generated_at: datetime,
+    *,
+    current_run_id: str | None = None,
+) -> RunLogExport:
     rows = meta.get_run_log(con)
     checks = [c for run_id in {r.run_id for r in rows} for c in meta.get_check_results(con, run_id)]
-    return build_export(rows, checks, generated_at)
+    return build_export(rows, checks, generated_at, current_run_id=current_run_id)
 
 
 def write_json(doc: RunLogExport, path: Path) -> None:

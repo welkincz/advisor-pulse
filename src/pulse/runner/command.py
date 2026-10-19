@@ -61,7 +61,9 @@ def run_week(
 
     con = connect(warehouse, read_only=True)
     try:
-        doc = run_log.export_from_warehouse(con, generated_at=clock.now())
+        doc = run_log.export_from_warehouse(
+            con, generated_at=clock.now(), current_run_id=report.run_id
+        )
     finally:
         con.close()
     run_log.write_json(doc, data_dir / RUN_LOG_JSON)
