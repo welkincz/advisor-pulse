@@ -31,3 +31,9 @@
 .map-fsa-values th, .map-fsa-values td { padding: var(--space-2) 0; border-top: 1px solid var(--rule); }
 .map-fsa-values th { text-align: left; font-weight: 500; }
 .map-fsa-values td { text-align: right; font-variant-numeric: tabular-nums; }
+.map-svg { display: block; touch-action: none; cursor: grab; }
+.map-svg:active { cursor: grabbing; }
+.map-svg:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.map-area-link { cursor: pointer; }
+.map-area-link:hover { stroke: var(--ink); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.map-tooltip { position: absolute; transform: translate(12px, 12px); padding: var(--space-1) var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font-size: var(--text-sm); pointer-events: none; white-space: nowrap; }

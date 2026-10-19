@@ -1,26 +1,20 @@
-import DeckGL from '@deck.gl/react'
-import { WebMercatorViewport } from '@deck.gl/core'
-import { GeoJsonLayer } from '@deck.gl/layers'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Figure } from '../../components/primitives'
 import { DataNotice, KPI_LABELS, formatKpi, useGeoWeekly, useManifest, useWeeklyReport } from '../../data'
 import type { Manifest } from '../../data/generated/manifest'
 import type { KpiCode } from '../../data/generated/weekly_report'
-import { SEQUENTIAL, token, useColorScheme } from '../../theme/tokens'
+import { SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
-import { type Boundary, type BoundaryProperties, bin, boundaryBounds, drillHref, extent, kpiByNode, loadBoundaries } from './data'
+import { ChoroplethSvg } from './ChoroplethSvg'
+import { type Boundary, bin, boundaryBounds, drillHref, extent, kpiByNode, loadBoundaries } from './data'
 import './map.css'
 
 type Shape = 'regions' | 'districts' | 'fsa'
-type Rgba = [number, number, number, number]
 
-const FALLBACK_CAMERA = { longitude: -96, latitude: 54, zoom: 2.5 }
-
-function rgba(name: string, alpha = 255): Rgba {
-  const hex = token(name).slice(1)
-  return [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).concat(alpha) as Rgba
-}
+// Fill colours are CSS variables, so light and dark follow tokens.css with no re-render.
+const PALETTE = SEQUENTIAL.map((name) => `var(--${name})`)
+const MISSING = 'color-mix(in srgb, var(--status-neutral) 27%, transparent)'
 
 function useBoundaries(shape: Shape | null) {
   const [state, setState] = useState<{ shape: Shape; data?: Boundary[]; error?: Error } | null>(null)
@@ -36,10 +30,10 @@ function useBoundaries(shape: Shape | null) {
   return state?.shape === shape ? state : null
 }
 
-function Legend({ range, code, palette }: { range: [number, number] | null; code: KpiCode; palette: Rgba[] }) {
+function Legend({ range, code }: { range: [number, number] | null; code: KpiCode }) {
   return <div className="map-legend" aria-label={`${KPI_LABELS[code]} colour legend`}>
     <span>{range ? formatKpi(code, range[0]) : 'No data'}</span>
-    <div className="map-legend-colours" aria-hidden="true">{palette.map((_, i) => <i key={i} className={`map-swatch map-swatch-${i + 1}`} />)}</div>
+    <div className="map-legend-colours" aria-hidden="true">{PALETTE.map((_, i) => <i key={i} className={`map-swatch map-swatch-${i + 1}`} />)}</div>
     <span>{range ? formatKpi(code, range[1]) : 'No data'}</span>
     <span className="map-legend-missing">Unfilled: no data</span>
   </div>
@@ -51,11 +45,11 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const [code, setCode] = useState<KpiCode>('COVERAGE_13W')
   const [fsa, setFsa] = useState(false)
   const canvasRef = useRef<HTMLDivElement>(null)
-  const [canvasWidth, setCanvasWidth] = useState(0)
+  const [canvas, setCanvas] = useState({ width: 0, height: 0 })
   useEffect(() => {
     const element = canvasRef.current
     if (!element) return
-    const observer = new ResizeObserver(() => setCanvasWidth(element.clientWidth))
+    const observer = new ResizeObserver(() => setCanvas({ width: element.clientWidth, height: element.clientHeight }))
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
@@ -68,20 +62,13 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const boundaries = useBoundaries(shape)
   const report = useWeeklyReport(week, { parentId: region ?? 'CA' })
   const geo = useGeoWeekly(week)
-  const scheme = useColorScheme()
-  // The theme hook causes a render when the system scheme changes; read its active tokens.
-  const palette = SEQUENTIAL.map((name) => rgba(name))
-  const missing = rgba('status-neutral', 70)
   const rows = report.status === 'ready' ? report.data : []
   const byNode = kpiByNode(rows, code)
   const byFsa = new Map(geo.status === 'ready' ? geo.data.map((row) => [row.fsa_code, row.coverage_rate_13w ?? null]) : [])
   const values = fsaMode ? byFsa : byNode
   const range = extent(values.values())
-  const colourKey = [...values].map(([id, value]) => `${id}:${value}`).join('|')
   const features = boundaries?.data?.filter((item) => shape !== 'districts' || item.properties.parent_id === region) ?? []
   const bounds = boundaryBounds(features, values, fsaMode)
-  const fitted = bounds && canvasWidth ? new WebMercatorViewport({ width: canvasWidth, height: 432, ...FALLBACK_CAMERA }).fitBounds(bounds, { padding: 32 }) : null
-  const camera = fitted ? { longitude: fitted.longitude, latitude: fitted.latitude, zoom: Math.min(8, fitted.zoom) } : FALLBACK_CAMERA
   const placeRows = regions?.data && region ? features : regions?.data ?? []
   const fsaRows = fsaMode ? [...features].sort((a, b) => {
     const left = a.properties.CFSAUID ?? ''
@@ -90,22 +77,12 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   }) : []
   const drill = (id: string) => navigate(drillHref(region, id, week, manifest.latest_week))
 
-  const layer = new GeoJsonLayer<BoundaryProperties>({
-    id: `map-${shape}-${week}-${displayCode}`,
-    data: features,
-    pickable: !fsaMode,
-    filled: true,
-    stroked: false,
-    updateTriggers: { getFillColor: [colourKey, scheme] },
-    getFillColor: (item) => {
-      const id = fsaMode ? item.properties.CFSAUID : item.properties.node_id
-      const shade = bin(id ? values.get(id) : null, range)
-      return shade === null ? missing : palette[shade]!
-    },
-    onClick: ({ object }) => {
-      if (object?.properties.node_id && !fsaMode) drill(object.properties.node_id)
-    },
-  })
+  const idOf = (item: Boundary) => fsaMode ? item.properties.CFSAUID : item.properties.node_id
+  const fill = (item: Boundary) => {
+    const id = idOf(item)
+    const shade = bin(id ? values.get(id) : null, range)
+    return shade === null ? MISSING : PALETTE[shade]!
+  }
 
   const setQuery = (key: string, value: string) => {
     const next = new URLSearchParams(search)
@@ -134,11 +111,14 @@ function MapContent({ manifest }: { manifest: Manifest }) {
     <Figure title={`${fsaMode ? 'FSA coverage' : region ? 'District' : 'Region'} map, ${week}`} reading={`${KPI_LABELS[displayCode]} by ${fsaMode ? 'FSA' : region ? 'district' : 'region'}.`} note={<>
       Boundaries adapted from <a href="https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21">Statistics Canada, 2021 Census boundary files</a> under the Statistics Canada Open Licence. No basemap tiles are used.
     </>}>
-      <Legend range={range} code={displayCode} palette={palette} />
+      <Legend range={range} code={displayCode} />
       <p className="map-scope">The map draws FSAs containing fictional branch locations. Other land is left blank.</p>
       <div className="map-layout">
         <div className="map-canvas" ref={canvasRef} aria-label={`${shape} choropleth`}>
-          {boundaries?.data && (!fsaMode || geo.status === 'ready') && <DeckGL key={`${shape}-${region}-${week}-${colourKey}-${canvasWidth}`} initialViewState={camera} controller layers={[layer]} getTooltip={({ object }) => object?.properties?.node_name ?? object?.properties?.CFSAUID ?? null} />}
+          {boundaries?.data && (!fsaMode || geo.status === 'ready') && <ChoroplethSvg key={`${shape}-${region}-${week}`}
+            features={features} bounds={bounds} width={canvas.width} height={canvas.height} idOf={idOf} fill={fill}
+            nameOf={(item) => item.properties.node_name ?? item.properties.CFSAUID}
+            onSelect={fsaMode ? undefined : drill} label={`${KPI_LABELS[displayCode]} by ${fsaMode ? 'FSA' : region ? 'district' : 'region'}`} />}
           {!boundaries && <p>Loading boundaries…</p>}
           {boundaries?.error && <p role="alert">{boundaries.error.message}</p>}
           {fsaMode && geo.status === 'loading' && <p>Loading FSA coverage…</p>}
@@ -176,7 +156,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   </>
 }
 
-/** A lazy route: deck.gl is fetched only when the map is opened. */
+/** A lazy route: the map code is fetched only when the map is opened. */
 export function MapPage() {
   const manifest = useManifest()
   return <main className="map-page">
