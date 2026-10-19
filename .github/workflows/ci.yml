@@ -158,3 +158,28 @@ jobs:
 
       - name: Web check
         run: make web-check
+
+      - name: Stage fixture exports for Lighthouse
+        run: |
+          mkdir -p web/dist/data
+          cp -R fixtures/exports/. web/dist/data/
+
+      - name: Lighthouse overview budget
+        id: lighthouse
+        continue-on-error: true
+        working-directory: web
+        run: pnpm exec lhci collect && pnpm exec lhci assert
+
+      - name: Per-route JavaScript gzip budget
+        id: bundle
+        continue-on-error: true
+        run: node web/tests/bundle-budget.mjs
+
+      - name: Enforce web budgets
+        if: always()
+        env:
+          LIGHTHOUSE_OUTCOME: ${{ steps.lighthouse.outcome }}
+          BUNDLE_OUTCOME: ${{ steps.bundle.outcome }}
+        run: |
+          test "$LIGHTHOUSE_OUTCOME" = success
+          test "$BUNDLE_OUTCOME" = success

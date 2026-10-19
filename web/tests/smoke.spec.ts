@@ -12,14 +12,37 @@ const routes = [
   ['/pipeline', 'Pipeline'],
   ['/quality', 'Data quality'],
   ['/case-study', 'Case study'],
+  ['/_kitchen-sink', 'Kitchen sink'],
+  ['/missing-page', 'Page not found'],
+] as const
+
+const modes = [
+  { name: 'light', colorScheme: 'light', reducedMotion: 'no-preference', width: 1280 },
+  { name: 'dark', colorScheme: 'dark', reducedMotion: 'no-preference', width: 1280 },
+  { name: 'reduced motion', colorScheme: 'light', reducedMotion: 'reduce', width: 1280 },
+  { name: '375 px', colorScheme: 'light', reducedMotion: 'no-preference', width: 375 },
 ] as const
 
 for (const [path, heading] of routes) {
-  test(`${path} renders ${heading}`, async ({ page }) => {
-    await page.goto(path)
-    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
-    await expect(page.getByText('Weekly batch report · synthetic data · fictional bank')).toBeVisible()
-  })
+  for (const mode of modes) {
+    test(`${path} renders ${heading} in ${mode.name}`, async ({ page }) => {
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.setViewportSize({ width: mode.width, height: 812 })
+      await page.emulateMedia({ colorScheme: mode.colorScheme, reducedMotion: mode.reducedMotion })
+      await page.goto(path)
+      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
+      await expect(page.getByText('Weekly batch report · synthetic data · fictional bank')).toBeVisible()
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-motion', mode.reducedMotion === 'reduce' ? 'reduced' : 'full',
+      )
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe(mode.colorScheme)
+      if (mode.width === 375) {
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+      }
+      expect(errors).toEqual([])
+    })
+  }
 }
 
 test('navigation works by keyboard at 375 px', async ({ page }) => {
