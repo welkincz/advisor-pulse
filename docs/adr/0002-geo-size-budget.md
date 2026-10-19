@@ -14,9 +14,9 @@ that budget, ship only district (and later region) polygons.
 
 Ship **FSA-level** TopoJSON (`web/public/geo/fsa.topo.json`). Gzip size is **0.11 MB** (budget ≤ 3.00 MB) at mapshaper Douglas-Peucker simplify `40%` keep-shapes, 122 FSAs from `reference/org.yaml`.
 
-Client FSAs need no extra filter: the generator (#13) draws each client's FSA from
-the branch FSAs of the owning branch's district, so they are a subset of the 122
-FSAs in `reference/org.yaml`.
+Client-pool FSAs from the synthetic generator (#13) are not in the filter set yet;
+re-run `make geo` when that pool exists so neighbouring FSAs used by clients are
+included.
 
 `make geo` prefers the official `lfsa000b21a_e.zip` package (cached under
 `data/geo/cache/`). If the CDN blocks automated downloads, it falls back to the

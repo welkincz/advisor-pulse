@@ -1,0 +1,96 @@
+# Auto PR review using Claude Code GitHub Action (issue #67).
+#
+# Triggers:
+#   - pull_request opened / ready_for_review  (automatic, skips drafts)
+#   - issue_comment "@claude review"           (on-demand re-review)
+#
+# Hard cap: at most 2 automatic reviews per PR. The action's own comment
+# counts toward this; the workflow checks existing bot comments before
+# running. On-demand "@claude review" comments bypass the cap.
+#
+# Auth: requires ANTHROPIC_API_KEY repo secret.
+# Estimated cost: ~$0.10–$0.50 per review depending on diff size.
+#
+# Skips:
+#   - Draft PRs
+#   - PRs labelled "skip-review"
+
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: Claude review
+    runs-on: ubuntu-latest
+
+    # ----- gate logic -----
+    # Case 1 (pull_request): run unless draft or skip-review label.
+    # Case 2 (issue_comment): run only when comment is on a PR and
+    #         contains "@claude review".
+    if: >-
+      (
+        github.event_name == 'pull_request'
+        && github.event.pull_request.draft == false
+        && !contains(github.event.pull_request.labels.*.name, 'skip-review')
+      )
+      || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && contains(github.event.comment.body, '@claude review')
+      )
+
+    steps:
+      # ── Cap check (automatic reviews only) ──
+      # Skip if Claude has already posted 2+ review comments on this PR.
+      # On-demand "@claude review" bypasses the cap.
+      - name: Check review cap
+        if: github.event_name == 'pull_request'
+        id: cap
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber }
+            );
+            const botComments = comments.filter(
+              c => c.user.type === 'Bot' && c.body.includes('## PR Review')
+            );
+            const count = botComments.length;
+            console.log(`Claude review comments found: ${count}`);
+            core.setOutput('skip', count >= 2 ? 'true' : 'false');
+
+      - name: Skip if cap reached
+        if: github.event_name == 'pull_request' && steps.cap.outputs.skip == 'true'
+        run: |
+          echo "::notice::Hard cap of 2 automatic reviews reached — skipping."
+          exit 0
+
+      # ── Checkout & review ──
+      - name: Checkout
+        if: github.event_name != 'pull_request' || steps.cap.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Run Claude Code review
+        if: github.event_name != 'pull_request' || steps.cap.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request.
+            Follow the instructions in .github/review-prompt.md exactly.
+            Post one summary review comment. Add inline comments only for
+            concrete defects. Never approve, merge, or push commits.
+          trigger_phrase: "@claude"
+          claude_args: "--max-turns 5"
