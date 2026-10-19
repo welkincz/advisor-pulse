@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: weekly
@@ -69,6 +70,7 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Backfill selected weeks
+        id: backfill_run
         env:
           FROM_WEEK: ${{ inputs.from }}
           TO_WEEK: ${{ inputs.to }}
@@ -86,7 +88,18 @@ jobs:
           uv run pulse backfill "${args[@]}"
 
       - name: Build backfilled site
+        id: build_site
         run: pnpm -C web build
+
+      - name: Deploy to Cloudflare Pages
+        if: always()
+        uses: ./.github/actions/pages-deploy
+        with:
+          run-outcome: ${{ steps.backfill_run.outcome }}
+          build-outcome: ${{ steps.build_site.outcome }}
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          github-token: ${{ github.token }}
 
       - name: Summarize runs and collect check results
         if: always()

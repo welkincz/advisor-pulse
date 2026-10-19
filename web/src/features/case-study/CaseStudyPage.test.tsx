@@ -1,0 +1,54 @@
+// @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { act } from 'react'
+import { type Root, createRoot } from 'react-dom/client'
+import { MemoryRouter } from 'react-router-dom'
+import { afterEach, beforeEach, expect, it } from 'vitest'
+import { CaseStudyPage } from './CaseStudyPage'
+import { parseBlocks } from './markdown'
+
+declare global { var IS_REACT_ACT_ENVIRONMENT: boolean }
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+const docs = resolve(import.meta.dirname, '../../../../docs')
+const caseStudy = readFileSync(resolve(docs, 'case-study.md'), 'utf8')
+const baseline = readFileSync(resolve(docs, 'baseline.md'), 'utf8')
+
+let container: HTMLDivElement
+let root: Root
+beforeEach(() => {
+  container = document.createElement('div')
+  root = createRoot(container)
+})
+afterEach(() => act(() => root.unmount()))
+
+it('renders the case study with its diagram, tables and links', async () => {
+  await act(async () => root.render(<MemoryRouter><CaseStudyPage /></MemoryRouter>))
+  expect(container.querySelector('h1')?.textContent).toBe('Case study')
+  const headings = [...container.querySelectorAll('h2')].map((h) => h.textContent)
+  expect(headings).toContain('Architecture')
+  expect(headings).toContain('Data quality, with ground truth')
+  expect(container.querySelector('figure.cs-diagram ol')?.children).toHaveLength(7)
+  expect(container.querySelectorAll('table').length).toBeGreaterThanOrEqual(3)
+  const links = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'))
+  expect(links).toContain('/pipeline')
+  expect(links).toContain('https://github.com/welkincz/advisor-pulse')
+  expect(container.textContent).not.toMatch(/\blive\b|real-time dashboard/i)
+})
+
+it('takes every grouped figure from the baseline', () => {
+  const figures = caseStudy.match(/\b\d{1,3}(?:,\d{3})+\b/g) ?? []
+  expect(figures.length).toBeGreaterThan(5)
+  for (const figure of figures) expect(baseline, figure).toContain(figure)
+})
+
+it('reads in about eight minutes or less', () => {
+  const words = caseStudy.replace(/```[\s\S]*?```/g, '').split(/\s+/).filter(Boolean).length
+  expect(words / 230).toBeLessThanOrEqual(8)
+})
+
+it('parses tables with right-aligned numeric columns', () => {
+  const [table] = parseBlocks('| Defect | Injected |\n|---|---:|\n| Null id | 2,957 |\n')
+  expect(table).toEqual({ kind: 'table', header: ['Defect', 'Injected'], align: ['left', 'right'], rows: [['Null id', '2,957']] })
+})

@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   issues: write
 
 concurrency:
@@ -63,6 +64,7 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Run last complete week
+        id: weekly_run
         env:
           PULSE_FORCE_FAIL: ${{ inputs.force_fail && 'checks' || '' }}
           PULSE_DATA_DIR: data
@@ -75,7 +77,18 @@ jobs:
         run: uv run pulse run --week last --run-type WEEKLY
 
       - name: Build weekly site
+        id: build_site
         run: pnpm -C web build
+
+      - name: Deploy to Cloudflare Pages
+        if: always()
+        uses: ./.github/actions/pages-deploy
+        with:
+          run-outcome: ${{ steps.weekly_run.outcome }}
+          build-outcome: ${{ steps.build_site.outcome }}
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          github-token: ${{ github.token }}
 
       - name: Summarize run and collect check results
         if: always()

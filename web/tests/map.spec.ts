@@ -94,14 +94,41 @@ test('clicking a district polygon opens its report', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/map?region=ON')
   await expect(page.getByRole('button', { name: /Eastern Ontario/ })).toContainText('%')
-  const canvas = page.locator('.map-canvas')
-  const box = await canvas.boundingBox()
-  expect(box).not.toBeNull()
-  // This point lies inside the Eastern Ontario polygon in the shipped fixture geography.
-  await page.mouse.move(box!.x + 568, box!.y + 177)
-  await expect(page.locator('.deck-tooltip')).toHaveText('Eastern Ontario')
-  await page.mouse.click(box!.x + 568, box!.y + 177)
+  await expect(page.locator('.map-svg path[data-id="EON"]')).toBeVisible()
+  // Find a screen point whose topmost element is the Eastern Ontario polygon.
+  const point = await page.evaluate(() => {
+    const box = document.querySelector('.map-svg path[data-id="EON"]')!.getBoundingClientRect()
+    for (let fy = 0.1; fy < 1; fy += 0.05) for (let fx = 0.1; fx < 1; fx += 0.05) {
+      const x = box.left + box.width * fx
+      const y = box.top + box.height * fy
+      if ((document.elementFromPoint(x, y) as Element | null)?.getAttribute('data-id') === 'EON') return { x, y }
+    }
+    return null
+  })
+  expect(point).not.toBeNull()
+  await page.mouse.move(point!.x, point!.y)
+  await expect(page.locator('.map-tooltip')).toHaveText('Eastern Ontario')
+  await page.mouse.click(point!.x, point!.y)
   await expect(page).toHaveURL(/\/r\/ON\/d\/EON$/)
+})
+
+test('the map pans by drag and zooms from the keyboard without leaving the route', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/map?region=ON')
+  const layer = page.locator('.map-svg g')
+  await expect(page.locator('.map-svg path[data-id="EON"]')).toBeVisible()
+  const box = (await page.locator('.map-svg').boundingBox())!
+  await page.mouse.move(box.x + 40, box.y + 40)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 140, box.y + 90, { steps: 5 })
+  await page.mouse.up()
+  await expect(layer).toHaveAttribute('transform', /translate\(100 50\) scale\(1\)/)
+  await page.locator('.map-svg').focus()
+  await page.keyboard.press('+')
+  await expect(layer).toHaveAttribute('transform', /scale\(1\.5\)/)
+  await page.keyboard.press('0')
+  await expect(layer).toHaveAttribute('transform', 'translate(0 0) scale(1)')
+  await expect(page).toHaveURL(/\/map\?region=ON$/)
 })
 
 test('map code is fetched only on the map route', async ({ page }) => {

@@ -20,6 +20,7 @@ Read this file and `docs/PLAN.md` before starting any issue. If they disagree, P
 5. **Open a PR** titled `<type>(<area>): <summary> (#<issue>)`, with body `Closes #<issue>` and the template filled in.
 6. **Keep PRs small:** under ~400 changed lines excluding generated files and fixtures. If an issue grows beyond that, split it and say so on the issue.
 7. **Do not merge your own PR** (Cursor included). Claude reviews every PR and squash-merges it when CI is green and there are no must-fix items, then deletes the branch. PRs that change `src/pulse/contracts/`, PLAN.md design, or add a dependency also wait for the human owner's OK.
+8. **Automatic review.** The `pr-review.yml` workflow runs Claude Code on every non-draft PR (up to 2 automatic reviews per PR). To request a re-review, comment `@claude review`. PRs labelled `skip-review` are excluded. The review checks the §9 checklist and the linked issue's acceptance criteria. Claude comments only — it never approves, merges, or pushes.
 
 Commit messages: Conventional Commits (`feat`, `fix`, `test`, `docs`, `chore`, `refactor`, `ci`), imperative mood.
 
@@ -102,6 +103,8 @@ Before starting, every agent must read: this file, the issue, the contracts it d
 - Work against **fixtures** whenever upstream code is not merged yet. That is what they are for.
 
 ## 9. Review checklist (for Claude when reviewing PRs)
+
+> Automated by `.github/workflows/pr-review.yml` using the prompt in `.github/review-prompt.md`. See §2 step 8.
 
 - Matches the contract, with no silent column or type changes.
 - Idempotent and deterministic; no wall-clock dependencies.

@@ -9,16 +9,7 @@ let engine: Promise<Core> | null = null
 
 /** ECharts, tree-shaken to what the report uses and loaded on the first chart. */
 function loadEcharts(): Promise<Core> {
-  engine ??= Promise.all([import('echarts/core'), import('echarts/charts'), import('echarts/components'), import('echarts/renderers')])
-    .then(([core, charts, components, renderers]) => {
-      core.use([
-        charts.LineChart, charts.BarChart,
-        components.GridComponent, components.TooltipComponent, components.LegendComponent,
-        components.MarkLineComponent, components.DatasetComponent, components.AriaComponent,
-        renderers.SVGRenderer,
-      ])
-      return core
-    })
+  engine ??= import('./echarts').then((m) => m.core)
   return engine
 }
 
