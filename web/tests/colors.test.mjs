@@ -28,3 +28,16 @@ test('only theme/tokens.css may define raw hex', async () => {
     await rm(dir, { recursive: true, force: true })
   }
 })
+
+test('the system dark block and the chosen dark block hold the same tokens', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const css = await readFile(new URL('../src/theme/tokens.css', import.meta.url), 'utf8')
+  const block = (selector) => {
+    const start = css.indexOf(selector)
+    assert.ok(start >= 0, `missing ${selector}`)
+    const open = css.indexOf('{', start)
+    const close = css.indexOf('}', open)
+    return css.slice(open + 1, close).split('\n').map((line) => line.trim()).filter(Boolean).join('\n')
+  }
+  assert.equal(block(":root:not([data-theme='light'])"), block(":root[data-theme='dark']"))
+})

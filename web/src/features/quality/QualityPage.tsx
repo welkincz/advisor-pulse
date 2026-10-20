@@ -61,7 +61,6 @@ export function QualityPage() {
   }
 
   return <main className="quality">
-    <p className="eyebrow">Maplecrest Bank · fictional</p>
     <h1>Data quality</h1>
     <p className="intro">{latestRun ? qualitySentence(latestRun) : 'Rule coverage, weekly defect rates and the checks from the last recorded run.'}</p>
 

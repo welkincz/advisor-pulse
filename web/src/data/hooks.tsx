@@ -8,7 +8,7 @@ import type { OrgLevel, OrgWeekly } from './generated/org_weekly'
 import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { KpiCode, WeeklyReport } from './generated/weekly_report'
-import type { PulseData } from './store'
+import type { OrgNode, PulseData } from './store'
 
 export type DataState<T> =
   | { status: 'loading' }
@@ -104,6 +104,10 @@ export function useChildReportHistory(parentId: string, weeks: readonly string[]
 
 export function useAdvisorWeekly(branchId: string, weeks: readonly string[]): DataResult<AdvisorWeekly[]> {
   return useData(`advisors:${branchId}:${weeks.join(',')}`, (d) => d.advisorWeekly(branchId, weeks))
+}
+
+export function useOrgDirectory(enabled = true): DataResult<OrgNode[]> {
+  return useData(enabled ? 'org-directory' : 'org-directory-off', (d) => (enabled ? d.orgDirectory() : Promise.resolve([])))
 }
 
 export function useNodeNames(nodeIds: readonly string[]): DataResult<Map<string, string>> {

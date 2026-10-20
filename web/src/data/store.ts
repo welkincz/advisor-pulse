@@ -9,7 +9,10 @@ import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { KpiCode, WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
-import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, levelKpiHistorySql, nodeNamesSql, orgLevelSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
+import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, levelKpiHistorySql, nodeNamesSql, orgDirectorySql, orgLevelSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
+
+/** An org node for search and links. */
+export interface OrgNode { node_id: string; node_name: string; level: OrgLevel; parent_id: string | null }
 
 export interface PulseDataOptions {
   /** URL prefix of the weekly export: `/data` on the site and in `make web-dev`. */
@@ -92,6 +95,10 @@ export class PulseData {
 
   advisorWeekly(branchId: string, weeks: readonly string[]): Promise<AdvisorWeekly[]> {
     return this.select<AdvisorWeekly>('advisor_weekly', advisorWeeklySql(branchId, weeks))
+  }
+
+  orgDirectory(): Promise<OrgNode[]> {
+    return this.select<OrgNode>('org_weekly', orgDirectorySql())
   }
 
   async nodeNames(nodeIds: readonly string[]): Promise<Map<string, string>> {

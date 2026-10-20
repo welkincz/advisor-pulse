@@ -288,7 +288,6 @@ function MapContent({ manifest }: { manifest: Manifest }) {
 export function MapPage() {
   const manifest = useManifest()
   return <main className="map-page">
-    <p className="eyebrow">Maplecrest Bank · fictional</p>
     <h1>Map</h1>
     <p className="intro">Where the week happened. Each province takes the colour of the region that serves it; choose a region to fly to its districts, then a district to open its report.</p>
     {manifest.status === 'loading' && <p aria-busy="true">Loading the latest weekly report…</p>}

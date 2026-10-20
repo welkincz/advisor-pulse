@@ -17,7 +17,8 @@ export function Delta({ value, better = 'higher', against = 'last week' }: { val
   const verdict = judge(value, better)
   const direction = Math.abs(value) < 0.0005 ? 'flat' : value > 0 ? 'up' : 'down'
   const sign = direction === 'up' ? '+' : direction === 'down' ? '−' : '±'
-  return <span className={`delta delta-${verdict}`} aria-label={`${sign}${Math.abs(value * 100).toFixed(1)}%, ${WORD[verdict]} ${against}`}>
+  // role="img" makes the label valid on a span (axe: aria-prohibited-attr); the parts are hidden.
+  return <span className={`delta delta-${verdict}`} role="img" aria-label={`${sign}${Math.abs(value * 100).toFixed(1)}%, ${WORD[verdict]} ${against}`}>
     <span className="delta-glyph" aria-hidden="true">{GLYPH[direction]}</span>
     <span className="figure-num" aria-hidden="true">{sign}{Math.abs(value * 100).toFixed(1)}%</span>
   </span>
