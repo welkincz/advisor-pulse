@@ -5,7 +5,7 @@ import { act } from 'react'
 import { type Root, createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it } from 'vitest'
-import { CaseStudyPage } from './CaseStudyPage'
+import { CaseStudyPage, keyNumbers, slug } from './CaseStudyPage'
 import { parseBlocks } from './markdown'
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -51,4 +51,16 @@ it('reads in about eight minutes or less', () => {
 it('parses tables with right-aligned numeric columns', () => {
   const [table] = parseBlocks('| Defect | Injected |\n|---|---:|\n| Null id | 2,957 |\n')
   expect(table).toEqual({ kind: 'table', header: ['Defect', 'Injected'], align: ['left', 'right'], rows: [['Null id', '2,957']] })
+})
+
+it('lists every section in the contents with a working anchor, and leads with the scale numbers', async () => {
+  await act(async () => root.render(<MemoryRouter><CaseStudyPage /></MemoryRouter>))
+  const toc = [...container.querySelectorAll('.cs-toc a')].map((a) => a.getAttribute('href')!.slice(1))
+  const ids = [...container.querySelectorAll('h2')].map((h) => h.id)
+  expect(toc).toEqual(ids)
+  expect(new Set(ids).size).toBe(ids.length)
+  expect(slug('What the integration run caught')).toBe('what-the-integration-run-caught')
+  const numbers = keyNumbers(parseBlocks(caseStudy))
+  expect(numbers.length).toBe(4)
+  expect(container.querySelectorAll('.cs-numbers > div')).toHaveLength(4)
 })
