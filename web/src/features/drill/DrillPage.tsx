@@ -215,7 +215,6 @@ export function DrillPage() {
   const manifest = useManifest()
   if (!path) return null
   return <main className="drill">
-    <p className="eyebrow">Maplecrest Bank · fictional</p>
     {manifest.status === 'loading' && <><h1>{path.nodeId}</h1><p aria-busy="true">Loading the latest weekly report…</p></>}
     {manifest.status === 'error' && <><h1>{path.nodeId}</h1><DataNotice what="this week's report" onRetry={manifest.retry} /></>}
     {manifest.status === 'ready' && <Drill path={path} weeks={manifest.data.weeks_available} latest={manifest.data.latest_week} />}

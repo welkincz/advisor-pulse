@@ -33,7 +33,7 @@ for (const [path, heading] of routes) {
       await page.emulateMedia({ colorScheme: mode.colorScheme, reducedMotion: mode.reducedMotion })
       await page.goto(path)
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
-      await expect(page.getByText('Weekly batch report · synthetic data · fictional bank')).toBeVisible()
+      await expect(page.getByText(/Maplecrest Bank is fictional and every figure is synthetic/)).toBeVisible()
       await expect(page.locator('html')).toHaveAttribute(
         'data-motion', mode.reducedMotion === 'reduce' ? 'reduced' : 'full',
       )
@@ -49,8 +49,9 @@ for (const [path, heading] of routes) {
 test('navigation works by keyboard at 375 px', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/')
-  await page.keyboard.press('Tab')
-  await page.keyboard.press('Tab')
+  // Skip link, brand, Overview, Map.
+  for (let i = 0; i < 4; i++) await page.keyboard.press('Tab')
+  await expect(page.getByRole('link', { name: 'Map', exact: true })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Map', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)

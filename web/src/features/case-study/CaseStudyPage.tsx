@@ -84,7 +84,6 @@ const numbers = keyNumbers(blocks)
 export function CaseStudyPage() {
   const current = useSectionInView(sectionIds)
   return <main className="case-study">
-    <p className="eyebrow">Maplecrest Bank · fictional</p>
     <h1>Case study</h1>
     {title?.kind === 'heading' && <p className="intro">{title.text}</p>}
     {numbers.length > 0 && <dl className="cs-numbers">{numbers.map((n) => <div key={n.label}><dt>{n.label}</dt><dd className="figure-num">{n.value.replace(/\s*\(.*\)$/, '')}{/\(.*\)$/.test(n.value) && <small>{/\((.*)\)$/.exec(n.value)![1]}</small>}</dd></div>)}</dl>}

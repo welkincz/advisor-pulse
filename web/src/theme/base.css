@@ -16,12 +16,6 @@ a:hover { text-decoration-thickness: 2px; }
 button { font: inherit; color: inherit; }
 
 .site { max-width: var(--page-max); margin: auto; min-height: 100vh; display: flex; flex-direction: column; padding: var(--gutter); }
-.site-header { display: flex; gap: var(--space-4) var(--space-8); flex-wrap: wrap; align-items: baseline; border-bottom: 1px solid var(--rule); padding-bottom: var(--space-4); }
-.brand { font-weight: 600; text-decoration: none; letter-spacing: -0.01em; }
-.site-nav { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
-.site-nav a { color: var(--muted); text-decoration: none; }
-.site-nav a:hover { color: var(--ink); }
-.site-nav a[aria-current='page'] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-decoration-color: var(--signal); }
 main { flex: 1; padding: clamp(var(--space-8), 5vw, var(--space-16)) 0; }
 
 /* The kicker above a page title says where you are; sentence case, never tracked capitals. */
@@ -31,7 +25,6 @@ h2 { font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.01em; line-
 h3 { font-size: var(--text-md); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
 p { max-width: var(--measure); }
 .intro { max-width: var(--measure); color: var(--muted); font-size: var(--text-lg); line-height: 1.45; margin: 0; }
-.site-footer { border-top: 1px solid var(--rule); padding-top: var(--space-4); color: var(--muted); font-size: var(--text-sm); }
 
 /* Numbers: tabular lining figures wherever values line up or change in place. */
 .figure-num, td.num, th.num { font-variant-numeric: tabular-nums lining-nums; }

@@ -196,6 +196,22 @@ first, over the node's own dashed line. The advisor page plots one measure over 
 against the median of the branch's other advisors. The week and the measure travel with
 every drill link.
 
+### The shell (#181)
+
+- **Header:** the brand with "Maplecrest Bank, fictional" beneath it (so pages no longer repeat
+  it as a kicker), the five sections, and three tools on the right: the report week and the
+  run behind it with its status (links to the pipeline), **Jump to** (⌘K, Ctrl+K or /), and
+  the colour scheme (system, light, dark).
+- **Jump to** is a native modal `<dialog>` over a combobox and listbox: pages, every region,
+  district and branch (from `org_weekly`, loaded on first open) and every measure. Whole-label
+  prefixes rank first. Arrow keys move, Enter opens, Escape closes.
+- **Colour scheme:** `data-theme` on `<html>` overrides the system choice; tokens.css holds the
+  dark tokens twice (system and chosen) and a test keeps the two blocks equal. A tiny inline
+  script applies a stored choice before first paint.
+- **Skip link** to the report, and a footer that says plainly what is synthetic.
+- **Route changes** cross-fade the page under a header that keeps its place (View
+  Transitions; off under reduced motion). Drill links keep their title morph.
+
 ## 8. Primitives
 
 | Primitive | Use it for |

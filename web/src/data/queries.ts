@@ -50,6 +50,11 @@ export function advisorWeeklySql(branchId: string, weeks: readonly string[]): st
   return `select * from advisor_weekly where branch_id = ${sqlString(branchId)} and iso_week_id in ${inList(weeks)} order by iso_week_id, advisor_id`
 }
 
+/** Every org node with its parent, for search: one row per node, its latest name. */
+export function orgDirectorySql(): string {
+  return `select node_id, arg_max(node_name, iso_week_id) as node_name, arg_max(level, iso_week_id) as level, arg_max(parent_id, iso_week_id) as parent_id from org_weekly group by node_id order by node_id`
+}
+
 /** Display names of org nodes, for breadcrumbs and headings. */
 export function nodeNamesSql(nodeIds: readonly string[]): string {
   return `select distinct node_id, node_name from org_weekly where node_id in ${inList(nodeIds)} order by node_id`

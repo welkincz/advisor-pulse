@@ -139,7 +139,6 @@ export function PipelinePage() {
   const latestWeekly = runs.find((r) => r.run_type === 'WEEKLY')
 
   return <main className="pipe-page">
-    <p className="eyebrow">Maplecrest Bank · fictional</p>
     <h1>Pipeline</h1>
     <p className="intro">{latestWeekly ? runSentence(latestWeekly) : 'The weekly batch from source extracts to the published report.'} Choose a stage for its attempts, rows and checks.</p>
     {(graph.status === 'loading' || runLog.status === 'loading') && <p aria-busy="true">Loading the pipeline…</p>}

@@ -81,8 +81,10 @@
   color-scheme: light;
 }
 
+/* Dark: chosen, not inverted. Applies when the system asks for it, unless the reader picked
+   light in the header; or whenever the reader picked dark. The two blocks must stay equal. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --paper: #14181D;
     --ink: #E2E5E8;
     --muted: #A2ABB5;
@@ -123,6 +125,47 @@
     color-scheme: dark;
   }
 }
+
+:root[data-theme='dark'] {
+  --paper: #14181D;
+  --ink: #E2E5E8;
+  --muted: #A2ABB5;
+  --faint: #848E99;
+  --rule: #303740;
+  --signal: #D0A64C;
+  --focus: #82ADE7;
+  --field: rgba(226, 229, 232, 0.095);
+
+  --series-1: #346FB8;
+  --series-2: #05A7A7;
+  --series-3: #AD4E37;
+  --series-4: #B68B16;
+
+  /* Dark flips the anchor: low values recede into the surface. */
+  --seq-1: #392C0C;
+  --seq-2: #574109;
+  --seq-3: #765809;
+  --seq-4: #957116;
+  --seq-5: #B48C2B;
+  --seq-6: #CFA851;
+  --seq-7: #E6C686;
+
+  --better-1: #164781;
+  --better-2: #4273B0;
+  --better-3: #6EA1E2;
+  --worse-1: #7F230B;
+  --worse-2: #B05139;
+  --worse-3: #E37F65;
+  --diverging-mid: #303740;
+
+  --status-good: #61BD67;
+  --status-warning: #EFA831;
+  --status-critical: #F47C6E;
+  --status-neutral: #848E99;
+  --status-running: #82ADE7;
+
+  color-scheme: dark;
+  }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
