@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { TrendChart } from '../../components/charts/TrendChart'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useReducedMotion } from '../../app/useReducedMotion'
-import { Breadcrumb, Delta, Section, Stat, StatGroup, WeekStepper } from '../../components/primitives'
+import { Breadcrumb, Delta, Section, SeriesCsvButton, Stat, StatGroup, WeekStepper } from '../../components/primitives'
 import { DataNotice, KPI_LABELS, formatKpi, useAdvisorWeekly, useChildReportHistory, useManifest, useNodeNames, useWeeklyReportHistory } from '../../data'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../../data/usual'
@@ -110,6 +110,7 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, childHre
         <span><i className="hero-key-ref" aria-hidden="true" />{parentName}</span>
         <span><i className="hero-key-usual" aria-hidden="true" />Usual: trailing 13-week average</span>
         <span><i className="hero-key-flag" aria-hidden="true" />Anomaly</span>
+        <span className="hero-hint"><SeriesCsvButton rows={series} filename={`advisor-pulse_${path.nodeId}_${code}.csv`} /></span>
       </p>
     </section>
     <Section id="kpis" title={`${name}, week ${week}`} lede="Change is against the prior week. Choose a measure to plot it above." revealOrder={0}>

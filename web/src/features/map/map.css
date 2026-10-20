@@ -19,6 +19,7 @@
 .map-back { padding: 0; border: 0; background: none; color: var(--ink); text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
 .map-open { font-size: var(--text-sm); font-weight: 600; text-decoration-color: var(--signal); text-decoration-thickness: 2px; }
 
+.map-sentence { max-width: 60ch; margin: 0; color: var(--ink); font-size: var(--text-lg); line-height: 1.4; text-wrap: pretty; }
 .map-layout { display: grid; gap: var(--space-6); }
 @media (min-width: 64rem) { .map-layout { grid-template-columns: minmax(0, 1fr) 19rem; } }
 .map-canvas { position: relative; height: clamp(20rem, 62vw, 34rem); min-width: 0; overflow: hidden; }
