@@ -89,6 +89,8 @@ flowchart LR
 
 On failure, data is **not** redeployed: the site keeps the last good week, and only the run status is updated (see §10).
 
+**Persist state depends on checks, not export (#167).** Once a week has loaded and passed its checks (SUCCESS or WARN), the warehouse goes to R2 even if the narrative or export later fails, so a failed export never throws away a 3-hour cold rebuild (#162). R2 can then hold week N while the site still shows N−1; the next good run exports every week and the two meet again. Failed checks skip persist, so R2 never holds a week that did not pass.
+
 ---
 
 ## 3. Tech choices and tradeoffs
