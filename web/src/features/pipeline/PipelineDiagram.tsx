@@ -89,7 +89,9 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
       const summary = node.stage ? summaries.get(node.stage) : undefined
       const word = s ? WORD[s] : node.kind === 'SOURCE' ? 'Source' : 'Output'
       const detail = node.kind === 'STAGE' && summary && done(s) ? formatDuration(summary.durationMs) : ''
-      const label = `${node.label}, ${word}${detail ? `, ${detail}` : ''}`
+      const sub = node.kind === 'STAGE' ? (s === 'PENDING' ? 'Waiting' : s === 'RUNNING' ? 'Running' : detail || word) : ''
+      // The name starts with the visible text, in order, then adds the status (label-content-name-mismatch).
+      const label = [node.label, sub, sub !== word && word].filter(Boolean).join(', ')
       const small = node.kind === 'DBT_LAYER'
       return <g key={node.id} className={`line-node line-node-${node.kind.toLowerCase()}${node.id === selected ? ' is-selected' : ''}`} data-node={node.id} data-state={s ?? 'NONE'}
         transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={label} aria-pressed={node.id === selected}
@@ -100,17 +102,18 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
           : <>
             {s === 'RUNNING' && <circle className="line-running" r={small ? 11 : 15} />}
             <circle className="line-mark" r={small ? 6 : 11} />
-            {!small && s && GLYPH[s] && <text className="line-glyph" dy="0.35em" textAnchor="middle">{GLYPH[s]}</text>}
+            {!small && s && GLYPH[s] && <text className="line-glyph" dy="0.35em" textAnchor="middle" aria-hidden="true">{GLYPH[s]}</text>}
           </>}
         {(() => {
           // dbt layers sit close together on the main line, so their names go above it.
           const lines = labelLines(node.label)
           const top = small ? -14 - (lines.length - 1) * 13 : 28
-          return <text className="line-label" y={top} textAnchor="middle">
+          // The group's aria-label already says all of this; the drawn text is presentation.
+          return <text className="line-label" y={top} textAnchor="middle" aria-hidden="true">
             {lines.map((line, i) => <tspan key={i} x={0} dy={i ? 13 : 0} className={i ? 'line-label-more' : undefined}>{line}</tspan>)}
           </text>
         })()}
-        {node.kind === 'STAGE' && <text className="line-sub" y={42 + (labelLines(node.label).length - 1) * 13} textAnchor="middle">{s === 'PENDING' ? 'Waiting' : s === 'RUNNING' ? 'Running' : detail || word}</text>}
+        {node.kind === 'STAGE' && <text className="line-sub" aria-hidden="true" y={42 + (labelLines(node.label).length - 1) * 13} textAnchor="middle">{sub}</text>}
       </g>
     })}
   </svg>

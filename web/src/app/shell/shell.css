@@ -2,6 +2,8 @@
 .skip-link { position: absolute; left: var(--space-4); top: -4rem; z-index: 10; padding: var(--space-2) var(--space-3); background: var(--ink); color: var(--paper); font-weight: 600; text-decoration: none; }
 .skip-link:focus { top: var(--space-2); }
 .site-main { flex: 1; display: flex; flex-direction: column; }
+/* Keep the footer below the first screen while data loads, so it never jumps down (CLS). */
+.site-main { min-height: 100vh; }
 .site-main:focus { outline: none; }
 
 .site-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-8); padding-bottom: var(--space-4); border-bottom: 1px solid var(--rule); }

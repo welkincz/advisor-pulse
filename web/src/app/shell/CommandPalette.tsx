@@ -61,7 +61,7 @@ export function CommandPalette() {
   }
 
   return <>
-    <button type="button" className="palette-open" onClick={() => setOpen(true)} aria-keyshortcuts="Meta+K Control+K /">
+    <button type="button" className="palette-open" onClick={() => setOpen(true)} aria-keyshortcuts="Meta+K Control+K /" aria-label="Jump to a page, area or measure">
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" /></svg>
       <span>Jump to</span><kbd>⌘K</kbd>
     </button>
