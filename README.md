@@ -17,7 +17,7 @@ Advisor Pulse is a weekly batch BI pipeline for **Maplecrest Bank**, a fictional
 
 ![Data quality: check scorecards with bullet charts, rows held back each week, and a trend per rule](docs/assets/quality.webp)
 
-Every chart is hand-written SVG (no chart engine), reads its colours from design tokens, has a table of the same numbers, works by keyboard, and turns its motion off under reduced motion. Each route loads 80 to 131 KB of JavaScript, gzip.
+There is no chart engine: lines, the heatmap and the map are hand-written SVG, and bars (funnel, bullets, the pipeline timeline) are plain HTML and CSS. Every chart reads its colours from design tokens, has a table of the same numbers, works by keyboard, and turns its motion off under reduced motion. CI holds each route to a 350 KiB JavaScript budget (`web/tests/bundle-budget.mjs`).
 
 ## Read more
 
