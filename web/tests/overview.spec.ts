@@ -91,3 +91,15 @@ test('a warn newest run shows no failure banner', async ({ page }) => {
   await expect(page.locator('[data-kpi]')).toHaveCount(12)
   await expect(page.locator('.run-status-banner')).toHaveCount(0)
 })
+
+test('the hero series downloads as CSV with raw values', async ({ page }) => {
+  await page.goto('/?kpi=SHOW_RATE')
+  await expect(page.getByRole('img', { name: /Show rate, national/ })).toBeVisible()
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download CSV' }).click()])
+  expect(download.suggestedFilename()).toBe('advisor-pulse_CA_SHOW_RATE.csv')
+  const text = await (await import('node:fs/promises')).readFile((await download.path())!, 'utf8')
+  const lines = text.replace(/^\uFEFF/, '').trim().split('\r\n')
+  expect(lines[0]).toBe('iso_week_id,node_id,node_name,kpi_code,value,prior_week_value,wow_pct,trailing_13w_avg,flag')
+  expect(lines).toHaveLength(5)
+  expect(lines[1]).toMatch(/^2026-W37,CA,Canada,SHOW_RATE,0\.\d+/)
+})

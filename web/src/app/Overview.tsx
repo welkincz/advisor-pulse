@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TrendChart } from '../components/charts/TrendChart'
-import { Delta, Section, WeekStepper } from '../components/primitives'
+import { Delta, Section, SeriesCsvButton, WeekStepper } from '../components/primitives'
 import { DataNotice, KPI_LABELS, formatKpi, formatWow, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
 import type { Manifest } from '../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
@@ -108,6 +108,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
         <span><i className="hero-key-usual" aria-hidden="true" />Usual: trailing 13-week average</span>
         <span><i className="hero-key-flag" aria-hidden="true" />Anomaly, more than two standard deviations from the 13 weeks before</span>
         <span className="hero-hint">Choose a week on the chart, or a measure below.</span>
+        <SeriesCsvButton rows={series} filename={`advisor-pulse_CA_${code}.csv`} />
       </p>
     </section>
 

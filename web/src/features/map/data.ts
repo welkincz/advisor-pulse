@@ -117,3 +117,18 @@ export function fsaCoverage(rows: readonly GeoWeekly[]): FsaCoverage {
   }
   return { values: new Map([...sums].map(([fsa, s]) => [fsa, s.active > 0 ? s.contacted / s.active : null])), unknownClients }
 }
+
+/**
+ * One sentence on which area sat furthest from its own usual week, judged in the KPI's
+ * direction, or that every area was close to usual. `reach` is the diverging scale's half-width.
+ */
+export function standoutSentence(rows: readonly { name: string; usual: number | null }[], label: string, lowerIsBetter: boolean, reach: number | null): string | null {
+  const known = rows.filter((r): r is { name: string; usual: number } => r.usual !== null)
+  if (!known.length || !reach) return null
+  const top = [...known].sort((a, b) => Math.abs(b.usual) - Math.abs(a.usual))[0]!
+  if (Math.abs(top.usual) < reach / 6) return `Every area was within ${(reach / 6 * 100).toFixed(1)}% of its usual week for ${label.toLowerCase()}.`
+  const better = lowerIsBetter ? top.usual < 0 : top.usual > 0
+  const others = known.filter((r) => r !== top && Math.sign(r.usual) === Math.sign(top.usual)).length
+  const company = others === 0 ? ', the only one on that side' : others === known.length - 1 ? `; all ${known.length} areas were ${top.usual < 0 ? 'below' : 'above'} usual` : ''
+  return `${top.name} sat furthest from its usual week: ${label.toLowerCase()} ${(Math.abs(top.usual) * 100).toFixed(1)}% ${top.usual < 0 ? 'below' : 'above'} its 13-week average, ${better ? 'better' : 'worse'} than usual${company}.`
+}

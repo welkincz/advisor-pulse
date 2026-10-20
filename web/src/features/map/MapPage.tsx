@@ -9,7 +9,7 @@ import { DIVERGING, SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
 import { KPI_CODES, LOWER_IS_BETTER } from '../overview/kpis'
 import { CanadaMap, type MapArea, type MapPlace } from './CanadaMap'
-import { type Basemap, type Boundary, bin, fsaCoverage, deviationReach, drillHref, extent, historyExtent, loadBasemap, loadBoundaries, versusUsual } from './data'
+import { type Basemap, type Boundary, bin, standoutSentence, fsaCoverage, deviationReach, drillHref, extent, historyExtent, loadBasemap, loadBoundaries, versusUsual } from './data'
 import './map.css'
 
 // Fill colours are CSS variables, so light and dark follow tokens.css with no re-render.
@@ -224,6 +224,10 @@ function MapContent({ manifest }: { manifest: Manifest }) {
         </div>
         {focus && <Link className="map-open" to={drillHref(null, focus, week, manifest.latest_week)}>Open the {scope} report</Link>}
       </header>
+      {!fsaMode && ready && (() => {
+        const sentence = standoutSentence(rows, KPI_LABELS[code], LOWER_IS_BETTER.has(code), focus ? districtReach : regionReach)
+        return sentence && <p className="map-sentence">{sentence}</p>
+      })()}
       <div className="map-layout">
         <div className="map-canvas" ref={canvasRef} aria-label={`${fsaMode ? 'fsa' : focus ? 'districts' : 'regions'} map`}>
           {base?.data && districts?.data && <CanadaMap ready={ready} basemap={base.data} width={canvas.width} height={canvas.height}
