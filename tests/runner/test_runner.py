@@ -238,6 +238,37 @@ def test_failure_only_skips_its_own_descendants() -> None:
     assert status is StageStatus.FAILED
 
 
+def test_export_failure_still_persists_checked_state() -> None:
+    clock = FakeClock()
+    boom = ok(clock, status=StageStatus.FAILED, message="run_log export broke")
+    rows, status = run(weekly(clock, export=boom), clock)
+    statuses = final(rows)
+    assert statuses["export"] is StageStatus.FAILED
+    assert statuses["publish_sheets"] is StageStatus.SKIPPED
+    assert statuses["persist_state"] is StageStatus.SUCCESS
+    assert status is StageStatus.FAILED
+
+
+def test_narrate_failure_still_persists_checked_state() -> None:
+    clock = FakeClock()
+    rows, _ = run(weekly(clock, narrate=ok(clock, status=StageStatus.FAILED)), clock)
+    assert final(rows)["persist_state"] is StageStatus.SUCCESS
+
+
+def test_warned_checks_still_persist_state() -> None:
+    clock = FakeClock()
+    checks = ok(clock, status=StageStatus.WARN)
+    rows, _ = run(weekly(clock, checks=checks, export=ok(clock, status=StageStatus.FAILED)), clock)
+    assert final(rows)["persist_state"] is StageStatus.SUCCESS
+
+
+def test_failed_checks_do_not_persist_state() -> None:
+    clock = FakeClock()
+    rows, _ = run(weekly(clock, checks=ok(clock, status=StageStatus.FAILED)), clock)
+    assert final(rows)["persist_state"] is StageStatus.SKIPPED
+    assert final(rows)["release_lock"] is StageStatus.SUCCESS
+
+
 def test_stage_returning_the_wrong_type_fails() -> None:
     clock = FakeClock()
     bad = weekly(clock, restore_state=lambda ctx: None)  # type: ignore[arg-type,return-value]
@@ -302,7 +333,7 @@ def test_dry_run_prints_the_plan_and_touches_nothing(
     lines = result.output.splitlines()
     assert lines[0] == f"Plan for {WEEK} (MANUAL), nothing will run:"
     assert lines[1].strip() == "1. restore_state (Restore state), up to 3 attempts"
-    assert lines[-2].strip().startswith("9. persist_state (Persist state) after export")
+    assert lines[-2].strip().startswith("9. persist_state (Persist state) after checks")
     assert lines[-1].strip().startswith("10. release_lock (Release lock) after persist_state")
     assert list(tmp_path.iterdir()) == []
 

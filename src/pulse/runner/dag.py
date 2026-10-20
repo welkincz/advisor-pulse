@@ -96,7 +96,9 @@ WEEKLY_STAGES: tuple[Stage, ...] = (
     # always: after a failure, export still publishes run_log.json (and no data).
     Stage("export", "Export", stages.export, ("narrate",), always=True),
     Stage("publish_sheets", "Google Sheets", not_implemented(55), ("export",)),
-    Stage("persist_state", "Persist state", _persist_state, ("export",)),
+    # After checks, not export: a narrative or export bug must not throw away a loaded,
+    # checked warehouse (#162 lost a 3 h cold rebuild that way). The next export heals the site.
+    Stage("persist_state", "Persist state", _persist_state, ("checks",)),
     Stage(
         "release_lock",
         "Release lock",

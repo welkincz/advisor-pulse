@@ -120,8 +120,9 @@ def test_without_a_manifest_the_graph_has_stages_and_outputs(tmp_path: Path) -> 
     assert kinds == {PipelineNodeKind.STAGE, PipelineNodeKind.OUTPUT}
     assert {("ingest", "dbt_build"), ("dbt_build", "checks")} <= _edges(graph)
     by_id = {n.id: n.position for n in graph.nodes}
-    assert by_id["publish_sheets"].x == by_id["persist_state"].x
-    assert by_id["publish_sheets"].y != by_id["persist_state"].y
+    # Siblings after checks share a column and do not overlap.
+    assert by_id["narrate"].x == by_id["persist_state"].x
+    assert by_id["narrate"].y != by_id["persist_state"].y
 
 
 def test_read_manifest_reads_dbt_json(tmp_path: Path) -> None:
