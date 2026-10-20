@@ -146,6 +146,10 @@ test('hovering a district circle names it, and clicking opens its report', async
   await expect(page.getByRole('button', { name: /Eastern Ontario/ })).toContainText('%')
   const circle = page.locator('.canada-map circle[data-hot="EON"]')
   await expect(circle).toBeVisible()
+  // The fixture weeks are all warm-up (no usual level yet): a value with no comparison is a
+  // solid neutral circle, not the dashed ring reserved for a missing value.
+  await expect(circle).not.toHaveClass(/is-empty/)
+  await expect(page.locator('.map-legend')).toContainText('No value this week')
   await circle.hover()
   await expect(page.locator('.map-tooltip')).toContainText('Eastern Ontario')
   await expect(page.locator('.map-rows li.is-hot')).toContainText('Eastern Ontario')

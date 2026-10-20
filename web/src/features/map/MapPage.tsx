@@ -236,7 +236,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             regionFill={(id) => fillOf(regionById.get(id), regionRange, regionReach)}
             regionValue={(id) => !ready ? null : regionById.get(id)?.value != null ? formatKpi(code, regionById.get(id)!.value) : 'No data'}
             places={places}
-            mark={(id) => ({ size: sizes.get(id) ?? 0, fill: fillOf(districtById.get(id), districtRange, districtReach), label: formatKpi(code, districtById.get(id)?.value) })}
+            mark={(id) => ({ size: sizes.get(id) ?? 0, fill: fillOf(districtById.get(id), districtRange, districtReach), label: formatKpi(code, districtById.get(id)?.value), empty: districtById.get(id)?.value == null })}
             overlay={overlay} overlayFill={(id) => shade(geoValues.get(id), fsaRange)} hot={hot} onHot={setHot} onRegion={focusRegion} onMark={openDistrict}
             tooltip={tooltip} label={`${KPI_LABELS[code]} by ${focus ? 'district' : 'region'}, ${week}`} />}
           {(!base || !districts) && <p aria-busy="true">Drawing the map…</p>}
