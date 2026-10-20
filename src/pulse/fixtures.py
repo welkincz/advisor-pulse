@@ -1579,7 +1579,10 @@ def run_log(
         stage(
             "persist_state",
             3900,
-            message="Persisted warehouse.duckdb and 3 new or changed source files.",
+            message=(
+                "Persisted warehouse.duckdb and 3 new or changed source files, "
+                "plus 2 narrative files."
+            ),
         )
         stage("release_lock", 300, message="Released run lock.")
 
