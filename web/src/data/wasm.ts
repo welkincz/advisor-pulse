@@ -3,7 +3,8 @@ import { type QueryEngine, plainRow } from './engine'
 /**
  * DuckDB-WASM in a worker, loaded on first use so it never blocks the first paint.
  * The binary (~34 MB) is over Cloudflare Pages' 25 MiB file limit, so it comes from
- * jsDelivr at the exact version in package.json.
+ * jsDelivr at the exact version in package.json. DuckDB then autoloads its parquet extension
+ * from extensions.duckdb.org, so the CSP in public/_headers allows both hosts (tests/csp-check.mjs).
  */
 export async function createWasmEngine(): Promise<QueryEngine> {
   const duckdb = await import('@duckdb/duckdb-wasm')

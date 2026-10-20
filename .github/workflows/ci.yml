@@ -164,6 +164,10 @@ jobs:
           mkdir -p web/dist/data
           cp -R fixtures/exports/. web/dist/data/
 
+      - name: Content-Security-Policy holds with DuckDB-WASM
+        working-directory: web
+        run: node tests/csp-check.mjs
+
       - name: Lighthouse overview budget
         id: lighthouse
         continue-on-error: true
