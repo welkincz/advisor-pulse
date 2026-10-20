@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
-import { extremeSince, nationalHeadline } from './headline'
+import { extremeSince, weekHeadline } from './headline'
 
 const row = (week: number, value: number, wow: number | null, kpi_code: KpiCode = 'ACT_PER_ADV', flag = 'NONE') =>
   ({ iso_week_id: `2026-W${String(week).padStart(2, '0')}`, kpi_code, value, wow_pct: wow, flag }) as WeeklyReport
@@ -10,7 +10,7 @@ const steady = Array.from({ length: 12 }, (_, i) => row(i + 1, 17 + (i % 2) * 0.
 it('says how the lead measure moved and when it was last this low', () => {
   const history = [...steady.slice(0, 2), row(3, 15, -0.05), ...steady.slice(3, 11), row(12, 15.5, -0.076)]
   expect(extremeSince(history, '2026-W12')).toBe('the lowest since 2026-W03')
-  expect(nationalHeadline(history, '2026-W12')!.lead).toBe('Activities per advisor fell 7.6% to 15.5, the lowest since 2026-W03.')
+  expect(weekHeadline(history, '2026-W12')!.lead).toBe('Activities per advisor fell 7.6% to 15.5, the lowest since 2026-W03.')
 })
 
 it('stays quiet about records that are only a few weeks old', () => {
@@ -28,12 +28,12 @@ it('adds the biggest anomaly among the other measures', () => {
     ...steady.slice(0, 11), row(12, 17.1, 0.001),
     row(12, 1581, -0.17, 'APPT_BOOKED', 'ANOMALY'), row(12, 0.075, -0.146, 'CALL_TO_APPT', 'ANOMALY'), row(12, 7375, -0.3, 'CALLS_OUT'),
   ]
-  const headline = nationalHeadline(history, '2026-W12')!
+  const headline = weekHeadline(history, '2026-W12')!
   expect(headline.lead).toBe('Activities per advisor held steady at 17.1.')
   expect(headline.support).toBe('Appointments booked fell 17.0% to 1,581, outside its usual range, one of 2 measures flagged this week.')
 })
 
 it('says so when nothing else was unusual, and returns null for a missing week', () => {
-  expect(nationalHeadline(steady, '2026-W05')!.support).toBe('Every other measure stayed within its usual range.')
-  expect(nationalHeadline(steady, '2026-W40')).toBeNull()
+  expect(weekHeadline(steady, '2026-W05')!.support).toBe('Every other measure stayed within its usual range.')
+  expect(weekHeadline(steady, '2026-W40')).toBeNull()
 })

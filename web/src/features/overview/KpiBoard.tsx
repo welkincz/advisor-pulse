@@ -40,9 +40,11 @@ export function boardRows(history: readonly WeeklyReport[], weeks: readonly stri
  * Every measure for the week, each a row with its 26-week trend. A row is also the switch
  * for the chart above: choosing it plots that measure there.
  */
-export function KpiBoard({ rows, selected, onSelect }: { rows: Map<KpiCode, BoardRow>; selected: KpiCode; onSelect: (code: KpiCode) => void }) {
+export function KpiBoard({ rows, selected, onSelect, only }: { rows: Map<KpiCode, BoardRow>; selected: KpiCode; onSelect: (code: KpiCode) => void; only?: readonly KpiCode[] }) {
+  // Below the national level the batch-wide rates do not exist, so their group is left out.
+  const groups = KPI_GROUPS.map((g) => ({ ...g, codes: only ? g.codes.filter((c) => only.includes(c)) : g.codes })).filter((g) => g.codes.length)
   return <div className="board">
-    {KPI_GROUPS.map((group) => <section key={group.title} className="board-group" aria-labelledby={`board-${group.title}`}>
+    {groups.map((group) => <section key={group.title} className="board-group" aria-labelledby={`board-${group.title}`}>
       <h3 id={`board-${group.title}`}>{group.title}</h3>
       <ul>
         {group.codes.map((code) => {

@@ -34,7 +34,7 @@ test('the hero chart reads every fixture week and moves the report week by keybo
   await chart.focus()
   await page.keyboard.press('ArrowLeft')
   await expect(page).toHaveURL(/week=2026-W39/)
-  await expect(page.locator('.stepper-week')).toHaveText('2026-W39')
+  await expect(page.locator('.stepper-week')).toHaveValue('2026-W39')
   await expect(page.locator('[data-kpi]')).toHaveCount(12)
   await page.getByRole('button', { name: 'Next week' }).click()
   await expect(page).not.toHaveURL(/week=/)

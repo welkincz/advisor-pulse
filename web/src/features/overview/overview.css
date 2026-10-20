@@ -8,14 +8,6 @@
 .briefing-headline { max-width: 24ch; margin: var(--space-2) 0 0; font-size: clamp(2rem, 4.6vw, 3.4rem); font-weight: 600; letter-spacing: -0.028em; line-height: 1.07; text-wrap: balance; }
 .briefing-support { max-width: 52ch; margin: 0; color: var(--muted); font-size: var(--text-lg); line-height: 1.45; text-wrap: pretty; }
 
-.stepper { display: inline-flex; align-items: center; gap: var(--space-1); }
-.stepper button { display: inline-grid; place-items: center; min-width: 2.25rem; height: 2.25rem; padding: 0 var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font-size: var(--text-sm); cursor: pointer; transition: border-color var(--duration-quick) var(--ease-standard); }
-.stepper button:hover:not(:disabled) { border-color: var(--ink); }
-.stepper button:disabled { color: var(--faint); cursor: default; }
-.stepper svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-.stepper-week { min-width: 5.5rem; color: var(--ink); font-weight: 600; text-align: center; }
-.stepper .stepper-latest { margin-left: var(--space-2); }
-
 /* Hero: one measure across every weekly run, under a heavy ink rule. */
 .hero { border-top: 2px solid var(--ink); padding: var(--space-4) 0 var(--space-12); }
 .hero-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-3) var(--space-8); margin-bottom: var(--space-4); }
@@ -60,7 +52,7 @@
 .funnel-track i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--ink); transition: inline-size var(--duration-tween) var(--ease-standard); }
 
 /* Small multiples: same axis, region colour, national line beneath. */
-.multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr)); gap: var(--space-6); margin: 0; padding: 0; list-style: none; }
+.multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr)); gap: var(--space-6) var(--space-4); margin: 0; padding: 0; list-style: none; }
 .multiple { border-top: 1px solid var(--rule); padding-top: var(--space-3); min-width: 0; }
 .multiple-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3); align-items: baseline; margin-bottom: var(--space-2); text-decoration: none; }
 .multiple-head:hover .multiple-name { text-decoration: underline; text-decoration-color: var(--signal); text-decoration-thickness: 2px; }
