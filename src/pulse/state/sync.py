@@ -1,7 +1,9 @@
 """The restore_state, persist_state and release_lock stages.
 
 R2 layout under ``state/``: ``warehouse.duckdb``, ``sources/<file>`` mirroring
-``$PULSE_DATA_DIR/sources``, and ``lock.json``. Persist uploads sources before the warehouse:
+``$PULSE_DATA_DIR/sources``, ``narratives/<file>`` mirroring the published weekly narratives and
+their model-response cache (so history accrues and a rerun of a week costs no model calls), and
+``lock.json``. Persist uploads sources before the warehouse:
 if it stops halfway, R2 holds sources the warehouse has not loaded yet, which the next ingest
 picks up. The reverse (a warehouse that saw files R2 lacks) cannot happen.
 """
@@ -27,6 +29,9 @@ from pulse.warehouse import WAREHOUSE_FILE
 log = logging.getLogger(__name__)
 
 SOURCES_DIR = "sources"
+NARRATIVES_DIR = "narratives"
+# Directories mirrored file by file between $PULSE_DATA_DIR and R2.
+MIRRORED_DIRS = (SOURCES_DIR, NARRATIVES_DIR)
 # Every run_id in the persisted warehouse. A fresh runner starts with an empty local
 # warehouse, so ``pulse run`` reads this to number its run (weekly-2026-W40-2, not -1 again).
 RUNS_KEY = "runs.json"
@@ -187,12 +192,18 @@ class StateSync:
         sources = sorted(store.etags(f"{SOURCES_DIR}/"))
         for key in sources:
             store.download(key, ctx.data_dir / key)
+        narratives = sorted(store.etags(f"{NARRATIVES_DIR}/"))
+        for key in narratives:
+            store.download(key, ctx.data_dir / key)
         # A WAL left by the local file would be replayed onto the restored one.
         (ctx.data_dir / f"{WAREHOUSE_FILE}.wal").unlink(missing_ok=True)
         store.download(WAREHOUSE_FILE, ctx.data_dir / WAREHOUSE_FILE)
         return StageResult(
             rows_out=len(sources),
-            message=f"Restored {WAREHOUSE_FILE} and {len(sources)} source files from R2.{note}",
+            message=(
+                f"Restored {WAREHOUSE_FILE}, {len(sources)} source files and "
+                f"{len(narratives)} narrative files from R2.{note}"
+            ),
         )
 
     def persist(self, ctx: StageContext) -> StageResult:
@@ -210,19 +221,28 @@ class StateSync:
                 message=f"This run does not hold the run lock{by}; not persisting.",
             )
 
-        remote = store.etags(f"{SOURCES_DIR}/")
-        local_dir = ctx.data_dir / SOURCES_DIR
-        files = sorted(p for p in local_dir.rglob("*") if p.is_file()) if local_dir.is_dir() else []
-        uploaded = 0
-        for path in files:
-            key = path.relative_to(ctx.data_dir).as_posix()
-            uploaded += store.upload_if_changed(path, key, remote.get(key))
+        uploaded = {name: self._mirror(store, ctx.data_dir, name) for name in MIRRORED_DIRS}
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
         store.put(RUNS_KEY, json.dumps(_run_ids(ctx.data_dir / WAREHOUSE_FILE)).encode())
         return StageResult(
-            rows_out=uploaded,
-            message=f"Persisted {WAREHOUSE_FILE} and {uploaded} new or changed source files.",
+            rows_out=uploaded[SOURCES_DIR],
+            message=(
+                f"Persisted {WAREHOUSE_FILE}, {uploaded[SOURCES_DIR]} new or changed source files "
+                f"and {uploaded[NARRATIVES_DIR]} narrative files."
+            ),
         )
+
+    @staticmethod
+    def _mirror(store: ObjectStore, data_dir: Path, name: str) -> int:
+        """Upload new or changed files under ``data_dir/name``; return how many."""
+        remote = store.etags(f"{name}/")
+        local_dir = data_dir / name
+        files = sorted(p for p in local_dir.rglob("*") if p.is_file()) if local_dir.is_dir() else []
+        uploaded = 0
+        for path in files:
+            key = path.relative_to(data_dir).as_posix()
+            uploaded += store.upload_if_changed(path, key, remote.get(key))
+        return uploaded
 
     def release(self, ctx: StageContext) -> StageResult:
         token = self._tokens.pop(ctx.run_id, None)

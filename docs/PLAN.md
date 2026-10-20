@@ -58,7 +58,7 @@ flowchart LR
     GS["Google Sheet"] --> TAB["Tableau Public<br/>(daily sync)"]
   end
 
-  R2[("Cloudflare R2<br/>state: sources + warehouse")]
+  R2[("Cloudflare R2<br/>state: sources, narratives + warehouse")]
 
   SF --> VAL
   TD --> VAL
@@ -78,7 +78,7 @@ flowchart LR
 
 ### Weekly run sequence
 
-1. **Restore state** from R2 (sources, `warehouse.duckdb`, watermarks). Acquire run lock.
+1. **Restore state** from R2 (sources, published narratives and their model cache, `warehouse.duckdb`, watermarks). Acquire run lock.
 2. **Generate** the week that just closed, plus late-arriving records for up to 3 prior weeks (simulates upstream).
 3. **Ingest** files newer than the watermark and not already in `load_manifest`; validate rows; quarantine rejects.
 4. **dbt build**: staging → intermediate → marts, with tests and contracts enforced.

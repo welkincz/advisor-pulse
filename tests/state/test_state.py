@@ -152,6 +152,36 @@ def test_persist_skips_unchanged_sources(store: ObjectStore, tmp_path: Path) -> 
     assert sync.release(c).message == "Released run lock."
 
 
+def test_narratives_and_their_cache_survive_ephemeral_runners(
+    store: ObjectStore, tmp_path: Path
+) -> None:
+    # The weekly run narrates only its own week, and a cold rebuild narrates none, so the
+    # published history and the model cache exist only if R2 carries them between runners.
+    seed_remote(store, tmp_path)
+    first = sync_for(store)
+    c1 = ctx(tmp_path / "runner1")
+    assert first.restore(c1).status is StageStatus.SUCCESS
+    narratives = c1.data_dir / "narratives"
+    (narratives / "cache").mkdir(parents=True)
+    (narratives / "2026-W39.json").write_text('{"week": 39}')
+    (narratives / "cache" / "abc123.json").write_text('{"text": "cached"}')
+    persisted = first.persist(c1)
+    assert persisted.message.endswith("and 2 narrative files.")
+    first.release(c1)
+    remote = set(store.etags("narratives/"))
+    assert {"narratives/2026-W39.json", "narratives/cache/abc123.json"} <= remote
+
+    second = sync_for(store)
+    c2 = ctx(tmp_path / "runner2", run_id=f"weekly-{WEEK}-2")
+    restored = second.restore(c2)
+    assert "2 narrative files" in (restored.message or "")
+    cached = c2.data_dir / "narratives" / "cache" / "abc123.json"
+    assert cached.read_text() == '{"text": "cached"}'
+    # Unchanged files are not uploaded again.
+    assert second.persist(c2).message.endswith("and 0 narrative files.")
+    second.release(c2)
+
+
 # ── Lock ────────────────────────────────────────────────────────────────────
 
 
