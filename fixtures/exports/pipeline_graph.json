@@ -153,7 +153,18 @@
       "models": [],
       "position": {
         "x": 2160.0,
-        "y": 0.0
+        "y": -80.0
+      }
+    },
+    {
+      "id": "persist_state",
+      "label": "Persist state",
+      "kind": "STAGE",
+      "stage": "persist_state",
+      "models": [],
+      "position": {
+        "x": 2160.0,
+        "y": 80.0
       }
     },
     {
@@ -175,18 +186,7 @@
       "models": [],
       "position": {
         "x": 2640.0,
-        "y": -160.0
-      }
-    },
-    {
-      "id": "persist_state",
-      "label": "Persist state",
-      "kind": "STAGE",
-      "stage": "persist_state",
-      "models": [],
-      "position": {
-        "x": 2640.0,
-        "y": 0.0
+        "y": -80.0
       }
     },
     {
@@ -197,7 +197,7 @@
       "models": [],
       "position": {
         "x": 2640.0,
-        "y": 160.0
+        "y": 80.0
       }
     },
     {
@@ -305,8 +305,8 @@
       "target": "out_tableau"
     },
     {
-      "id": "export->persist_state",
-      "source": "export",
+      "id": "checks->persist_state",
+      "source": "checks",
       "target": "persist_state"
     },
     {
