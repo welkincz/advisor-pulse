@@ -54,7 +54,7 @@ flowchart LR
   end
 
   subgraph OUT["Consumers"]
-    WEB["pulse.charliebuild.com<br/>React · DuckDB-WASM · ECharts · SVG map · React Flow"]
+    WEB["pulse.charliebuild.com<br/>React · DuckDB-WASM · SVG charts and map · ECharts on drill pages"]
     GS["Google Sheet"] --> TAB["Tableau Public<br/>(daily sync)"]
   end
 
@@ -111,9 +111,9 @@ On failure, data is **not** redeployed: the site keeps the last good week, and o
 | AI narrative | Claude, structured JSON output, through one of two backends picked by `PULSE_NARRATIVE_BACKEND`: `api` (Anthropic API, `claude-opus-5-5`) or `claude-code` (`claude -p --json-schema` on a Claude subscription, `claude-sonnet-5-5`); model overridable via `PULSE_NARRATIVE_MODEL` | Grounded on mart rows only; tiny weekly volume. The `claude-code` backend needs no separate API billing | Generating in the browser would expose the API key on a static site |
 | Frontend | Vite + React + TypeScript | Static build, fast, agent-friendly | Next.js: SSR not needed |
 | In-browser query | DuckDB-WASM over exported Parquet | Real SQL in the browser, so drill-downs need no backend | Pre-baked JSON is simpler but rigid. Budget: ≤ 20 MB total data |
-| Charts | Apache ECharts with a custom theme | Rich, performant, themeable | Recharts / visx: less out-of-the-box depth |
+| Charts | Hand-written SVG (`TrendChart`, heatmap, funnel) on the overview; Apache ECharts with a custom theme on drill and quality pages | SVG gives exact control of motion (draw-on, morph between measures) and keeps the overview at about 120 KB gzip (#171) | Recharts / visx: less out-of-the-box depth |
 | Map | Hand-written SVG map in Statistics Canada Lambert: Natural Earth province basemap coloured by serving region, district circles sized by activity, FSA layer from StatCan boundaries | No tiles or API key; about 5 KB gzip of code plus a 14 KB province layer | deck.gl + MapLibre shipped first but cost about 250 KB gzip on `/map` (#152). A branch-FSA-only Mercator map read as specks on blank paper (#169). FSA layer is **optional** (size budget) |
-| Pipeline viz | React Flow (`@xyflow/react`) | Custom nodes, animated edges | D3 by hand: more effort, not more signal |
+| Pipeline viz | Hand-written SVG line diagram on the export's grid, plus a log-scale stage timeline (#172) | Every stage fits on one screen with readable labels; replay animates the line in use | React Flow shipped first, but its fixed zoom left most of the 13-column DAG off screen (#172) |
 | Motion | CSS transitions plus a small rAF tween (`web/src/motion/`) | No library weight; respects `prefers-reduced-motion` | Motion (Framer Motion) shipped first but cost about 50 KB gzip on every route (#152) |
 | Hosting | Cloudflare Pages project `advisor-pulse` on `pulse.charliebuild.com` | Matches the existing `orbit.` / `trip.` pattern; no coupling to the build-less main site | `/projects/advisor-pulse` subpath would need a Worker route or a build step in the main site |
 | Tableau | Weekly mart → Google Sheet (service account) → Tableau Public daily sync | Tableau Public only auto-refreshes from Google Sheets | One-off extract upload: goes stale |
@@ -360,7 +360,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 | geo_weekly.parquet | mart_geo_weekly (last 13 weeks) |
 | dq_weekly.parquet | mart_dq_weekly |
 | run_log.json | Last 12 runs: stage timeline and check results |
-| pipeline_graph.json | Nodes and edges for React Flow (from runner DAG + dbt manifest) |
+| pipeline_graph.json | Nodes, edges and grid positions for the pipeline diagram (from runner DAG + dbt manifest) |
 | narratives/YYYY-Www.json | Latest 26 calendar weeks only; per node: `headline`, `bullets[]`, `facts_used[]`, `model`, `prompt_version`, `validated`, `fallback`. Older local narratives remain unpublished. |
 
 Size budget: total ≤ 20 MB; any single file ≤ 10 MB (Pages limit is 25 MiB per file).

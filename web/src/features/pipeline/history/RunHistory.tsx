@@ -1,5 +1,6 @@
 import { Sparkline, StatusMark } from '../../../components/primitives'
 import type { RunSummary } from '../../../data/generated/run_log'
+import { formatDuration, runDuration, runTypeLabel } from '../format'
 import './history.css'
 
 function rowsOut(run: RunSummary): number | null {
@@ -7,14 +8,12 @@ function rowsOut(run: RunSummary): number | null {
   return attempts.at(-1)?.rows_out ?? null
 }
 
-function duration(ms: number | null | undefined): string {
-  if (ms == null) return 'Duration unavailable'
-  return ms < 60_000 ? `${(ms / 1000).toFixed(1)} s` : `${(ms / 60_000).toFixed(1)} min`
+function duration(run: RunSummary): string {
+  const took = runDuration(run)
+  if (!took) return 'Duration unavailable'
+  return `${formatDuration(took.ms)}${took.partial ? ' to export' : ''}`
 }
 
-export function runTypeLabel(type: RunSummary['run_type']): string {
-  return type === 'WEEKLY' ? 'Weekly' : type === 'BACKFILL' ? 'Backfill' : 'Manual'
-}
 
 /** Newest-first runs from the export, with a left-to-right oldest-to-newest duration trend. */
 export function RunHistory({ runs, selectedId, onSelect }: {
@@ -23,7 +22,7 @@ export function RunHistory({ runs, selectedId, onSelect }: {
   onSelect: (runId: string) => void
 }) {
   const recent = runs.slice(0, 12)
-  const durations = recent.slice().reverse().map((run) => run.duration_ms ?? null)
+  const durations = recent.slice().reverse().map((run) => runDuration(run)?.ms ?? null)
   return <section className="pipe-history" aria-label="Run history">
     <div className="pipe-history-head">
       <div>
@@ -43,7 +42,7 @@ export function RunHistory({ runs, selectedId, onSelect }: {
           <span className="pipe-history-week">{run.iso_week_id}</span>
           <span className="pipe-history-type">{runTypeLabel(run.run_type)}</span>
           <StatusMark status={run.status} />
-          <span className="pipe-history-stats"><span>{duration(run.duration_ms)}</span><span>{rows == null ? 'Rows unavailable' : `${rows.toLocaleString('en-CA')} rows out`}</span></span>
+          <span className="pipe-history-stats"><span>{duration(run)}</span><span>{rows == null ? 'Rows unavailable' : `${rows.toLocaleString('en-CA')} rows out`}</span></span>
         </button>
       })}
     </div>
