@@ -71,7 +71,8 @@ make run WEEK=2026-W40       # one weekly run end to end, local state in data/
 make backfill FROM=2026-W01 TO=2026-W40
 make dbt-build-ci    # dbt build against fixtures
 make dbt-docs        # dbt docs generate + serve
-make web-dev         # Vite dev server on fixtures (web/public/data -> fixtures/exports)
+make web-dev         # Vite dev server on fixtures (an Ontario and Quebec slice)
+make web-dev-latest  # Vite dev server on the latest weekly export: all regions (needs gh)
 make web-check       # lint + typecheck + build + Playwright smoke
 make export          # marts -> web/public/data
 ```

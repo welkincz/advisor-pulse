@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, MultiLineString, MultiPolygon, Polygon } from 'geojson'
 import { feature, mesh } from 'topojson-client'
 import { fenced } from '../../components/charts/scale'
+import type { GeoWeekly } from '../../data/generated/geo_weekly'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 
 export interface BoundaryProperties {
@@ -91,4 +92,28 @@ export function bin(value: number | null | undefined, range: [number, number] | 
 export function drillHref(region: string | null, nodeId: string, week: string, latest: string): string {
   const path = region ? `/r/${encodeURIComponent(region)}/d/${encodeURIComponent(nodeId)}` : `/r/${encodeURIComponent(nodeId)}`
   return `${path}${week === latest ? '' : `?week=${encodeURIComponent(week)}`}`
+}
+
+/** Clients whose postal code could not be read are filed under this FSA; it has no shape. */
+export const UNKNOWN_FSA = 'UNK'
+
+export interface FsaCoverage { values: Map<string, number | null>; unknownClients: number }
+
+/**
+ * 13-week coverage per FSA. geo_weekly's grain is week × district × FSA: an FSA can appear
+ * under two districts when a few of its clients are served from the next district over.
+ * Sum the counts across districts and divide once, so every FSA gets one honest value
+ * (taking any one row lets a 3-client row overwrite a 1,355-client one).
+ */
+export function fsaCoverage(rows: readonly GeoWeekly[]): FsaCoverage {
+  const sums = new Map<string, { active: number; contacted: number }>()
+  let unknownClients = 0
+  for (const row of rows) {
+    if (row.fsa_code === UNKNOWN_FSA) { unknownClients += row.active_clients; continue }
+    const sum = sums.get(row.fsa_code) ?? { active: 0, contacted: 0 }
+    sum.active += row.active_clients
+    sum.contacted += row.clients_contacted_13w
+    sums.set(row.fsa_code, sum)
+  }
+  return { values: new Map([...sums].map(([fsa, s]) => [fsa, s.active > 0 ? s.contacted / s.active : null])), unknownClients }
 }

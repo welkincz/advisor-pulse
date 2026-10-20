@@ -9,7 +9,7 @@ import { DIVERGING, SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
 import { KPI_CODES, LOWER_IS_BETTER } from '../overview/kpis'
 import { CanadaMap, type MapArea, type MapPlace } from './CanadaMap'
-import { type Basemap, type Boundary, bin, deviationReach, drillHref, extent, historyExtent, loadBasemap, loadBoundaries, versusUsual } from './data'
+import { type Basemap, type Boundary, bin, fsaCoverage, deviationReach, drillHref, extent, historyExtent, loadBasemap, loadBoundaries, versusUsual } from './data'
 import './map.css'
 
 // Fill colours are CSS variables, so light and dark follow tokens.css with no re-render.
@@ -18,6 +18,8 @@ const SPLIT = DIVERGING.map((name) => `var(--${name})`)
 
 type Colouring = 'usual' | 'value'
 const TREND_WEEKS = 26
+/** The four regions of reference/org.yaml, so a region missing from an export is named, not blank. */
+const REGIONS: readonly [string, string][] = [['ON', 'Ontario'], ['QC', 'Quebec'], ['WE', 'West'], ['AT', 'Atlantic']]
 
 function useLoaded<T>(load: (() => Promise<T>) | null, key: string) {
   const [state, setState] = useState<{ key: string; data?: T; error?: Error } | null>(null)
@@ -119,11 +121,12 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const settled = useMemo(() => settledWeeks(weeks), [weeks])
   const regionReach = useMemo(() => deviationReach(regionRowsAll.filter((r) => settled.has(r.iso_week_id)), code), [regionRowsAll, code, settled])
   const districtReach = useMemo(() => deviationReach(districtRowsAll.filter((r) => settled.has(r.iso_week_id)), code), [districtRowsAll, code, settled])
-  const regionNames = useMemo(() => new Map(regionRows.map((row) => [row.id, row.name])), [regionRows])
+  const regionNames = useMemo(() => new Map([...REGIONS, ...regionRows.map((row): [string, string] => [row.id, row.name])]), [regionRows])
   const regionById = new Map(regionRows.map((row) => [row.id, row]))
   const districtById = new Map(districtRows.map((row) => [row.id, row]))
   const sizes = new Map(volume.status === 'ready' ? volume.data.map((row) => [row.node_id, row.activities_completed]) : [])
-  const geoValues = new Map(geo.status === 'ready' ? geo.data.map((row) => [row.fsa_code, row.coverage_rate_13w ?? null]) : [])
+  const coverage = useMemo(() => fsaCoverage(geo.status === 'ready' ? geo.data : []), [geo])
+  const geoValues = coverage.values
   const fsaRange = extent(geoValues.values())
   const fsaList = (fsaShapes?.data?.map((f) => f.properties.CFSAUID ?? '') ?? [...geoValues.keys()])
     .sort((a, b) => Number(geoValues.get(b) != null) - Number(geoValues.get(a) != null) || a.localeCompare(b))
@@ -170,14 +173,16 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const rows = focus ? districtRows : regionRows
   const range = focus ? districtRange : regionRange
   const reach = colouring === 'usual' ? (focus ? districtReach : regionReach) : null
-  const sorted = [...rows].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
+  const ready = regionHistory.status === 'ready' && (!focus || districtHistory.status === 'ready')
+  // A region the export does not cover still gets a row, so a gap reads as missing data, not as no region.
+  const missing: Row[] = !focus && ready ? REGIONS.filter(([id]) => !regionById.has(id)).map(([id, name]) => ({ id, name, value: null, wow: null, usual: null, trend: [] })) : []
+  const sorted = [...rows, ...missing].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   const top = Math.max(0, ...rows.map((row) => row.value ?? 0))
   const scope = focus ? regionNames.get(focus) ?? focus : 'Canada'
   // The readout follows the colours: in FSA mode that is 13-week coverage, whatever measure was chosen before.
   const readoutCode: KpiCode = fsaMode ? 'COVERAGE_13W' : code
   const readoutRows = focus ? regionRowsAll : national.status === 'ready' ? national.data : []
   const readout = readoutRows.find((row) => row.node_id === (focus ?? 'CA') && row.kpi_code === readoutCode && row.iso_week_id === week)?.value ?? null
-  const ready = regionHistory.status === 'ready' && (!focus || districtHistory.status === 'ready')
 
   const tooltip = (id: string) => {
     if (fsaMode) return <><strong>{id}</strong><span className="map-tip-value figure-num">{formatKpi('COVERAGE_13W', geoValues.get(id))}</span></>
@@ -224,7 +229,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
           {base?.data && districts?.data && <CanadaMap ready={ready} basemap={base.data} width={canvas.width} height={canvas.height}
             focus={focus} regionNames={regionNames}
             regionFill={(id) => fillOf(regionById.get(id), regionRange, regionReach)}
-            regionValue={(id) => regionById.has(id) ? formatKpi(code, regionById.get(id)!.value) : null}
+            regionValue={(id) => !ready ? null : regionById.get(id)?.value != null ? formatKpi(code, regionById.get(id)!.value) : 'No data'}
             places={places}
             mark={(id) => ({ size: sizes.get(id) ?? 0, fill: fillOf(districtById.get(id), districtRange, districtReach), label: formatKpi(code, districtById.get(id)?.value) })}
             overlay={overlay} overlayFill={(id) => shade(geoValues.get(id), fsaRange)} hot={hot} onHot={setHot} onRegion={focusRegion} onMark={openDistrict}
@@ -241,7 +246,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             {geo.status === 'error' && <DataNotice what="FSA coverage" onRetry={geo.retry} />}
             {geo.status === 'empty' && <p>No FSA coverage values for this week.</p>}
             {geo.status === 'ready' && <div className="map-fsa-values" role="region" aria-label="FSA coverage values" tabIndex={0}><table>
-              <caption>13-week coverage by FSA, {week}; available values first</caption>
+              <caption>13-week coverage by FSA, {week}; available values first{coverage.unknownClients > 0 && `. ${coverage.unknownClients.toLocaleString('en-CA')} clients with an unreadable postal code are counted in their district but not mapped`}</caption>
               <thead><tr><th scope="col">FSA</th><th scope="col">Coverage</th></tr></thead>
               <tbody>{fsaList.map((id) => <tr key={id}><th scope="row">{id}</th><td>{formatKpi('COVERAGE_13W', geoValues.get(id))}</td></tr>)}</tbody>
             </table></div>}

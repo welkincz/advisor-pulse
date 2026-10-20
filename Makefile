@@ -138,8 +138,13 @@ dbt-docs-static: ## Static dbt docs into web/public/lineage
 # ── Web ─────────────────────────────────────────────────────────────────────
 
 .PHONY: web-dev
-web-dev: ## Vite dev server on fixtures
+web-dev: ## Vite dev server on fixtures (an Ontario and Quebec slice)
 	cd web && pnpm dev
+
+.PHONY: web-dev-latest
+web-dev-latest: ## Vite dev server on the latest published weekly export: every region, every week (needs gh)
+	scripts/fetch_latest_export.sh data/web-latest
+	cd web && PULSE_FIXTURES_DIR=$(CURDIR)/data/web-latest pnpm dev
 
 .PHONY: web-check
 web-check: ## Web lint + typecheck + unit tests + build (+ smoke)
