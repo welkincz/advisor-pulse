@@ -35,7 +35,7 @@ export function extremeSince(series: readonly WeeklyReport[], week: string): str
  * whether that is unusual, then the biggest anomaly elsewhere. The narrative model writes
  * region and district summaries; the national line stays deterministic.
  */
-export function nationalHeadline(history: readonly WeeklyReport[], week: string, lead: KpiCode = 'ACT_PER_ADV'): Headline | null {
+export function weekHeadline(history: readonly WeeklyReport[], week: string, lead: KpiCode = 'ACT_PER_ADV'): Headline | null {
   const series = history.filter((row) => row.kpi_code === lead).sort((a, b) => a.iso_week_id.localeCompare(b.iso_week_id))
   const row = series.find((item) => item.iso_week_id === week)
   if (!row) return null
@@ -52,3 +52,6 @@ export function nationalHeadline(history: readonly WeeklyReport[], week: string,
     : 'Every other measure stayed within its usual range.'
   return { lead: leadText, support }
 }
+
+/** The overview's name for it. */
+export const nationalHeadline = weekHeadline

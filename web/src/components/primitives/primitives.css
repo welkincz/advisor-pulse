@@ -75,6 +75,17 @@
 .week-player-track:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 4px; }
 .week-player-value { min-width: 5.5rem; font-weight: 600; text-align: right; }
 
+/* Week stepper: previous, a select of every week, next. */
+.stepper { display: inline-flex; align-items: center; gap: var(--space-1); }
+.stepper button { display: inline-grid; place-items: center; min-width: 2.25rem; height: 2.25rem; padding: 0 var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font-size: var(--text-sm); cursor: pointer; transition: border-color var(--duration-quick) var(--ease-standard); }
+.stepper button:hover:not(:disabled) { border-color: var(--ink); }
+.stepper button:disabled { color: var(--faint); cursor: default; }
+.stepper svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.stepper .stepper-week { height: 2.25rem; padding: 0 var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.stepper .stepper-week:hover { border-color: var(--ink); }
+.stepper .stepper-latest { margin-left: var(--space-2); }
+
+
 /* Kitchen sink only */
 .ks-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--space-3); }
 .ks-swatch { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--muted); }

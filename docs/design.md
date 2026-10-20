@@ -186,6 +186,15 @@ The overview is a weekly briefing, not a tile dashboard. In reading order:
 
 `TrendChart` and the heatmap are hand-written SVG (`components/charts/`), so the overview no longer loads ECharts.
 
+### Drill pages (#179)
+
+Region, district and branch pages repeat the overview's grammar for one node: the computed
+sentence, the chosen measure across every run with the **parent dashed beneath**, every
+measure as toggles (batch-only rates hidden), and the children as small multiples, best
+first, over the node's own dashed line. The advisor page plots one measure over 26 weeks
+against the median of the branch's other advisors. The week and the measure travel with
+every drill link.
+
 ## 8. Primitives
 
 | Primitive | Use it for |

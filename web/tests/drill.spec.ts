@@ -21,7 +21,7 @@ for (const [path, level, name] of levels) {
     await page.goto(path)
     await expect(page.getByText(level, { exact: true })).toBeVisible()
     if (name) await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-    await expect(page.locator('[data-kpi="ACT_PER_ADV"]')).toContainText('Activities per advisor')
+    await expect(page.locator('[data-kpi="ACT_PER_ADV"]')).toContainText(level === 'Advisor' ? 'Activities completed' : 'Activities per advisor')
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('listitem')).toHaveCount(levels.findIndex(([p]) => p === path) + 2)
   })
 }
@@ -62,4 +62,23 @@ test('children sort by any KPI from the keyboard at 375 px', async ({ page }) =>
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/r\/ON\/d\//)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('an org page plots any measure against its parent and lists its children as small multiples', async ({ page }) => {
+  await page.goto('/r/ON')
+  await expect(page.getByRole('img', { name: /Activities per advisor, Ontario, 2026-W37 to 2026-W40, with Canada dashed/ })).toBeVisible()
+  await page.locator('[data-kpi="SHOW_RATE"] button').click()
+  await expect(page).toHaveURL(/kpi=SHOW_RATE/)
+  await expect(page.getByRole('heading', { name: 'Show rate', level: 2 })).toBeVisible()
+  await expect(page.locator('[data-kpi="QUAR_RATE"]')).toHaveCount(0)
+  const children = page.locator('.child-multiples .multiple')
+  await expect(children).toHaveCount(2)
+  await expect(children.first().getByRole('link')).toHaveAttribute('href', /kpi=SHOW_RATE/)
+})
+
+test('an advisor page plots a measure against the branch median', async ({ page }) => {
+  await page.goto('/r/ON/d/GTA/b/BR-0101/a/ADV-10003')
+  await expect(page.getByRole('img', { name: /Activities completed for ADV-10003 over \d+ weeks, with the branch's median advisor dashed/ })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Plot' }).selectOption('SHOW_RATE')
+  await expect(page).toHaveURL(/kpi=SHOW_RATE/)
 })

@@ -25,7 +25,7 @@ test.beforeEach(async ({ page }) => {
 
 test('week change tweens a KPI without shifting the report', async ({ page }) => {
   await page.goto('/r/ON')
-  const value = page.locator('[data-kpi="ACT_PER_ADV"] .stat-value')
+  const value = page.locator('[data-kpi="ACT_PER_ADV"] .board-value')
   await expect(value.locator('[data-motion-number]')).toBeVisible()
   await expect(page.locator('.section[data-reveal-order]')).toHaveCount(3)
   if (process.env.RECORD_MOTION) await page.screenshot({ path: resolve(recordingDir, 'week-before.png'), fullPage: true })
@@ -60,7 +60,7 @@ test('reduced motion shows final values and sections without animation', async (
   await page.setViewportSize({ width: 375, height: 812 })
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' })
   await page.goto('/r/ON')
-  const value = page.locator('[data-kpi="ACT_PER_ADV"] .stat-value')
+  const value = page.locator('[data-kpi="ACT_PER_ADV"] .board-value')
   await expect(page.getByRole('heading', { name: 'Ontario', exact: true })).toBeVisible()
   await expect(value).toContainText('10.4')
   await expect(value.locator('[data-motion-number]')).toHaveCount(0)

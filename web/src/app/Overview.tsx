@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TrendChart } from '../components/charts/TrendChart'
-import { Delta, Section } from '../components/primitives'
+import { Delta, Section, WeekStepper } from '../components/primitives'
 import { DataNotice, KPI_LABELS, formatKpi, formatWow, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
 import type { Manifest } from '../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
@@ -25,20 +25,6 @@ const NATIONAL_ONLY = new Set<KpiCode>(['LATE_RATE', 'QUAR_RATE'])
 /** Board rows from the manifest summary: the latest week paints before DuckDB-WASM loads. */
 function summaryRows(manifest: Manifest): Map<KpiCode, BoardRow> {
   return new Map(manifest.summary.map((row) => [row.kpi_code, { value: row.value ?? null, wow: row.wow_pct ?? null, flag: row.flag === 'ANOMALY', trend: [] }]))
-}
-
-function WeekStepper({ weeks, week, latest, onWeek }: { weeks: readonly string[]; week: string; latest: string; onWeek: (week: string) => void }) {
-  const at = weeks.indexOf(week)
-  return <nav className="stepper" aria-label="Report week">
-    <button type="button" onClick={() => onWeek(weeks[at - 1]!)} disabled={at <= 0} aria-label="Previous week">
-      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
-    </button>
-    <span className="stepper-week figure-num" aria-live="polite">{week}</span>
-    <button type="button" onClick={() => onWeek(weeks[at + 1]!)} disabled={at >= weeks.length - 1} aria-label="Next week">
-      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg>
-    </button>
-    {week !== latest && <button type="button" className="stepper-latest" onClick={() => onWeek(latest)}>Latest week</button>}
-  </nav>
 }
 
 function Briefing({ manifest }: { manifest: Manifest }) {
