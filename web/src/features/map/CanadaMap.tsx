@@ -9,8 +9,8 @@ import { type Box, type Point, type Project, centroid, fit, fitted, lambert, lin
 export interface MapPlace { id: string; name: string; region: string; geometry: Geometry }
 /** What changes with the week: circle size (activity volume), colour and value label. */
 export interface MapMark { size: number; fill: string | null; label: string }
-/** An FSA in the optional coverage layer. */
-export interface MapArea { id: string; name: string; geometry: Geometry; fill: string | null }
+/** An FSA in the optional coverage layer. Pass a stable array; colours come from `overlayFill`. */
+export interface MapArea { id: string; name: string; geometry: Geometry }
 
 type Camera = { k: number; x: number; y: number }
 
@@ -72,7 +72,7 @@ export function placeLabels(items: { id: string; x: number; y: number; r: number
  * serving region's colour; districts are circles over them. Choosing a region flies the
  * camera to it. Drag to pan, wheel or +/- to zoom, arrow keys to pan, 0 to reset.
  */
-export function CanadaMap({ ready, basemap, width, height, focus, regionNames, regionFill, regionValue, places, mark, overlay, hot, onHot, onRegion, onMark, tooltip, label }: {
+export function CanadaMap({ ready, basemap, width, height, focus, regionNames, regionFill, regionValue, places, mark, overlay, overlayFill, hot, onHot, onRegion, onMark, tooltip, label }: {
   /** False while values load: the basemap draws in neutral and the entrance waits. */
   ready: boolean
   basemap: Basemap
@@ -85,6 +85,7 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
   places: readonly MapPlace[]
   mark: (id: string) => MapMark | undefined
   overlay?: readonly MapArea[]
+  overlayFill?: (id: string) => string | null
   hot: string | null
   onHot: (id: string | null) => void
   onRegion: (region: string | null) => void
@@ -125,9 +126,11 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
       provinces, points, regionBoxes, labels,
       borders: lineData(basemap.borders, project),
       regionBorders: lineData(basemap.regionBorders, project),
-      overlay: overlay?.map((area) => ({ ...area, d: pathData(area.geometry, project) })) ?? [],
+      project,
     }
-  }, [basemap, places, overlay, width, height])
+  }, [basemap, places, width, height])
+  // Kept apart from the basemap so the coverage layer never moves the camera.
+  const overlayPaths = useMemo(() => (geometry && overlay ? overlay.map((area) => ({ ...area, d: pathData(area.geometry, geometry.project) })) : []), [geometry, overlay])
 
   // Fly to the focused region, or back out to the whole country.
   const target = useMemo<Camera>(() => {
@@ -264,7 +267,7 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
         {geometry.provinces.filter((p) => !p.region).map((p) => <path key={`hatch-${p.code}`} d={p.d} className="map-territory" />)}
         <path d={geometry.borders} className="map-border" />
         <path d={geometry.regionBorders} className="map-region-border" />
-        {geometry.overlay.map((area) => <path key={area.id} d={area.d} className="map-fsa" style={{ fill: area.fill ?? NEUTRAL }} data-hot={area.id} />)}
+        {overlayPaths.map((area) => <path key={area.id} d={area.d} className="map-fsa" style={{ fill: overlayFill?.(area.id) ?? NEUTRAL }} data-hot={area.id} />)}
       </g>
       <g className="map-marks">
         {markAt.map(({ mark, sx, sy, r, inFocus }) => <circle key={mark.id} cx={sx} cy={sy} style={{ r, fill: inFocus ? mark.fill ?? NEUTRAL : undefined }}

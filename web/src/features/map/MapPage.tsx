@@ -99,7 +99,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const base = useLoaded<Basemap>(loadBasemap, 'provinces')
   const districts = useLoaded<Boundary[]>(() => loadBoundaries('districts'), 'districts')
   const fsaMode = fsa && manifest.has_fsa_boundaries === true
-  const fsaShapes = useLoaded<Boundary[]>(fsaMode ? () => loadBoundaries('fsa') : null, fsaMode ? 'fsa' : 'fsa-off')
+  const [fsaAttempt, setFsaAttempt] = useState(0)
+  const fsaShapes = useLoaded<Boundary[]>(fsaMode ? () => loadBoundaries('fsa') : null, fsaMode ? `fsa-${fsaAttempt}` : 'fsa-off')
   const regionHistory = useChildReportHistory('CA', weeks)
   const districtHistory = useChildReportHistory(focus ?? '', focus ? weeks : [])
   const national = useWeeklyReportHistory('CA', weeks)
@@ -140,9 +141,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
     id: d.properties.node_id ?? '', name: d.properties.node_name ?? '', region: d.properties.parent_id ?? '', geometry: d.geometry,
   })) ?? [], [districts])
   const overlay = useMemo<MapArea[] | undefined>(() => fsaMode && fsaShapes?.data
-    ? fsaShapes.data.map((f) => ({ id: f.properties.CFSAUID ?? '', name: f.properties.CFSAUID ?? '', geometry: f.geometry, fill: null }))
+    ? fsaShapes.data.map((f) => ({ id: f.properties.CFSAUID ?? '', name: f.properties.CFSAUID ?? '', geometry: f.geometry }))
     : undefined, [fsaMode, fsaShapes])
-  const overlayFilled = useMemo(() => overlay?.map((area) => ({ ...area, fill: shade(geoValues.get(area.id), fsaRange) })), [overlay, geo.status, week]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playerSeries = useMemo(() => {
     if (focus) return weeks.map((w) => regionRowsAll.find((row) => row.node_id === focus && row.kpi_code === code && row.iso_week_id === w)?.value ?? null)
@@ -169,8 +169,10 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const sorted = [...rows].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   const top = Math.max(0, ...rows.map((row) => row.value ?? 0))
   const scope = focus ? regionNames.get(focus) ?? focus : 'Canada'
-  const focusRow = focus ? regionById.get(focus) : null
-  const nationalNow = playerSeries[weeks.indexOf(week)] ?? null
+  // The readout follows the colours: in FSA mode that is 13-week coverage, whatever measure was chosen before.
+  const readoutCode: KpiCode = fsaMode ? 'COVERAGE_13W' : code
+  const readoutRows = focus ? regionRowsAll : national.status === 'ready' ? national.data : []
+  const readout = readoutRows.find((row) => row.node_id === (focus ?? 'CA') && row.kpi_code === readoutCode && row.iso_week_id === week)?.value ?? null
   const ready = regionHistory.status === 'ready' && (!focus || districtHistory.status === 'ready')
 
   const tooltip = (id: string) => {
@@ -207,8 +209,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             <span className="map-readout-week figure-num">{week}</span>
           </p>
           <p className="map-readout-value">
-            <span className="figure-num">{formatKpi(fsaMode ? 'COVERAGE_13W' : code, focus ? focusRow?.value : nationalNow)}</span>
-            <span className="map-readout-kpi">{KPI_LABELS[fsaMode ? 'COVERAGE_13W' : code]}</span>
+            <span className="figure-num">{formatKpi(readoutCode, readout)}</span>
+            <span className="map-readout-kpi">{KPI_LABELS[readoutCode]}</span>
           </p>
         </div>
         {focus && <Link className="map-open" to={drillHref(null, focus, week, manifest.latest_week)}>Open the {scope} report</Link>}
@@ -221,10 +223,11 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             regionValue={(id) => regionById.has(id) ? formatKpi(code, regionById.get(id)!.value) : null}
             places={places}
             mark={(id) => ({ size: sizes.get(id) ?? 0, fill: fillOf(districtById.get(id), districtRange, districtReach), label: formatKpi(code, districtById.get(id)?.value) })}
-            overlay={overlayFilled} hot={hot} onHot={setHot} onRegion={focusRegion} onMark={openDistrict}
+            overlay={overlay} overlayFill={(id) => shade(geoValues.get(id), fsaRange)} hot={hot} onHot={setHot} onRegion={focusRegion} onMark={openDistrict}
             tooltip={tooltip} label={`${KPI_LABELS[code]} by ${focus ? 'district' : 'region'}, ${week}`} />}
           {(!base || !districts) && <p aria-busy="true">Drawing the map…</p>}
           {(base?.error || districts?.error) && <p role="alert">{(base?.error ?? districts?.error)!.message}</p>}
+          {fsaMode && fsaShapes?.error && <p role="alert" className="map-alert">The FSA shapes could not load, so the coverage layer is not drawn. <button type="button" onClick={() => setFsaAttempt((n) => n + 1)}>Try again</button></p>}
         </div>
 
         <aside className="map-ranking">
@@ -259,6 +262,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
           </>}
         </aside>
       </div>
+      {volume.status === 'error' && !fsaMode && <DataNotice what="district activity, which sizes the circles" onRetry={volume.retry} />}
       <Legend range={fsaMode ? fsaRange : range} reach={fsaMode ? null : reach} code={fsaMode ? 'COVERAGE_13W' : code} fsa={fsaMode} />
       <WeekPlayer weeks={weeks} value={week} onChange={(next) => setQuery({ week: next })} series={playerSeries}
         label={`Week shown on the map; the strip is ${focus ? scope : 'national'} ${KPI_LABELS[code].toLowerCase()}`} />

@@ -88,6 +88,8 @@ test('FSA mode fixes the measure to coverage and exposes the mapped values as a 
   await values.focus()
   await page.keyboard.press('End')
   await expect.poll(() => values.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
+  await expect(page.locator('.map-readout-kpi')).toHaveText('13-week coverage')
+  await expect(page.locator('.map-readout-value .figure-num')).toContainText('%')
   await page.getByRole('checkbox', { name: 'FSA coverage layer' }).uncheck()
   await expect(measure).toHaveValue('CALLS_OUT')
   await expect(measure).toBeEnabled()
@@ -105,6 +107,33 @@ test('FSA data failure has a retry instead of an empty map', async ({ page }) =>
   await page.unroute('**/data/geo_weekly.parquet')
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('table', { name: /13-week coverage by FSA/ })).toBeVisible()
+})
+
+test('a failed FSA shape load says so and retries', async ({ page }) => {
+  await page.route('**/data/manifest.json', (route) => {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    return route.fulfill({ json: { ...manifest, has_fsa_boundaries: true } })
+  })
+  await page.route('**/geo/fsa.topo.json', (route) => route.fulfill({ status: 503, body: 'unavailable' }))
+  await page.goto('/map')
+  await page.getByRole('checkbox', { name: 'FSA coverage layer' }).check()
+  const alert = page.locator('.map-alert')
+  await expect(alert).toContainText('The FSA shapes could not load')
+  await page.unroute('**/geo/fsa.topo.json')
+  await alert.getByRole('button', { name: 'Try again' }).click()
+  await expect(alert).toHaveCount(0)
+  await expect(page.locator('.canada-map .map-fsa')).toHaveCount(122)
+})
+
+test('a failed district activity query is reported instead of drawing equal circles silently', async ({ page }) => {
+  let failed = false
+  await page.route('**/data/org_weekly.parquet', (route) => {
+    if (failed) return route.fallback()
+    failed = true
+    return route.fulfill({ status: 503, body: 'unavailable' })
+  })
+  await page.goto('/map')
+  await expect(page.getByText(/could not load district activity/)).toBeVisible()
 })
 
 test('hovering a district circle names it, and clicking opens its report', async ({ page }) => {

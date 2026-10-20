@@ -23,6 +23,8 @@
 @media (min-width: 64rem) { .map-layout { grid-template-columns: minmax(0, 1fr) 19rem; } }
 .map-canvas { position: relative; height: clamp(20rem, 62vw, 34rem); min-width: 0; overflow: hidden; }
 .map-canvas > p { margin: var(--space-4); color: var(--muted); }
+.map-canvas > .map-alert { position: absolute; inset: auto 0 0; margin: 0; padding: var(--space-2) var(--space-3); background: var(--paper); border-top: 1px solid var(--rule); color: var(--ink); font-size: var(--text-sm); }
+.map-alert button { margin-left: var(--space-2); font-size: var(--text-sm); }
 
 .canada-map { display: block; touch-action: none; cursor: grab; }
 .canada-map:active { cursor: grabbing; }
