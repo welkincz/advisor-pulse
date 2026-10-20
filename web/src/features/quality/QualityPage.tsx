@@ -96,6 +96,15 @@ export function QualityPage() {
       {weeks.length > 0 && <>
         <p className="stack-legend">{HANDLING.map((g) => <span key={g.key}><i style={{ background: g.color }} aria-hidden="true" />{g.label}</span>)}</p>
         <StackedWeeks weeks={weeks} series={stacks} label={`Rows caught by data quality rules per week, ${weeks[0]} to ${lastWeek}, split into quarantined, removed as duplicates, and kept and mapped`} />
+        <details className="figure-table"><summary>Show the numbers</summary>
+          <div className="quality-scroll quality-weeks" tabIndex={0} role="region" aria-label="Rows held back by week">
+            <table><thead><tr><th scope="col">Week</th>{HANDLING.map((g) => <th key={g.key} scope="col" className="num">{g.label}</th>)}</tr></thead>
+              <tbody>{[...weeks].reverse().map((w) => {
+                const i = weeks.indexOf(w)
+                return <tr key={w}><th scope="row">{w}</th>{stacks.map((st) => <td key={st.key} className="num">{st.values[i]!.toLocaleString('en-CA')}</td>)}</tr>
+              })}</tbody></table>
+          </div>
+        </details>
       </>}
     </Section>
 

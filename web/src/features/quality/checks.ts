@@ -32,12 +32,15 @@ export function readCheck(check: RunCheck): CheckReading {
   if (check.check_id === 'DQ031') {
     const change = /change (−|-)?([\d.]+)%/.exec(check.message ?? '')
     if (change) {
+      // The bullet measures size; the words keep the direction.
       const value = Number(change[2]) / 100
-      return { ...base, value: `${pct(value, 1)} from usual`, bullet: { observed: value, max: 0.1, warn: 0.05, fail: 0.5, unit: '%' } }
+      return { ...base, value: `${pct(value, 1)} ${change[1] ? 'below' : 'above'} usual`, bullet: { observed: value, max: 0.1, warn: 0.05, fail: 0.5, unit: '%' } }
     }
     return { ...base, value: observed.toLocaleString('en-CA'), bullet: null }
   }
   if (check.check_id === 'DQ032') {
+    // The runner reports a share (0.0003); an older run reported a percentage (0.03). A share of
+    // exactly 1 would mean the whole batch was quarantined, which the run would have failed on.
     const rate = observed > 1 ? observed / 100 : observed
     return { ...base, value: pct(rate), bullet: { observed: rate, max: 0.025, fail: 0.02, unit: '%' } }
   }

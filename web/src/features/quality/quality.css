@@ -44,3 +44,4 @@
 .rule-detail { margin: 0; min-width: 0; }
 .rule-detail h3 { margin: 0; }
 .rule-detail figcaption p { margin: var(--space-1) 0 var(--space-3); color: var(--muted); font-size: var(--text-sm); }
+.quality-weeks { max-height: 18rem; overflow: auto; }

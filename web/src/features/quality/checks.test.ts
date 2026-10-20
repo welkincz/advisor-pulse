@@ -7,9 +7,13 @@ const check = (check_id: string, observed: number | null, expected: string, mess
 
 it('reads each run check into a value and, where it has a limit, a bullet', () => {
   expect(readCheck(check('DQ030', 2, 'lag <= 2d', 'Latest activity date: 2026-10-16'))).toMatchObject({ value: '2 days behind', bullet: { observed: 2, fail: 2 } })
-  expect(readCheck(check('DQ031', 12171, 'within 3σ or 5%', 'adjusted 13166; trailing mean 13615, σ 202, change 3.3%'))).toMatchObject({ value: '3.3% from usual', bullet: { observed: 0.033, warn: 0.05, fail: 0.5 } })
+  expect(readCheck(check('DQ031', 12171, 'within 3σ or 5%', 'adjusted 13166; trailing mean 13615, σ 202, change 3.3%'))).toMatchObject({ value: '3.3% above usual', bullet: { observed: 0.033, warn: 0.05, fail: 0.5 } })
   expect(readCheck(check('DQ032', 0.000307, '<= 2.0%', '51 of 166075'))).toMatchObject({ value: '0.03%', bullet: { fail: 0.02 } })
   expect(readCheck(check('DQ033', 51, '51 exact injected quarantines', 'Missing 0; unexpected 0'))).toMatchObject({ value: '51 of 51', bullet: null })
+})
+
+it('keeps the direction of a volume change in words', () => {
+  expect(readCheck(check('DQ031', 9000, '', 'trailing mean 13615, change -12.4%')).value).toBe('12.4% below usual')
 })
 
 it('falls back when a message has another shape', () => {
