@@ -52,7 +52,7 @@
 .funnel-track i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--ink); transition: inline-size var(--duration-tween) var(--ease-standard); }
 
 /* Small multiples: same axis, region colour, national line beneath. */
-.multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr)); gap: var(--space-6); margin: 0; padding: 0; list-style: none; }
+.multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr)); gap: var(--space-6) var(--space-4); margin: 0; padding: 0; list-style: none; }
 .multiple { border-top: 1px solid var(--rule); padding-top: var(--space-3); min-width: 0; }
 .multiple-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--space-3); align-items: baseline; margin-bottom: var(--space-2); text-decoration: none; }
 .multiple-head:hover .multiple-name { text-decoration: underline; text-decoration-color: var(--signal); text-decoration-thickness: 2px; }

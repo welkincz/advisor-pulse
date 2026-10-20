@@ -8,7 +8,7 @@ import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../data/usual'
 import { resolveWeek } from '../features/drill/path'
 import { Funnel, funnelFor } from '../features/overview/Funnel'
-import { nationalHeadline } from '../features/overview/headline'
+import { weekHeadline } from '../features/overview/headline'
 import { type BoardRow, KpiBoard, boardRows } from '../features/overview/KpiBoard'
 import { KPI_CODES, KPI_DEFINITIONS, LOWER_IS_BETTER } from '../features/overview/kpis'
 import { RegionMultiples } from '../features/overview/RegionMultiples'
@@ -51,7 +51,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const all = useMemo<WeeklyReport[]>(() => (history.status === 'ready' ? history.data : []), [history])
   const ready = history.status === 'ready'
   const rows = useMemo(() => (ready ? boardRows(all, weeks, week) : week === latest ? summaryRows(manifest) : new Map<KpiCode, BoardRow>()), [ready, all, weeks, week, latest, manifest])
-  const headline = useMemo(() => (ready ? nationalHeadline(all, week) : null), [ready, all, week])
+  const headline = useMemo(() => (ready ? weekHeadline(all, week) : null), [ready, all, week])
   const series = useMemo(() => {
     const byWeek = new Map(all.filter((r) => r.kpi_code === code).map((r) => [r.iso_week_id, r]))
     return weeks.map((w) => byWeek.get(w))

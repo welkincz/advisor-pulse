@@ -52,6 +52,3 @@ export function weekHeadline(history: readonly WeeklyReport[], week: string, lea
     : 'Every other measure stayed within its usual range.'
   return { lead: leadText, support }
 }
-
-/** The overview's name for it. */
-export const nationalHeadline = weekHeadline
