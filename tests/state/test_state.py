@@ -166,7 +166,7 @@ def test_narratives_and_their_cache_survive_ephemeral_runners(
     (narratives / "2026-W39.json").write_text('{"week": 39}')
     (narratives / "cache" / "abc123.json").write_text('{"text": "cached"}')
     persisted = first.persist(c1)
-    assert persisted.message.endswith("and 2 narrative files.")
+    assert (persisted.message or "").endswith("plus 2 narrative files.")
     first.release(c1)
     remote = set(store.etags("narratives/"))
     assert {"narratives/2026-W39.json", "narratives/cache/abc123.json"} <= remote
@@ -178,8 +178,40 @@ def test_narratives_and_their_cache_survive_ephemeral_runners(
     cached = c2.data_dir / "narratives" / "cache" / "abc123.json"
     assert cached.read_text() == '{"text": "cached"}'
     # Unchanged files are not uploaded again.
-    assert second.persist(c2).message.endswith("and 0 narrative files.")
+    assert (second.persist(c2).message or "").endswith("plus 0 narrative files.")
     second.release(c2)
+
+
+def test_a_failed_narrative_upload_still_keeps_the_warehouse(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "run")
+    assert sync.restore(c).status is StageStatus.SUCCESS
+    (c.data_dir / "narratives").mkdir()
+    (c.data_dir / "narratives" / "2026-W40.json").write_text("{}")
+    upload = store.upload_if_changed
+
+    def flaky(path: Path, key: str, etag: str | None) -> bool:
+        if key.startswith("narratives/"):
+            raise RetryableError("R2 timed out")
+        return upload(path, key, etag)
+
+    uploaded: list[str] = []
+    whole = store.upload
+
+    def recording(path: Path, key: str) -> None:
+        uploaded.append(key)
+        whole(path, key)
+
+    monkeypatch.setattr(store, "upload_if_changed", flaky)
+    monkeypatch.setattr(store, "upload", recording)
+    result = sync.persist(c)
+    assert result.status is StageStatus.WARN
+    assert "narratives were not persisted (RetryableError)" in (result.message or "")
+    assert uploaded == [WAREHOUSE_FILE]  # the checked warehouse still went up
+    assert sync.release(c).status is StageStatus.SUCCESS
 
 
 # ── Lock ────────────────────────────────────────────────────────────────────

@@ -30,8 +30,6 @@ log = logging.getLogger(__name__)
 
 SOURCES_DIR = "sources"
 NARRATIVES_DIR = "narratives"
-# Directories mirrored file by file between $PULSE_DATA_DIR and R2.
-MIRRORED_DIRS = (SOURCES_DIR, NARRATIVES_DIR)
 # Every run_id in the persisted warehouse. A fresh runner starts with an empty local
 # warehouse, so ``pulse run`` reads this to number its run (weekly-2026-W40-2, not -1 again).
 RUNS_KEY = "runs.json"
@@ -173,6 +171,8 @@ class StateSync:
             return StageResult(message=f"Rebuild starts from empty local state.{note}")
 
         if not store.exists(WAREHOUSE_FILE):
+            # Narratives in R2 are left there: the rebuild narrates nothing, and mirroring
+            # uploads only new or changed files, so the next persist cannot overwrite them.
             clear_local(ctx.data_dir)
             weeks = weeks_between(self.start_week, ctx.iso_week_id)
             if not weeks:
@@ -221,16 +221,24 @@ class StateSync:
                 message=f"This run does not hold the run lock{by}; not persisting.",
             )
 
-        uploaded = {name: self._mirror(store, ctx.data_dir, name) for name in MIRRORED_DIRS}
+        # Sources before the warehouse (see the module docstring), then the warehouse: the
+        # checked week is what persist exists to keep. Narratives come last and are best effort,
+        # so a failed upload of a page of text never costs the warehouse.
+        sources = self._mirror(store, ctx.data_dir, SOURCES_DIR)
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
         store.put(RUNS_KEY, json.dumps(_run_ids(ctx.data_dir / WAREHOUSE_FILE)).encode())
-        return StageResult(
-            rows_out=uploaded[SOURCES_DIR],
-            message=(
-                f"Persisted {WAREHOUSE_FILE}, {uploaded[SOURCES_DIR]} new or changed source files "
-                f"and {uploaded[NARRATIVES_DIR]} narrative files."
-            ),
-        )
+        persisted = f"Persisted {WAREHOUSE_FILE} and {sources} new or changed source files"
+        try:
+            narratives = self._mirror(store, ctx.data_dir, NARRATIVES_DIR)
+        except Exception as exc:  # any failure here must leave the warehouse kept
+            log.warning("Narratives not persisted: %s", exc)
+            return StageResult(
+                StageStatus.WARN,
+                rows_out=sources,
+                message=f"{persisted}; narratives were not persisted ({type(exc).__name__}).",
+            )
+        message = f"{persisted}, plus {narratives} narrative files."
+        return StageResult(rows_out=sources, message=message)
 
     @staticmethod
     def _mirror(store: ObjectStore, data_dir: Path, name: str) -> int:
