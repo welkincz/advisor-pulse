@@ -1,5 +1,4 @@
 export { Breadcrumb, type Crumb } from './Breadcrumb'
-export { Chart } from './Chart'
 export { Delta, type Better } from './Delta'
 export { Figure } from './Figure'
 export { Section } from './Section'

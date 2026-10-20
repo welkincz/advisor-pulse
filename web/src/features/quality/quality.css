@@ -11,3 +11,36 @@
 .quality-run { margin: 0; color: var(--muted); font-size: var(--text-sm); text-transform: capitalize; }
 .quality-scroll-hint { display: none; margin: 0; color: var(--muted); font-size: var(--text-xs); }
 @media (max-width: 40rem) { .quality-scroll-hint { display: block; } }
+.quality-muted { color: var(--faint); }
+
+/* Check scorecards: the value, a bullet against its limit, and what the check read. */
+.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--space-6); margin: 0; padding: 0; list-style: none; }
+.check { display: grid; align-content: start; gap: var(--space-2); border-top: 2px solid var(--ink); padding-top: var(--space-3); }
+.check-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); font-size: var(--text-sm); }
+.check-title { font-weight: 600; }
+.check-title a { color: var(--muted); font-weight: 500; margin-right: var(--space-1); }
+.check-value { margin: 0; font-size: var(--text-2xl); font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
+.check-detail { margin: 0; color: var(--muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.check-severity { margin: 0; color: var(--faint); font-size: var(--text-xs); }
+
+.stack-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: 0 0 var(--space-3); color: var(--muted); font-size: var(--text-xs); max-width: none; }
+.stack-legend span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.stack-legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; }
+
+/* Rule by rule: a list to choose from, the chosen rule's trend beside it. */
+.rules { display: grid; gap: var(--space-6); }
+@media (min-width: 64rem) { .rules { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); } }
+.rule-list { margin: 0; padding: 0; list-style: none; }
+.rule-list li { border-top: 1px solid var(--rule); }
+.rule-list button { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr) auto; grid-template-areas: 'id name rate' 'id spark spark'; gap: 2px var(--space-3); align-items: center; width: 100%; padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 0; border-left: 3px solid transparent; background: none; color: var(--ink); font: inherit; font-size: var(--text-sm); text-align: left; cursor: pointer; transition: background var(--duration-quick) var(--ease-standard); }
+.rule-list button:hover { background: var(--field); }
+.rule-list button[aria-pressed='true'] { border-left-color: var(--signal); background: var(--field); }
+.rule-list button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.rule-id { grid-area: id; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rule-name { grid-area: name; }
+.rule-rate { grid-area: rate; font-weight: 600; text-align: right; }
+.rule-list .sparkline { grid-area: spark; }
+.rule-detail { margin: 0; min-width: 0; }
+.rule-detail h3 { margin: 0; }
+.rule-detail figcaption p { margin: var(--space-1) 0 var(--space-3); color: var(--muted); font-size: var(--text-sm); }

@@ -8,7 +8,7 @@ import { fixtureData } from '../../data/testing/fixtures'
 import { LeaderTable, OrgLeaderboard, VIRTUAL_AFTER } from './Leaderboard'
 import type { LeaderRow } from './rows'
 
-// Chart (imported through the primitives index) reads matchMedia at module load; jsdom has none.
+// theme/tokens (imported through the primitives index) reads matchMedia at module load; jsdom has none.
 vi.hoisted(() => {
   window.matchMedia ??= (() => ({ matches: false, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
 })

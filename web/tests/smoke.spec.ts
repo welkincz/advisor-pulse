@@ -122,10 +122,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(page.getByRole('heading', { name: 'Kitchen sink', exact: true })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]')).toHaveText('BR-0412')
     await expect(page.getByLabel('−29.7%, better than last week')).toBeVisible()
-    await expect(page.locator('.chart svg')).toHaveCount(2)
-    // The ECharts theme takes its series colours from tokens.css for the active scheme.
+    await expect(page.locator('.trend svg')).toHaveCount(5)
+    await expect(page.locator('.stacked svg rect')).toHaveCount(16)
+    // Charts take their colours from tokens.css, so the active scheme reaches every series.
     const series1 = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--series-1').trim())
-    await expect(page.locator(`.chart svg path[stroke="${series1}" i]`).first()).toBeAttached()
+    const drawn = await page.locator('.ks-multiples .trend-line').first().evaluate((el) => getComputedStyle(el).stroke)
+    const probe = await page.evaluate((colour) => { const el = document.createElement('i'); el.style.color = colour; document.body.append(el); const c = getComputedStyle(el).color; el.remove(); return c }, series1)
+    expect(drawn).toBe(probe)
     expect(errors).toEqual([])
   })
 }
