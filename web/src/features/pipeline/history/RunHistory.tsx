@@ -1,6 +1,6 @@
 import { Sparkline, StatusMark } from '../../../components/primitives'
 import type { RunSummary } from '../../../data/generated/run_log'
-import { formatDuration, runDuration } from '../format'
+import { formatDuration, runDuration, runTypeLabel } from '../format'
 import './history.css'
 
 function rowsOut(run: RunSummary): number | null {
@@ -14,9 +14,6 @@ function duration(run: RunSummary): string {
   return `${formatDuration(took.ms)}${took.partial ? ' to export' : ''}`
 }
 
-export function runTypeLabel(type: RunSummary['run_type']): string {
-  return type === 'WEEKLY' ? 'Weekly' : type === 'BACKFILL' ? 'Backfill' : 'Manual'
-}
 
 /** Newest-first runs from the export, with a left-to-right oldest-to-newest duration trend. */
 export function RunHistory({ runs, selectedId, onSelect }: {

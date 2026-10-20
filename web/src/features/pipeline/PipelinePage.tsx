@@ -4,8 +4,8 @@ import { StatusMark } from '../../components/primitives'
 import { DataNotice, usePipelineGraph, useRunLog } from '../../data'
 import type { PipelineGraph, PipelineNode } from '../../data/generated/pipeline_graph'
 import type { RunSummary } from '../../data/generated/run_log'
-import { RunHistory, runTypeLabel } from './history/RunHistory'
-import { formatDuration, runDuration } from './format'
+import { RunHistory } from './history/RunHistory'
+import { formatDuration, runSentence, runTypeLabel } from './format'
 import { PipelineDiagram } from './PipelineDiagram'
 import { StageTimeline } from './StageTimeline'
 import { replayEvents, summarize } from './timeline'
@@ -127,17 +127,6 @@ function Canvas({ graph, run }: { graph: PipelineGraph; run: RunSummary }) {
       </table>
     </details>
   </>
-}
-
-/** One sentence about the newest weekly run: its outcome, how long it took, what to look at. */
-export function runSentence(run: RunSummary): string {
-  const took = runDuration(run)
-  const outcome = run.status === 'SUCCESS' ? 'succeeded' : run.status === 'WARN' ? 'finished with a warning' : run.status === 'FAILED' ? 'failed' : 'was skipped'
-  const time = took ? ` in ${formatDuration(took.ms)}${took.partial ? ' up to the export' : ''}` : ''
-  const failed = run.stages.find((s) => s.status === 'FAILED')
-  const warned = run.stages.filter((s) => s.status === 'WARN').map((s) => s.stage.replace('_', ' '))
-  const tail = failed ? ` It stopped at ${failed.stage.replace('_', ' ')}.` : warned.length ? ` Look at ${warned.join(' and ')}.` : ''
-  return `The ${runTypeLabel(run.run_type).toLowerCase()} run for ${run.iso_week_id} ${outcome}${time}.${tail}`
 }
 
 /** The weekly DAG from pipeline_graph.json, replaying a run from run_log.json. */

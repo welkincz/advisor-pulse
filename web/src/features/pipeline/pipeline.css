@@ -36,7 +36,7 @@
 .line-node:focus-visible .line-hit { stroke: var(--focus); stroke-width: 2; }
 @keyframes line-flow { to { stroke-dashoffset: -24; } }
 @keyframes line-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .line-edge.is-active, .line-running { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .line-edge.is-active, .line-running { animation: none; } .timeline-track i { transition: none; } }
 
 /* Where the time went: a log-scale bar per stage. */
 .pipe-time { margin-top: var(--space-8); }
