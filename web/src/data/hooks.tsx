@@ -7,7 +7,7 @@ import type { NodeNarrative } from './generated/narrative'
 import type { OrgLevel, OrgWeekly } from './generated/org_weekly'
 import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
-import type { WeeklyReport } from './generated/weekly_report'
+import type { KpiCode, WeeklyReport } from './generated/weekly_report'
 import type { PulseData } from './store'
 
 export type DataState<T> =
@@ -88,6 +88,10 @@ export function useOrgLevel(level: OrgLevel, week: string): DataResult<OrgWeekly
 export function useWeeklyReport(week: string, filter: { nodeId: string } | { parentId: string }): DataResult<WeeklyReport[]> {
   const target = 'nodeId' in filter ? `node=${filter.nodeId}` : `parent=${filter.parentId}`
   return useData(`report:${week}:${target}`, (d) => d.weeklyReport(week, filter))
+}
+
+export function useLevelKpiHistory(level: OrgLevel, code: KpiCode): DataResult<WeeklyReport[]> {
+  return useData(`level-history:${level}:${code}`, (d) => d.levelKpiHistory(level, code))
 }
 
 export function useWeeklyReportHistory(nodeId: string, weeks: readonly string[]): DataResult<WeeklyReport[]> {

@@ -172,6 +172,20 @@ Rules for agents:
 - Do not label every point. Label the latest value or the one the reading talks about.
 - Rates are shown as percentages with one decimal; counts as integers.
 
+### The overview (#171)
+
+The overview is a weekly briefing, not a tile dashboard. In reading order:
+
+1. **The week said in one sentence.** The page title is written from the numbers (`features/overview/headline.ts`): how activities per advisor moved, whether that is the lowest or highest for a while, then the biggest anomaly elsewhere. It is deterministic; the narrative model writes the region and district notes.
+2. **One measure across every weekly run** (`TrendChart`), under a heavy ink rule. The weekly line runs through a soft ribbon: the trailing 13-week average, "usual". Anomalies get a signal ring. Click or arrow keys choose the report week; the axis fits the weeks after the 13-week warm-up.
+3. **Every measure**, in three groups (reach, appointments, data quality). Each row is a toggle that plots that measure above, with a 26-week sparkline.
+4. **The funnel**: calls, bookings, held and converted on one zero-based scale, with the linking rate and its usual level between bars.
+5. **By region**: small multiples on a shared axis, region colour, the national line dashed beneath.
+6. **Every week at a glance**: a heatmap of every region and district by week, coloured by distance from each area's own 13-week average (diverging, better follows the KPI's direction). Holidays show as vertical bands. The first 13 weeks have no usual level yet and stay neutral.
+7. **Region notes** from the published narratives, labelled as written by Claude and checked against the figures.
+
+`TrendChart` and the heatmap are hand-written SVG (`components/charts/`), so the overview no longer loads ECharts.
+
 ## 8. Primitives
 
 | Primitive | Use it for |
@@ -181,6 +195,8 @@ Rules for agents:
 | `Chart` | Line and bar charts (ECharts, themed) |
 | `StatGroup` / `Stat` | KPI values. One `Stat emphasis` per view, for the KPI the page leads with |
 | `Delta` | Week-over-week change: arrow and sign for direction, colour and screen-reader text for better or worse. Pass `better="lower"` for no-show, late and quarantine rates, `better="neither"` for meeting minutes |
+| `TrendChart` (`components/charts`) | A weekly line with a usual ribbon, anomaly rings, a week cursor, hover crosshair and keyboard week choice. `compact` for small multiples |
+| `WeekPlayer` | Scrub or play through the weekly runs |
 | `Sparkline` | A trend inside a `Stat`; give it a `label` that states the range, e.g. "last 8 weeks: from 10.6 to 11.5" |
 | `Breadcrumb` | The drill path National → Region → District → Branch → Advisor. The last crumb is the current page |
 | `StatusMark` | Run, stage and check status on the Pipeline and Data quality pages |
@@ -210,6 +226,11 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
 - Run history names each run type (weekly, manual, or backfill) beside its week and status.
 - On the first report view, sections may fade in once in reading order, with opacity only.
   Never trigger an entrance on scroll or loop an animation.
+- The overview's trend line draws itself once (1.1 s) when its data first arrives, then its
+  anomaly rings appear. That is the page's one entrance.
+- Choosing another measure morphs the line from the old values to the new (620 ms) while
+  the axis labels cross-fade; the heatmap recolours left to right, 4 ms a column.
+- The week cursor on every chart glides to the chosen week with `--duration-step`.
 - `prefers-reduced-motion: reduce` sets every duration token to 0, and `Chart` turns off
   ECharts animation. Content must make sense with no motion at all.
 

@@ -185,9 +185,9 @@ test('map code is fetched only on the map route', async ({ page }) => {
   const mapRequests: string[] = []
   page.on('request', (request) => { if (request.url().includes('/features/map/MapPage')) mapRequests.push(request.url()) })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   expect(mapRequests).toHaveLength(0)
-  await page.getByRole('link', { name: 'Map' }).click()
+  await page.getByRole('link', { name: 'Map', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Map', exact: true })).toBeVisible()
   expect(mapRequests).toHaveLength(1)
 })

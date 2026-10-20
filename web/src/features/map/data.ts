@@ -61,25 +61,10 @@ export async function loadBasemap(): Promise<Basemap> {
  * value while the week player runs.
  */
 export { fenced }
+export { deviationReach, versusUsual } from '../../data/usual'
 
 export function historyExtent(rows: readonly WeeklyReport[], code: KpiCode): [number, number] | null {
   return fenced(rows.filter((row) => row.kpi_code === code).map((row) => row.value ?? null))
-}
-
-/** How far a week sits from the area's own trailing 13-week average, as a share; null without one. */
-export function versusUsual(row: WeeklyReport): number | null {
-  const usual = row.trailing_13w_avg
-  return row.value == null || usual == null || usual === 0 ? null : row.value / usual - 1
-}
-
-/**
- * Half-width of the diverging scale: the largest typical distance from usual across every
- * week in view, inside Tukey's fences, so one odd week does not flatten the rest.
- */
-export function deviationReach(rows: readonly WeeklyReport[], code: KpiCode): number | null {
-  const range = fenced(rows.filter((row) => row.kpi_code === code).map(versusUsual))
-  if (!range) return null
-  return Math.max(Math.abs(range[0]), Math.abs(range[1])) || null
 }
 
 export async function loadBoundaries(object: 'regions' | 'districts' | 'fsa'): Promise<Boundary[]> {
