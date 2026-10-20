@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 import { expect, test } from '@playwright/test'
 
 const routes = [
+  // No exports are staged here, so the overview shows its notice under a plain heading.
   ['/', 'Overview'],
   // Drill pages head with the node's name; with no data here, its id.
   ['/r/ON', 'ON'],
@@ -92,7 +93,7 @@ test('overview paints KPI values from the manifest before DuckDB-WASM loads', as
   await expect(kpi).toContainText('Activities per advisor')
   await expect(kpi).toContainText('11.5')
   await expect(kpi).toContainText('+14.6% WoW')
-  await expect(page.getByRole('heading', { name: 'National, week 2026-W40' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The weekly report for 2026-W40', level: 1 })).toBeVisible()
 })
 
 test('a failed manifest fetch shows a calm notice with the last run time', async ({ page }) => {

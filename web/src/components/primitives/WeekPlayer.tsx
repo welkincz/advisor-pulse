@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from '../../app/useReducedMotion'
-import { fenced } from './scale'
+import { WARM_UP_WEEKS } from '../../data/usual'
+import { domain } from '../charts/scale'
 
 const STEP_MS = 360
 const HEIGHT = 44
@@ -74,12 +75,13 @@ function strip(weeks: readonly string[], series?: readonly (number | null)[]) {
     const year = week.slice(0, 4)
     if (i > 0 && year !== weeks[i - 1]!.slice(0, 4)) years.push({ label: year, at: i / Math.max(1, weeks.length - 1) })
   })
-  const range = series ? fenced(series) : null
+  // Fit after the warm-up weeks when there is enough history, so the opening ramp does not flatten the rest.
+  const range = series ? domain(series.length > 2 * WARM_UP_WEEKS ? series.slice(WARM_UP_WEEKS) : series, 0) : null
   if (!series || !range || series.filter((v) => v !== null).length < 2) return { line: '', area: '', years }
   const [lo, hi] = range
   const span = hi - lo || 1
   const px = (i: number) => (i / Math.max(1, series.length - 1)) * 1000
-  // Outliers (warm-up weeks) pin to the strip's edge instead of flattening everything else.
+  // Warm-up weeks outside the fitted range pin to the strip's edge.
   const py = (v: number) => HEIGHT - 4 - (Math.max(0, Math.min(1, (v - lo) / span))) * (HEIGHT - 10)
   let line = ''
   let area = ''

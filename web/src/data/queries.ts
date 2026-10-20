@@ -1,5 +1,6 @@
 import { sqlString } from './engine'
 import type { OrgLevel } from './generated/org_weekly'
+import type { KpiCode } from './generated/weekly_report'
 
 /** Parquet exports, each registered as a view of the same name. */
 export const TABLES = {
@@ -23,6 +24,11 @@ export function orgWeeklySql(nodeId: string, weeks: readonly string[]): string {
 /** Every org node at one level for a week: the map sizes district marks by activity volume. */
 export function orgLevelSql(level: OrgLevel, week: string): string {
   return `select * from org_weekly where level = ${sqlString(level)} and iso_week_id = ${sqlString(week)} order by node_id`
+}
+
+/** One KPI for every node at a level, every week: the overview's week-by-week heatmap. */
+export function levelKpiHistorySql(level: OrgLevel, code: KpiCode): string {
+  return `select * from weekly_report where level = ${sqlString(level)} and kpi_code = ${sqlString(code)} order by parent_id, node_id, iso_week_id`
 }
 
 /** One node's KPI rows for a week, or every child of `parentId` when that is given instead. */

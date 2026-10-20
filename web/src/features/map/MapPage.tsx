@@ -4,6 +4,7 @@ import { Delta, Sparkline, WeekPlayer } from '../../components/primitives'
 import { DataNotice, KPI_LABELS, formatKpi, useChildReportHistory, useGeoWeekly, useManifest, useOrgLevel, useWeeklyReportHistory } from '../../data'
 import type { Manifest } from '../../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
+import { settledWeeks } from '../../data/usual'
 import { DIVERGING, SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
 import { KPI_CODES, LOWER_IS_BETTER } from '../overview/kpis'
@@ -39,6 +40,7 @@ interface Row { id: string; name: string; value: number | null; wow: number | nu
 
 /** One row per child node for `week`, with its trend over the weeks up to it. */
 function rowsFor(history: readonly WeeklyReport[], code: KpiCode, week: string, weeks: readonly string[]): Row[] {
+  const settled = settledWeeks(weeks)
   const window = weeks.slice(Math.max(0, weeks.indexOf(week) - TREND_WEEKS + 1), weeks.indexOf(week) + 1)
   const byNode = new Map<string, Map<string, WeeklyReport>>()
   for (const row of history) {
@@ -50,7 +52,7 @@ function rowsFor(history: readonly WeeklyReport[], code: KpiCode, week: string, 
   return [...byNode].map(([id, weeksOf]) => {
     const current = weeksOf.get(week)
     const any = current ?? [...weeksOf.values()][0]!
-    return { id, name: any.node_name, value: current?.value ?? null, wow: current?.wow_pct ?? null, usual: current ? versusUsual(current) : null, trend: window.map((w) => weeksOf.get(w)?.value ?? null) }
+    return { id, name: any.node_name, value: current?.value ?? null, wow: current?.wow_pct ?? null, usual: current && settled.has(week) ? versusUsual(current) : null, trend: window.map((w) => weeksOf.get(w)?.value ?? null) }
   })
 }
 
@@ -113,8 +115,10 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const districtRows = useMemo(() => rowsFor(districtRowsAll, code, week, weeks), [districtRowsAll, code, week, weeks])
   const regionRange = useMemo(() => historyExtent(regionRowsAll, code), [regionRowsAll, code])
   const districtRange = useMemo(() => historyExtent(districtRowsAll, code), [districtRowsAll, code])
-  const regionReach = useMemo(() => deviationReach(regionRowsAll, code), [regionRowsAll, code])
-  const districtReach = useMemo(() => deviationReach(districtRowsAll, code), [districtRowsAll, code])
+  // The diverging scale is sized from weeks that have a full 13 weeks of history behind them.
+  const settled = useMemo(() => settledWeeks(weeks), [weeks])
+  const regionReach = useMemo(() => deviationReach(regionRowsAll.filter((r) => settled.has(r.iso_week_id)), code), [regionRowsAll, code, settled])
+  const districtReach = useMemo(() => deviationReach(districtRowsAll.filter((r) => settled.has(r.iso_week_id)), code), [districtRowsAll, code, settled])
   const regionNames = useMemo(() => new Map(regionRows.map((row) => [row.id, row.name])), [regionRows])
   const regionById = new Map(regionRows.map((row) => [row.id, row]))
   const districtById = new Map(districtRows.map((row) => [row.id, row]))

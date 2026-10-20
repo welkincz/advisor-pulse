@@ -7,9 +7,9 @@ import type { Narrative, NodeNarrative } from './generated/narrative'
 import type { OrgLevel, OrgWeekly } from './generated/org_weekly'
 import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
-import type { WeeklyReport } from './generated/weekly_report'
+import type { KpiCode, WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
-import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, nodeNamesSql, orgLevelSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
+import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, levelKpiHistorySql, nodeNamesSql, orgLevelSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
 
 export interface PulseDataOptions {
   /** URL prefix of the weekly export: `/data` on the site and in `make web-dev`. */
@@ -76,6 +76,10 @@ export class PulseData {
 
   weeklyReport(week: string, filter: { nodeId: string } | { parentId: string }): Promise<WeeklyReport[]> {
     return this.select<WeeklyReport>('weekly_report', weeklyReportSql(week, filter))
+  }
+
+  levelKpiHistory(level: OrgLevel, code: KpiCode): Promise<WeeklyReport[]> {
+    return this.select<WeeklyReport>('weekly_report', levelKpiHistorySql(level, code))
   }
 
   weeklyReportHistory(nodeId: string, weeks: readonly string[]): Promise<WeeklyReport[]> {

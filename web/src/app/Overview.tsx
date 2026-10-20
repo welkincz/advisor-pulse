@@ -1,10 +1,164 @@
-import { useEffect } from 'react'
-import { DataNotice, useManifest, usePulseData } from '../data'
-import { OrgLeaderboard } from '../features/leaderboard/Leaderboard'
-import { OverviewKpis } from '../features/overview/OverviewKpis'
+import { useEffect, useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { TrendChart } from '../components/charts/TrendChart'
+import { Delta, Section } from '../components/primitives'
+import { DataNotice, KPI_LABELS, formatKpi, formatWow, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
+import type { Manifest } from '../data/generated/manifest'
+import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
+import { WARM_UP_WEEKS, settledWeeks } from '../data/usual'
+import { resolveWeek } from '../features/drill/path'
+import { Funnel, funnelFor } from '../features/overview/Funnel'
+import { nationalHeadline } from '../features/overview/headline'
+import { type BoardRow, KpiBoard, boardRows } from '../features/overview/KpiBoard'
+import { KPI_CODES, KPI_DEFINITIONS, LOWER_IS_BETTER } from '../features/overview/kpis'
+import { RegionMultiples } from '../features/overview/RegionMultiples'
+import { RegionNotes } from '../features/overview/RegionNotes'
 import { RunStatusBanner } from '../features/overview/RunStatusBanner'
+import { WeekHeatmap } from '../features/overview/WeekHeatmap'
+import { weekSpan } from '../features/overview/week'
+import '../features/overview/overview.css'
 
-/** National KPIs from the manifest summary paint before DuckDB-WASM loads. */
+const MULTIPLE_WEEKS = 26
+/** Batch-level rates: the marts publish them for Canada only, so there is no regional split. */
+const NATIONAL_ONLY = new Set<KpiCode>(['LATE_RATE', 'QUAR_RATE'])
+
+/** Board rows from the manifest summary: the latest week paints before DuckDB-WASM loads. */
+function summaryRows(manifest: Manifest): Map<KpiCode, BoardRow> {
+  return new Map(manifest.summary.map((row) => [row.kpi_code, { value: row.value ?? null, wow: row.wow_pct ?? null, flag: row.flag === 'ANOMALY', trend: [] }]))
+}
+
+function WeekStepper({ weeks, week, latest, onWeek }: { weeks: readonly string[]; week: string; latest: string; onWeek: (week: string) => void }) {
+  const at = weeks.indexOf(week)
+  return <nav className="stepper" aria-label="Report week">
+    <button type="button" onClick={() => onWeek(weeks[at - 1]!)} disabled={at <= 0} aria-label="Previous week">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
+    </button>
+    <span className="stepper-week figure-num" aria-live="polite">{week}</span>
+    <button type="button" onClick={() => onWeek(weeks[at + 1]!)} disabled={at >= weeks.length - 1} aria-label="Next week">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg>
+    </button>
+    {week !== latest && <button type="button" className="stepper-latest" onClick={() => onWeek(latest)}>Latest week</button>}
+  </nav>
+}
+
+function Briefing({ manifest }: { manifest: Manifest }) {
+  const [search, setSearch] = useSearchParams()
+  const weeks = manifest.weeks_available
+  const latest = manifest.latest_week
+  const week = resolveWeek(search.get('week'), weeks)!
+  const requested = search.get('kpi') as KpiCode | null
+  const code: KpiCode = requested && KPI_CODES.includes(requested) ? requested : 'ACT_PER_ADV'
+  const set = (key: 'week' | 'kpi', value: string) => {
+    const next = new URLSearchParams(search)
+    if (value === (key === 'week' ? latest : 'ACT_PER_ADV')) next.delete(key)
+    else next.set(key, value)
+    setSearch(next, { replace: true })
+  }
+
+  const history = useWeeklyReportHistory('CA', weeks)
+  const regions = useChildReportHistory('CA', weeks)
+  const org = useOrgWeekly('CA', [week])
+  const heatRegions = useLevelKpiHistory('REGION', code)
+  const heatDistricts = useLevelKpiHistory('DISTRICT', code)
+
+  const settled = useMemo(() => settledWeeks(weeks), [weeks])
+  const all = useMemo<WeeklyReport[]>(() => (history.status === 'ready' ? history.data : []), [history])
+  const ready = history.status === 'ready'
+  const rows = useMemo(() => (ready ? boardRows(all, weeks, week) : week === latest ? summaryRows(manifest) : new Map<KpiCode, BoardRow>()), [ready, all, weeks, week, latest, manifest])
+  const headline = useMemo(() => (ready ? nationalHeadline(all, week) : null), [ready, all, week])
+  const series = useMemo(() => {
+    const byWeek = new Map(all.filter((r) => r.kpi_code === code).map((r) => [r.iso_week_id, r]))
+    return weeks.map((w) => byWeek.get(w))
+  }, [all, code, weeks])
+  const current = series[weeks.indexOf(week)]
+  const better = code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'
+  const multipleWeeks = weeks.slice(Math.max(0, weeks.indexOf(week) - MULTIPLE_WEEKS + 1), weeks.indexOf(week) + 1)
+  const funnel = funnelFor(org.status === 'ready' ? org.data[0] : undefined, all, week, settled.has(week))
+  const hasNotes = manifest.files.some((file) => file.name === `narratives/${week}.json`)
+  const drill = (id: string) => `/r/${encodeURIComponent(id)}${week === latest ? '' : `?week=${encodeURIComponent(week)}`}`
+  const flagged = series.filter((r) => r?.flag === 'ANOMALY').length
+
+  return <>
+    <header className="briefing-head">
+      <div className="briefing-when">
+        <p><span className="briefing-week">Week {week.slice(6)}</span> {weekSpan(week)}</p>
+        <WeekStepper weeks={weeks} week={week} latest={latest} onWeek={(w) => set('week', w)} />
+      </div>
+      <h1 className="briefing-headline">{headline?.lead ?? `The weekly report for ${week}`}</h1>
+      <p className="briefing-support">{headline?.support ?? (history.status === 'loading' ? 'Reading two years of weekly runs…' : 'Maplecrest Bank (fictional), national figures.')}</p>
+    </header>
+
+    <RunStatusBanner manifest={manifest} />
+
+    <section className="hero" aria-labelledby="hero-title">
+      <div className="hero-head">
+        <div>
+          <h2 id="hero-title" className="hero-title">{KPI_LABELS[code]}</h2>
+          <p className="hero-definition">{KPI_DEFINITIONS[code]}</p>
+        </div>
+        <p className="hero-now">
+          <span className="hero-value figure-num">{formatKpi(code, current?.value ?? rows.get(code)?.value)}</span>
+          <Delta value={current?.wow_pct ?? rows.get(code)?.wow} better={better} />
+        </p>
+      </div>
+      {history.status === 'error' && <DataNotice what="the weekly history" onRetry={history.retry} />}
+      <TrendChart weeks={weeks} values={series.map((r) => r?.value ?? null)} usual={series.map((r) => (r && settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null))}
+        flagged={series.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={WARM_UP_WEEKS}
+        format={(v) => formatKpi(code, v)} height={300}
+        label={`${KPI_LABELS[code]}, national, ${weeks[0]} to ${weeks.at(-1)}; ${flagged} anomaly weeks. Use the arrow keys to choose a week.`} />
+      <details className="figure-table hero-table">
+        <summary>Show the numbers</summary>
+        <div className="hero-table-scroll" tabIndex={0} role="region" aria-label={`${KPI_LABELS[code]} by week`}>
+          <table><thead><tr><th scope="col">Week</th><th scope="col" className="num">Value</th><th scope="col" className="num">Usual</th><th scope="col" className="num">WoW</th><th scope="col">Flag</th></tr></thead>
+            <tbody>{[...series].reverse().map((r) => r && <tr key={r.iso_week_id} aria-current={r.iso_week_id === week ? 'true' : undefined}>
+              <th scope="row">{r.iso_week_id}</th><td className="num">{formatKpi(code, r.value)}</td>
+              <td className="num">{settled.has(r.iso_week_id) ? formatKpi(code, r.trailing_13w_avg) : '–'}</td>
+              <td className="num">{formatWow(r.wow_pct).replace(' WoW', '')}</td><td>{r.flag === 'ANOMALY' ? 'Anomaly' : ''}</td>
+            </tr>)}</tbody></table>
+        </div>
+      </details>
+      <p className="hero-legend">
+        <span><i className="hero-key-line" aria-hidden="true" />Weekly value</span>
+        <span><i className="hero-key-usual" aria-hidden="true" />Usual: trailing 13-week average</span>
+        <span><i className="hero-key-flag" aria-hidden="true" />Anomaly, more than two standard deviations from the 13 weeks before</span>
+        <span className="hero-hint">Choose a week on the chart, or a measure below.</span>
+      </p>
+    </section>
+
+    <Section id="measures" title="Every measure" lede={`Week ${week}, against the week before. Choose one to plot it above.`}>
+      <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} />
+    </Section>
+
+    {funnel && <Section id="funnel" title="From call to conversion" lede="Counts for the week on one scale; between them, the rate that links each step to the next.">
+      <Funnel data={funnel} />
+      <p className="funnel-note">Held and converted count meetings scheduled in the week, including ones booked in earlier weeks, so a step can exceed the one before it.</p>
+    </Section>}
+
+    {NATIONAL_ONLY.has(code) && <Section id="regions" title="By region and week" lede="">
+      <p className="national-only">{KPI_LABELS[code]} is measured on the whole weekly batch, before rows are attributed to a branch, so it has no regional split. Choose a business measure above to compare regions.</p>
+    </Section>}
+
+    {!NATIONAL_ONLY.has(code) && <Section id="regions" title="By region" lede={`${KPI_LABELS[code]}, last ${multipleWeeks.length} weeks. The dashed line is the national figure.`}>
+      {regions.status === 'ready' && history.status === 'ready' && <RegionMultiples regions={regions.data} national={all} code={code} week={week} weeks={multipleWeeks} hrefFor={drill} />}
+      {regions.status === 'loading' && <p aria-busy="true">Loading the regions…</p>}
+      {regions.status === 'error' && <DataNotice what="the regional figures" onRetry={regions.retry} />}
+    </Section>}
+
+    {!NATIONAL_ONLY.has(code) && <Section id="weeks" title="Every week at a glance" lede={<>Each cell is one area in one week against its own usual level: <span className="swatch-word swatch-better">blue</span> is better, <span className="swatch-word swatch-worse">vermilion</span> is worse{better === 'lower' ? ', and for this measure lower is better' : better === 'neither' ? '; meeting minutes have no better direction, so blue is simply longer' : ''}. Choose a cell, or focus the grid and use the arrow keys, to open that week.</>}>
+      {heatRegions.status === 'ready' && heatDistricts.status === 'ready' && <WeekHeatmap regions={heatRegions.data} districts={heatDistricts.data} code={code} weeks={weeks} week={week} onSelect={(w) => set('week', w)} />}
+      {(heatRegions.status === 'loading' || heatDistricts.status === 'loading') && <p aria-busy="true">Loading every week…</p>}
+      {heatRegions.status === 'error' && <DataNotice what="the week-by-week view" onRetry={heatRegions.retry} />}
+    </Section>}
+
+    {hasNotes && <Section id="notes" title="Region notes" lede={`What each region's run summary says about ${week}.`}>
+      <RegionNotes week={week} hrefFor={drill} />
+    </Section>}
+
+    <p className="briefing-more"><Link to="/map">See the week on the map</Link></p>
+  </>
+}
+
+/** The national weekly briefing. KPI values from the manifest summary paint before DuckDB-WASM loads. */
 export function Overview() {
   const data = usePulseData()
   const manifest = useManifest()
@@ -14,14 +168,9 @@ export function Overview() {
     idle(() => data.warm())
   }, [data, manifest.status])
 
-  return <main>
-    <p className="eyebrow">Maplecrest Bank · fictional</p>
-    <h1>Overview</h1>
-    <p className="intro">A weekly view of advisor activity, report quality, and pipeline status.</p>
+  return <main className="briefing">
     {manifest.status === 'loading' && <p className="intro" aria-busy="true">Loading the latest weekly report…</p>}
-    {manifest.status === 'error' && <DataNotice what="this week's report" onRetry={manifest.retry} />}
-    {manifest.status === 'ready' && <RunStatusBanner manifest={manifest.data} />}
-    {manifest.status === 'ready' && <OverviewKpis manifest={manifest.data} />}
-    {manifest.status === 'ready' && <OrgLeaderboard weeks={manifest.data.weeks_available} parentId="CA" parentName="Canada" childHref={(id) => `/r/${encodeURIComponent(id)}`} />}
+    {manifest.status === 'error' && <><h1>Overview</h1><DataNotice what="this week's report" onRetry={manifest.retry} /></>}
+    {manifest.status === 'ready' && <Briefing manifest={manifest.data} />}
   </main>
 }
