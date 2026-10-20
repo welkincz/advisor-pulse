@@ -15,17 +15,23 @@ if (!csp) throw new Error('No Content-Security-Policy in public/_headers')
 
 // The pre-paint theme script is allowed by hash; a changed script must change the header too.
 const html = readFileSync(resolve(root, 'dist/index.html'), 'utf8')
-for (const [, body] of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+// Every inline script, with or without attributes; scripts with src are covered by 'self'.
+for (const [, body] of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) {
   const hash = `'sha256-${createHash('sha256').update(body).digest('base64')}'`
   if (!csp.includes(hash)) throw new Error(`Inline script hash ${hash} is not in the CSP`)
 }
 
-const port = 4175
+const port = Number(process.env.CSP_CHECK_PORT ?? 4175)
 const server = spawn('pnpm', ['exec', 'vite', 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, stdio: 'ignore' })
 const base = `http://127.0.0.1:${port}`
-for (let i = 0; i < 50; i++) {
-  try { if ((await fetch(base)).ok) break } catch { /* not up yet */ }
-  await new Promise((r) => setTimeout(r, 200))
+let up = false
+for (let i = 0; i < 50 && !up; i++) {
+  try { up = (await fetch(base)).ok } catch { /* not up yet */ }
+  if (!up) await new Promise((r) => setTimeout(r, 200))
+}
+if (!up) {
+  server.kill()
+  throw new Error(`vite preview did not start on port ${port}; set CSP_CHECK_PORT if it is taken`)
 }
 
 const pages = [
@@ -37,36 +43,41 @@ const pages = [
 ]
 const browser = await chromium.launch()
 let failures = 0
+
+/** Load `path` under `policy`; true when the DuckDB-backed marker renders with no violation. */
+async function renders(path, ready, policy, log) {
+  const page = await browser.newPage()
+  await page.addInitScript(() => {
+    window.__csp = []
+    document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`))
+  })
+  await page.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.fallback()
+    const response = await route.fetch()
+    return route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': policy } })
+  })
+  const errors = []
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto(base + path)
+  let shown = true
+  try { await page.waitForSelector(ready, { timeout: 30_000 }) } catch { shown = false }
+  if (shown) await page.waitForTimeout(1500)
+  const violations = await page.evaluate(() => window.__csp)
+  if (log) console.log(`${shown && !violations.length ? 'ok  ' : 'FAIL'} ${path}${shown ? '' : `: never showed ${ready}`}${violations.length ? `: ${violations.join('; ')}` : ''}${!shown && errors.length ? ` ${errors.join(' | ')}` : ''}`)
+  await page.close()
+  return shown && !violations.length
+}
 try {
-  for (const [path, ready] of pages) {
-    const page = await browser.newPage()
-    await page.addInitScript(() => {
-      window.__csp = []
-      document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`))
-    })
-    await page.route('**/*', async (route) => {
-      if (route.request().resourceType() !== 'document') return route.fallback()
-      const response = await route.fetch()
-      return route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': csp } })
-    })
-    const errors = []
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
-    page.on('pageerror', (e) => errors.push(e.message))
-    await page.goto(base + path)
-    try {
-      await page.waitForSelector(ready, { timeout: 30_000 })
-    } catch {
-      console.log(`FAIL ${path}: never showed ${ready}; ${(await page.evaluate(() => window.__csp)).join('; ')} ${errors.join(' | ')}`)
-      failures++
-      await page.close()
-      continue
-    }
-    await page.waitForTimeout(1500)
-    const violations = await page.evaluate(() => window.__csp)
-    console.log(`${violations.length ? 'FAIL' : 'ok  '} ${path}${violations.length ? `: ${violations.join('; ')}` : ''}`)
-    failures += violations.length
-    await page.close()
-  }
+  for (const [path, ready] of pages) if (!(await renders(path, ready, csp, true))) failures++
+  // Self-test: the same check must fail when DuckDB's extension host is not allowed, or it
+  // has stopped measuring the header (that host is what broke the first draft, #187).
+  const broken = csp.replace(' https://extensions.duckdb.org', '')
+  if (broken === csp) throw new Error('Expected extensions.duckdb.org in connect-src')
+  if (await renders('/quality', '.rule-list button', broken, false)) {
+    console.log('FAIL self-test: the site rendered without the DuckDB extension host, so the check is not testing the CSP')
+    failures++
+  } else console.log('ok   self-test: without extensions.duckdb.org the check fails, as it should')
 } finally {
   await browser.close()
   server.kill()
