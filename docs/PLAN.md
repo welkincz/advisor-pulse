@@ -345,7 +345,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
 **mart_weekly_report** (long format, Tableau- and LLM-friendly): `iso_week_id`, `level`, `node_id`, `node_name`, `parent_id`, `kpi_code`, `value`, `prior_week_value`, `wow_delta`, `wow_pct`, `trailing_13w_avg`, `rank_in_parent`, `peer_count`, `flag` (`UP`, `DOWN`, `FLAT`, `ANOMALY`).
 
-**mart_geo_weekly** (FSA × week): `iso_week_id`, `fsa_code`, `district_code`, `active_clients`, `clients_contacted_13w`, `coverage_rate_13w`, `activities_completed`.
+**mart_geo_weekly** (FSA × district × week; an FSA served from two districts has a row in each, and clients with an unreadable postal code sit under `UNK`, so consumers sum across districts for one value per FSA): `iso_week_id`, `fsa_code`, `district_code`, `active_clients`, `clients_contacted_13w`, `coverage_rate_13w`, `activities_completed`.
 
 **mart_dq_weekly** (rule × week): `iso_week_id`, `rule_id`, `rule_name`, `action`, `rows_affected`, `rows_in_batch`, `rate`.
 
