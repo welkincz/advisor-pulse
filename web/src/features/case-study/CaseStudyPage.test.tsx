@@ -5,7 +5,7 @@ import { act } from 'react'
 import { type Root, createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it } from 'vitest'
-import { CaseStudyPage, keyNumbers, slug } from './CaseStudyPage'
+import { CaseStudyPage, keyNumbers, slug, uniqueSlugs } from './CaseStudyPage'
 import { parseBlocks } from './markdown'
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean }
@@ -63,4 +63,10 @@ it('lists every section in the contents with a working anchor, and leads with th
   const numbers = keyNumbers(parseBlocks(caseStudy))
   expect(numbers.length).toBe(4)
   expect(container.querySelectorAll('.cs-numbers > div')).toHaveLength(4)
+})
+
+it('keeps anchors unique and non-empty, and finds no numbers without the scale table', () => {
+  expect(uniqueSlugs(['Results', 'Results', '***'])).toEqual(['results', 'results-2', 'section'])
+  expect(keyNumbers(parseBlocks('# T\n\n## Scale and speed\n\nNo table here.\n'))).toEqual([])
+  expect(keyNumbers(parseBlocks('## Upscale ideas\n\n| a | b |\n|---|--:|\n| x | 1 |\n'))).toEqual([])
 })

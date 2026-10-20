@@ -6,14 +6,25 @@ import './case-study.css'
 
 /** A stable anchor for a heading: "What the integration run caught" → "what-the-integration-run-caught". */
 export function slug(text: string): string {
-  return text.toLowerCase().replace(/[`*]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  return text.toLowerCase().replace(/[`*]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section'
+}
+
+/** Slugs for a list of headings, with -2, -3 … on repeats so every anchor is unique. */
+export function uniqueSlugs(texts: readonly string[]): string[] {
+  const seen = new Map<string, number>()
+  return texts.map((text) => {
+    const base = slug(text)
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    return n === 1 ? base : `${base}-${n}`
+  })
 }
 
 function render(block: Block, index: number) {
   switch (block.kind) {
     case 'heading': {
       const Tag = block.level <= 2 ? 'h2' : 'h3'
-      return <Tag key={index} id={block.level <= 2 ? slug(block.text) : undefined}><Inline text={block.text} /></Tag>
+      return <Tag key={index} id={block.level <= 2 ? anchors.get(index) : undefined}><Inline text={block.text} /></Tag>
     }
     case 'paragraph':
       return <p key={index}><Inline text={block.text} /></p>
@@ -38,7 +49,7 @@ function render(block: Block, index: number) {
 
 /** The "Scale and speed" table's first rows, shown as a strip of numbers at the top. */
 export function keyNumbers(blocks: readonly Block[], count = 4): { label: string; value: string }[] {
-  const at = blocks.findIndex((b) => b.kind === 'heading' && /scale/i.test(b.text))
+  const at = blocks.findIndex((b) => b.kind === 'heading' && /^scale and speed$/i.test(b.text))
   const table = blocks.slice(at + 1).find((b) => b.kind === 'table')
   return at >= 0 && table?.kind === 'table' ? table.rows.slice(0, count).map(([label, value]) => ({ label: label ?? '', value: value ?? '' })) : []
 }
@@ -51,6 +62,9 @@ function useSectionInView(ids: readonly string[]): string | null {
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
       if (visible) setCurrent(visible.target.id)
+      // Scrolled back above the first section: nothing is current.
+      const first = document.getElementById(ids[0] ?? '')
+      if (first && first.getBoundingClientRect().top > window.innerHeight * 0.3) setCurrent(null)
     }, { rootMargin: '0px 0px -70% 0px' })
     ids.forEach((id) => { const element = document.getElementById(id); if (element) observer.observe(element) })
     return () => observer.disconnect()
@@ -59,7 +73,10 @@ function useSectionInView(ids: readonly string[]): string | null {
 }
 
 const [title, ...blocks] = parseBlocks(source)
-const sections = blocks.flatMap((b) => (b.kind === 'heading' && b.level <= 2 ? [{ id: slug(b.text), text: b.text }] : []))
+const headingIndexes = blocks.flatMap((b, i) => (b.kind === 'heading' && b.level <= 2 ? [i] : []))
+const headingIds = uniqueSlugs(headingIndexes.map((i) => (blocks[i] as { text: string }).text))
+const anchors = new Map(headingIndexes.map((i, k) => [i, headingIds[k]!]))
+const sections = headingIndexes.map((i, k) => ({ id: headingIds[k]!, text: (blocks[i] as { text: string }).text }))
 const sectionIds = sections.map((s) => s.id)
 const numbers = keyNumbers(blocks)
 
@@ -67,6 +84,7 @@ const numbers = keyNumbers(blocks)
 export function CaseStudyPage() {
   const current = useSectionInView(sectionIds)
   return <main className="case-study">
+    <p className="eyebrow">Maplecrest Bank · fictional</p>
     <h1>Case study</h1>
     {title?.kind === 'heading' && <p className="intro">{title.text}</p>}
     {numbers.length > 0 && <dl className="cs-numbers">{numbers.map((n) => <div key={n.label}><dt>{n.label}</dt><dd className="figure-num">{n.value.replace(/\s*\(.*\)$/, '')}{/\(.*\)$/.test(n.value) && <small>{/\((.*)\)$/.exec(n.value)![1]}</small>}</dd></div>)}</dl>}

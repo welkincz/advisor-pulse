@@ -15,8 +15,9 @@
 .cs-numbers dt { color: var(--muted); font-size: var(--text-sm); }
 .cs-numbers dd small { display: block; margin-top: var(--space-1); color: var(--muted); font-size: var(--text-sm); font-weight: 400; letter-spacing: 0; }
 .cs-numbers dd { margin: var(--space-1) 0 0; font-size: var(--text-2xl); font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
-html { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* Contents links glide, on this page only. */
+html:has(.case-study) { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html:has(.case-study) { scroll-behavior: auto; } }
 .cs-body h2 { margin-top: var(--space-12); padding-top: var(--space-4); border-top: 1px solid var(--rule); }
 .cs-body h2:first-child { margin-top: 0; }
 .cs-body ul, .cs-body ol { padding-left: var(--space-6); }
