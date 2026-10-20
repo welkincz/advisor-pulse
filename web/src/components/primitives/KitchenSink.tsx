@@ -1,11 +1,9 @@
-import { useMemo } from 'react'
-import { BarChart } from 'echarts/charts'
-import { use as registerEcharts } from 'echarts/core'
+import { Bullet } from '../charts/Bullet'
+import { StackedWeeks } from '../charts/StackedWeeks'
+import { TrendChart } from '../charts/TrendChart'
 import { DIVERGING, SEQUENTIAL, SERIES } from '../../theme/tokens'
-import { Breadcrumb, Chart, Delta, Figure, Section, Sparkline, Stat, StatGroup, StatusMark } from '.'
+import { Breadcrumb, Delta, Figure, Section, Sparkline, Stat, StatGroup, StatusMark } from '.'
 
-// The report itself draws only line charts; the bar example registers its own chart type.
-registerEcharts([BarChart])
 
 /** Dev-only reference page (/_kitchen-sink): every primitive and palette, in the current scheme. */
 
@@ -27,22 +25,6 @@ function Swatches({ names, label }: { names: readonly string[]; label: string })
 }
 
 export default function KitchenSink() {
-  const lines = useMemo(() => ({
-    tooltip: { trigger: 'axis' },
-    legend: { top: 0, left: 0 },
-    // Direct end labels need their own gutter; the theme's containLabel only covers the axes.
-    grid: { top: 36, right: 72 },
-    xAxis: { type: 'category', data: WEEKS },
-    yAxis: { type: 'value', min: 9 },
-    series: REGIONS.map((r) => ({ type: 'line', name: r.name, data: r.values, endLabel: { show: true, formatter: '{a}' } })),
-  }), [])
-  const bars = useMemo(() => ({
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: ['GTA', 'EON', 'SWO', 'NON'] },
-    yAxis: { type: 'value' },
-    series: [{ type: 'bar', name: 'Appointments booked', data: [412, 268, 301, 122] }],
-  }), [])
-
   return <main className="ks">
     <p className="eyebrow">Design system</p>
     <h1>Kitchen sink</h1>
@@ -91,10 +73,22 @@ export default function KitchenSink() {
         table={<table><thead><tr><th>Region</th>{WEEKS.map((w) => <th key={w} className="num">{w}</th>)}</tr></thead>
           <tbody>{REGIONS.map((r) => <tr key={r.name}><th>{r.name}</th>{r.values.map((v, i) => <td key={i} className="num">{v.toFixed(1)}</td>)}</tr>)}</tbody></table>}
       >
-        <Chart option={lines} label="Line chart of activities per advisor for four regions over eight weeks" height={280} />
+        <TrendChart weeks={WEEKS} values={REGIONS[0]!.values} usual={REGIONS[0]!.values.map((_, k, all) => all.slice(0, k + 1).reduce((a, b) => a + b, 0) / (k + 1))}
+          flagged={WEEKS.map((_, k) => k === 6)} selected="W40" format={(v) => (v == null ? '–' : v.toFixed(1))} height={240}
+          label="Trend chart of activities per advisor in Ontario over eight weeks, with its running average" />
       </Figure>
-      <Figure title="Appointments booked, Ontario districts" note="Week 2026-W40.">
-        <Chart option={bars} label="Bar chart of appointments booked in four Ontario districts" />
+      <Figure title="Small multiples" note="Region colours in fixed order; the national line dashed beneath.">
+        <div className="ks-multiples">{REGIONS.map((r, k) => <TrendChart key={r.name} compact height={72} weeks={WEEKS} values={r.values}
+          reference={WEEKS.map((_, w) => REGIONS.reduce((sum, x) => sum + x.values[w]!, 0) / REGIONS.length)}
+          color={`var(--series-${k + 1})`} format={(v) => (v == null ? '–' : v.toFixed(1))} label={`${r.name}, eight weeks`} />)}</div>
+      </Figure>
+      <Figure title="Stacked weeks" note="Zero-based; paper gaps between segments.">
+        <StackedWeeks weeks={WEEKS} height={160} label="Rows caught per week, stacked by handling"
+          series={[{ key: 'a', label: 'Quarantined', color: 'var(--series-1)', values: [40, 42, 39, 45, 41, 38, 44, 43] },
+            { key: 'b', label: 'Duplicates', color: 'var(--series-2)', values: [120, 118, 125, 122, 119, 121, 124, 120] }]} />
+      </Figure>
+      <Figure title="Bullet" note="Observed against its limits.">
+        <Bullet observed={0.012} max={0.025} fail={0.02} format={(v) => `${(v * 100).toFixed(1)}%`} label="Quarantine rate 1.2% against a 2% limit" />
       </Figure>
     </Section>
 

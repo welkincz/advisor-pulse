@@ -54,7 +54,7 @@ flowchart LR
   end
 
   subgraph OUT["Consumers"]
-    WEB["pulse.charliebuild.com<br/>React · DuckDB-WASM · SVG charts and map · ECharts on drill pages"]
+    WEB["pulse.charliebuild.com<br/>React · DuckDB-WASM · hand-written SVG charts and map"]
     GS["Google Sheet"] --> TAB["Tableau Public<br/>(daily sync)"]
   end
 
@@ -111,7 +111,7 @@ On failure, data is **not** redeployed: the site keeps the last good week, and o
 | AI narrative | Claude, structured JSON output, through one of two backends picked by `PULSE_NARRATIVE_BACKEND`: `api` (Anthropic API, `claude-opus-5-5`) or `claude-code` (`claude -p --json-schema` on a Claude subscription, `claude-sonnet-5-5`); model overridable via `PULSE_NARRATIVE_MODEL` | Grounded on mart rows only; tiny weekly volume. The `claude-code` backend needs no separate API billing | Generating in the browser would expose the API key on a static site |
 | Frontend | Vite + React + TypeScript | Static build, fast, agent-friendly | Next.js: SSR not needed |
 | In-browser query | DuckDB-WASM over exported Parquet | Real SQL in the browser, so drill-downs need no backend | Pre-baked JSON is simpler but rigid. Budget: ≤ 20 MB total data |
-| Charts | Hand-written SVG (`TrendChart`, heatmap, funnel) on the overview; Apache ECharts with a custom theme on drill and quality pages | SVG gives exact control of motion (draw-on, morph between measures) and keeps the overview at about 120 KB gzip (#171) | Recharts / visx: less out-of-the-box depth |
+| Charts | Hand-written SVG (`components/charts`: `TrendChart`, `StackedWeeks`, `Bullet`, the heatmap) | Exact control of motion (draw-on, morph between measures), colours straight from tokens, and no chart engine: every route sits at 80 to 130 KB gzip (#171, #175) | Apache ECharts shipped first; its wrapper cost about 190 KB gzip and its trend broke on the quality page (#175) |
 | Map | Hand-written SVG map in Statistics Canada Lambert: Natural Earth province basemap coloured by serving region, district circles sized by activity, FSA layer from StatCan boundaries | No tiles or API key; about 5 KB gzip of code plus a 14 KB province layer | deck.gl + MapLibre shipped first but cost about 250 KB gzip on `/map` (#152). A branch-FSA-only Mercator map read as specks on blank paper (#169). FSA layer is **optional** (size budget) |
 | Pipeline viz | Hand-written SVG line diagram on the export's grid, plus a log-scale stage timeline (#172) | Every stage fits on one screen with readable labels; replay animates the line in use | React Flow shipped first, but its fixed zoom left most of the 13-column DAG off screen (#172) |
 | Motion | CSS transitions plus a small rAF tween (`web/src/motion/`) | No library weight; respects `prefers-reduced-motion` | Motion (Framer Motion) shipped first but cost about 50 KB gzip on every route (#152) |

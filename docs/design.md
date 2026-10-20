@@ -5,9 +5,9 @@ and one colour that means "look here". It extends charliebuild's language: paper
 signal gold, Avenir Next. It is not a SaaS dashboard. Every rule below exists so that an
 agent who is not a designer can build a new view that still looks like it belongs.
 
-Everything here is implemented in `web/src/theme/` (tokens, ECharts theme) and
+Everything here is implemented in `web/src/theme/` (tokens), `web/src/components/charts/` (SVG charts) and
 `web/src/components/primitives/` (Section, Figure, Stat, Delta, Sparkline, Breadcrumb,
-Chart, StatusMark). Run `make web-dev` and open `/_kitchen-sink` to see all of it in your
+StatusMark, WeekPlayer). Run `make web-dev` and open `/_kitchen-sink` to see all of it in your
 current colour scheme.
 
 ## 1. Principles
@@ -123,8 +123,10 @@ Rules:
 
 ## 7. Charts
 
-Use `Chart` (ECharts with the Pulse theme) for line charts, inside a `Figure`; register any
-other ECharts chart type in `primitives/echarts.ts` first.
+Every chart is hand-written SVG in `components/charts/`: `TrendChart` for weekly lines,
+`StackedWeeks` for weekly totals split by kind, `Bullet` for a value against its limits, and
+the overview heatmap. They read colours from tokens through CSS, so light and dark need no
+re-render, and there is no chart engine to load (#175).
 Use `Sparkline` (plain SVG) for word-sized trends in stats. The map (#38, #169) is plain SVG
 too (`features/map/CanadaMap.tsx`), filled with `var(--seq-N)` so it follows the scheme.
 
@@ -149,11 +151,10 @@ export manifest enables FSA boundaries. Sources are credited under the map.
 `WeekPlayer` (primitives) scrubs or plays through the weekly runs over a quiet trend strip.
 It is a native range input, so drag, click and arrow keys all work.
 
-The theme (`web/src/theme/echarts.ts`) is built from `tokens.css` when a chart mounts, and
-rebuilt when the colour scheme changes. It sets:
+`components/charts/charts.css` holds the chart look, from tokens only:
 
-- Lines 2 px, no smoothing, markers (8 px) only on hover; no area gradients.
-- Bars at most 24 px wide, 4 px rounded top, square at the baseline.
+- Lines 2 px (1.5 px in small multiples), no smoothing, markers only on hover; no area gradients.
+- Bars start at zero, with 2 px paper gaps between bars and between stacked segments.
 - Hairline horizontal gridlines in `--rule`, no tick marks, axis labels in `--muted` at 12 px.
 - A tooltip on paper with a hairline border, no shadow, tabular figures.
 - Categorical colours in token order.
@@ -184,7 +185,7 @@ The overview is a weekly briefing, not a tile dashboard. In reading order:
 6. **Every week at a glance**: a heatmap of every region and district by week, coloured by distance from each area's own 13-week average (diverging, better follows the KPI's direction). Holidays show as vertical bands. The first 13 weeks have no usual level yet and stay neutral.
 7. **Region notes** from the published narratives, labelled as written by Claude and checked against the figures.
 
-`TrendChart` and the heatmap are hand-written SVG (`components/charts/`), so the overview no longer loads ECharts.
+`TrendChart` and the heatmap are hand-written SVG (`components/charts/`).
 
 ## 8. Primitives
 
@@ -192,7 +193,7 @@ The overview is a weekly briefing, not a tile dashboard. In reading order:
 |---|---|
 | `Section` | Every top-level block on a page: heading and lede in the margin column, content beside it |
 | `Figure` | Every chart or map: title, reading, plot, note, table |
-| `Chart` | Line and bar charts (ECharts, themed) |
+| `StackedWeeks`, `Bullet` (`components/charts`) | Weekly stacked bars; a value against warn and fail limits |
 | `StatGroup` / `Stat` | KPI values. One `Stat emphasis` per view, for the KPI the page leads with |
 | `Delta` | Week-over-week change: arrow and sign for direction, colour and screen-reader text for better or worse. Pass `better="lower"` for no-show, late and quarantine rates, `better="neither"` for meeting minutes |
 | `TrendChart` (`components/charts`) | A weekly line with a usual ribbon, anomaly rings, a week cursor, hover crosshair and keyboard week choice. `compact` for small multiples |
@@ -231,8 +232,8 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
 - Choosing another measure morphs the line from the old values to the new (620 ms) while
   the axis labels cross-fade; the heatmap recolours left to right, 4 ms a column.
 - The week cursor on every chart glides to the chosen week with `--duration-step`.
-- `prefers-reduced-motion: reduce` sets every duration token to 0, and `Chart` turns off
-  ECharts animation. Content must make sense with no motion at all.
+- `prefers-reduced-motion: reduce` sets every duration token to 0, and the charts skip the
+  draw-on and the morph. Content must make sense with no motion at all.
 
 ## 10. Copy
 
