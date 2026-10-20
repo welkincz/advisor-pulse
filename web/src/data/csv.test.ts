@@ -8,6 +8,9 @@ it('quotes only cells that need it and doubles inner quotes', () => {
   expect(csvCell('two\nlines')).toBe('"two\nlines"')
   expect(csvCell(null)).toBe('')
   expect(csvCell(0.0123)).toBe('0.0123')
+  expect(csvCell(-0.07)).toBe('-0.07')
+  expect(csvCell('=HYPERLINK("x")')).toBe('"\'=HYPERLINK(""x"")"')
+  expect(csvCell('@SUM(A1)')).toBe("'@SUM(A1)")
 })
 
 it('writes a header and CRLF rows', () => {

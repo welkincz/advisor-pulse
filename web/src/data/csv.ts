@@ -1,7 +1,8 @@
 /** A CSV cell per RFC 4180: quote when it holds a comma, quote, CR or LF; double inner quotes. */
 export function csvCell(value: unknown): string {
   if (value === null || value === undefined) return ''
-  const text = String(value)
+  // A text cell starting with = + - @ would run as a formula in a spreadsheet; numbers are safe.
+  const text = typeof value === 'string' && /^[=+\-@\t\r]/.test(value) ? `'${value}` : String(value)
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
@@ -12,7 +13,7 @@ export function toCsv(header: readonly string[], rows: readonly (readonly unknow
 
 /** Save CSV text as a file in the browser. A BOM keeps Excel from guessing the encoding. */
 export function downloadCsv(filename: string, text: string): void {
-  const url = URL.createObjectURL(new Blob(['﻿', text], { type: 'text/csv;charset=utf-8' }))
+  const url = URL.createObjectURL(new Blob(['\uFEFF', text], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
   link.href = url
   link.download = filename

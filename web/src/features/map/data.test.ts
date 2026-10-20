@@ -54,10 +54,11 @@ describe('map geography and bins', () => {
 
   it('names the area furthest from its usual week, in the KPI direction', () => {
     const rows = [{ name: 'West', usual: -0.074 }, { name: 'Quebec', usual: -0.094 }, { name: 'Ontario', usual: -0.063 }, { name: 'Atlantic', usual: null }]
-    expect(standoutSentence(rows, 'Activities per advisor', false, 0.1)).toBe('Quebec sat furthest from its usual week: activities per advisor 9.4% below its 13-week average, worse than usual; all 3 areas were below usual.')
-    expect(standoutSentence([{ name: 'GTA', usual: -0.05 }, { name: 'EON', usual: 0.01 }], 'No-show rate', true, 0.1)).toBe('GTA sat furthest from its usual week: no-show rate 5.0% below its 13-week average, better than usual, the only one on that side.')
-    expect(standoutSentence([{ name: 'GTA', usual: 0.004 }], 'Show rate', false, 0.06)).toBe('Every area was within 1.0% of its usual week for show rate.')
-    expect(standoutSentence([], 'Show rate', false, 0.06)).toBeNull()
+    expect(standoutSentence(rows, 'Activities per advisor', 'higher', 0.1)).toBe('Quebec sat furthest from its usual week: activities per advisor 9.4% below its 13-week average, worse than usual; all 3 areas were below usual.')
+    expect(standoutSentence([{ name: 'GTA', usual: -0.05 }, { name: 'EON', usual: 0.01 }], 'No-show rate', 'lower', 0.1)).toBe('GTA sat furthest from its usual week: no-show rate 5.0% below its 13-week average, better than usual, the only one on that side.')
+    expect(standoutSentence([{ name: 'GTA', usual: 0.004 }], 'Show rate', 'higher', 0.06)).toBe('Every area was within 1.0% of its usual week for show rate.')
+    expect(standoutSentence([], 'Show rate', 'higher', 0.06)).toBeNull()
+    expect(standoutSentence([{ name: 'GTA', usual: 0.08 }, { name: 'EON', usual: -0.01 }], 'Average meeting minutes', 'neither', 0.1)).toBe('GTA sat furthest from its usual week: average meeting minutes 8.0% above its 13-week average, the only one on that side.')
   })
 
   it('drills with the same region, district and week URL as the report', () => {

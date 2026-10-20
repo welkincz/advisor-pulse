@@ -225,7 +225,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
         {focus && <Link className="map-open" to={drillHref(null, focus, week, manifest.latest_week)}>Open the {scope} report</Link>}
       </header>
       {!fsaMode && ready && (() => {
-        const sentence = standoutSentence(rows, KPI_LABELS[code], LOWER_IS_BETTER.has(code), focus ? districtReach : regionReach)
+        const sentence = standoutSentence(rows, KPI_LABELS[code], better, focus ? districtReach : regionReach)
         return sentence && <p className="map-sentence">{sentence}</p>
       })()}
       <div className="map-layout">

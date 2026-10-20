@@ -122,13 +122,16 @@ export function fsaCoverage(rows: readonly GeoWeekly[]): FsaCoverage {
  * One sentence on which area sat furthest from its own usual week, judged in the KPI's
  * direction, or that every area was close to usual. `reach` is the diverging scale's half-width.
  */
-export function standoutSentence(rows: readonly { name: string; usual: number | null }[], label: string, lowerIsBetter: boolean, reach: number | null): string | null {
+/** Within this share of the scale's half-width, a week counts as usual: the middle of seven steps. */
+const USUAL_BAND = 1 / 6
+
+export function standoutSentence(rows: readonly { name: string; usual: number | null }[], label: string, better: 'higher' | 'lower' | 'neither', reach: number | null): string | null {
   const known = rows.filter((r): r is { name: string; usual: number } => r.usual !== null)
   if (!known.length || !reach) return null
   const top = [...known].sort((a, b) => Math.abs(b.usual) - Math.abs(a.usual))[0]!
-  if (Math.abs(top.usual) < reach / 6) return `Every area was within ${(reach / 6 * 100).toFixed(1)}% of its usual week for ${label.toLowerCase()}.`
-  const better = lowerIsBetter ? top.usual < 0 : top.usual > 0
+  if (Math.abs(top.usual) < reach * USUAL_BAND) return `Every area was within ${(reach * USUAL_BAND * 100).toFixed(1)}% of its usual week for ${label.toLowerCase()}.`
+  const verdict = better === 'neither' ? '' : `, ${(better === 'lower' ? top.usual < 0 : top.usual > 0) ? 'better' : 'worse'} than usual`
   const others = known.filter((r) => r !== top && Math.sign(r.usual) === Math.sign(top.usual)).length
   const company = others === 0 ? ', the only one on that side' : others === known.length - 1 ? `; all ${known.length} areas were ${top.usual < 0 ? 'below' : 'above'} usual` : ''
-  return `${top.name} sat furthest from its usual week: ${label.toLowerCase()} ${(Math.abs(top.usual) * 100).toFixed(1)}% ${top.usual < 0 ? 'below' : 'above'} its 13-week average, ${better ? 'better' : 'worse'} than usual${company}.`
+  return `${top.name} sat furthest from its usual week: ${label.toLowerCase()} ${(Math.abs(top.usual) * 100).toFixed(1)}% ${top.usual < 0 ? 'below' : 'above'} its 13-week average${verdict}${company}.`
 }
