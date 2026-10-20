@@ -81,6 +81,14 @@
 .heat-selected { fill: none; stroke: var(--ink); stroke-width: 1.5; pointer-events: none; transition: x var(--duration-step) var(--ease-standard); }
 .heat-tip { position: absolute; z-index: 2; display: grid; gap: 2px; transform: translate(-50%, calc(-100% - 6px)); padding: var(--space-2) var(--space-3); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); font-size: var(--text-sm); pointer-events: none; white-space: nowrap; }
 .heat-tip span { color: var(--muted); font-size: var(--text-xs); }
+.heat:focus-visible { outline: 2px solid var(--focus); outline-offset: 6px; }
+.heat-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+.heat-cursor { fill: none; stroke: var(--focus); stroke-width: 2; pointer-events: none; }
+.national-only { margin: 0; max-width: var(--measure); color: var(--muted); }
+.hero-table { margin-top: var(--space-3); }
+.hero-table-scroll { max-height: 20rem; overflow: auto; }
+.hero-table-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.hero-table tr[aria-current='true'] th, .hero-table tr[aria-current='true'] td { background: var(--field); font-weight: 600; }
 .swatch-word { font-weight: 600; }
 .swatch-better { color: var(--better-3); }
 .swatch-worse { color: var(--worse-3); }

@@ -1,4 +1,4 @@
-import { fenced } from '../components/primitives/scale'
+import { fenced } from '../components/charts/scale'
 import type { KpiCode, WeeklyReport } from './generated/weekly_report'
 
 /** A trailing 13-week average needs 13 weeks behind it; before that there is no "usual" yet. */

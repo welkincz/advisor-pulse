@@ -11,11 +11,12 @@ export interface FunnelData { stages: Stage[]; steps: Step[] }
 const STEP_CODES: readonly KpiCode[] = ['CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV']
 
 /** Calls, bookings, meetings held and conversions for one week, with the rate between each. */
-export function funnelFor(org: OrgWeekly | undefined, report: readonly WeeklyReport[], week: string): FunnelData | null {
+/** `settled` is false in the first 13 weeks, when there is no full trailing average to call usual. */
+export function funnelFor(org: OrgWeekly | undefined, report: readonly WeeklyReport[], week: string, settled = true): FunnelData | null {
   if (!org) return null
   const rate = (code: KpiCode): Step => {
     const row = report.find((r) => r.kpi_code === code && r.iso_week_id === week)
-    return { code, value: row?.value ?? null, usual: row?.trailing_13w_avg ?? null, wow: row?.wow_pct ?? null }
+    return { code, value: row?.value ?? null, usual: settled ? row?.trailing_13w_avg ?? null : null, wow: row?.wow_pct ?? null }
   }
   return {
     stages: [

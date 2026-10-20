@@ -42,6 +42,23 @@ test('the hero chart reads every fixture week and moves the report week by keybo
   await expect(page.locator('html')).toHaveAttribute('data-motion', 'reduced')
 })
 
+test('the every-week grid works from the keyboard and batch-only rates skip the regional split', async ({ page }) => {
+  await page.goto('/?kpi=NO_SHOW_RATE')
+  await expect(page.locator('#weeks-title + .section-lede, .section-lede').filter({ hasText: 'lower is better' })).toBeVisible()
+  const grid = page.getByRole('group', { name: /No-show rate by area and week/ })
+  await grid.focus()
+  await expect(page.locator('.heat-cursor')).toBeVisible()
+  await page.keyboard.press('ArrowLeft')
+  await expect(page.locator('.heat-live')).toContainText('2026-W39')
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/week=2026-W39/)
+  await page.goto('/?kpi=QUAR_RATE')
+  await expect(page.getByText(/measured on the whole weekly batch/)).toBeVisible()
+  await expect(page.locator('.multiple')).toHaveCount(0)
+  await page.getByText('Show the numbers').first().click()
+  await expect(page.getByRole('region', { name: 'Quarantine rate by week' }).locator('tbody tr')).toHaveCount(4)
+})
+
 test('the funnel, regional charts and every-week view draw from the export', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.funnel-stage')).toHaveCount(4)

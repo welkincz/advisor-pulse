@@ -1,8 +1,8 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { KPI_LABELS, formatKpi } from '../../data'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { settledWeeks, usualStep, versusUsual } from '../../data/usual'
-import { fenced } from '../../components/primitives/scale'
+import { fenced } from '../../components/charts/scale'
 import { DIVERGING } from '../../theme/tokens'
 import { LOWER_IS_BETTER } from './kpis'
 import { REGION_ORDER } from './RegionMultiples'
@@ -58,6 +58,8 @@ export function WeekHeatmap({ regions, districts, code, weeks, week, onSelect }:
     return () => observer.disconnect()
   }, [])
   const [hover, setHover] = useState<{ row: HeatRow; week: string; x: number; y: number } | null>(null)
+  // Keyboard cursor: one tab stop for the grid, arrow keys move between cells, Enter opens the week.
+  const [cursor, setCursor] = useState<{ row: number; col: number } | null>(null)
 
   const rows = useMemo(() => heatRows(regions, districts), [regions, districts])
   const settled = useMemo(() => settledWeeks(weeks), [weeks])
@@ -82,12 +84,42 @@ export function WeekHeatmap({ regions, districts, code, weeks, week, onSelect }:
   const height = y
   const selected = shownWeeks.indexOf(week)
 
+  const cellAt = (row: number, col: number) => {
+    const at = placed[row]
+    const w = shownWeeks[col]
+    return at && w ? { row: at.row, week: w, x: labelW + col * cellW + cellW / 2, y: at.top } : null
+  }
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const now = cursor ?? { row: 0, col: Math.max(0, selected) }
+    const moves: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], Home: [0, -now.col], End: [0, shownWeeks.length - 1 - now.col] }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelect(shownWeeks[now.col]!)
+      return
+    }
+    const move = moves[event.key]
+    if (!move) return
+    event.preventDefault()
+    const next = { row: Math.max(0, Math.min(placed.length - 1, now.row + move[0])), col: Math.max(0, Math.min(shownWeeks.length - 1, now.col + move[1])) }
+    setCursor(next)
+    setHover(cellAt(next.row, next.col))
+  }
+  const describe = (row: HeatRow, w: string) => {
+    const cell = row.cells.get(w)
+    const away = deviation(cell)
+    return `${row.name}, ${w}: ${formatKpi(code, cell?.value)}${away !== null ? `, ${(Math.abs(away) * 100).toFixed(1)}% ${away >= 0 ? 'above' : 'below'} its usual week` : ''}`
+  }
+
   const fill = (cell: WeeklyReport | undefined) => {
     const step = usualStep(deviation(cell), reach, lower)
     return step === null ? 'var(--field)' : SPLIT[step]!
   }
 
-  return <div className="heat" ref={box}>
+  return <div className="heat" ref={box} tabIndex={0} role="group" onKeyDown={onKeyDown}
+    aria-label={`${KPI_LABELS[code]} by area and week. Use the arrow keys to move between cells and Enter to open a week.`}
+    onFocus={() => { if (!cursor) { const start = { row: 0, col: Math.max(0, selected) }; setCursor(start); setHover(cellAt(start.row, start.col)) } }}
+    onBlur={() => { setCursor(null); setHover(null) }}>
+    <p className="heat-live" aria-live="polite">{cursor && hover ? describe(hover.row, hover.week) : ''}</p>
     {width > 0 && <svg width={width} height={height + 22} role="img" className="heat-svg"
       aria-label={`${KPI_LABELS[code]} for ${rows.length} regions and districts over ${shownWeeks.length} weeks, coloured by distance from each area's own 13-week average`}
       onPointerLeave={() => setHover(null)}>
@@ -104,6 +136,7 @@ export function WeekHeatmap({ regions, districts, code, weeks, week, onSelect }:
       {shownWeeks.map((w, i) => i > 0 && w.slice(0, 4) !== shownWeeks[i - 1]!.slice(0, 4)
         ? <g key={w} className="heat-year"><line x1={labelW + i * cellW - 0.5} x2={labelW + i * cellW - 0.5} y1={0} y2={height} /><text x={labelW + i * cellW + 3} y={height + 14}>{w.slice(0, 4)}</text></g>
         : null)}
+      {cursor && <rect className="heat-cursor" x={labelW + cursor.col * cellW - 1} y={placed[cursor.row]!.top - 1} width={cellW + 1} height={placed[cursor.row]!.h + 2} rx={2} />}
       {selected >= 0 && <rect className="heat-selected" x={labelW + selected * cellW - 1} y={-2} width={cellW + 1} height={height + 3} rx={2} />}
     </svg>}
     {hover && (() => {

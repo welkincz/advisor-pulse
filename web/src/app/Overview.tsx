@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TrendChart } from '../components/charts/TrendChart'
 import { Delta, Section } from '../components/primitives'
-import { DataNotice, KPI_LABELS, formatKpi, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
+import { DataNotice, KPI_LABELS, formatKpi, formatWow, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
 import type { Manifest } from '../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../data/usual'
@@ -19,6 +19,8 @@ import { weekSpan } from '../features/overview/week'
 import '../features/overview/overview.css'
 
 const MULTIPLE_WEEKS = 26
+/** Batch-level rates: the marts publish them for Canada only, so there is no regional split. */
+const NATIONAL_ONLY = new Set<KpiCode>(['LATE_RATE', 'QUAR_RATE'])
 
 /** Board rows from the manifest summary: the latest week paints before DuckDB-WASM loads. */
 function summaryRows(manifest: Manifest): Map<KpiCode, BoardRow> {
@@ -59,6 +61,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const heatRegions = useLevelKpiHistory('REGION', code)
   const heatDistricts = useLevelKpiHistory('DISTRICT', code)
 
+  const settled = useMemo(() => settledWeeks(weeks), [weeks])
   const all = useMemo<WeeklyReport[]>(() => (history.status === 'ready' ? history.data : []), [history])
   const ready = history.status === 'ready'
   const rows = useMemo(() => (ready ? boardRows(all, weeks, week) : week === latest ? summaryRows(manifest) : new Map<KpiCode, BoardRow>()), [ready, all, weeks, week, latest, manifest])
@@ -70,10 +73,9 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const current = series[weeks.indexOf(week)]
   const better = code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'
   const multipleWeeks = weeks.slice(Math.max(0, weeks.indexOf(week) - MULTIPLE_WEEKS + 1), weeks.indexOf(week) + 1)
-  const funnel = funnelFor(org.status === 'ready' ? org.data[0] : undefined, all, week)
+  const funnel = funnelFor(org.status === 'ready' ? org.data[0] : undefined, all, week, settled.has(week))
   const hasNotes = manifest.files.some((file) => file.name === `narratives/${week}.json`)
   const drill = (id: string) => `/r/${encodeURIComponent(id)}${week === latest ? '' : `?week=${encodeURIComponent(week)}`}`
-  const settled = useMemo(() => settledWeeks(weeks), [weeks])
   const flagged = series.filter((r) => r?.flag === 'ANOMALY').length
 
   return <>
@@ -104,6 +106,17 @@ function Briefing({ manifest }: { manifest: Manifest }) {
         flagged={series.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={WARM_UP_WEEKS}
         format={(v) => formatKpi(code, v)} height={300}
         label={`${KPI_LABELS[code]}, national, ${weeks[0]} to ${weeks.at(-1)}; ${flagged} anomaly weeks. Use the arrow keys to choose a week.`} />
+      <details className="figure-table hero-table">
+        <summary>Show the numbers</summary>
+        <div className="hero-table-scroll" tabIndex={0} role="region" aria-label={`${KPI_LABELS[code]} by week`}>
+          <table><thead><tr><th scope="col">Week</th><th scope="col" className="num">Value</th><th scope="col" className="num">Usual</th><th scope="col" className="num">WoW</th><th scope="col">Flag</th></tr></thead>
+            <tbody>{[...series].reverse().map((r) => r && <tr key={r.iso_week_id} aria-current={r.iso_week_id === week ? 'true' : undefined}>
+              <th scope="row">{r.iso_week_id}</th><td className="num">{formatKpi(code, r.value)}</td>
+              <td className="num">{settled.has(r.iso_week_id) ? formatKpi(code, r.trailing_13w_avg) : '–'}</td>
+              <td className="num">{formatWow(r.wow_pct).replace(' WoW', '')}</td><td>{r.flag === 'ANOMALY' ? 'Anomaly' : ''}</td>
+            </tr>)}</tbody></table>
+        </div>
+      </details>
       <p className="hero-legend">
         <span><i className="hero-key-line" aria-hidden="true" />Weekly value</span>
         <span><i className="hero-key-usual" aria-hidden="true" />Usual: trailing 13-week average</span>
@@ -121,17 +134,21 @@ function Briefing({ manifest }: { manifest: Manifest }) {
       <p className="funnel-note">Held and converted count meetings scheduled in the week, including ones booked in earlier weeks, so a step can exceed the one before it.</p>
     </Section>}
 
-    <Section id="regions" title="By region" lede={`${KPI_LABELS[code]}, last ${multipleWeeks.length} weeks. The dashed line is the national figure.`}>
+    {NATIONAL_ONLY.has(code) && <Section id="regions" title="By region and week" lede="">
+      <p className="national-only">{KPI_LABELS[code]} is measured on the whole weekly batch, before rows are attributed to a branch, so it has no regional split. Choose a business measure above to compare regions.</p>
+    </Section>}
+
+    {!NATIONAL_ONLY.has(code) && <Section id="regions" title="By region" lede={`${KPI_LABELS[code]}, last ${multipleWeeks.length} weeks. The dashed line is the national figure.`}>
       {regions.status === 'ready' && history.status === 'ready' && <RegionMultiples regions={regions.data} national={all} code={code} week={week} weeks={multipleWeeks} hrefFor={drill} />}
       {regions.status === 'loading' && <p aria-busy="true">Loading the regions…</p>}
       {regions.status === 'error' && <DataNotice what="the regional figures" onRetry={regions.retry} />}
-    </Section>
+    </Section>}
 
-    <Section id="weeks" title="Every week at a glance" lede={<>Each cell is one area in one week: <span className="swatch-word swatch-better">blue</span> above its usual level, <span className="swatch-word swatch-worse">vermilion</span> below. Choose a cell to open that week.</>}>
+    {!NATIONAL_ONLY.has(code) && <Section id="weeks" title="Every week at a glance" lede={<>Each cell is one area in one week against its own usual level: <span className="swatch-word swatch-better">blue</span> is better, <span className="swatch-word swatch-worse">vermilion</span> is worse{better === 'lower' ? ', and for this measure lower is better' : better === 'neither' ? '; meeting minutes have no better direction, so blue is simply longer' : ''}. Choose a cell, or focus the grid and use the arrow keys, to open that week.</>}>
       {heatRegions.status === 'ready' && heatDistricts.status === 'ready' && <WeekHeatmap regions={heatRegions.data} districts={heatDistricts.data} code={code} weeks={weeks} week={week} onSelect={(w) => set('week', w)} />}
       {(heatRegions.status === 'loading' || heatDistricts.status === 'loading') && <p aria-busy="true">Loading every week…</p>}
       {heatRegions.status === 'error' && <DataNotice what="the week-by-week view" onRetry={heatRegions.retry} />}
-    </Section>
+    </Section>}
 
     {hasNotes && <Section id="notes" title="Region notes" lede={`What each region's run summary says about ${week}.`}>
       <RegionNotes week={week} hrefFor={drill} />

@@ -1,6 +1,6 @@
 import type { Feature, FeatureCollection, MultiLineString, MultiPolygon, Polygon } from 'geojson'
 import { feature, mesh } from 'topojson-client'
-import { fenced } from '../../components/primitives/scale'
+import { fenced } from '../../components/charts/scale'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 
 export interface BoundaryProperties {
