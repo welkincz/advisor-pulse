@@ -1,4 +1,5 @@
 import { sqlString } from './engine'
+import type { OrgLevel } from './generated/org_weekly'
 
 /** Parquet exports, each registered as a view of the same name. */
 export const TABLES = {
@@ -17,6 +18,11 @@ function inList(values: readonly string[]): string {
 
 export function orgWeeklySql(nodeId: string, weeks: readonly string[]): string {
   return `select * from org_weekly where node_id = ${sqlString(nodeId)} and iso_week_id in ${inList(weeks)} order by iso_week_id`
+}
+
+/** Every org node at one level for a week: the map sizes district marks by activity volume. */
+export function orgLevelSql(level: OrgLevel, week: string): string {
+  return `select * from org_weekly where level = ${sqlString(level)} and iso_week_id = ${sqlString(week)} order by node_id`
 }
 
 /** One node's KPI rows for a week, or every child of `parentId` when that is given instead. */

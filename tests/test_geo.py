@@ -163,3 +163,49 @@ def test_no_slivers_larger_than_threshold() -> None:
 def test_combined_gzip_within_budget() -> None:
     size = dissolve.combined_gzip_bytes([dissolve.DISTRICTS_PATH, dissolve.REGIONS_PATH])
     assert size <= dissolve.MAX_COMBINED_GZIP_BYTES
+
+
+_PROV_SPEC = importlib.util.spec_from_file_location(
+    "geo_build_provinces", ROOT / "geo" / "build_provinces.py"
+)
+assert _PROV_SPEC is not None and _PROV_SPEC.loader is not None
+provinces = importlib.util.module_from_spec(_PROV_SPEC)
+sys.modules["geo_build_provinces"] = provinces
+_PROV_SPEC.loader.exec_module(provinces)
+
+
+def test_every_district_province_is_served_by_its_region() -> None:
+    regions = provinces.province_regions()
+    assert regions == {
+        "ON": "ON", "QC": "QC", "BC": "WE", "AB": "WE", "SK": "WE", "MB": "WE",
+        "NS": "AT", "PE": "AT", "NB": "AT", "NL": "AT",
+    }  # fmt: skip
+
+
+def test_canada_features_keep_only_canada_and_tag_territories_with_no_region() -> None:
+    square = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}
+
+    def feature(country: str, postal: str, name: str) -> dict[str, object]:
+        props = {"adm0_a3": country, "postal": postal, "name": name}
+        return {"type": "Feature", "geometry": square, "properties": props}
+
+    collection = {
+        "features": [
+            feature("CAN", "YT", "Yukon"),
+            feature("USA", "WA", "Washington"),
+            feature("CAN", "BC", "British Columbia"),
+        ]
+    }
+    out = provinces.canada_features(collection)
+    assert [f["properties"] for f in out] == [
+        {"province": "BC", "name": "British Columbia", "region_code": "WE"},
+        {"province": "YT", "name": "Yukon", "region_code": None},
+    ]
+
+
+def test_shipped_province_layer_has_all_thirteen_with_regions() -> None:
+    topo = _load(ROOT / "web" / "public" / "geo" / "provinces.topo.json")
+    geometries = topo["objects"]["provinces"]["geometries"]
+    by_code = {g["properties"]["province"]: g["properties"]["region_code"] for g in geometries}
+    assert len(by_code) == 13
+    assert {code for code, region in by_code.items() if region is None} == {"YT", "NT", "NU"}

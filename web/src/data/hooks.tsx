@@ -4,7 +4,7 @@ import type { DqWeekly } from './generated/dq_weekly'
 import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { NodeNarrative } from './generated/narrative'
-import type { OrgWeekly } from './generated/org_weekly'
+import type { OrgLevel, OrgWeekly } from './generated/org_weekly'
 import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { WeeklyReport } from './generated/weekly_report'
@@ -79,6 +79,10 @@ export function useNarrative(week: string, nodeId: string): DataResult<NodeNarra
 
 export function useOrgWeekly(nodeId: string, weeks: readonly string[]): DataResult<OrgWeekly[]> {
   return useData(`org:${nodeId}:${weeks.join(',')}`, (d) => d.orgWeekly(nodeId, weeks))
+}
+
+export function useOrgLevel(level: OrgLevel, week: string): DataResult<OrgWeekly[]> {
+  return useData(`org-level:${level}:${week}`, (d) => d.orgLevel(level, week))
 }
 
 export function useWeeklyReport(week: string, filter: { nodeId: string } | { parentId: string }): DataResult<WeeklyReport[]> {

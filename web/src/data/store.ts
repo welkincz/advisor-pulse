@@ -4,12 +4,12 @@ import type { DqWeekly } from './generated/dq_weekly'
 import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { Narrative, NodeNarrative } from './generated/narrative'
-import type { OrgWeekly } from './generated/org_weekly'
+import type { OrgLevel, OrgWeekly } from './generated/org_weekly'
 import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
-import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, nodeNamesSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
+import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, nodeNamesSql, orgLevelSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
 
 export interface PulseDataOptions {
   /** URL prefix of the weekly export: `/data` on the site and in `make web-dev`. */
@@ -68,6 +68,10 @@ export class PulseData {
 
   orgWeekly(nodeId: string, weeks: readonly string[]): Promise<OrgWeekly[]> {
     return this.select<OrgWeekly>('org_weekly', orgWeeklySql(nodeId, weeks))
+  }
+
+  orgLevel(level: OrgLevel, week: string): Promise<OrgWeekly[]> {
+    return this.select<OrgWeekly>('org_weekly', orgLevelSql(level, week))
   }
 
   weeklyReport(week: string, filter: { nodeId: string } | { parentId: string }): Promise<WeeklyReport[]> {

@@ -56,6 +56,25 @@
 .status-neutral .status-glyph { color: var(--status-neutral); }
 .status-running .status-glyph { color: var(--status-running); }
 
+/* Week player: a play button, a quiet trend strip with a native range input over it, the week. */
+.week-player { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.week-player-toggle { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; border: 1px solid var(--rule); border-radius: 50%; background: var(--paper); cursor: pointer; transition: border-color var(--duration-quick) var(--ease-standard), background var(--duration-quick) var(--ease-standard); }
+.week-player-toggle:hover { border-color: var(--ink); }
+.week-player-toggle[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); }
+.week-player-toggle svg { fill: var(--ink); }
+.week-player-toggle[aria-pressed='true'] svg { fill: var(--paper); }
+.week-player-track { position: relative; height: 3.5rem; min-width: 0; }
+.week-player-strip { position: absolute; inset: 0 0 auto; width: 100%; height: 2.75rem; overflow: visible; }
+.week-player-area { fill: var(--field); }
+.week-player-line { fill: none; stroke: var(--muted); stroke-width: 1.25; }
+.week-player-past { fill: var(--signal); opacity: 0.08; }
+.week-player-cursor { stroke: var(--signal); stroke-width: 2; }
+.week-player-years { position: absolute; inset: auto 0 0; height: 0.875rem; color: var(--faint); font-size: var(--text-xs); line-height: 1; }
+.week-player-years span { position: absolute; padding-left: var(--space-1); border-left: 1px solid var(--rule); }
+.week-player-track input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.week-player-track:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 4px; }
+.week-player-value { min-width: 5.5rem; font-weight: 600; text-align: right; }
+
 /* Kitchen sink only */
 .ks-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--space-3); }
 .ks-swatch { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--muted); }
