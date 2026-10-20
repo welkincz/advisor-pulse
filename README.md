@@ -4,7 +4,7 @@ Advisor Pulse is a weekly batch BI pipeline for **Maplecrest Bank**, a fictional
 
 > **All data is synthetic.** The bank, its people, clients, schemas and business rules are invented. Only public geography (Statistics Canada FSA boundaries, province names) is real. This is a **weekly batch report**: it updates once a week, after the weekly run.
 
-![The weekly briefing: the trend draws in, measures morph, the map flies to the West and plays the weeks, then a district report and the pipeline](docs/assets/demo.gif)
+![The weekly briefing: the trend draws in, measures morph, the map flies to a region and plays the weeks, then a district report and the pipeline](docs/assets/demo.gif)
 
 ## What the site shows
 
@@ -72,7 +72,7 @@ make web-dev                             # the site on bundled fixture data: htt
 make web-dev-latest                      # the site on the latest published weekly export, every region (needs gh)
 ```
 
-The fixtures are a small Ontario and Quebec slice, so West and Atlantic show "No data" under `make web-dev`.
+The fixtures are a small Ontario and Quebec slice, so the other provinces show "No data" under `make web-dev`.
 
 To run the real pipeline (generate, ingest, dbt build, checks, template narratives, export) for two weeks at full scale:
 

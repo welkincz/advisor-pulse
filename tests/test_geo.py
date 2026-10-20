@@ -125,8 +125,8 @@ def test_district_and_region_ids_match_dim_org_codes() -> None:
     regions = _load(dissolve.REGIONS_PATH)
     district_geoms = dissolve.layer_geometries(districts, "districts")
     region_geoms = dissolve.layer_geometries(regions, "regions")
-    assert len(district_geoms) == 14
-    assert len(region_geoms) == 4
+    assert len(district_geoms) == 17
+    assert len(region_geoms) == 10
 
     district_ids = {g["properties"]["node_id"] for g in district_geoms}
     region_ids = {g["properties"]["node_id"] for g in region_geoms}
@@ -177,8 +177,8 @@ _PROV_SPEC.loader.exec_module(provinces)
 def test_every_district_province_is_served_by_its_region() -> None:
     regions = provinces.province_regions()
     assert regions == {
-        "ON": "ON", "QC": "QC", "BC": "WE", "AB": "WE", "SK": "WE", "MB": "WE",
-        "NS": "AT", "PE": "AT", "NB": "AT", "NL": "AT",
+        "ON": "ON", "QC": "QC", "BC": "BC", "AB": "AB", "SK": "SK", "MB": "MB",
+        "NS": "NS", "PE": "PE", "NB": "NB", "NL": "NL",
     }  # fmt: skip
 
 
@@ -198,7 +198,7 @@ def test_canada_features_keep_only_canada_and_tag_territories_with_no_region() -
     }
     out = provinces.canada_features(collection)
     assert [f["properties"] for f in out] == [
-        {"province": "BC", "name": "British Columbia", "region_code": "WE"},
+        {"province": "BC", "name": "British Columbia", "region_code": "BC"},
         {"province": "YT", "name": "Yukon", "region_code": None},
     ]
 

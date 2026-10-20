@@ -346,8 +346,8 @@ regions:
             branch_name: "Rouyn-Noranda Branch"
             fsa_code: "J9X"
             open_date: 1983-02-21
-  - region_code: "WE"
-    region_name: "West"
+  - region_code: "BC"
+    region_name: "British Columbia"
     districts:
       - district_code: "BCL"
         district_name: "BC Lower Mainland"
@@ -425,8 +425,11 @@ regions:
             branch_name: "Vernon Branch"
             fsa_code: "V1T"
             open_date: 1997-01-04
-      - district_code: "ABT"
-        district_name: "Alberta"
+  - region_code: "AB"
+    region_name: "Alberta"
+    districts:
+      - district_code: "CGY"
+        district_name: "Calgary & Southern Alberta"
         provinces: ["AB"]
         branches:
           - branch_id: "BR-1001"
@@ -446,125 +449,152 @@ regions:
             fsa_code: "T2W"
             open_date: 1977-11-23
           - branch_id: "BR-1005"
-            branch_name: "Edmonton Downtown Branch"
-            fsa_code: "T5J"
-            open_date: 2004-10-13
-          - branch_id: "BR-1006"
-            branch_name: "Whyte Avenue Branch"
-            fsa_code: "T6E"
-            open_date: 1978-10-09
-          - branch_id: "BR-1007"
-            branch_name: "Edmonton West Branch"
-            fsa_code: "T5T"
-            open_date: 2000-04-10
-          - branch_id: "BR-1008"
-            branch_name: "St. Albert Branch"
-            fsa_code: "T8N"
-            open_date: 1989-03-06
-          - branch_id: "BR-1009"
-            branch_name: "Red Deer Branch"
-            fsa_code: "T4N"
-            open_date: 1986-09-02
-          - branch_id: "BR-1010"
             branch_name: "Lethbridge Branch"
             fsa_code: "T1J"
             open_date: 2004-10-04
-          - branch_id: "BR-1011"
+          - branch_id: "BR-1006"
             branch_name: "Medicine Hat Branch"
             fsa_code: "T1A"
             open_date: 1976-10-08
-          - branch_id: "BR-1012"
+      - district_code: "EDM"
+        district_name: "Edmonton & Northern Alberta"
+        provinces: ["AB"]
+        branches:
+          - branch_id: "BR-1101"
+            branch_name: "Edmonton Downtown Branch"
+            fsa_code: "T5J"
+            open_date: 2004-10-13
+          - branch_id: "BR-1102"
+            branch_name: "Whyte Avenue Branch"
+            fsa_code: "T6E"
+            open_date: 1978-10-09
+          - branch_id: "BR-1103"
+            branch_name: "Edmonton West Branch"
+            fsa_code: "T5T"
+            open_date: 2000-04-10
+          - branch_id: "BR-1104"
+            branch_name: "St. Albert Branch"
+            fsa_code: "T8N"
+            open_date: 1989-03-06
+          - branch_id: "BR-1105"
+            branch_name: "Red Deer Branch"
+            fsa_code: "T4N"
+            open_date: 1986-09-02
+          - branch_id: "BR-1106"
             branch_name: "Fort McMurray Branch"
             fsa_code: "T9H"
             open_date: 2011-11-12
-      - district_code: "PRA"
-        district_name: "Prairies (SK/MB)"
-        provinces: ["SK", "MB"]
+  - region_code: "SK"
+    region_name: "Saskatchewan"
+    districts:
+      - district_code: "SKD"
+        district_name: "Saskatchewan"
+        provinces: ["SK"]
         branches:
-          - branch_id: "BR-1101"
+          - branch_id: "BR-1201"
             branch_name: "Regina Downtown Branch"
             fsa_code: "S4P"
             open_date: 1994-08-13
-          - branch_id: "BR-1102"
+          - branch_id: "BR-1202"
             branch_name: "Saskatoon Downtown Branch"
             fsa_code: "S7K"
             open_date: 1993-08-02
-          - branch_id: "BR-1103"
+          - branch_id: "BR-1203"
             branch_name: "University Heights Branch"
             fsa_code: "S7N"
             open_date: 2015-01-15
-          - branch_id: "BR-1104"
+  - region_code: "MB"
+    region_name: "Manitoba"
+    districts:
+      - district_code: "MBD"
+        district_name: "Manitoba"
+        provinces: ["MB"]
+        branches:
+          - branch_id: "BR-1301"
             branch_name: "Winnipeg Exchange Branch"
             fsa_code: "R3C"
             open_date: 2009-01-27
-          - branch_id: "BR-1105"
+          - branch_id: "BR-1302"
             branch_name: "Fort Garry Branch"
             fsa_code: "R3T"
             open_date: 2011-04-06
-          - branch_id: "BR-1106"
+          - branch_id: "BR-1303"
             branch_name: "Brandon Branch"
             fsa_code: "R7A"
             open_date: 2017-06-22
-  - region_code: "AT"
-    region_name: "Atlantic"
+  - region_code: "NS"
+    region_name: "Nova Scotia"
     districts:
-      - district_code: "NSP"
-        district_name: "Nova Scotia & PEI"
-        provinces: ["NS", "PE"]
+      - district_code: "NSD"
+        district_name: "Nova Scotia"
+        provinces: ["NS"]
         branches:
-          - branch_id: "BR-1201"
+          - branch_id: "BR-1401"
             branch_name: "Halifax Downtown Branch"
             fsa_code: "B3J"
             open_date: 1993-11-14
-          - branch_id: "BR-1202"
+          - branch_id: "BR-1402"
             branch_name: "Dartmouth Branch"
             fsa_code: "B2Y"
             open_date: 2015-07-25
-          - branch_id: "BR-1203"
+          - branch_id: "BR-1403"
             branch_name: "Sydney Branch"
             fsa_code: "B1P"
             open_date: 2005-02-06
-          - branch_id: "BR-1204"
+  - region_code: "PE"
+    region_name: "Prince Edward Island"
+    districts:
+      - district_code: "PEI"
+        district_name: "Prince Edward Island"
+        provinces: ["PE"]
+        branches:
+          - branch_id: "BR-1501"
             branch_name: "Charlottetown Branch"
             fsa_code: "C1A"
             open_date: 1987-01-01
-          - branch_id: "BR-1205"
+          - branch_id: "BR-1502"
             branch_name: "Summerside Branch"
             fsa_code: "C1N"
             open_date: 1996-11-15
+  - region_code: "NB"
+    region_name: "New Brunswick"
+    districts:
       - district_code: "NBK"
         district_name: "New Brunswick"
         provinces: ["NB"]
         branches:
-          - branch_id: "BR-1301"
+          - branch_id: "BR-1601"
             branch_name: "Moncton Branch"
             fsa_code: "E1C"
             open_date: 2000-05-05
-          - branch_id: "BR-1302"
+          - branch_id: "BR-1602"
             branch_name: "Fredericton Branch"
             fsa_code: "E3B"
             open_date: 1987-09-12
-          - branch_id: "BR-1303"
+          - branch_id: "BR-1603"
             branch_name: "Saint John Branch"
             fsa_code: "E2L"
             open_date: 1982-04-05
-          - branch_id: "BR-1304"
+          - branch_id: "BR-1604"
             branch_name: "Bathurst Branch"
             fsa_code: "E2A"
             open_date: 2015-11-28
+  - region_code: "NL"
+    region_name: "Newfoundland and Labrador"
+    districts:
       - district_code: "NFL"
         district_name: "Newfoundland & Labrador"
         provinces: ["NL"]
         branches:
-          - branch_id: "BR-1401"
+          - branch_id: "BR-1701"
             branch_name: "St. John's Downtown Branch"
             fsa_code: "A1C"
             open_date: 2009-07-04
-          - branch_id: "BR-1402"
+          - branch_id: "BR-1702"
             branch_name: "Mount Pearl Branch"
             fsa_code: "A1N"
             open_date: 2009-03-04
-          - branch_id: "BR-1403"
+          - branch_id: "BR-1703"
             branch_name: "Corner Brook Branch"
             fsa_code: "A2H"
             open_date: 2006-04-06

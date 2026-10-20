@@ -26,7 +26,7 @@ from pulse.reference import (
 def test_shape_matches_plan() -> None:
     o = org()
     assert [r.region_code for r in o.regions] == list(RegionCode)
-    assert len(o.districts) == 14
+    assert len(o.districts) == 17
     assert 110 <= len(o.branches) <= 130
     assert o.national.node_id == "CA"
     assert o.bank.fictional
@@ -36,15 +36,27 @@ def test_district_names_match_plan() -> None:
     expected = {
         "ON": ["GTA", "Eastern Ontario", "Southwestern Ontario", "Northern Ontario"],
         "QC": ["Greater Montréal", "Québec City & East", "Western Quebec"],
-        "WE": ["BC Lower Mainland", "BC Interior & North", "Alberta", "Prairies (SK/MB)"],
-        "AT": ["Nova Scotia & PEI", "New Brunswick", "Newfoundland & Labrador"],
+        "BC": ["BC Lower Mainland", "BC Interior & North"],
+        "AB": ["Calgary & Southern Alberta", "Edmonton & Northern Alberta"],
+        "SK": ["Saskatchewan"],
+        "MB": ["Manitoba"],
+        "NS": ["Nova Scotia"],
+        "PE": ["Prince Edward Island"],
+        "NB": ["New Brunswick"],
+        "NL": ["Newfoundland & Labrador"],
     }
     actual = {r.region_code.value: [d.district_name for d in r.districts] for r in org().regions}
     assert actual == expected
 
 
-def test_every_district_has_at_least_three_branches() -> None:
-    assert min(len(d.branches) for d in org().districts) >= 3
+def test_every_district_has_at_least_two_branches() -> None:
+    # Prince Edward Island, a region of its own, has two.
+    assert min(len(d.branches) for d in org().districts) >= 2
+
+
+def test_every_region_is_one_province() -> None:
+    for r in org().regions:
+        assert {p for d in r.districts for p in d.provinces} == {r.region_code.value}
 
 
 def test_ids_are_unique_and_well_formed() -> None:
@@ -78,9 +90,10 @@ def test_branch_counts_follow_population() -> None:
     by_region = {r.region_code: sum(len(d.branches) for d in r.districts) for r in org().regions}
     assert (
         by_region[RegionCode.ONTARIO]
-        > by_region[RegionCode.WEST]
         > by_region[RegionCode.QUEBEC]
-        > by_region[RegionCode.ATLANTIC]
+        > by_region[RegionCode.BRITISH_COLUMBIA]
+        > by_region[RegionCode.ALBERTA]
+        > by_region[RegionCode.PRINCE_EDWARD_ISLAND]
     )
     largest = max(org().districts, key=lambda d: len(d.branches))
     assert largest.district_code == "GTA"
@@ -95,7 +108,7 @@ def test_lookups() -> None:
     o = org()
     p = o.placement("BR-0101")
     assert (p.district.district_code, p.region.region_code) == ("GTA", RegionCode.ONTARIO)
-    assert o.region_of("PRA").region_code == RegionCode.WEST
+    assert o.region_of("SKD").region_code == RegionCode.SASKATCHEWAN
     assert len(o.placements()) == len(o.branches)
     with pytest.raises(KeyError):
         o.placement("BR-9999")
@@ -143,7 +156,7 @@ def test_fsa_in_wrong_province_rejected(raw_org: dict[str, Any]) -> None:
 
 def test_district_with_too_few_branches_rejected(raw_org: dict[str, Any]) -> None:
     d = _first_district(raw_org)
-    d["branches"] = d["branches"][:2]
+    d["branches"] = d["branches"][:1]
     with pytest.raises(ValidationError):
         OrgReference.model_validate(raw_org)
 

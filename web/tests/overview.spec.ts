@@ -62,7 +62,8 @@ test('the every-week grid works from the keyboard and batch-only rates skip the 
 test('the funnel, regional charts and every-week view draw from the export', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.funnel-stage')).toHaveCount(4)
-  await expect(page.locator('.multiple')).toHaveCount(4)
+  // Fixtures cover Ontario and Quebec; regions with no rows are left out.
+  await expect(page.locator('.multiple')).toHaveCount(2)
   await expect(page.getByRole('link', { name: /Ontario/ }).first()).toHaveAttribute('href', '/r/ON')
   const heat = page.getByRole('img', { name: /regions and districts over 4 weeks/ })
   await expect(heat).toBeVisible()

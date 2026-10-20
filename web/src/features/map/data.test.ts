@@ -7,7 +7,7 @@ const geo = resolve(import.meta.dirname, '../../../public/geo')
 
 describe('map geography and bins', () => {
   it('reads the shipped region, district, and FSA polygons', () => {
-    for (const [name, count] of [['regions', 4], ['districts', 14], ['fsa', 122]] as const) {
+    for (const [name, count] of [['regions', 10], ['districts', 17], ['fsa', 122]] as const) {
       const topology = JSON.parse(readFileSync(resolve(geo, `${name}.topo.json`), 'utf8'))
       expect(boundaryFeatures(topology, name)).toHaveLength(count)
     }
@@ -24,7 +24,7 @@ describe('map geography and bins', () => {
     const { provinces, borders, regionBorders } = basemap(topology)
     expect(provinces).toHaveLength(13)
     const region = Object.fromEntries(provinces.map((p) => [p.properties.province, p.properties.region_code]))
-    expect(region).toMatchObject({ ON: 'ON', QC: 'QC', BC: 'WE', MB: 'WE', NS: 'AT', NL: 'AT', YT: null, NU: null })
+    expect(region).toMatchObject({ ON: 'ON', QC: 'QC', BC: 'BC', MB: 'MB', NS: 'NS', NL: 'NL', YT: null, NU: null })
     // Region borders are a subset of all borders: Ontario–Quebec counts, Nova Scotia–New Brunswick does not.
     expect(regionBorders.coordinates.length).toBeGreaterThan(0)
     expect(regionBorders.coordinates.length).toBeLessThan(borders.coordinates.length)

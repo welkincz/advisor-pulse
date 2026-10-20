@@ -1,8 +1,8 @@
 """Download Natural Earth admin-1 boundaries and emit the Canadian province basemap.
 
 The FSA layer only covers branch FSAs, so on its own the map is a few specks on blank
-paper. This layer draws every province and territory, tagged with the Maplecrest region
-that serves it (territories have none), so the map reads as Canada at a glance.
+paper. This layer draws every province and territory, tagged with its Maplecrest region
+(regions follow the provinces; territories have none), so the map reads as Canada at a glance.
 
 Natural Earth is public domain. Raw downloads stay under ``data/geo/`` (gitignored);
 the output lands in ``web/public/geo/provinces.topo.json``. Requires Node.js (``npx

@@ -42,13 +42,13 @@ models:
         data_type: varchar
         data_tests: [not_null]
       - name: region_code
-        description: Region code from the org seed (`ON`, `QC`, `WE`, `AT`).
+        description: Region code from the org seed, one per province with branches (`ON`, `QC`, `BC`, `AB`, `SK`, `MB`, `NS`, `PE`, `NB`, `NL`).
         data_type: varchar
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ["ON", "QC", "WE", "AT"]
+                values: ["ON", "QC", "BC", "AB", "SK", "MB", "NS", "PE", "NB", "NL"]
       - name: region_name
         description: Region name from the org seed.
         data_type: varchar

@@ -50,6 +50,7 @@
 .map-label-value { font-variant-numeric: tabular-nums lining-nums; fill: var(--muted); }
 .map-label.is-hot .map-label-value { fill: var(--ink); }
 .map-label-small { font-size: var(--text-xs); }
+.map-leader { stroke: var(--muted); stroke-width: 1; }
 
 .map-tooltip { position: absolute; z-index: 1; display: grid; gap: var(--space-1); min-width: 11rem; transform: translate(14px, 14px); padding: var(--space-2) var(--space-3);
   border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font-size: var(--text-sm); pointer-events: none; }

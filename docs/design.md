@@ -107,7 +107,7 @@ contrast. Use the tokens, never new colours.
 
 | Job | Tokens | Rule |
 |---|---|---|
-| Identity (which region) | `--series-1` … `--series-4` | Fixed order, never cycled. Regions are ON, QC, WE, AT in that order. All four pass the validator with every pair compared, so any chart form (lines, bars, dots, small multiples) may use all four. A fifth series folds into "Other" or becomes small multiples. |
+| Identity (which series) | `--series-1` … `--series-4` | Fixed order, never cycled. All four pass the validator with every pair compared, so any chart form may use all four. A fifth series folds into "Other" or becomes small multiples. Regions are the ten provinces (#196), more than four, so regional charts are small multiples in ink with the name as identity, never ten colours. |
 | Magnitude (how much) | `--seq-1` … `--seq-7` | One hue, signal gold, light to dark. Used for the choropleth. In dark mode the anchor flips: low values are dark and recede into the surface. For discrete ordered marks (tiers, bands) start at `--seq-3`. |
 | Change (better or worse than last week) | `--worse-3` … `--diverging-mid` … `--better-3` | Blue is better, vermilion is worse, grey is no change. Judge "better" with the KPI's direction: a falling no-show rate is better. Never encode up or down with this; the arrow and sign do that. |
 | Pipeline state | `--status-good`, `--status-warning`, `--status-critical`, `--status-neutral`, `--status-running` | Reserved for run and check status. Always a glyph plus a word (`StatusMark`). Never used for a data series. |
@@ -134,8 +134,8 @@ The map draws all of Canada in Statistics Canada's Lambert conformal conic proje
 (standard parallels 49°N and 77°N), from a Natural Earth province layer
 (`geo/build_provinces.py`, public domain). It has two levels:
 
-- **Canada:** each province takes the colour of the Maplecrest region that serves it, so
-  a region reads as one block; region borders are drawn in ink, province borders in paper.
+- **Canada:** each province is a region (#196) and takes that region's colour; borders
+  are drawn in ink.
   Territories have no branches and are hatched. Hollow circles show where each district's
   branches are, sized by activities completed.
 - **A region:** choosing it flies the camera there (760 ms, geometric zoom). The other
