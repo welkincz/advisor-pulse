@@ -66,7 +66,7 @@ function Legend({ range, reach, code, fsa }: { range: [number, number] | null; r
       <span>Worse <span className="figure-num">{percent(reach)}</span></span>
       <div className="map-legend-colours" aria-hidden="true">{SPLIT.map((fill, i) => <i key={i} className="map-swatch" style={{ background: fill }} />)}</div>
       <span>Better <span className="figure-num">{percent(reach)}</span></span>
-      <span className="map-legend-mid">than its own 13-week average</span>
+      <span className="map-legend-mid">than its own 13-week average; the grey middle is a usual week</span>
     </div> : <div className="map-legend-scale" aria-label={`${KPI_LABELS[code]} colour scale`}>
       <span className="figure-num">{range ? formatKpi(code, range[0]) : '–'}</span>
       <div className="map-legend-colours" aria-hidden="true">{PALETTE.map((_, i) => <i key={i} className={`map-swatch map-swatch-${i + 1}`} />)}</div>
@@ -74,6 +74,7 @@ function Legend({ range, reach, code, fsa }: { range: [number, number] | null; r
     </div>}
     {!fsa && <span className="map-legend-key"><svg width="22" height="14" aria-hidden="true"><circle cx="5" cy="9" r="3" /><circle cx="15" cy="7" r="6" /></svg>Circle size: activities completed</span>}
     <span className="map-legend-key"><i className="map-legend-hatch" aria-hidden="true" />No Maplecrest branches</span>
+    {!fsa && <span className="map-legend-key"><i className="map-legend-empty" aria-hidden="true" />No value this week</span>}
   </div>
 }
 
@@ -235,7 +236,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             regionFill={(id) => fillOf(regionById.get(id), regionRange, regionReach)}
             regionValue={(id) => !ready ? null : regionById.get(id)?.value != null ? formatKpi(code, regionById.get(id)!.value) : 'No data'}
             places={places}
-            mark={(id) => ({ size: sizes.get(id) ?? 0, fill: fillOf(districtById.get(id), districtRange, districtReach), label: formatKpi(code, districtById.get(id)?.value) })}
+            mark={(id) => ({ size: sizes.get(id) ?? 0, fill: fillOf(districtById.get(id), districtRange, districtReach), label: formatKpi(code, districtById.get(id)?.value), empty: districtById.get(id)?.value == null })}
             overlay={overlay} overlayFill={(id) => shade(geoValues.get(id), fsaRange)} hot={hot} onHot={setHot} onRegion={focusRegion} onMark={openDistrict}
             tooltip={tooltip} label={`${KPI_LABELS[code]} by ${focus ? 'district' : 'region'}, ${week}`} />}
           {(!base || !districts) && <p aria-busy="true">Drawing the map…</p>}

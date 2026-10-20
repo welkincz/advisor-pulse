@@ -8,7 +8,8 @@ import { type Box, type Point, type Project, centroid, fit, fitted, lambert, lin
 /** A district's shape, which places its circle at the middle of its branch FSAs. Pass a stable array. */
 export interface MapPlace { id: string; name: string; region: string; geometry: Geometry }
 /** What changes with the week: circle size (activity volume), colour and value label. */
-export interface MapMark { size: number; fill: string | null; label: string }
+/** `empty`: no value this week at all (a dashed ring). A value with no comparison yet is `fill: null`. */
+export interface MapMark { size: number; fill: string | null; label: string; empty: boolean }
 /** An FSA in the optional coverage layer. Pass a stable array; colours come from `overlayFill`. */
 export interface MapArea { id: string; name: string; geometry: Geometry }
 
@@ -270,8 +271,8 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
         {overlayPaths.map((area) => <path key={area.id} d={area.d} className="map-fsa" style={{ fill: overlayFill?.(area.id) ?? NEUTRAL }} data-hot={area.id} />)}
       </g>
       <g className="map-marks">
-        {markAt.map(({ mark, sx, sy, r, inFocus }) => <circle key={mark.id} cx={sx} cy={sy} style={{ r, fill: inFocus ? mark.fill ?? NEUTRAL : undefined }}
-          className={`map-mark${inFocus ? ' is-focus' : ''}${mark.id === hot ? ' is-hot' : ''}`} data-hot={mark.id}
+        {markAt.map(({ mark, sx, sy, r, inFocus }) => <circle key={mark.id} cx={sx} cy={sy} style={{ r, fill: inFocus && !mark.empty ? mark.fill ?? NEUTRAL : undefined }}
+          className={`map-mark${inFocus ? ' is-focus' : ''}${inFocus && mark.empty ? ' is-empty' : ''}${mark.id === hot ? ' is-hot' : ''}`} data-hot={mark.id}
           onClick={clicked(() => inFocus ? onMark(mark.id) : onRegion(mark.region))} />)}
       </g>
       <g className="map-labels" aria-hidden="true">

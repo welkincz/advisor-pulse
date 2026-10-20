@@ -43,6 +43,7 @@
 .map-mark { fill: transparent; stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 1; cursor: pointer;
   transition: r var(--duration-step) var(--ease-standard), fill var(--duration-step) var(--ease-standard), stroke-opacity var(--duration-quick); }
 .map-mark.is-focus { stroke: var(--paper); stroke-opacity: 1; stroke-width: 2; }
+.map-mark.is-empty { fill: var(--paper); stroke: var(--muted); stroke-dasharray: 3 2; stroke-width: 1.5; }
 .map-mark.is-hot { stroke: var(--ink); stroke-opacity: 1; stroke-width: 2; }
 .map-label { fill: var(--ink); font-size: var(--text-sm); paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
 .map-label-name { font-weight: 600; }
@@ -81,6 +82,7 @@
 .map-swatch-6 { background: var(--seq-6); }
 .map-swatch-7 { background: var(--seq-7); }
 .map-legend-mid { color: var(--muted); }
+.map-legend-empty { display: inline-block; width: 0.75rem; height: 0.75rem; border: 1.5px dashed var(--muted); border-radius: 50%; }
 .map-tip-usual { color: var(--muted); font-size: var(--text-xs); }
 .map-legend-key { display: inline-flex; align-items: center; gap: var(--space-2); }
 .map-legend-key circle { fill: none; stroke: var(--ink); stroke-opacity: 0.6; }
