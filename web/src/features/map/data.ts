@@ -1,5 +1,6 @@
-import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
-import { feature } from 'topojson-client'
+import type { Feature, FeatureCollection, MultiLineString, MultiPolygon, Polygon } from 'geojson'
+import { feature, mesh } from 'topojson-client'
+import { fenced } from '../../components/primitives/scale'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 
 export interface BoundaryProperties {
@@ -17,6 +18,68 @@ export function boundaryFeatures(topology: Topology, object: 'regions' | 'distri
   if (!topology.objects[object]) throw new Error(`Missing ${object} boundaries.`)
   const collection = feature(topology, topology.objects[object]) as FeatureCollection<Polygon | MultiPolygon, BoundaryProperties>
   return collection.features.filter((item) => item.geometry?.type === 'Polygon' || item.geometry?.type === 'MultiPolygon')
+}
+
+export interface ProvinceProperties {
+  province: string
+  name: string
+  /** The Maplecrest region serving the province; null for the territories. */
+  region_code: string | null
+}
+
+export type Province = Feature<Polygon | MultiPolygon, ProvinceProperties>
+
+export interface Basemap {
+  provinces: Province[]
+  /** Every province border. */
+  borders: MultiLineString
+  /** Only the borders where the serving region changes. */
+  regionBorders: MultiLineString
+}
+
+export function basemap(topology: Topology): Basemap {
+  const object = topology.objects.provinces
+  if (!object) throw new Error('Missing province boundaries.')
+  const collection = feature(topology, object) as FeatureCollection<Polygon | MultiPolygon, ProvinceProperties>
+  type Shape = Parameters<NonNullable<Parameters<typeof mesh>[2]>>[0]
+  const region = (shape: Shape) => (shape.properties as Partial<ProvinceProperties> | undefined)?.region_code ?? 'none'
+  return {
+    provinces: collection.features,
+    borders: mesh(topology, object as never, (a, b) => a !== b),
+    regionBorders: mesh(topology, object as never, (a, b) => a !== b && region(a) !== region(b)),
+  }
+}
+
+export async function loadBasemap(): Promise<Basemap> {
+  const response = await fetch('/geo/provinces.topo.json')
+  if (!response.ok) throw new Error(`Could not load the province basemap (HTTP ${response.status}).`)
+  return basemap(await response.json() as Topology)
+}
+
+/**
+ * Bin edges from every week in view, not just the selected one, so a colour means the same
+ * value while the week player runs.
+ */
+export { fenced }
+
+export function historyExtent(rows: readonly WeeklyReport[], code: KpiCode): [number, number] | null {
+  return fenced(rows.filter((row) => row.kpi_code === code).map((row) => row.value ?? null))
+}
+
+/** How far a week sits from the area's own trailing 13-week average, as a share; null without one. */
+export function versusUsual(row: WeeklyReport): number | null {
+  const usual = row.trailing_13w_avg
+  return row.value == null || usual == null || usual === 0 ? null : row.value / usual - 1
+}
+
+/**
+ * Half-width of the diverging scale: the largest typical distance from usual across every
+ * week in view, inside Tukey's fences, so one odd week does not flatten the rest.
+ */
+export function deviationReach(rows: readonly WeeklyReport[], code: KpiCode): number | null {
+  const range = fenced(rows.filter((row) => row.kpi_code === code).map(versusUsual))
+  if (!range) return null
+  return Math.max(Math.abs(range[0]), Math.abs(range[1])) || null
 }
 
 export async function loadBoundaries(object: 'regions' | 'districts' | 'fsa'): Promise<Boundary[]> {
@@ -37,26 +100,7 @@ export function extent(values: Iterable<number | null>): [number, number] | null
 export function bin(value: number | null | undefined, range: [number, number] | null): number | null {
   if (value == null || !range) return null
   const [lo, hi] = range
-  return hi === lo ? 3 : Math.min(6, Math.floor(((value - lo) / (hi - lo)) * 7))
-}
-
-/** Bounds of the actual data-bearing polygons; fall back to every boundary. */
-export function boundaryBounds(features: readonly Boundary[], values: ReadonlyMap<string, number | null>, fsa: boolean): [[number, number], [number, number]] | null {
-  const selected = features.filter((item) => {
-    const id = fsa ? item.properties.CFSAUID : item.properties.node_id
-    return id && values.get(id) != null
-  })
-  const visible = selected.length ? selected : features
-  let west = Infinity; let south = Infinity; let east = -Infinity; let north = -Infinity
-  const visit = (value: unknown) => {
-    if (!Array.isArray(value)) return
-    if (typeof value[0] === 'number' && typeof value[1] === 'number') {
-      west = Math.min(west, value[0]); east = Math.max(east, value[0])
-      south = Math.min(south, value[1]); north = Math.max(north, value[1])
-    } else value.forEach(visit)
-  }
-  visible.forEach((item) => visit(item.geometry.coordinates))
-  return Number.isFinite(west) ? [[west, south], [east, north]] : null
+  return hi === lo ? 3 : Math.max(0, Math.min(6, Math.floor(((value - lo) / (hi - lo)) * 7)))
 }
 
 export function drillHref(region: string | null, nodeId: string, week: string, latest: string): string {

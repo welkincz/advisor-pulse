@@ -125,15 +125,29 @@ Rules:
 
 Use `Chart` (ECharts with the Pulse theme) for line charts, inside a `Figure`; register any
 other ECharts chart type in `primitives/echarts.ts` first.
-Use `Sparkline` (plain SVG) for word-sized trends in stats. The map (#38) is plain SVG too
-(`features/map/ChoroplethSvg.tsx`), filled with `var(--seq-N)` so it follows the scheme.
+Use `Sparkline` (plain SVG) for word-sized trends in stats. The map (#38, #169) is plain SVG
+too (`features/map/CanadaMap.tsx`), filled with `var(--seq-N)` so it follows the scheme.
 
-The map colours the shipped region or district polygons for the selected week and KPI.
-Those polygons cover only FSAs with fictional branch locations, so unmapped land stays
-blank; the adjacent list gives region and district values with a keyboard path into
-each report, while FSA mode shows its coverage values in a table.
-The FSA coverage layer appears only when the export manifest enables FSA boundaries.
-There are no basemap tiles; the Statistics Canada source is credited under the figure.
+The map draws all of Canada in Statistics Canada's Lambert conformal conic projection
+(standard parallels 49°N and 77°N), from a Natural Earth province layer
+(`geo/build_provinces.py`, public domain). It has two levels:
+
+- **Canada:** each province takes the colour of the Maplecrest region that serves it, so
+  a region reads as one block; region borders are drawn in ink, province borders in paper.
+  Territories have no branches and are hatched. Hollow circles show where each district's
+  branches are, sized by activities completed.
+- **A region:** choosing it flies the camera there (760 ms, geometric zoom). The other
+  regions recede, and the district circles fill with their own value and get direct labels.
+  Choosing a district opens its report.
+
+Colours bin against every week in view, inside Tukey's fences, so a shade keeps its
+meaning while the week player runs and warm-up weeks do not wash everything out.
+The ranking beside the map is the keyboard path into every area; hovering a row and
+hovering the map highlight each other. The FSA coverage layer appears only when the
+export manifest enables FSA boundaries. Sources are credited under the map.
+
+`WeekPlayer` (primitives) scrubs or plays through the weekly runs over a quiet trend strip.
+It is a native range input, so drag, click and arrow keys all work.
 
 The theme (`web/src/theme/echarts.ts`) is built from `tokens.css` when a chart mounts, and
 rebuilt when the colour scheme changes. It sets:
@@ -181,6 +195,7 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
 | `--duration-quick` | 120 ms | Hover, press, focus, toggles |
 | `--duration-standard` | 240 ms | Drill transitions, panels opening |
 | `--duration-tween` | 600 ms | Number and chart tweens on week change |
+| `--duration-step` | 320 ms | Colour and size changes that must keep pace with the week player |
 | `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Things arriving or changing |
 | `--ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` | Things leaving |
 
@@ -188,6 +203,10 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
 - Drill down: the chosen node's row or region expands into the next page, so the reader
   keeps their place. Drill up reverses it.
 - Pipeline replay (#42) steps through stages at 400 ms each, and can be paused.
+- The week player steps a week every 360 ms only after the reader presses play, and stops at
+  the latest week. Map colours and bars follow with `--duration-step`.
+- The map flies to a chosen region and back out; on first paint its colours sweep west to
+  east once, as the data arrives.
 - Run history names each run type (weekly, manual, or backfill) beside its week and status.
 - On the first report view, sections may fade in once in reading order, with opacity only.
   Never trigger an entrance on scroll or loop an animation.

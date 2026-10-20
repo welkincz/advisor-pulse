@@ -74,6 +74,7 @@
   --duration-quick: 120ms;
   --duration-standard: 240ms;
   --duration-tween: 600ms;
+  --duration-step: 320ms;  /* one step of the week player: colours keep pace while weeks play */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
@@ -128,5 +129,6 @@
     --duration-quick: 0ms;
     --duration-standard: 0ms;
     --duration-tween: 0ms;
+    --duration-step: 0ms;
   }
 }

@@ -12,21 +12,24 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('fixture choropleth has a seven-step legend and keyboard drill to region and district', async ({ page }) => {
+test('the national map flies to a region, then a district opens its report, by keyboard at 375 px', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' })
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/map')
   await expect(page.getByRole('heading', { name: 'Map', exact: true })).toBeVisible()
-  await expect(page.getByLabel('regions choropleth')).toBeVisible()
+  await expect(page.getByLabel('regions map')).toBeVisible()
+  await expect(page.locator('.canada-map .map-province')).toHaveCount(13)
   await expect(page.locator('.map-swatch')).toHaveCount(7)
   const ontario = page.getByRole('button', { name: /Ontario/ })
   await expect(ontario).toContainText('%')
   await ontario.focus()
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/r\/ON$/)
+  await expect(page).toHaveURL(/\/map\?region=ON$/)
+  await expect(page.getByRole('heading', { name: 'Districts in Ontario' })).toBeVisible()
+  await expect(page.getByLabel('districts map')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open the Ontario report' })).toHaveAttribute('href', '/r/ON')
 
   await page.goto('/map?region=ON&week=2026-W39')
-  await expect(page.getByLabel('districts choropleth')).toBeVisible()
   const gta = page.getByRole('button', { name: /GTA/ })
   await gta.focus()
   await page.keyboard.press('Enter')
@@ -34,11 +37,26 @@ test('fixture choropleth has a seven-step legend and keyboard drill to region an
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
+test('the week player scrubs by keyboard and plays through the weeks', async ({ page }) => {
+  await page.goto('/map')
+  const slider = page.getByRole('slider', { name: /Week shown on the map/ })
+  await expect(slider).toHaveAttribute('aria-valuetext', '2026-W40')
+  await slider.focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect(page).toHaveURL(/week=2026-W39/)
+  await expect(page.locator('.map-readout-week')).toHaveText('2026-W39')
+  const play = page.getByRole('button', { name: 'Play through the weeks' })
+  await play.click()
+  await expect(page.getByRole('button', { name: 'Pause the week player' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page).not.toHaveURL(/week=/, { timeout: 5000 })
+  await expect(page.getByRole('button', { name: 'Play through the weeks' })).toHaveAttribute('aria-pressed', 'false')
+})
+
 test('FSA boundaries load only when the manifest enables them', async ({ page }) => {
   const requests: string[] = []
   page.on('request', (request) => { if (request.url().includes('/geo/fsa.topo.json')) requests.push(request.url()) })
   await page.goto('/map')
-  await expect(page.getByLabel('regions choropleth')).toBeVisible()
+  await expect(page.getByLabel('regions map')).toBeVisible()
   await expect(page.getByRole('checkbox', { name: 'FSA coverage layer' })).toHaveCount(0)
   expect(requests).toHaveLength(0)
 
@@ -48,7 +66,7 @@ test('FSA boundaries load only when the manifest enables them', async ({ page })
   })
   await page.reload()
   await page.getByRole('checkbox', { name: 'FSA coverage layer' }).check()
-  await expect(page.getByLabel('fsa choropleth')).toBeVisible()
+  await expect(page.getByLabel('fsa map')).toBeVisible()
   await expect.poll(() => requests.length).toBe(1)
 })
 
@@ -84,51 +102,54 @@ test('FSA data failure has a retry instead of an empty map', async ({ page }) =>
   await page.goto('/map')
   await page.getByRole('checkbox', { name: 'FSA coverage layer' }).check()
   await expect(page.getByText('We could not load FSA coverage just now.')).toBeVisible()
-  await expect(page.getByText('FSA coverage is unavailable.')).toBeVisible()
   await page.unroute('**/data/geo_weekly.parquet')
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('table', { name: /13-week coverage by FSA/ })).toBeVisible()
 })
 
-test('clicking a district polygon opens its report', async ({ page }) => {
+test('hovering a district circle names it, and clicking opens its report', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/map?region=ON')
   await expect(page.getByRole('button', { name: /Eastern Ontario/ })).toContainText('%')
-  await expect(page.locator('.map-svg path[data-id="EON"]')).toBeVisible()
-  // Find a screen point whose topmost element is the Eastern Ontario polygon.
-  const point = await page.evaluate(() => {
-    const box = document.querySelector('.map-svg path[data-id="EON"]')!.getBoundingClientRect()
-    for (let fy = 0.1; fy < 1; fy += 0.05) for (let fx = 0.1; fx < 1; fx += 0.05) {
-      const x = box.left + box.width * fx
-      const y = box.top + box.height * fy
-      if ((document.elementFromPoint(x, y) as Element | null)?.getAttribute('data-id') === 'EON') return { x, y }
-    }
-    return null
-  })
-  expect(point).not.toBeNull()
-  await page.mouse.move(point!.x, point!.y)
-  await expect(page.locator('.map-tooltip')).toHaveText('Eastern Ontario')
-  await page.mouse.click(point!.x, point!.y)
+  const circle = page.locator('.canada-map circle[data-hot="EON"]')
+  await expect(circle).toBeVisible()
+  await circle.hover()
+  await expect(page.locator('.map-tooltip')).toContainText('Eastern Ontario')
+  await expect(page.locator('.map-rows li.is-hot')).toContainText('Eastern Ontario')
+  await circle.click()
   await expect(page).toHaveURL(/\/r\/ON\/d\/EON$/)
 })
 
 test('the map pans by drag and zooms from the keyboard without leaving the route', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/map?region=ON')
-  const layer = page.locator('.map-svg g')
-  await expect(page.locator('.map-svg path[data-id="EON"]')).toBeVisible()
-  const box = (await page.locator('.map-svg').boundingBox())!
+  const map = page.locator('.canada-map')
+  const layer = page.locator('.canada-map > g').first()
+  await expect(page.locator('.canada-map circle[data-hot="EON"]')).toBeVisible()
+  const parse = async () => {
+    const value = (await layer.getAttribute('transform'))!
+    const [, x, y, k] = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\)/.exec(value)!.map(Number)
+    return { x: x!, y: y!, k: k! }
+  }
+  const fitted = await parse()
+  expect(fitted.k).toBeGreaterThan(1)
+  const box = (await map.boundingBox())!
   await page.mouse.move(box.x + 40, box.y + 40)
   await page.mouse.down()
   await page.mouse.move(box.x + 140, box.y + 90, { steps: 5 })
   await page.mouse.up()
-  await expect(layer).toHaveAttribute('transform', /translate\(100 50\) scale\(1\)/)
-  await page.locator('.map-svg').focus()
+  const dragged = await parse()
+  expect(dragged.x - fitted.x).toBeCloseTo(100, 0)
+  expect(dragged.y - fitted.y).toBeCloseTo(50, 0)
+  await map.focus()
   await page.keyboard.press('+')
-  await expect(layer).toHaveAttribute('transform', /scale\(1\.5\)/)
+  expect((await parse()).k).toBeCloseTo(fitted.k * 1.5, 3)
   await page.keyboard.press('0')
-  await expect(layer).toHaveAttribute('transform', 'translate(0 0) scale(1)')
-  await expect(page).toHaveURL(/\/map\?region=ON$/)
+  expect(await parse()).toEqual(fitted)
+  await page.keyboard.press('Escape')
+  await expect(page).toHaveURL(/\/map$/)
 })
 
 test('map code is fetched only on the map route', async ({ page }) => {
