@@ -4,7 +4,20 @@ Advisor Pulse is a weekly batch BI pipeline for **Maplecrest Bank**, a fictional
 
 > **All data is synthetic.** The bank, its people, clients, schemas and business rules are invented. Only public geography (Statistics Canada FSA boundaries, province names) is real. This is a **weekly batch report**: it updates once a week, after the weekly run.
 
-![Drilling from the national overview to a district, then replaying the latest weekly run](docs/assets/demo.gif)
+![The weekly briefing: the trend draws in, measures morph, the map flies to the West and plays the weeks, then a district report and the pipeline](docs/assets/demo.gif)
+
+## What the site shows
+
+| | |
+|---|---|
+| ![Overview: the week in one sentence, then one measure across every weekly run with its usual ribbon and anomaly rings](docs/assets/overview.webp) | ![Map: Canada in Statistics Canada Lambert, each region coloured by how far it sits from its own usual week](docs/assets/map.webp) |
+| **Overview.** The headline is written from the numbers. The chart plots any of twelve measures across every weekly run, with the trailing 13-week average as a "usual" ribbon. | **Map.** Provinces take their serving region's colour, compared with that region's own usual week; choose a region to fly to its districts, or play the weeks. |
+| ![Every week at a glance: a heatmap of every region and district by week](docs/assets/heatmap.webp) | ![Pipeline: the weekly DAG as a line diagram and a log-scale timeline of where the time went](docs/assets/pipeline.webp) |
+| **Every week at a glance.** Each cell is one area in one week against its own usual level; holidays and seasons show as vertical bands. | **Pipeline.** The weekly DAG on one screen, a replay of the last run, and a log-scale timeline so a 3-hour rebuild and a 1-second step fit together. |
+
+![Data quality: check scorecards with bullet charts, rows held back each week, and a trend per rule](docs/assets/quality.webp)
+
+Every chart is hand-written SVG (no chart engine), reads its colours from design tokens, has a table of the same numbers, works by keyboard, and turns its motion off under reduced motion. Each route loads 80 to 131 KB of JavaScript, gzip.
 
 ## Read more
 
@@ -56,7 +69,10 @@ You need Python 3.12, [uv](https://docs.astral.sh/uv/), Node 22 and pnpm. From a
 ```bash
 make setup                               # Python, web and dbt dependencies
 make web-dev                             # the site on bundled fixture data: http://localhost:5173
+make web-dev-latest                      # the site on the latest published weekly export, every region (needs gh)
 ```
+
+The fixtures are a small Ontario and Quebec slice, so West and Atlantic show "No data" under `make web-dev`.
 
 To run the real pipeline (generate, ingest, dbt build, checks, template narratives, export) for two weeks at full scale:
 
@@ -83,7 +99,8 @@ make backfill FROM=2026-W39 TO=2026-W40  # writes data/ and web/public/data/
 | Grounded narratives, validator, cache, eval | [`src/pulse/narrative/`](src/pulse/narrative/) |
 | Export to Parquet and JSON with a size budget | [`src/pulse/export/`](src/pulse/export/) |
 | Site: data layer (DuckDB-WASM) and theme | [`web/src/data/`](web/src/data/), [`web/src/theme/`](web/src/theme/) |
-| Site: overview, drill, map, pipeline replay, data quality, case study | [`web/src/features/`](web/src/features/) |
+| Site: hand-written SVG charts (trend, stacked weeks, bullet) | [`web/src/components/charts/`](web/src/components/charts/) |
+| Site: overview, drill, map, pipeline replay, data quality, case study, app shell | [`web/src/features/`](web/src/features/), [`web/src/app/`](web/src/app/) |
 | Weekly, backfill and CI workflows; Pages deploy | [`.github/workflows/`](.github/workflows/), [`.github/actions/`](.github/actions/) |
 | End-to-end test (8-week backfill plus a weekly run) | [`tests/integration/test_e2e.py`](tests/integration/test_e2e.py) |
 
