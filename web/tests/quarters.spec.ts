@@ -16,7 +16,7 @@ test('the overview reads the fiscal quarter to date, by region, at 375 px', asyn
   const section = page.locator('section', { has: page.getByRole('heading', { name: 'Fiscal quarters', level: 2 }) })
   // DuckDB-WASM comes from the CDN, which can take a while on a CI runner.
   await expect(section.getByRole('heading', { name: 'Q4 FY26', exact: true })).toBeVisible({ timeout: 30_000 })
-  await expect(section).toContainText('FY26 runs from November 2025 to October 2026')
+  await expect(section).toContainText('The fiscal year starts on 1 November.')
   await expect(section).toContainText('Aug 2026 – Oct 2026')
   await expect(section).toContainText('To date: 4 of 13 weeks')
   await expect(section.locator('.quarters-value')).toHaveText('92.5 a week')

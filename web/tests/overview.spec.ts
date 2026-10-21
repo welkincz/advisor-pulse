@@ -64,7 +64,7 @@ test('the hero chart reads every fixture week and moves the report week by keybo
 
 test('the every-week grid works from the keyboard and batch-only rates skip the regional split', async ({ page }) => {
   await page.goto('/?kpi=NO_SHOW_RATE')
-  await expect(page.locator('#weeks-title + .section-lede, .section-lede').filter({ hasText: 'lower is better' })).toBeVisible()
+  await expect(page.locator('.section-lede').filter({ hasText: 'better or worse than its usual' })).toBeVisible()
   const grid = page.getByRole('group', { name: /No-show rate by area and week/ })
   await grid.focus()
   await expect(page.locator('.heat-cursor')).toBeVisible()
@@ -82,6 +82,10 @@ test('the every-week grid works from the keyboard and batch-only rates skip the 
 test('the funnel, regional charts and every-week view draw from the export', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.funnel-stage')).toHaveCount(4)
+  // Each region against its usual week, with the run summary on hover, replaces the paragraphs.
+  await expect(page.locator('.moved-row')).toHaveCount(2)
+  await page.locator('.moved-link').first().hover()
+  await expect(page.getByRole('tooltip')).toContainText(/Click to open the (Ontario|Quebec) report/)
   // Fixtures cover Ontario and Quebec; regions with no rows are left out.
   await expect(page.locator('.multiple')).toHaveCount(2)
   await expect(page.getByRole('link', { name: /Ontario/ }).first()).toHaveAttribute('href', '/r/ON')

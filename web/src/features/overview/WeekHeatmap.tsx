@@ -1,5 +1,5 @@
 import { type KeyboardEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { KPI_LABELS, formatKpi } from '../../data'
+import { KPI_LABELS, formatKpi, happened } from '../../data'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { settledWeeks, usualStep, versusUsual } from '../../data/usual'
 import { fenced } from '../../components/charts/scale'
@@ -142,10 +142,13 @@ export function WeekHeatmap({ regions, districts, code, weeks, week, onSelect }:
     {hover && (() => {
       const cell = hover.row.cells.get(hover.week)
       const away = deviation(cell)
-      return <div className="heat-tip" style={{ left: Math.min(Math.max(hover.x, 80), width - 80), top: hover.y }}>
+      const better = code === 'AVG_MEET_MIN' ? 'neither' : lower ? 'lower' : 'higher'
+      return <div className="heat-tip" style={{ left: Math.min(Math.max(hover.x, 120), width - 120), top: hover.y }}>
         <strong>{hover.row.name}</strong>
         <span className="figure-num">{hover.week}: {formatKpi(code, cell?.value)}</span>
-        {away !== null ? <span>{(Math.abs(away) * 100).toFixed(1)}% {away >= 0 ? 'above' : 'below'} its usual week</span> : <span>No usual level yet: fewer than 13 weeks of history</span>}
+        {happened({ code, value: cell?.value, wow: cell?.wow_pct, usual: away === null ? null : cell?.trailing_13w_avg, flag: cell?.flag === 'ANOMALY', better })
+          .map((line) => <span key={line} className="heat-tip-line">{line}</span>)}
+        <span className="heat-tip-hint">Click to open this week</span>
       </div>
     })()}
   </div>

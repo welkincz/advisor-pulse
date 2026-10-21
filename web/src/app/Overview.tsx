@@ -12,7 +12,7 @@ import { weekHeadline } from '../features/overview/headline'
 import { type BoardRow, KpiBoard, boardRows } from '../features/overview/KpiBoard'
 import { KPI_CODES, KPI_DEFINITIONS, LOWER_IS_BETTER } from '../features/overview/kpis'
 import { RegionMultiples } from '../features/overview/RegionMultiples'
-import { RegionNotes } from '../features/overview/RegionNotes'
+import { WhatMoved } from '../features/overview/WhatMoved'
 import { RunStatusBanner } from '../features/overview/RunStatusBanner'
 import { WeekHeatmap } from '../features/overview/WeekHeatmap'
 import { weekSpan } from '../features/overview/week'
@@ -61,7 +61,6 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const better = code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'
   const multipleWeeks = weeks.slice(Math.max(0, weeks.indexOf(week) - MULTIPLE_WEEKS + 1), weeks.indexOf(week) + 1)
   const funnel = funnelFor(org.status === 'ready' ? org.data[0] : undefined, all, week, settled.has(week))
-  const hasNotes = manifest.files.some((file) => file.name === `narratives/${week}.json`)
   const drill = (id: string) => `/r/${encodeURIComponent(id)}${week === latest ? '' : `?week=${encodeURIComponent(week)}`}`
   const flagged = series.filter((r) => r?.flag === 'ANOMALY').length
 
@@ -126,30 +125,30 @@ function Briefing({ manifest }: { manifest: Manifest }) {
 
     <QuarterPanel nodeId="CA" nodeName="Canada" code={code} better={better} childLabel="Regions" hrefFor={(id) => `/r/${encodeURIComponent(id)}`} />
 
-    {funnel && <Section id="funnel" title="From call to conversion" lede="Counts for the week on one scale; between them, the rate that links each step to the next.">
+    {funnel && <Section id="funnel" title="From call to conversion" lede="This week, step by step.">
       <Funnel data={funnel} />
-      <p className="funnel-note">Held and converted count meetings scheduled in the week, including ones booked in earlier weeks, so a step can exceed the one before it.</p>
     </Section>}
 
     {NATIONAL_ONLY.has(code) && <Section id="regions" title="By region and week" lede="">
       <p className="national-only">{KPI_LABELS[code]} is measured on the whole weekly batch, before rows are attributed to a branch, so it has no regional split. Choose a business measure above to compare regions.</p>
     </Section>}
 
-    {!NATIONAL_ONLY.has(code) && <Section id="regions" title="By region" lede={`${KPI_LABELS[code]}, last ${multipleWeeks.length} weeks. The dashed line is the national figure.`}>
-      {regions.status === 'ready' && history.status === 'ready' && <RegionMultiples regions={regions.data} national={all} code={code} week={week} weeks={multipleWeeks} hrefFor={drill} />}
+    {!NATIONAL_ONLY.has(code) && regions.status === 'ready' && <Section id="moved" title="What moved" lede="Each region against its own usual week.">
+      <WhatMoved regions={regions.data} code={code} week={week} better={better} settled={settled.has(week)} hrefFor={drill} />
+    </Section>}
+
+    {!NATIONAL_ONLY.has(code) && <Section id="regions" title="By region" lede={<>Last {multipleWeeks.length} weeks; the dashed line is <Term {...TERMS.national}>Canada</Term>.</>}>
+      {regions.status === 'ready' && history.status === 'ready' && <RegionMultiples regions={regions.data} national={all} code={code} week={week} weeks={multipleWeeks} settled={settled.has(week)} hrefFor={drill} />}
       {regions.status === 'loading' && <p aria-busy="true">Loading the regions…</p>}
       {regions.status === 'error' && <DataNotice what="the regional figures" onRetry={regions.retry} />}
     </Section>}
 
-    {!NATIONAL_ONLY.has(code) && <Section id="weeks" title="Every week at a glance" lede={<>Each cell is one area in one week against its own usual level: <span className="swatch-word swatch-better">blue</span> is better, <span className="swatch-word swatch-worse">vermilion</span> is worse{better === 'lower' ? ', and for this measure lower is better' : better === 'neither' ? '; meeting minutes have no better direction, so blue is simply longer' : ''}. Choose a cell, or focus the grid and use the arrow keys, to open that week.</>}>
+    {!NATIONAL_ONLY.has(code) && <Section id="weeks" title="Every week at a glance" lede={<>One cell per area and week: <span className="swatch-word swatch-better">{better === 'neither' ? 'longer' : 'better'}</span> or <span className="swatch-word swatch-worse">{better === 'neither' ? 'shorter' : 'worse'}</span> than its <Term {...TERMS.usual}>usual</Term>.</>}>
       {heatRegions.status === 'ready' && heatDistricts.status === 'ready' && <WeekHeatmap regions={heatRegions.data} districts={heatDistricts.data} code={code} weeks={weeks} week={week} onSelect={(w) => set('week', w)} />}
       {(heatRegions.status === 'loading' || heatDistricts.status === 'loading') && <p aria-busy="true">Loading every week…</p>}
       {heatRegions.status === 'error' && <DataNotice what="the week-by-week view" onRetry={heatRegions.retry} />}
     </Section>}
 
-    {hasNotes && <Section id="notes" title="Region notes" lede={`What each region's run summary says about ${week}.`}>
-      <RegionNotes week={week} hrefFor={drill} />
-    </Section>}
 
     <p className="briefing-more"><Link to="/map">See the week on the map</Link></p>
   </>
