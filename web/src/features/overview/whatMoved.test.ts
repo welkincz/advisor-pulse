@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { WeeklyReport } from '../../data/generated/weekly_report'
 import { barShare, movedRows } from './WhatMoved'
+
+// theme/tokens reads matchMedia at module load; jsdom has none.
+vi.hoisted(() => {
+  window.matchMedia ??= (() => ({ matches: false, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
+})
 
 const row = (node_id: string, value: number | null, usual: number | null): WeeklyReport =>
   ({ node_id, node_name: node_id, kpi_code: 'NO_SHOW_RATE', iso_week_id: '2026-W42', value, trailing_13w_avg: usual }) as WeeklyReport
