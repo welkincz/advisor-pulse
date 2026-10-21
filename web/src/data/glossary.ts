@@ -22,7 +22,7 @@ export const KPI_PLAIN: Record<KpiCode, string> = {
 
 /** Terms the charts use, each with the question a reader is likely to ask about it. */
 export const TERMS = {
-  usual: { title: 'Usual', text: 'The average of the 13 weeks before this one. It shows what a normal week looks like for this area.' },
+  usual: { title: 'Usual', text: 'The average of the last 13 weeks, this one included. It shows what a normal week looks like for this area.' },
   anomaly: { title: 'Anomaly', text: 'A week more than two standard deviations from the 13 weeks before it: rare enough to check.' },
   wow: { title: 'WoW', text: 'Week over week: the change from the week before.' },
   national: { title: 'National line', text: 'The dashed line is Canada as a whole, so you can see whether a region is just following the country.' },
@@ -63,13 +63,17 @@ export function happened({ code, value, wow, usual, flag, better }: Facts): stri
   if (wow != null) {
     lines.push(Math.abs(wow) < 0.0005 ? 'Level with last week.' : `${wow > 0 ? 'Up' : 'Down'} ${pct(wow)} on last week.`)
   }
-  if (usual != null && usual !== 0) {
-    const gap = value / usual - 1
-    if (Math.abs(gap) < ABOUT_USUAL) {
+  // Rates compare in percentage points, so a 0% usual still compares; a count needs a non-zero usual to divide by.
+  const rate = RATES.has(code)
+  if (usual != null && (rate || usual !== 0)) {
+    const diff = value - usual
+    const gap = rate ? diff : value / usual - 1
+    const near = rate ? Math.abs(diff) < 0.0005 || (usual !== 0 && Math.abs(diff / usual) < ABOUT_USUAL) : Math.abs(gap) < ABOUT_USUAL
+    if (near) {
       lines.push(`About usual (${formatKpi(code, usual)}).`)
     } else {
-      // Rates differ in percentage points; a percent of a percent is hard to read.
-      const size = RATES.has(code) ? `${Math.abs((value - usual) * 100).toFixed(1)} pts` : pct(gap)
+      // A percent of a percent is hard to read, so rates say points.
+      const size = rate ? `${Math.abs(diff * 100).toFixed(1)} pts` : pct(gap)
       const judged = verdict(gap, better)
       lines.push(`${size} ${gap > 0 ? 'above' : 'below'} usual (${formatKpi(code, usual)})${judged === 'level' ? '' : `: ${judged} than a normal week`}.`)
     }

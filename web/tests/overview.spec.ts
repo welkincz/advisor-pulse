@@ -32,6 +32,14 @@ test('overview shows all contracted KPIs, and choosing one plots it with its def
   await expect(page).toHaveURL(/kpi=SHOW_RATE/)
   await expect(page.getByRole('heading', { name: 'Show rate', level: 2 })).toBeVisible()
   await expect(page.locator('.hero-definition')).toContainText('Of the meetings due in the week')
+  // The chart tooltip, at its widest, stays on a 375 px screen even at the last week.
+  const hero = page.getByRole('img', { name: /Show rate, national/ })
+  await hero.scrollIntoViewIfNeeded()
+  const box = (await hero.boundingBox())!
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2)
+  await expect(page.locator('.trend-tip')).toBeVisible()
+  const tip = (await page.locator('.trend-tip').boundingBox())!
+  expect(tip.x + tip.width).toBeLessThanOrEqual(375)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
 })
 
@@ -43,6 +51,9 @@ test('the hero chart reads every fixture week and moves the report week by keybo
   await chart.focus()
   await page.keyboard.press('ArrowLeft')
   await expect(page).toHaveURL(/week=2026-W39/)
+  // Keyboard users get the week's tooltip too, tied to the chart.
+  await expect(page.locator('.trend-tip')).toContainText('2026-W39')
+  await expect(chart).toHaveAttribute('aria-describedby', await page.locator('.trend-tip').getAttribute('id') ?? '')
   await expect(page.locator('.stepper-week')).toHaveValue('2026-W39')
   await expect(page.locator('[data-kpi]')).toHaveCount(12)
   await page.getByRole('button', { name: 'Next week' }).click()

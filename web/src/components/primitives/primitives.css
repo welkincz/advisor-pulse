@@ -104,7 +104,7 @@
    It floats, so it is the one element with a shadow. */
 .explain { position: relative; }
 .explain-block { display: block; }
-.hc-layer { position: fixed; z-index: 50; max-width: min(20rem, calc(100vw - 2rem)); pointer-events: none; visibility: hidden; }
+.hc-layer { position: fixed; z-index: 50; max-width: min(20rem, calc(100vw - 2rem)); visibility: hidden; }
 .hc-layer.is-placed { visibility: visible; animation: hc-in var(--duration-quick) var(--ease-standard) both; }
 .hc-layer.is-placed.is-below { animation-name: hc-in-below; }
 @keyframes hc-in { from { opacity: 0; transform: translateY(4px); } }

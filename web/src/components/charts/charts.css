@@ -27,7 +27,7 @@
 .trend-tip .trend-tip-flag { color: var(--signal); font-weight: 600; }
 .trend-tip .trend-tip-line { color: var(--ink); font-size: var(--text-sm); }
 .trend-tip .trend-tip-hint { margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid var(--rule); }
-.trend-tip:has(.trend-tip-line) { min-width: 15rem; max-width: 18rem; box-shadow: var(--shadow-raised); border-radius: 4px; }
+.trend-tip:has(.trend-tip-line) { min-width: min(15rem, calc(100vw - 2rem)); max-width: min(18rem, calc(100vw - 2rem)); box-shadow: var(--shadow-raised); border-radius: 4px; }
 @keyframes trend-draw { to { stroke-dashoffset: 0; } }
 @keyframes trend-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {

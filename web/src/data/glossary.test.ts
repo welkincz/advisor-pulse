@@ -14,6 +14,11 @@ describe('happened', () => {
     expect(happened({ code: 'NO_SHOW_RATE', value: 0.04, wow: -0.174, usual: 0.05, better: 'lower' })[1]).toBe('1.0 pts below usual (5.0%): better than a normal week.')
   })
 
+  it('compares a rate with a 0% usual in points', () => {
+    expect(happened({ code: 'QUAR_RATE', value: 0.012, usual: 0, better: 'lower' })).toEqual(['1.2 pts above usual (0.0%): worse than a normal week.'])
+    expect(happened({ code: 'QUAR_RATE', value: 0, usual: 0, better: 'lower' })).toEqual(['About usual (0.0%).'])
+  })
+
   it('calls a small gap about usual, and says when there is no usual yet', () => {
     expect(happened({ code: 'CALL_TO_APPT', value: 0.0821, usual: 0.082, better: 'higher' })).toEqual(['About usual (8.2%).'])
     expect(happened({ code: 'CALLS_OUT', value: 10, usual: null, better: 'higher' })[0]).toMatch(/first 13 weeks/)
