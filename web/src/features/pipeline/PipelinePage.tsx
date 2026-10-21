@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from '../../app/useReducedMotion'
-import { StatusMark } from '../../components/primitives'
+import { StatusMark, Term } from '../../components/primitives'
 import { DataNotice, usePipelineGraph, useRunLog } from '../../data'
 import type { PipelineGraph, PipelineNode } from '../../data/generated/pipeline_graph'
 import type { RunSummary } from '../../data/generated/run_log'
 import { RunHistory } from './history/RunHistory'
 import { formatDuration, runSentence, runTypeLabel } from './format'
 import { PipelineDiagram } from './PipelineDiagram'
+import { stageCard } from './explain'
 import { StageTimeline } from './StageTimeline'
 import { replayEvents, summarize } from './timeline'
 import { useReplay } from './useReplay'
@@ -92,6 +93,11 @@ function Canvas({ graph, run }: { graph: PipelineGraph; run: RunSummary }) {
   const order = [...new Set(run.stages.map((s) => s.stage))]
   for (const n of stageNodes) if (!order.includes(n.stage!)) order.push(n.stage!)
   const labels = new Map(stageNodes.map((n) => [n.stage!, n.label]))
+  const inflight = run.stages.some((s) => s.status === 'RUNNING')
+  const cardFor = (stage: string) => {
+    const stageNode = stageNodes.find((n) => n.stage === stage)
+    return stageNode ? stageCard(stageNode, summaries.get(stage), inflight) : null
+  }
 
   return <>
     <div className="pipe-bar">
@@ -99,17 +105,17 @@ function Canvas({ graph, run }: { graph: PipelineGraph; run: RunSummary }) {
       <button type="button" onClick={restart} disabled={reducedMotion || replaying}>Replay run</button>
       {reducedMotion && <span className="pipe-note">Replay is off because your system asks for reduced motion.</span>}
     </div>
-    {run.stages.some((s) => s.status === 'RUNNING') && <p className="pipe-note pipe-inflight">This run wrote its log during the export stage, so export shows as running and the stages after it as waiting. The next run's log records how they finished.</p>}
+    {inflight && <p className="pipe-note pipe-inflight"><Term title="Logged mid-run" text="This run wrote its log before it finished, so a stage shows as running and the ones after it as waiting. The next run’s log records how they finished.">Logged mid-run</Term>: hover a stage for what it did.</p>}
     <div className="pipe-layout">
       <div className="pipe-canvas" ref={box} role="group" aria-label="Pipeline stages">
-        {width > 0 && <PipelineDiagram graph={graph} state={state} summaries={summaries} selected={selected} onSelect={setSelected} width={width} replaying={replaying} />}
+        {width > 0 && <PipelineDiagram graph={graph} state={state} summaries={summaries} selected={selected} onSelect={setSelected} width={width} replaying={replaying} inflight={inflight} />}
       </div>
       {node && <DetailPanel node={node} run={run} onClose={() => setSelected(null)} />}
     </div>
     <section className="pipe-time" aria-labelledby="pipe-time-title">
       <h2 id="pipe-time-title">Where the time went</h2>
       <StageTimeline order={order} labels={labels} summaries={summaries} state={state}
-        onSelect={(stage) => setSelected(graph.nodes.find((n) => n.stage === stage && n.kind === 'STAGE')?.id ?? null)} />
+        onSelect={(stage) => setSelected(graph.nodes.find((n) => n.stage === stage && n.kind === 'STAGE')?.id ?? null)} cardFor={cardFor} />
     </section>
     <details className="pipe-list">
       <summary>Stages as a table</summary>
@@ -140,7 +146,7 @@ export function PipelinePage() {
 
   return <main className="pipe-page">
     <h1>Pipeline</h1>
-    <p className="intro">{latestWeekly ? runSentence(latestWeekly) : 'The weekly batch from source extracts to the published report.'} Choose a stage for its attempts, rows and checks.</p>
+    <p className="intro">{latestWeekly ? runSentence(latestWeekly) : 'The weekly batch from source extracts to the published report.'} Hover a stage for what it does; click for its attempts, rows and checks.</p>
     {(graph.status === 'loading' || runLog.status === 'loading') && <p aria-busy="true">Loading the pipeline…</p>}
     {graph.status === 'error' && <DataNotice what="the pipeline graph" onRetry={graph.retry} />}
     {runLog.status === 'error' && <DataNotice what="the run log" onRetry={runLog.retry} />}

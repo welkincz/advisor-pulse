@@ -92,3 +92,23 @@ test('the timeline opens a stage, and the page names the newest weekly run in a 
   await expect(page.getByRole('complementary').getByRole('heading', { name: 'Ingest + validate' })).toBeVisible()
   await expect(page.locator('[data-node="ingest"]')).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('a station says what its stage does and what happened, by hover and by keyboard', async ({ page }) => {
+  await page.goto('/pipeline')
+  await expect(page.getByText(/^Weekly run of October 5, 2026/)).toBeVisible({ timeout: 9000 })
+  await page.locator('[data-node="ingest"]').hover()
+  const card = page.getByRole('tooltip')
+  await expect(card).toContainText('quarantines rows that fail validation')
+  await expect(card).toContainText(/Succeeded in|Warning in/)
+  await page.mouse.move(0, 0)
+  await expect(card).toBeHidden()
+  // The warned stage answers why, from its own message.
+  await page.locator('[data-node="narrate"]').focus()
+  await page.keyboard.press('Shift+Tab')
+  await page.keyboard.press('Tab')
+  await expect(card).toContainText('Why a warning?')
+  await expect(page.locator('[data-node="narrate"]')).toHaveAttribute('aria-describedby', await card.getAttribute('id') ?? '')
+  // A time row says what share of the run its stage took.
+  await page.locator('.timeline-row button').first().hover()
+  await expect(card).toContainText('of the run’s time')
+})

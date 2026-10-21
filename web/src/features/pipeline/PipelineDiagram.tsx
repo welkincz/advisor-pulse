@@ -1,5 +1,7 @@
-import type { KeyboardEvent } from 'react'
+import { type KeyboardEvent, useEffect, useId, useState } from 'react'
+import { FloatingCard, useOnlyCard } from '../../components/primitives'
 import type { PipelineGraph, PipelineNode } from '../../data/generated/pipeline_graph'
+import { stageCard } from './explain'
 import { formatDuration } from './format'
 import { type NodeState, type StageSummary, edgeActive, nodeStages } from './timeline'
 
@@ -16,6 +18,8 @@ const GLYPH: Record<string, string> = { SUCCESS: '✓', WARN: '!', FAILED: '✕'
 
 /** A label in at most two short lines: "Marts (12 models)" becomes "Marts" over "12 models". */
 export function labelLines(label: string, width = 13): string[] {
+  // A web address has no spaces to break at and runs into its neighbour; the card names it in full.
+  if (/^[\w-]+(\.[\w-]+)+$/.test(label)) return ['Website']
   const bracket = /^(.*?)\s*\((.+)\)$/.exec(label)
   if (bracket) return [bracket[1]!, bracket[2]!]
   if (label.length <= width || !label.includes(' ')) return [label]
@@ -43,7 +47,7 @@ export function gridOf(nodes: readonly PipelineNode[]) {
  * open squares for sources and outputs. During a replay the line in use carries a moving
  * dash and each station fills with its outcome. Stations are buttons: Enter opens details.
  */
-export function PipelineDiagram({ graph, state, summaries, selected, onSelect, width, replaying }: {
+export function PipelineDiagram({ graph, state, summaries, selected, onSelect, width, replaying, inflight = false }: {
   graph: PipelineGraph
   state: ReadonlyMap<string, NodeState>
   summaries: ReadonlyMap<string, StageSummary>
@@ -51,7 +55,19 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
   onSelect: (id: string) => void
   width: number
   replaying: boolean
+  /** The run's log was written before it finished, so later stages read as running or waiting. */
+  inflight?: boolean
 }) {
+  // The node under the pointer or keyboard focus, and its element, for the hover card.
+  const [hot, setHot] = useState<{ id: string; element: Element } | null>(null)
+  const cardId = useId()
+  useOnlyCard(`${cardId}-${hot?.id ?? ''}`, hot !== null, () => setHot(null))
+  useEffect(() => {
+    if (!hot) return
+    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') setHot(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [hot])
   const { cells, columns, lanes } = gridOf(graph.nodes)
   const colW = Math.max(MIN_COL_W, (width - 2 * PAD_X) / Math.max(1, columns - 1))
   const svgW = PAD_X * 2 + colW * (columns - 1)
@@ -70,7 +86,8 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
     onSelect(id)
   }
 
-  return <svg className={`line-diagram${replaying ? ' is-replaying' : ''}`} width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+  const hotNode = hot ? graph.nodes.find((n) => n.id === hot.id) : undefined
+  return <><svg className={`line-diagram${replaying ? ' is-replaying' : ''}`} width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
     <g className="line-edges" aria-hidden="true">
       {graph.edges.map((edge) => {
         const a = at(edge.source)
@@ -80,7 +97,13 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
         const active = edgeActive(edge, stages, state)
         const target = stages.get(edge.target)
         const travelled = done(target ? state.get(target) : null)
-        return <path key={edge.id} d={d} className={`line-edge${active ? ' is-active' : travelled ? ' is-done' : ''}`} />
+        return <g key={edge.id}>
+          <path d={d} className={`line-edge${active ? ' is-active' : travelled ? ' is-done' : ''}`} />
+          {/* Rows on their way: three dots travel the line while its stage works (replay is off under reduced motion). */}
+          {active && [0, 1, 2].map((i) => <circle key={i} className="line-flow" r={3}>
+            <animateMotion dur="1.5s" begin={`${i * 0.5}s`} repeatCount="indefinite" path={d} />
+          </circle>)}
+        </g>
       })}
     </g>
     {graph.nodes.map((node) => {
@@ -95,6 +118,11 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
       const small = node.kind === 'DBT_LAYER'
       return <g key={node.id} className={`line-node line-node-${node.kind.toLowerCase()}${node.id === selected ? ' is-selected' : ''}`} data-node={node.id} data-state={s ?? 'NONE'}
         transform={`translate(${x} ${y})`} role="button" tabIndex={0} aria-label={label} aria-pressed={node.id === selected}
+        aria-describedby={hot?.id === node.id ? cardId : undefined}
+        onPointerEnter={(event) => event.pointerType !== 'touch' && setHot({ id: node.id, element: event.currentTarget })}
+        onPointerLeave={() => setHot(null)}
+        onFocus={(event) => event.currentTarget.matches(':focus-visible') && setHot({ id: node.id, element: event.currentTarget })}
+        onBlur={() => setHot(null)}
         onClick={() => onSelect(node.id)} onKeyDown={(event) => onKey(event, node.id)}>
         <circle className="line-hit" r={22} />
         {node.kind === 'SOURCE' || node.kind === 'OUTPUT'
@@ -117,4 +145,6 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
       </g>
     })}
   </svg>
+  {hot && hotNode && <FloatingCard anchor={hot.element} id={cardId} card={stageCard(hotNode, hotNode.stage ? summaries.get(hotNode.stage) : undefined, inflight)} />}
+  </>
 }

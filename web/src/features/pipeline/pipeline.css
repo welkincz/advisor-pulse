@@ -15,6 +15,7 @@
 .line-edge { fill: none; stroke: var(--rule); stroke-width: 2; transition: stroke var(--duration-standard) var(--ease-standard); }
 .line-edge.is-done { stroke: var(--muted); }
 .line-edge.is-active { stroke: var(--status-running); stroke-dasharray: 5 7; animation: line-flow 700ms linear infinite; }
+.line-flow { fill: var(--status-running); stroke: var(--paper); stroke-width: 1.5; pointer-events: none; }
 .line-node { cursor: pointer; outline: none; }
 .line-hit { fill: transparent; }
 .line-mark { fill: var(--paper); stroke: var(--faint); stroke-width: 2; transition: fill var(--duration-standard) var(--ease-standard), stroke var(--duration-standard) var(--ease-standard); }
@@ -36,7 +37,7 @@
 .line-node:focus-visible .line-hit { stroke: var(--focus); stroke-width: 2; }
 @keyframes line-flow { to { stroke-dashoffset: -24; } }
 @keyframes line-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .line-edge.is-active, .line-running { animation: none; } .timeline-track i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .line-edge.is-active, .line-running { animation: none; } .line-flow { display: none; } .timeline-track i { transition: none; } }
 
 /* Where the time went: a log-scale bar per stage. */
 .pipe-time { margin-top: var(--space-8); }

@@ -196,6 +196,10 @@ Rules for agents:
 
 The list beside the map shows the comparison the colours show: "vs usual" when colouring by usual, "vs last week" when colouring by value, under a column header, so the map sentence, the colours and the list never seem to disagree. Every province, district column and list row has the shared hover card (what the measure is, what happened, the trend, the next click); on the map it flips above the pointer in the lower half so it is never clipped. Rows slide to their new rank when the week changes or plays (`FlipList`, none under reduced motion).
 
+### Pipeline cards and flow (#213)
+
+Every station, source and output on the pipeline diagram has the shared hover card (placed with `FloatingCard`, since SVG cannot be wrapped): what the stage does in a plain sentence, what happened in the run (status, time, attempts, rows in, out and quarantined), and the question the diagram raises, answered from the run itself ("Why a warning?" with its message; "Why is it still running?" for a log written mid-run). "Where the time went" rows carry the same card plus the stage's share of the run. During a replay three dots travel each working edge, so the diagram reads as rows moving through the week; they are hidden under reduced motion, where replay is off anyway. Only one hover card shows at a time (`useOnlyCard`).
+
 ### The overview (#171)
 
 The overview is a weekly briefing, not a tile dashboard. In reading order:

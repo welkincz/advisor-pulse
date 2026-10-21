@@ -110,7 +110,7 @@
 @keyframes hc-in { from { opacity: 0; transform: translateY(4px); } }
 @keyframes hc-in-below { from { opacity: 0; transform: translateY(-4px); } }
 .hc { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); box-shadow: var(--shadow-raised);
-  color: var(--ink); font-size: var(--text-sm); line-height: var(--leading-tight); text-align: left; white-space: normal; }
+  color: var(--ink); font-size: var(--text-sm); line-height: var(--leading-tight); text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .hc p, .hc ul { margin: 0; }
 .hc-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); }
 .hc-title { font-weight: 600; }
