@@ -109,7 +109,7 @@ contrast. Use the tokens, never new colours.
 |---|---|---|
 | Identity (which series) | `--series-1` … `--series-4` | Fixed order, never cycled. All four pass the validator with every pair compared, so any chart form may use all four. A fifth series folds into "Other" or becomes small multiples. Regions are the ten provinces (#196), more than four, so regional charts are small multiples in ink with the name as identity, never ten colours. |
 | Magnitude (how much) | `--seq-1` … `--seq-7` | One hue, signal gold, light to dark. Used for the choropleth. In dark mode the anchor flips: low values are dark and recede into the surface. For discrete ordered marks (tiers, bands) start at `--seq-3`. |
-| Change (better or worse than last week) | `--worse-3` … `--diverging-mid` … `--better-3` | Blue is better, vermilion is worse, grey is no change. Judge "better" with the KPI's direction: a falling no-show rate is better. Never encode up or down with this; the arrow and sign do that. |
+| Change (better or worse than last week, or than usual) | `--worse-3` … `--diverging-mid` … `--better-3` | Muted steel blue is better, muted brick is worse, warm grey is no change (#200). The steps are desaturated so a map of them reads as an atlas, not a warning; each mode's steps pass the validator's adjacent-pair colour-blind and normal-vision checks on that mode's surface. Judge "better" with the KPI's direction: a falling no-show rate is better. Never encode up or down with this; the arrow and sign do that. |
 | Pipeline state | `--status-good`, `--status-warning`, `--status-critical`, `--status-neutral`, `--status-running` | Reserved for run and check status. Always a glyph plus a word (`StatusMark`). Never used for a data series. |
 
 Rules:
@@ -127,8 +127,25 @@ Every chart is hand-written SVG in `components/charts/`: `TrendChart` for weekly
 `StackedWeeks` for weekly totals split by kind, `Bullet` for a value against its limits, and
 the overview heatmap. They read colours from tokens through CSS, so light and dark need no
 re-render, and there is no chart engine to load (#175).
-Use `Sparkline` (plain SVG) for word-sized trends in stats. The map (#38, #169) is plain SVG
+Use `Sparkline` (plain SVG) for word-sized trends in stats. The flat map (#38, #169) is plain SVG
 too (`features/map/CanadaMap.tsx`), filled with `var(--seq-N)` so it follows the scheme.
+
+### Relief map (#200)
+
+The map opens in relief: `features/map/ReliefMap.tsx` draws the provinces as extruded
+three.js shapes in the same Lambert projection. **Height is the value** and **colour is the
+comparison** (with usual, or with peers), so one glance carries both. Heights span this week's
+lowest to highest area, with a floor so no area reads as zero; colours keep the steadier
+history scale. Inside a province the province lies flat and the districts rise as columns,
+sized to the province (radius by activities, height by value). Territories stay low and grey.
+
+- Colours are read from the CSS tokens, and the scene recolours when the theme changes.
+- Labels are HTML laid over the canvas and follow each province's top face. The three
+  Maritime provinces label out at sea with leader lines.
+- The canvas has `role="img"` and an aria-label; the ranking beside it stays the keyboard path.
+- three.js loads only on `/map`, in its own chunk (about 134 KB gzip), inside the route budget.
+- The flat SVG map is the fallback: without WebGL, under reduced motion, with the FSA layer,
+  or when the reader chooses **View: Flat** (`?view=flat`).
 
 The map draws all of Canada in Statistics Canada's Lambert conformal conic projection
 (standard parallels 49°N and 77°N), from a Natural Earth province layer
@@ -247,8 +264,8 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
 - Pipeline replay (#42) steps through stages at 400 ms each, and can be paused.
 - The week player steps a week every 360 ms only after the reader presses play, and stops at
   the latest week. Map colours and bars follow with `--duration-step`.
-- The map flies to a chosen region and back out; on first paint its colours sweep west to
-  east once, as the data arrives.
+- The map flies to a chosen region and back out (relief: a 900 ms camera flight, with heights
+  easing to their new values); on first paint the flat map's colours sweep west to east once.
 - Run history names each run type (weekly, manual, or backfill) beside its week and status.
 - On the first report view, sections may fade in once in reading order, with opacity only.
   Never trigger an entrance on scroll or loop an animation.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Delta, Sparkline, WeekPlayer } from '../../components/primitives'
 import { DataNotice, KPI_LABELS, formatKpi, useChildReportHistory, useGeoWeekly, useManifest, useOrgLevel, useWeeklyReportHistory } from '../../data'
@@ -6,12 +6,26 @@ import type { Manifest } from '../../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { REGIONS } from '../../data/regions'
 import { settledWeeks } from '../../data/usual'
+import { useReducedMotion } from '../../app/useReducedMotion'
 import { DIVERGING, SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
 import { KPI_CODES, LOWER_IS_BETTER } from '../overview/kpis'
 import { CanadaMap, type MapArea, type MapPlace } from './CanadaMap'
 import { type Basemap, type Boundary, bin, standoutSentence, fsaCoverage, deviationReach, drillHref, extent, historyExtent, loadBasemap, loadBoundaries, versusUsual } from './data'
 import './map.css'
+
+// three.js loads only when the relief view is on, so the flat map stays light.
+const ReliefMap = lazy(() => import('./ReliefMap'))
+
+/** WebGL can be off (policy, old GPU, some headless browsers); then the flat map is the only view. */
+function canRenderRelief(): boolean {
+  try {
+    const canvas = document.createElement('canvas')
+    return Boolean(canvas.getContext('webgl2') ?? canvas.getContext('webgl'))
+  } catch {
+    return false
+  }
+}
 
 // Fill colours are CSS variables, so light and dark follow tokens.css with no re-render.
 const PALETTE = SEQUENTIAL.map((name) => `var(--${name})`)
@@ -87,6 +101,10 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const code: KpiCode = requested && KPI_CODES.includes(requested) ? requested : 'COVERAGE_13W'
   // Meeting minutes have no better direction, so they can only be coloured by value.
   const colouring: Colouring = search.get('colour') === 'value' || code === 'AVG_MEET_MIN' ? 'value' : 'usual'
+  const reducedMotion = useReducedMotion()
+  const [webgl] = useState(canRenderRelief)
+  // Relief by default where it can render and motion is welcome; the flat map otherwise or on request.
+  const relief = webgl && search.get('view') !== 'flat' && (search.get('view') === 'relief' || !reducedMotion)
   const [fsa, setFsa] = useState(false)
   const [hot, setHot] = useState<string | null>(null)
 
@@ -131,6 +149,14 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const fsaList = (fsaShapes?.data?.map((f) => f.properties.CFSAUID ?? '') ?? [...geoValues.keys()])
     .sort((a, b) => Number(geoValues.get(b) != null) - Number(geoValues.get(a) != null) || a.localeCompare(b))
 
+  // Relief heights span this week's lowest to highest area; colours keep the steadier history scale.
+  const weekRegionRange = extent(regionRows.map((row) => row.value))
+  const weekDistrictRange = extent(districtRows.map((row) => row.value))
+  /** Where a value sits in its range, 0 to 1, for relief heights; null without a value. */
+  const share = (value: number | null | undefined, range: [number, number] | null) => {
+    if (value == null || !range) return null
+    return range[1] === range[0] ? 0.5 : Math.max(0, Math.min(1, (value - range[0]) / (range[1] - range[0])))
+  }
   const shade = (value: number | null | undefined, range: [number, number] | null) => {
     const step = bin(value, range)
     return step === null ? null : PALETTE[step]!
@@ -161,7 +187,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const setQuery = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(search)
     for (const [key, value] of Object.entries(changes)) {
-      const fallback = key === 'week' ? manifest.latest_week : key === 'kpi' ? 'COVERAGE_13W' : key === 'colour' ? 'usual' : ''
+      const fallback = key === 'week' ? manifest.latest_week : key === 'kpi' ? 'COVERAGE_13W' : key === 'colour' ? 'usual' : key === 'view' ? (reducedMotion ? 'flat' : 'relief') : ''
       if (!value || value === fallback) next.delete(key)
       else next.set(key, value)
     }
@@ -207,6 +233,11 @@ function MapContent({ manifest }: { manifest: Manifest }) {
         <label><input type="radio" name="colour" checked={colouring === 'usual'} onChange={() => setQuery({ colour: 'usual' })} /> Compared with usual</label>
         <label><input type="radio" name="colour" checked={colouring === 'value'} onChange={() => setQuery({ colour: 'value' })} /> Value</label>
       </fieldset>
+      {webgl && !fsaMode && <fieldset className="map-colouring">
+        <legend>View</legend>
+        <label><input type="radio" name="view" checked={relief} onChange={() => setQuery({ view: 'relief' })} /> Relief</label>
+        <label><input type="radio" name="view" checked={!relief} onChange={() => setQuery({ view: 'flat' })} /> Flat</label>
+      </fieldset>}
       {manifest.has_fsa_boundaries && <label className="map-fsa-toggle"><input type="checkbox" checked={fsa} onChange={(event) => setFsa(event.target.checked)} /> FSA coverage layer</label>}
     </div>
 
@@ -230,7 +261,15 @@ function MapContent({ manifest }: { manifest: Manifest }) {
       })()}
       <div className="map-layout">
         <div className="map-canvas" ref={canvasRef} aria-label={`${fsaMode ? 'fsa' : focus ? 'districts' : 'regions'} map`}>
-          {base?.data && districts?.data && <CanadaMap ready={ready} basemap={base.data} width={canvas.width} height={canvas.height}
+          {base?.data && districts?.data && relief && !fsaMode && <Suspense fallback={<p aria-busy="true">Raising the relief…</p>}><ReliefMap basemap={base.data} places={places}
+            width={canvas.width} height={canvas.height} focus={focus} hot={hot} onHot={setHot} onRegion={focusRegion} onMark={openDistrict}
+            regionNames={regionNames}
+            regionFill={(id) => fillOf(regionById.get(id), regionRange, regionReach)}
+            regionHeight={(id) => share(regionById.get(id)?.value, weekRegionRange)}
+            regionValue={(id) => !ready ? null : regionById.get(id)?.value != null ? formatKpi(code, regionById.get(id)!.value) : 'No data'}
+            mark={(id) => ({ size: sizes.get(id) ?? 0, fill: fillOf(districtById.get(id), districtRange, districtReach), label: formatKpi(code, districtById.get(id)?.value), empty: districtById.get(id)?.value == null, height: share(districtById.get(id)?.value, weekDistrictRange) })}
+            tooltip={tooltip} label={`${KPI_LABELS[code]} by ${focus ? 'district' : 'province'}, ${week}, in relief: height is the value, colour the comparison. The list beside the map has every value.`} /></Suspense>}
+          {base?.data && districts?.data && (!relief || fsaMode) && <CanadaMap ready={ready} basemap={base.data} width={canvas.width} height={canvas.height}
             focus={focus} regionNames={regionNames}
             regionFill={(id) => fillOf(regionById.get(id), regionRange, regionReach)}
             regionValue={(id) => !ready ? null : regionById.get(id)?.value != null ? formatKpi(code, regionById.get(id)!.value) : 'No data'}

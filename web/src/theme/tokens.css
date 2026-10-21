@@ -28,14 +28,16 @@
   --seq-6: #7A5B04;
   --seq-7: #5C4302;
 
-  /* Diverging: week over week, better (blue) vs worse (vermilion), neutral midpoint. */
-  --better-1: #91C1FF;
-  --better-2: #578ED4;
-  --better-3: #285E9F;
-  --worse-1: #FFA28A;
-  --worse-2: #D3694F;
-  --worse-3: #9D381F;
-  --diverging-mid: #D9DDD8;
+  /* Diverging: better (steel blue) vs worse (brick), warm grey midpoint. Muted on purpose:
+     these fill whole provinces, where saturated pastels read as cheap. Adjacent steps pass
+     the dataviz validator's CVD and normal-vision floors in each mode (#198). */
+  --better-1: #85B9D8;
+  --better-2: #548AAF;
+  --better-3: #2A5C84;
+  --worse-1: #DDA187;
+  --worse-2: #B66D56;
+  --worse-3: #893F30;
+  --diverging-mid: #E4E3DF;
 
   /* Status: pipeline state only, always with an icon and a word. */
   --status-good: #1B7E2A;
@@ -108,13 +110,13 @@
     --seq-6: #CFA851;
     --seq-7: #E6C686;
 
-    --better-1: #164781;
-    --better-2: #4273B0;
-    --better-3: #6EA1E2;
-    --worse-1: #7F230B;
-    --worse-2: #B05139;
-    --worse-3: #E37F65;
-    --diverging-mid: #303740;
+    --better-1: #255475;
+    --better-2: #4881A8;
+    --better-3: #72B3DD;
+    --worse-1: #793B2D;
+    --worse-2: #AF624D;
+    --worse-3: #E69275;
+    --diverging-mid: #292C2E;
 
     --status-good: #61BD67;
     --status-warning: #EFA831;
@@ -150,13 +152,13 @@
   --seq-6: #CFA851;
   --seq-7: #E6C686;
 
-  --better-1: #164781;
-  --better-2: #4273B0;
-  --better-3: #6EA1E2;
-  --worse-1: #7F230B;
-  --worse-2: #B05139;
-  --worse-3: #E37F65;
-  --diverging-mid: #303740;
+  --better-1: #255475;
+  --better-2: #4881A8;
+  --better-3: #72B3DD;
+  --worse-1: #793B2D;
+  --worse-2: #AF624D;
+  --worse-3: #E69275;
+  --diverging-mid: #292C2E;
 
   --status-good: #61BD67;
   --status-warning: #EFA831;

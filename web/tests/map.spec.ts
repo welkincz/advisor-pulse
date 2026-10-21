@@ -198,3 +198,32 @@ test('map code is fetched only on the map route', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Map', exact: true })).toBeVisible()
   expect(mapRequests).toHaveLength(1)
 })
+
+test('the relief map is the default where WebGL and motion are welcome, and Flat switches back', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/map')
+  const relief = page.locator('.relief canvas')
+  test.skip(!(await page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl')))), 'no WebGL in this browser')
+  await expect(relief).toBeVisible()
+  await expect(relief).toHaveAttribute('aria-label', /in relief: height is the value, colour the comparison/)
+  await expect(page.locator('.relief-label', { hasText: 'Ontario' })).toBeVisible()
+  await expect(page.locator('.relief-leaders line')).toHaveCount(3)
+
+  await page.getByRole('button', { name: /Ontario/ }).click()
+  await expect(page).toHaveURL(/\/map\?region=ON$/)
+  await expect(page.getByRole('heading', { name: 'Districts in Ontario' })).toBeVisible()
+  await expect(relief).toBeVisible()
+
+  await page.getByLabel('Flat').check()
+  await expect(page).toHaveURL(/view=flat/)
+  await expect(relief).toHaveCount(0)
+  await expect(page.getByLabel('districts map')).toBeVisible()
+})
+
+test('the relief map fits a 375 px screen without sideways scrolling', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/map?view=relief')
+  await expect(page.locator('.relief canvas')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
