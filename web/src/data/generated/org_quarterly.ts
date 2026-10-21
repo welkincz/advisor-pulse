@@ -27,7 +27,7 @@ export type FiscalYear = number;
  */
 export type IsComplete = boolean;
 /**
- * Stocks (book, coverage) are taken at this week.
+ * Last week reported in the quarter, across all nodes.
  */
 export type LastWeek = string;
 export type OrgLevel = "NATIONAL" | "REGION" | "DISTRICT" | "BRANCH";
@@ -43,7 +43,7 @@ export type WeeksInQuarter = number;
 export type WeeksReported = number;
 
 /**
- * mart_org_quarterly: one row per hierarchy node and fiscal quarter (the fiscal year starts 1 November). Flows are summed, distinct clients counted over the quarter, stocks taken at the last reported week, ratios rebuilt from parts.
+ * mart_org_quarterly: one row per hierarchy node and fiscal quarter (the fiscal year starts 1 November). Flows are summed, distinct clients counted over the quarter, stocks taken at each branch's own last reported week and summed up the hierarchy, ratios rebuilt from parts.
  */
 export interface OrgQuarterly {
   activities_completed: ActivitiesCompleted;

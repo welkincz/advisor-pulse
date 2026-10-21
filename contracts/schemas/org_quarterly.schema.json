@@ -13,7 +13,7 @@
   },
   "$id": "https://pulse.charliebuild.com/contracts/org_quarterly.schema.json",
   "additionalProperties": false,
-  "description": "mart_org_quarterly: one row per hierarchy node and fiscal quarter (the fiscal year starts 1 November). Flows are summed, distinct clients counted over the quarter, stocks taken at the last reported week, ratios rebuilt from parts.",
+  "description": "mart_org_quarterly: one row per hierarchy node and fiscal quarter (the fiscal year starts 1 November). Flows are summed, distinct clients counted over the quarter, stocks taken at each branch's own last reported week and summed up the hierarchy, ratios rebuilt from parts.",
   "properties": {
     "activities_completed": {
       "minimum": 0,
@@ -162,7 +162,7 @@
       "type": "boolean"
     },
     "last_week": {
-      "description": "Stocks (book, coverage) are taken at this week.",
+      "description": "Last week reported in the quarter, across all nodes.",
       "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
       "title": "Last Week",
       "type": "string"

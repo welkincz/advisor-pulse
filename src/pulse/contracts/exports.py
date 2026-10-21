@@ -95,7 +95,8 @@ class OrgQuarterly(Contract):
     contract_description = (
         "mart_org_quarterly: one row per hierarchy node and fiscal quarter (the fiscal year "
         "starts 1 November). Flows are summed, distinct clients counted over the quarter, "
-        "stocks taken at the last reported week, ratios rebuilt from parts."
+        "stocks taken at each branch's own last reported week and summed up the hierarchy, "
+        "ratios rebuilt from parts."
     )
 
     fiscal_quarter_id: str = Field(
@@ -106,7 +107,7 @@ class OrgQuarterly(Contract):
     quarter_start: date
     quarter_end: date
     first_week: IsoWeek
-    last_week: IsoWeek = Field(description="Stocks (book, coverage) are taken at this week.")
+    last_week: IsoWeek = Field(description="Last week reported in the quarter, across all nodes.")
     weeks_reported: int = Field(ge=1, le=14)
     weeks_in_quarter: int = Field(ge=12, le=14)
     is_complete: bool = Field(description="False for a quarter to date or a partial first quarter.")
