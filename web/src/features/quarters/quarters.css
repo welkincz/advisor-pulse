@@ -38,5 +38,6 @@ text.quarters-label { fill: var(--ink); font-size: var(--text-xs); font-weight: 
 .quarters-children thead th { color: var(--muted); font-size: var(--text-xs); }
 .quarters-children .num { text-align: right; }
 .quarters-children tbody th a { color: var(--ink); }
-.quarters-scroll { overflow-x: auto; }
+.quarters-scroll { position: relative; overflow-x: auto; }
 .quarters-children table { min-width: 30rem; }
+.quarters-caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

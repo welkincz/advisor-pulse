@@ -19,7 +19,7 @@ function Versus({ result, better, against }: { result: Change; better: Better; a
  * quarter against the one before and the same quarter a year earlier, and its children for
  * that quarter. The fiscal year starts on 1 November. Hidden for exports without the mart.
  */
-export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefFor }: {
+export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefFor, onOpen }: {
   nodeId: string
   nodeName: string
   code: KpiCode
@@ -27,6 +27,8 @@ export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefF
   /** 'Regions', 'Districts' or 'Branches'; omitted for a node without children. */
   childLabel?: string
   hrefFor?: (childId: string) => string
+  /** The drill page's shared title transition, so these links open a child the same way. */
+  onOpen?: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void
 }) {
   const result = useOrgQuarterly(nodeId)
   const rows = useMemo(() => (result.status === 'ready' ? result.data ?? [] : []), [result])
@@ -93,10 +95,11 @@ export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefF
         </figcaption>
         {childLabel && children.length > 0 && <div className="quarters-children">
           <h3 className="figure-title">{childLabel} in {quarterLabel(point.id)}</h3>
-          <div className="quarters-scroll" tabIndex={0} role="region" aria-label={`${childLabel} in ${quarterLabel(point.id)}`}><table>
+          <div className="quarters-scroll" tabIndex={0} role="region" aria-label={`${childLabel} in ${quarterLabel(point.id)}, scrollable`}><table>
+            <caption className="quarters-caption">{KPI_LABELS[code]}{unit} for {childLabel.toLowerCase()} in {nodeName}, {quarterLabel(point.id)}</caption>
             <thead><tr><th scope="col">{childLabel}</th><th scope="col" className="num">{KPI_LABELS[code]}{unit}</th><th scope="col" className="num">vs last quarter</th><th scope="col" className="num">vs a year earlier</th></tr></thead>
             <tbody>{children.map((c) => <tr key={c.id}>
-              <th scope="row">{hrefFor ? <Link to={hrefFor(c.id)}>{c.name}</Link> : c.name}</th>
+              <th scope="row">{hrefFor ? <Link to={hrefFor(c.id)} onClick={onOpen && ((event) => onOpen(event, hrefFor(c.id)))}>{c.name}</Link> : c.name}</th>
               <td className="num figure-num">{fmt(c.value)}</td>
               <td className="num"><Versus result={c.qoq} better={better} against="last quarter" /></td>
               <td className="num"><Versus result={c.yoy} better={better} against="the same quarter last year" /></td>

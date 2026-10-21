@@ -123,7 +123,7 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, childHre
       {children.status === 'ready' && <ChildMultiples rows={children.data} parent={childWeeks.map((w) => parentLineFor(all, code, w))} code={code} week={week} weeks={childWeeks} hrefFor={childHref} onOpen={onChildClick} />}
     </Section>}
     <QuarterPanel nodeId={path.nodeId} nodeName={name} code={code} better={better}
-      childLabel={childLabel && path.childSegment !== 'a' ? childLabel : undefined} hrefFor={childHref} />
+      childLabel={childLabel && path.childSegment !== 'a' ? childLabel : undefined} hrefFor={childHref} onOpen={onChildClick} />
   </>
 }
 

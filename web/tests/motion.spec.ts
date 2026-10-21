@@ -91,9 +91,9 @@ test('narrative reveals only on the first report view', async ({ page }) => {
 test('drill shares a title transition and bypasses it for reduced motion', async ({ page }) => {
   if (process.env.RECORD_MOTION) {
     await page.goto('/r/ON')
-    await expect(page.getByRole('table').getByRole('link').first()).toBeVisible()
+    await expect(page.getByRole('table', { name: /under Ontario/ }).getByRole('link').first()).toBeVisible()
     expect(await page.evaluate(() => typeof document.startViewTransition)).toBe('function')
-    await page.getByRole('table').getByRole('link').first().click()
+    await page.getByRole('table', { name: /under Ontario/ }).getByRole('link').first().click()
     await expect(page).toHaveURL(/\/r\/ON\/d\//)
     await page.waitForTimeout(400)
     await page.goBack()
@@ -108,13 +108,13 @@ test('drill shares a title transition and bypasses it for reduced motion', async
     }
   })
   await page.goto('/r/ON')
-  await page.getByRole('table').getByRole('link').first().click()
+  await page.getByRole('table', { name: /under Ontario/ }).getByRole('link').first().click()
   await expect(page).toHaveURL(/\/r\/ON\/d\//)
   expect(await page.evaluate(() => (window as Window & { __transitionCount: number }).__transitionCount)).toBe(1)
 
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/r/ON')
-  await page.getByRole('table').getByRole('link').first().click()
+  await page.getByRole('table', { name: /under Ontario/ }).getByRole('link').first().click()
   await expect(page).toHaveURL(/\/r\/ON\/d\//)
   expect(await page.evaluate(() => (window as Window & { __transitionCount: number }).__transitionCount)).toBe(0)
 })
