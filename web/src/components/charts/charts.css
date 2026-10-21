@@ -22,9 +22,13 @@
 .trend-crosshair { stroke: var(--muted); stroke-width: 1; pointer-events: none; }
 .trend-tip { position: absolute; z-index: 2; display: grid; gap: 2px; min-width: 9rem; transform: translate(-50%, -100%); padding: var(--space-2) var(--space-3);
   border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); font-size: var(--text-sm); pointer-events: none; }
+.trend-tip.is-below { transform: translate(-50%, 0); }
 .trend-tip strong { font-size: var(--text-lg); font-weight: 500; line-height: 1.1; }
 .trend-tip-week, .trend-tip span { color: var(--muted); font-size: var(--text-xs); }
 .trend-tip .trend-tip-flag { color: var(--signal); font-weight: 600; }
+.trend-tip .trend-tip-line { color: var(--ink); font-size: var(--text-sm); }
+.trend-tip .trend-tip-hint { margin-top: var(--space-1); padding-top: var(--space-1); border-top: 1px solid var(--rule); }
+.trend-tip:has(.trend-tip-line) { min-width: min(15rem, calc(100vw - 2rem)); max-width: min(18rem, calc(100vw - 2rem)); box-shadow: var(--shadow-raised); border-radius: 4px; }
 @keyframes trend-draw { to { stroke-dashoffset: 0; } }
 @keyframes trend-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {

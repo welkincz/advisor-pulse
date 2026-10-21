@@ -29,6 +29,10 @@ export interface TrendChartProps {
   color?: string
   /** Extra rows for the tooltip, e.g. a definition or the week's WoW. */
   tip?: (index: number) => ReactNode
+  /** What happened that week, in short lines; replaces the default usual and anomaly rows. */
+  describe?: (index: number) => readonly string[]
+  /** The tooltip's last line: what a click does. */
+  hint?: string
   /** Change this to morph the line from the previous measure instead of redrawing. */
   morphKey?: string
   /** Fit the y axis from this index on, so warm-up weeks do not flatten the rest. */
@@ -54,11 +58,16 @@ function useWidth<T extends HTMLElement>() {
  * changes, and moves its week cursor when the week does. Hover shows a crosshair and the
  * week's numbers; click or arrow keys choose a week when `onSelect` is given.
  */
-export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, morphKey, fitFrom = 0 }: TrendChartProps) {
+export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, describe, hint, morphKey, fitFrom = 0 }: TrendChartProps) {
   const reducedMotion = useReducedMotion()
   const clip = useId()
   const [box, width] = useWidth<HTMLDivElement>()
   const [hover, setHover] = useState<number | null>(null)
+  // Keyboard users move the week with the arrows; the tooltip follows the chosen week for them.
+  const [keyed, setKeyed] = useState(false)
+  const tipId = useId()
+  const tipRef = useRef<HTMLDivElement>(null)
+  const [tipSize, setTipSize] = useState({ w: 0, h: 0 })
   const margin = compact ? { top: 6, right: 6, bottom: 6, left: 6 } : { top: 16, right: 12, bottom: 26, left: 48 }
   const innerW = Math.max(0, width - margin.left - margin.right)
   const innerH = Math.max(0, height - margin.top - margin.bottom)
@@ -115,7 +124,6 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
   // Fiscal years start on 1 November (data/fiscal.ts): a rule where each one begins.
   const fiscal = useMemo(() => weeks.map(weekFiscalYear), [weeks])
   const years = compact ? [] : weeks.flatMap((_, i) => (i > 0 && fiscal[i] !== fiscal[i - 1] ? [{ i, label: fiscal[i]! }] : []))
-  const active = hover ?? (index >= 0 ? index : null)
 
   const pick = (event: PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -123,21 +131,36 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
     return Math.max(0, Math.min(weeks.length - 1, Math.round(fraction * (weeks.length - 1))))
   }
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
+    if (event.key === 'Escape') { setKeyed(false); return }
     if (!onSelect || index < 0) return
     const next = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: weeks.length - 1, PageUp: index - 13, PageDown: index + 13 }[event.key]
     if (next === undefined) return
     event.preventDefault()
+    setKeyed(true)
     onSelect(weeks[Math.max(0, Math.min(weeks.length - 1, next))]!)
   }
 
   const linePathD = linePath(shown.line)
-  const tipX = active !== null ? scale.x(active) : 0
-  const tipPoint = active !== null ? target[active] : null
+  const tipAt = hover ?? (keyed && !compact && index >= 0 ? index : null)
+  const tipX = tipAt !== null ? scale.x(tipAt) : 0
+  const tipPoint = tipAt !== null ? target[tipAt] : null
+  // Clamp by the tooltip's measured width, so a wide one never runs off a narrow screen.
+  useLayoutEffect(() => {
+    const w = tipRef.current?.offsetWidth ?? 0
+    const h = tipRef.current?.offsetHeight ?? 0
+    if (w && (w !== tipSize.w || h !== tipSize.h)) setTipSize({ w, h })
+  }, [tipAt, tipSize])
+  const half = (tipSize.w || 180) / 2
+  const tipLeft = Math.min(Math.max(tipX, half + 4), Math.max(half + 4, width - half - 4))
+  // Above the point when it fits inside the chart, else below it, so a high week's card stays readable.
+  const pointY = tipPoint?.[1] ?? margin.top
+  const tipBelow = pointY - 12 - tipSize.h < 0
 
   return <div ref={box} className={`trend${compact ? ' trend-compact' : ''}`} style={{ height }}>
     {width > 0 && <svg width={width} height={height} role="img" aria-label={label}
-      tabIndex={onSelect ? 0 : undefined} onKeyDown={onKeyDown}
-      onPointerMove={compact ? undefined : (event) => setHover(pick(event))}
+      tabIndex={onSelect ? 0 : undefined} onKeyDown={onKeyDown} onBlur={() => setKeyed(false)}
+      onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) setKeyed(true) }}
+      onPointerMove={compact ? undefined : (event) => { setKeyed(false); setHover(pick(event)) }}
       onPointerLeave={() => setHover(null)}
       onClick={onSelect ? (event) => onSelect(weeks[pick(event as unknown as PointerEvent<SVGSVGElement>)]!) : undefined}
       className={onSelect ? 'trend-svg is-interactive' : 'trend-svg'}>
@@ -165,12 +188,16 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
       </g>}
       {hover !== null && !compact && <line className="trend-crosshair" x1={tipX} x2={tipX} y1={margin.top} y2={margin.top + innerH} />}
     </svg>}
-    {hover !== null && !compact && <div className="trend-tip" style={{ left: Math.min(Math.max(tipX, 90), width - 90), top: Math.max(0, (tipPoint?.[1] ?? margin.top) - 12) }}>
-      <span className="trend-tip-week figure-num">{weeks[hover]}</span>
-      <strong className="figure-num">{format(values[hover])}</strong>
-      {usual && usual[hover] != null && <span>Usual {format(usual[hover])}</span>}
-      {flagged?.[hover] && <span className="trend-tip-flag">Anomaly</span>}
-      {tip?.(hover)}
+    {tipAt !== null && !compact && <div ref={tipRef} id={tipId} className={`trend-tip${tipBelow ? ' is-below' : ''}`} aria-live={keyed ? 'polite' : undefined}
+      style={{ left: tipLeft, top: tipBelow ? pointY + 12 : pointY - 12 }}>
+      <span className="trend-tip-week figure-num">{weeks[tipAt]}</span>
+      <strong className="figure-num">{format(values[tipAt])}</strong>
+      {describe ? describe(tipAt).map((line) => <span key={line} className="trend-tip-line">{line}</span>) : <>
+        {usual && usual[tipAt] != null && <span>Usual {format(usual[tipAt])}</span>}
+        {flagged?.[tipAt] && <span className="trend-tip-flag">Anomaly</span>}
+      </>}
+      {tip?.(tipAt)}
+      {hint && onSelect && hover !== null && <span className="trend-tip-hint">{hint}</span>}
     </div>}
   </div>
 }

@@ -268,6 +268,7 @@ every drill link.
 | `Breadcrumb` | The drill path National → Region → District → Branch → Advisor. The last crumb is the current page |
 | `StatusMark` | Run, stage and check status on the Pipeline and Data quality pages |
 | `DataNotice` (`web/src/data`) | Any section whose data failed to load |
+| `Explain` / `HoverCard` / `Term` | Hover and focus help. A card says **what it is** (one plain sentence from `data/glossary.ts`), **what happened** (lines from `happened()`, written from the numbers), and answers the question the visual raises. Opens on hover after 150 ms and at once on keyboard focus; Esc closes. It is the only element with a shadow (`--shadow-raised`). Put long explanations here, not in paragraphs on the page |
 
 ## 9. Motion
 

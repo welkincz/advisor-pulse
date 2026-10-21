@@ -15,7 +15,7 @@ const report = (iso_week_id: string, kpi_code: KpiCode, value: number | null, ex
 
 it('builds board rows up to the chosen week, with gaps for missing weeks', () => {
   const rows = boardRows([report('W1', 'SHOW_RATE', 0.9), report('W3', 'SHOW_RATE', 0.95, { flag: 'ANOMALY' })], ['W1', 'W2', 'W3'], 'W3')
-  expect(rows.get('SHOW_RATE')).toEqual({ value: 0.95, wow: 0.1, flag: true, trend: [0.9, null, 0.95] })
+  expect(rows.get('SHOW_RATE')).toEqual({ value: 0.95, wow: 0.1, flag: true, usual: null, trend: [0.9, null, 0.95] })
   expect(boardRows([report('W1', 'SHOW_RATE', 0.9)], ['W1', 'W2'], 'W2').get('SHOW_RATE')).toMatchObject({ value: null, wow: null, flag: false })
 })
 
