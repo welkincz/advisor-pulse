@@ -311,6 +311,11 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
 - Choosing another measure morphs the line from the old values to the new (620 ms) while
   the axis labels cross-fade; the heatmap recolours left to right, 4 ms a column.
 - The week cursor on every chart glides to the chosen week with `--duration-step`.
+- A full trend chart circles one anomaly week (the chosen week when it is flagged, else the
+  latest): the ring draws on after the line and its name sits outside the line, below a dip
+  and above a spike (#215).
+- Lengths that settle on a new value (What moved bars) use `--ease-spring`, a CSS `linear()`
+  curve with about 4% overshoot. Moves of place keep `--ease-standard`.
 - `prefers-reduced-motion: reduce` sets every duration token to 0, and the charts skip the
   draw-on and the morph. Content must make sense with no motion at all.
 

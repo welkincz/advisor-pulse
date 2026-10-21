@@ -68,3 +68,14 @@ export function fenced(values: Iterable<number | null>): [number, number] | null
   const inside = known.filter((value) => value >= q1 - reach && value <= q3 + reach)
   return [inside[0]!, inside.at(-1)!]
 }
+
+/**
+ * The one flagged week a full chart circles: the selected week when it is flagged (that is the
+ * week being read), else the latest flagged week with a value. Null when none is flagged.
+ */
+export function annotatedWeek(flagged: readonly boolean[] | undefined, values: readonly (number | null)[], selected: number): number | null {
+  if (!flagged) return null
+  if (selected >= 0 && flagged[selected] && values[selected] != null) return selected
+  for (let i = flagged.length - 1; i >= 0; i--) if (flagged[i] && values[i] != null) return i
+  return null
+}

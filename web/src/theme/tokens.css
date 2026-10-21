@@ -79,6 +79,8 @@
   --duration-step: 320ms;  /* one step of the week player: colours keep pace while weeks play */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* A light spring (about 4% overshoot) for lengths that settle on a new value, such as bars. */
+  --ease-spring: linear(0, 0.085, 0.269, 0.475, 0.662, 0.81, 0.915, 0.982, 1.019, 1.035, 1.038, 1.034, 1.026, 1.019, 1.012, 1.006, 1.003, 1);
 
   /* Elevation: only for things that float over the page (hover cards). */
   --shadow-raised: 0 1px 2px rgba(27, 34, 43, 0.08), 0 6px 20px rgba(27, 34, 43, 0.12);
