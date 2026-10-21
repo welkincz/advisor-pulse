@@ -59,17 +59,19 @@ function shapes(geometry: Geometry, toWorld: (p: Position) => Point): Shape[] {
 interface ProvinceMesh { id: string; region: string | null; group: Group; top: MeshStandardMaterial; side: MeshStandardMaterial; height: number; target: number; centre: Point }
 interface ColumnMesh { id: string; region: string; mesh: Mesh; material: MeshStandardMaterial; height: number; target: number; at: Point }
 
-/**
- * Canada in relief: each province is extruded by its value (height is the measure, colour is
- * the comparison), lit softly from the north-west, with district columns rising out of the
- * chosen province. Drag to orbit, scroll to zoom. The flat map stays one click away and is
- * what keyboard, reduced-motion and no-WebGL readers get.
- */
 /** The focused province's footprint (world units, south of 62°N) and its widest side. */
 function focusBox(basemap: Basemap, region: string, project: (p: Position) => Point) {
   const box = projectedBox(basemap.provinces.filter((p) => p.properties.region_code === region).map((p) => p.geometry), project, ([, lat]) => lat! < 62)
   return box ? { box, span: Math.max(box[1][0] - box[0][0], box[1][1] - box[0][1], 8) } : null
 }
+
+/**
+ * Canada in relief: each province is extruded by its value (height is the measure, colour is
+ * the comparison), lit softly from the north-west, with district columns rising out of the
+ * chosen province. Drag to orbit, scroll to zoom. The flat map stays one click away and is
+ * what keyboard, reduced-motion and no-WebGL readers get. Frames are drawn only while
+ * something moves (a flight, heights easing, the camera damping), so an idle map costs nothing.
+ */
 
 export default function ReliefMap({ basemap, places, mark, width, height, focus, hot, onHot, onRegion, onMark, regionFill, regionHeight, regionNames, regionValue, tooltip, label }: {
   basemap: Basemap
@@ -96,6 +98,7 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
   const state = useRef<{
     renderer: WebGLRenderer; scene: Scene; camera: PerspectiveCamera; controls: OrbitControls
     provinces: ProvinceMesh[]; columns: ColumnMesh[]; frame: number; home: { target: Vector3; position: Vector3 }
+    invalidate: () => void
     fly: { from: { t: Vector3; p: Vector3 }; to: { t: Vector3; p: Vector3 }; start: number } | null
     project: (p: Position) => Point
   } | null>(null)
@@ -104,6 +107,8 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
   const leaderEls = useRef(new Map<string, SVGLineElement>())
   const callbacks = useRef({ onHot, onRegion, onMark, focus })
   callbacks.current = { onHot, onRegion, onMark, focus }
+  const view = useRef({ width, height, label })
+  view.current = { width, height, label }
 
   // World coordinates: Statistics Canada Lambert, fitted to the south of 74°N, y pointing north.
   const projection = useMemo(() => {
@@ -133,6 +138,7 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     const home = { target: new Vector3(4, -4, 0), position: new Vector3(4, -92, 112) }
     camera.position.copy(home.position)
 
+    // Lights are neutral white (and black for "no glow" below): physical light, not UI colour.
     scene.add(new HemisphereLight(0xffffff, tokenColor('rule'), 1.1))
     scene.add(new AmbientLight(0xffffff, 0.25))
     const sun = new DirectionalLight(0xffffff, 1.6)
@@ -165,19 +171,6 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       return { id: province.properties.province, region: province.properties.region_code, group, top, side, height: BASE, target: BASE, centre: middle }
     })
 
-    const columns: ColumnMesh[] = places.flatMap((place) => {
-      const at = centroid(place.geometry, projection)
-      if (!at) return []
-      const material = new MeshStandardMaterial({ roughness: 0.6, metalness: 0 })
-      const mesh = new Mesh(new CylinderGeometry(1, 1, 1, 28), material)
-      mesh.rotation.x = Math.PI / 2
-      mesh.castShadow = true
-      mesh.visible = false
-      mesh.userData = { kind: 'district', id: place.id, region: place.region }
-      scene.add(mesh)
-      return [{ id: place.id, region: place.region, mesh, material, height: 0, target: 0, at }]
-    })
-
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.copy(home.target)
     controls.enableDamping = true
@@ -191,7 +184,15 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     controls.screenSpacePanning = true
     controls.update()
 
-    state.current = { renderer, scene, camera, controls, provinces, columns, frame: 0, home, fly: null, project: projection }
+    const invalidate = () => {
+      const s = state.current
+      if (s && !s.frame) s.frame = requestAnimationFrame(loop)
+    }
+    controls.addEventListener('change', invalidate)
+    state.current = { renderer, scene, camera, controls, provinces, columns: [], frame: 0, home, fly: null, project: projection, invalidate }
+    const { width: w, height: h, label: name } = view.current
+    if (w && h) { renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix() }
+    renderer.domElement.setAttribute('aria-label', name)
 
     // Hover and click by ray: a drag that moved the camera is not a click.
     const ray = new Raycaster()
@@ -201,7 +202,7 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       const rect = renderer.domElement.getBoundingClientRect()
       pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
       ray.setFromCamera(pointer, camera)
-      const meshes = [...columns.filter((c) => c.mesh.visible).map((c) => c.mesh), ...provinces.flatMap((p) => p.group.children)]
+      const meshes = [...state.current!.columns.filter((c) => c.mesh.visible).map((c) => c.mesh), ...provinces.flatMap((p) => p.group.children)]
       const hit = ray.intersectObjects(meshes, false)[0]
       return { data: hit?.object.userData as { kind: string; id: string; region: string | null } | undefined, x: event.clientX - rect.left, y: event.clientY - rect.top }
     }
@@ -228,8 +229,11 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     renderer.domElement.addEventListener('pointerup', onUp)
     renderer.domElement.addEventListener('pointerleave', onLeave)
 
-    const loop = (now: number) => {
-      const s = state.current!
+    function loop(now: number) {
+      const s = state.current
+      if (!s) return
+      s.frame = 0
+      let moving = s.fly !== null
       if (s.fly) {
         const t = Math.min(1, (now - s.fly.start) / FLY_MS)
         const e = standardEase(t)
@@ -239,23 +243,28 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       }
       for (const p of s.provinces) {
         p.height += (p.target - p.height) * 0.14
+        if (Math.abs(p.target - p.height) > 0.002) moving = true
+        else p.height = p.target
         p.group.scale.z = p.height
       }
       for (const c of s.columns) {
         c.height += (c.target - c.height) * 0.14
+        if (Math.abs(c.target - c.height) > 0.002) moving = true
+        else c.height = c.target
         c.mesh.visible = c.height > 0.02
         c.mesh.scale.y = Math.max(0.01, c.height)
         const base = s.provinces.find((p) => p.region === c.region)?.height ?? BASE
         c.mesh.position.set(c.at[0], c.at[1], base + c.height / 2)
       }
-      s.controls.update()
+      // Damping keeps the camera gliding after a drag; update() says whether it still moved.
+      if (s.controls.update()) moving = true
       s.renderer.render(s.scene, s.camera)
       // Labels follow their province's top face on screen, moved directly (no React render).
       const rect = s.renderer.domElement.getBoundingClientRect()
       for (const p of s.provinces) {
         const el = p.region ? labelEls.current.get(p.region) : undefined
         if (!el || p.region !== p.id) continue
-        const v = new Vector3(p.centre[0], p.centre[1], p.height + 0.6).project(s.camera)
+        const v = anchor.set(p.centre[0], p.centre[1], p.height + 0.6).project(s.camera)
         const x = ((v.x + 1) / 2) * rect.width
         const y = ((1 - v.y) / 2) * rect.height
         const [dx, dy] = LEADER[p.region] ?? NUDGE[p.region] ?? [0, 0]
@@ -263,9 +272,10 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
         const line = leaderEls.current.get(p.region)
         if (line) Object.entries({ x1: x, y1: y, x2: x + dx * 0.78, y2: y + dy * 0.78 }).forEach(([k, n]) => line.setAttribute(k, String(n)))
       }
-      s.frame = requestAnimationFrame(loop)
+      if (moving) s.frame = requestAnimationFrame(loop)
     }
-    state.current.frame = requestAnimationFrame(loop)
+    const anchor = new Vector3()
+    invalidate()
 
     return () => {
       cancelAnimationFrame(state.current?.frame ?? 0)
@@ -273,6 +283,7 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       renderer.domElement.removeEventListener('pointerdown', onDown)
       renderer.domElement.removeEventListener('pointerup', onUp)
       renderer.domElement.removeEventListener('pointerleave', onLeave)
+      controls.removeEventListener('change', invalidate)
       controls.dispose()
       scene.traverse((object) => {
         if (object instanceof Mesh) {
@@ -285,16 +296,48 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       renderer.domElement.remove()
       state.current = null
     }
-  }, [basemap, places, projection])
+  }, [basemap, projection])
+
+  // District columns follow the places in place, so a new week or measure never rebuilds the scene.
+  useEffect(() => {
+    const s = state.current
+    if (!s) return
+    const wanted = new Map(places.map((place) => [place.id, place]))
+    const kept = s.columns.filter((c) => {
+      if (wanted.has(c.id)) return true
+      s.scene.remove(c.mesh)
+      c.mesh.geometry.dispose()
+      c.material.dispose()
+      return false
+    })
+    const have = new Set(kept.map((c) => c.id))
+    for (const place of places) {
+      if (have.has(place.id)) continue
+      const at = centroid(place.geometry, projection)
+      if (!at) continue
+      const material = new MeshStandardMaterial({ roughness: 0.6, metalness: 0 })
+      const mesh = new Mesh(new CylinderGeometry(1, 1, 1, 28), material)
+      mesh.rotation.x = Math.PI / 2
+      mesh.castShadow = true
+      mesh.visible = false
+      mesh.userData = { kind: 'district', id: place.id, region: place.region }
+      s.scene.add(mesh)
+      kept.push({ id: place.id, region: place.region, mesh, material, height: 0, target: 0, at })
+    }
+    s.columns = kept
+    s.invalidate()
+  }, [places, projection])
 
   useEffect(() => {
     const s = state.current
-    if (!s || !width || !height) return
+    if (!s) return
+    s.renderer.domElement.setAttribute('aria-label', label)
+    if (!width || !height) return
     s.renderer.setSize(width, height)
     s.camera.aspect = width / height
     s.camera.updateProjectionMatrix()
-    s.renderer.domElement.setAttribute('aria-label', label)
-  }, [width, height, label])
+    s.invalidate()
+  }, [width, height, label, basemap])
 
   // Values, colours and the theme: update materials and target heights in place.
   const [scheme, setScheme] = useState(0)
@@ -340,7 +383,8 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       c.material.emissiveIntensity = hot === c.id ? 0.12 : 0
       if (reducedMotion) c.height = c.target
     }
-  }, [focus, hot, regionFill, regionHeight, mark, reducedMotion, scheme, basemap])
+    s.invalidate()
+  }, [focus, hot, regionFill, regionHeight, mark, reducedMotion, scheme, basemap, places])
 
   // Fly to the chosen province, or back out to the country.
   useEffect(() => {
@@ -358,9 +402,11 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     if (reducedMotion) {
       s.controls.target.copy(to.t)
       s.camera.position.copy(to.p)
+      s.invalidate()
       return
     }
     s.fly = { from: { t: s.controls.target.clone(), p: s.camera.position.clone() }, to, start: performance.now() }
+    s.invalidate()
   }, [focus, basemap, reducedMotion])
 
   return <div className="relief" ref={host} style={{ width, height }}>

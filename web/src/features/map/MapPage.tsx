@@ -103,8 +103,9 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const colouring: Colouring = search.get('colour') === 'value' || code === 'AVG_MEET_MIN' ? 'value' : 'usual'
   const reducedMotion = useReducedMotion()
   const [webgl] = useState(canRenderRelief)
-  // Relief by default where it can render and motion is welcome; the flat map otherwise or on request.
-  const relief = webgl && search.get('view') !== 'flat' && (search.get('view') === 'relief' || !reducedMotion)
+  // Relief where it can render and motion is welcome; the flat map under reduced motion, or on request.
+  const canRelief = webgl && !reducedMotion
+  const relief = canRelief && search.get('view') !== 'flat'
   const [fsa, setFsa] = useState(false)
   const [hot, setHot] = useState<string | null>(null)
 
@@ -187,7 +188,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const setQuery = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(search)
     for (const [key, value] of Object.entries(changes)) {
-      const fallback = key === 'week' ? manifest.latest_week : key === 'kpi' ? 'COVERAGE_13W' : key === 'colour' ? 'usual' : key === 'view' ? (reducedMotion ? 'flat' : 'relief') : ''
+      const fallback = key === 'week' ? manifest.latest_week : key === 'kpi' ? 'COVERAGE_13W' : key === 'colour' ? 'usual' : key === 'view' ? 'relief' : ''
       if (!value || value === fallback) next.delete(key)
       else next.set(key, value)
     }
@@ -233,7 +234,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
         <label><input type="radio" name="colour" checked={colouring === 'usual'} onChange={() => setQuery({ colour: 'usual' })} /> Compared with usual</label>
         <label><input type="radio" name="colour" checked={colouring === 'value'} onChange={() => setQuery({ colour: 'value' })} /> Value</label>
       </fieldset>
-      {webgl && !fsaMode && <fieldset className="map-colouring">
+      {canRelief && !fsaMode && <fieldset className="map-colouring">
         <legend>View</legend>
         <label><input type="radio" name="view" checked={relief} onChange={() => setQuery({ view: 'relief' })} /> Relief</label>
         <label><input type="radio" name="view" checked={!relief} onChange={() => setQuery({ view: 'flat' })} /> Flat</label>
