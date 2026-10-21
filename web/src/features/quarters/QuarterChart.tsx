@@ -63,6 +63,10 @@ export function QuarterChart({ points, selected, onSelect, format, tickFormat = 
   const index = points.findIndex((p) => p.id === selected)
   const active = hover ?? (index >= 0 ? index : null)
 
+  const at = (clientX: number, svg: SVGSVGElement) => {
+    const i = Math.floor((clientX - svg.getBoundingClientRect().left - margin.left) / band)
+    return i >= 0 && i < points.length ? i : null
+  }
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     const next = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: points.length - 1 }[event.key]
     if (next === undefined || !points.length) return
@@ -73,11 +77,12 @@ export function QuarterChart({ points, selected, onSelect, format, tickFormat = 
   return <div ref={box} className="quarters-chart" style={{ height }}>
     {width > 0 && <svg width={width} height={height} role="img" aria-label={label} tabIndex={0} onKeyDown={onKeyDown}
       onPointerLeave={() => setHover(null)}
-      onPointerMove={(event) => {
-        const i = Math.floor((event.clientX - event.currentTarget.getBoundingClientRect().left - margin.left) / band)
-        setHover(i >= 0 && i < points.length ? i : null)
-      }}
-      onClick={() => { if (hover !== null) onSelect(points[hover]!.id) }}>
+      onPointerMove={(event) => setHover(at(event.clientX, event.currentTarget))}
+      onClick={(event) => {
+        // From the click itself, so a tap on a touch screen (no hover first) chooses too.
+        const i = at(event.clientX, event.currentTarget)
+        if (i !== null) onSelect(points[i]!.id)
+      }}>
       <defs>
         <pattern id={hatch} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="5" className="quarters-hatch" />

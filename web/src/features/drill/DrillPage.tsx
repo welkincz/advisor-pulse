@@ -13,11 +13,11 @@ import { NarrativePanel } from '../narrative/NarrativePanel'
 import { KPI_DEFINITIONS, LOWER_IS_BETTER } from '../overview/kpis'
 import { KpiBoard, boardRows } from '../overview/KpiBoard'
 import { weekHeadline } from '../overview/headline'
+import { QuarterPanel } from '../quarters/QuarterPanel'
 import { ChildMultiples } from './ChildMultiples'
 import { type DrillPath, LEVEL_LABEL, crumbs, drillPath, resolveWeek, weekQuery } from './path'
 import { navigateWithTransition } from './transition'
 import './drill.css'
-import { QuarterPanel } from '../quarters/QuarterPanel'
 
 interface Tile { code: KpiCode; value: number | null; wow: number | null; anomaly: boolean }
 
