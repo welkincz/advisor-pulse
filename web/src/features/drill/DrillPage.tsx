@@ -13,6 +13,7 @@ import { NarrativePanel } from '../narrative/NarrativePanel'
 import { KPI_DEFINITIONS, LOWER_IS_BETTER } from '../overview/kpis'
 import { KpiBoard, boardRows } from '../overview/KpiBoard'
 import { weekHeadline } from '../overview/headline'
+import { QuarterPanel } from '../quarters/QuarterPanel'
 import { ChildMultiples } from './ChildMultiples'
 import { type DrillPath, LEVEL_LABEL, crumbs, drillPath, resolveWeek, weekQuery } from './path'
 import { navigateWithTransition } from './transition'
@@ -121,6 +122,8 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, childHre
       {children.status === 'error' && <DataNotice what={`the ${childLabel.toLowerCase()}`} onRetry={children.retry} />}
       {children.status === 'ready' && <ChildMultiples rows={children.data} parent={childWeeks.map((w) => parentLineFor(all, code, w))} code={code} week={week} weeks={childWeeks} hrefFor={childHref} onOpen={onChildClick} />}
     </Section>}
+    <QuarterPanel nodeId={path.nodeId} nodeName={name} code={code} better={better}
+      childLabel={childLabel && path.childSegment !== 'a' ? childLabel : undefined} hrefFor={childHref} onOpen={onChildClick} />
   </>
 }
 

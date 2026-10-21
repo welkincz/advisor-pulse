@@ -1,5 +1,6 @@
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from '../../app/useReducedMotion'
+import { weekFiscalYear } from '../../data/fiscal'
 import { standardEase } from '../../motion/tween'
 import { type Pt, domain, linePath, mixPoints, ticks } from './scale'
 import './charts.css'
@@ -111,7 +112,9 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
 
   const index = selected ? weeks.indexOf(selected) : -1
   const yTicks = compact ? [] : ticks(scale.y[0], scale.y[1], height < 200 ? 2 : 4)
-  const years = compact ? [] : weeks.flatMap((w, i) => (i > 0 && w.slice(0, 4) !== weeks[i - 1]!.slice(0, 4) ? [{ i, label: w.slice(0, 4) }] : []))
+  // Fiscal years start on 1 November (data/fiscal.ts): a rule where each one begins.
+  const fiscal = useMemo(() => weeks.map(weekFiscalYear), [weeks])
+  const years = compact ? [] : weeks.flatMap((_, i) => (i > 0 && fiscal[i] !== fiscal[i - 1] ? [{ i, label: fiscal[i]! }] : []))
   const active = hover ?? (index >= 0 ? index : null)
 
   const pick = (event: PointerEvent<SVGSVGElement>) => {

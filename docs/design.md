@@ -127,6 +127,8 @@ Every chart is hand-written SVG in `components/charts/`: `TrendChart` for weekly
 `StackedWeeks` for weekly totals split by kind, `Bullet` for a value against its limits, and
 the overview heatmap. They read colours from tokens through CSS, so light and dark need no
 re-render, and there is no chart engine to load (#175).
+Week axes mark **fiscal years**, not calendar years: a dashed rule and `FY27` where each
+one begins (1 November, `data/fiscal.ts`, the same rule as dbt and Python).
 Use `Sparkline` (plain SVG) for word-sized trends in stats. The flat map (#38, #169) is plain SVG
 too (`features/map/CanadaMap.tsx`), filled with `var(--seq-N)` so it follows the scheme.
 
@@ -197,12 +199,34 @@ The overview is a weekly briefing, not a tile dashboard. In reading order:
 1. **The week said in one sentence.** The page title is written from the numbers (`features/overview/headline.ts`): how activities per advisor moved, whether that is the lowest or highest for a while, then the biggest anomaly elsewhere. It is deterministic; the narrative model writes the region and district notes.
 2. **One measure across every weekly run** (`TrendChart`), under a heavy ink rule. The weekly line runs through a soft ribbon: the trailing 13-week average, "usual". Anomalies get a signal ring. Click or arrow keys choose the report week; the axis fits the weeks after the 13-week warm-up.
 3. **Every measure**, in three groups (reach, appointments, data quality). Each row is a toggle that plots that measure above, with a 26-week sparkline.
-4. **The funnel**: calls, bookings, held and converted on one zero-based scale, with the linking rate and its usual level between bars.
-5. **By region**: small multiples on a shared axis, region colour, the national line dashed beneath.
-6. **Every week at a glance**: a heatmap of every region and district by week, coloured by distance from each area's own 13-week average (diverging, better follows the KPI's direction). Holidays show as vertical bands. The first 13 weeks have no usual level yet and stay neutral.
-7. **Region notes** from the published narratives, labelled as written by Claude and checked against the figures.
+4. **Fiscal quarters** (#202): see below.
+5. **The funnel**: calls, bookings, held and converted on one zero-based scale, with the linking rate and its usual level between bars.
+6. **By region**: small multiples on a shared axis, region colour, the national line dashed beneath.
+7. **Every week at a glance**: a heatmap of every region and district by week, coloured by distance from each area's own 13-week average (diverging, better follows the KPI's direction). Holidays show as vertical bands. The first 13 weeks have no usual level yet and stay neutral.
+8. **Region notes** from the published narratives, labelled as written by Claude and checked against the figures.
 
 `TrendChart` and the heatmap are hand-written SVG (`components/charts/`).
+
+### Fiscal quarters (#202)
+
+Canadian banks report on a fiscal year that starts on 1 November (FY26 = Nov 2025 to
+Oct 2026). The overview and every region, district and branch page carry a **Fiscal
+quarters** section for the chosen measure, read from `org_quarterly` (PLAN.md §6.9):
+
+- **Head:** the chosen quarter (`Q4 FY26`), its months, how far it has run
+  ("To date: 4 of 13 weeks"), its value, and the change from the quarter before and from
+  the same quarter a year earlier.
+- **Chart:** one column per quarter on a zero baseline (`features/quarters/QuarterChart.tsx`),
+  grouped under its fiscal year. A quarter still running is **hatched**, so texture says
+  "partial" rather than colour alone. The chosen column is a darker sequential step. Columns
+  rise once on first view, never under reduced motion. Click or arrow keys choose a quarter.
+- **Children:** the regions, districts or branches for that quarter, with both changes.
+- **Like-for-like:** flows show as a **weekly average** over the weeks reported, so a quarter
+  to date compares fairly with a whole one. Distinct clients are a quarter total, so their
+  change waits until the quarter closes. Ratios are rebuilt from the quarter's counts.
+  Late-arriving and quarantine rates are batch-level and have no quarterly form.
+- **Fallback:** an export made before the mart has no `org_quarterly`, and the section
+  leaves itself out.
 
 ### Drill pages (#179)
 

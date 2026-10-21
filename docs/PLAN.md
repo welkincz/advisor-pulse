@@ -472,7 +472,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 ## 12. Frontend
 
 - **Art direction:** extends charliebuild's language: paper `#F6F7F5` / ink `#1B222B` / signal gold, Avenir Next plus a mono for figures, editorial grid, generous whitespace, full dark mode. Data colour comes from one sequential ramp derived from signal gold, plus one diverging pair for WoW. Detailed in `docs/design.md` (issue in M7).
-- **Views:** Overview (national pulse plus narrative) → drill path via breadcrumb and URL state (`/r/ON/d/GTA/b/BR-0412`) → Advisor detail; Map; Pipeline; Data quality; Case study.
+- **Views:** Overview (national pulse plus narrative) → drill path via breadcrumb and URL state (`/r/ON/d/GTA/b/BR-0412`) → Advisor detail; Map; Pipeline; Data quality; Case study. The overview and every org drill page also show **fiscal quarters** (FY starts 1 November), quarter to date included (#202, docs/design.md).
 - **Performance budget:** LCP < 2.5 s on fast 3G-ish profile for the overview (KPI tiles render from `manifest.json` summary before DuckDB-WASM finishes loading); JS ≤ 350 KB gzip per route on initial load, excluding WASM and chunks the route does not request (measured by `web/tests/bundle-budget.mjs`); Lighthouse a11y ≥ 95.
 - **Motion:** purposeful only: number tweens on week change, drill transitions that preserve spatial context, pipeline replay. All respect `prefers-reduced-motion`.
 

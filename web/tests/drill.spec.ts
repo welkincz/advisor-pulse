@@ -28,7 +28,7 @@ for (const [path, level, name] of levels) {
 
 test('children drill down; breadcrumb and back button return', async ({ page }) => {
   await page.goto('/r/ON')
-  await page.getByRole('table').getByRole('link').first().click()
+  await page.getByRole('table', { name: /under Ontario/ }).getByRole('link').first().click()
   await expect(page).toHaveURL(/\/r\/ON\/d\/[A-Z]+$/)
   await expect(page.getByText('District', { exact: true })).toBeVisible()
   await page.goBack()
@@ -44,8 +44,8 @@ test('the week lives in the URL and follows the drill', async ({ page }) => {
   await page.getByRole('combobox', { name: /^Week/ }).selectOption('2026-W39')
   await expect(page).toHaveURL(/\?week=2026-W39$/)
   await expect(page.getByRole('heading', { name: 'Ontario, week 2026-W39' })).toBeVisible()
-  await expect(page.getByRole('table')).toContainText('week 2026-W39')
-  const child = page.getByRole('table').getByRole('link').first()
+  await expect(page.getByRole('table', { name: /under Ontario/ })).toContainText('week 2026-W39')
+  const child = page.getByRole('table', { name: /under Ontario/ }).getByRole('link').first()
   await expect(child).toHaveAttribute('href', /\?week=2026-W39$/)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Ontario, week 2026-W39' })).toBeVisible()
@@ -57,8 +57,8 @@ test('children sort by any KPI from the keyboard at 375 px', async ({ page }) =>
   const picker = page.getByRole('combobox', { name: /^Rank by/ })
   await picker.focus()
   await picker.selectOption('NO_SHOW_RATE')
-  await expect(page.getByRole('table')).toContainText('No-show rate under Ontario')
-  await page.getByRole('table').getByRole('link').first().focus()
+  await expect(page.getByRole('table', { name: /under Ontario/ })).toContainText('No-show rate under Ontario')
+  await page.getByRole('table', { name: /under Ontario/ }).getByRole('link').first().focus()
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/r\/ON\/d\//)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -78,7 +78,8 @@ test('an org page plots any measure against its parent and lists its children as
 
 test('an advisor page plots a measure against the branch median', async ({ page }) => {
   await page.goto('/r/ON/d/GTA/b/BR-0101/a/ADV-10003')
-  await expect(page.getByRole('img', { name: /Activities completed for ADV-10003 over \d+ weeks, with the branch's median advisor dashed/ })).toBeVisible()
+  // The advisor series needs DuckDB-WASM from the CDN, which can take a while on a CI runner.
+  await expect(page.getByRole('img', { name: /Activities completed for ADV-10003 over \d+ weeks, with the branch's median advisor dashed/ })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('combobox', { name: 'Plot' }).selectOption('SHOW_RATE')
   await expect(page).toHaveURL(/kpi=SHOW_RATE/)
 })

@@ -16,6 +16,7 @@ import { RegionNotes } from '../features/overview/RegionNotes'
 import { RunStatusBanner } from '../features/overview/RunStatusBanner'
 import { WeekHeatmap } from '../features/overview/WeekHeatmap'
 import { weekSpan } from '../features/overview/week'
+import { QuarterPanel } from '../features/quarters/QuarterPanel'
 import '../features/overview/overview.css'
 
 const MULTIPLE_WEEKS = 26
@@ -115,6 +116,8 @@ function Briefing({ manifest }: { manifest: Manifest }) {
     <Section id="measures" title="Every measure" lede={`Week ${week}, against the week before. Choose one to plot it above.`}>
       <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} />
     </Section>
+
+    <QuarterPanel nodeId="CA" nodeName="Canada" code={code} better={better} childLabel="Regions" hrefFor={(id) => `/r/${encodeURIComponent(id)}`} />
 
     {funnel && <Section id="funnel" title="From call to conversion" lede="Counts for the week on one scale; between them, the rate that links each step to the next.">
       <Funnel data={funnel} />
