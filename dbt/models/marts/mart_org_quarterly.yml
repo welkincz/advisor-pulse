@@ -163,8 +163,8 @@ unit_tests:
           - {iso_week_id: '2025-W47', week_fiscal_quarter_id: FY26-Q1, fiscal_quarter_id: FY26-Q1, fiscal_year: 2026, fiscal_quarter: 1, fiscal_quarter_start: '2025-11-01', fiscal_quarter_end: '2026-01-31'}
       - input: ref('dim_org')
         rows:
-          - {branch_id: BR-A, branch_name: A Branch, district_code: DDD, district_name: D District, region_code: ON, region_name: Ontario}
-          - {branch_id: BR-B, branch_name: B Branch, district_code: DDD, district_name: D District, region_code: ON, region_name: Ontario}
+          - {branch_id: BR-A, branch_name: A Branch, district_code: DDD, district_name: D District, region_code: 'ON', region_name: Ontario}
+          - {branch_id: BR-B, branch_name: B Branch, district_code: DDD, district_name: D District, region_code: 'ON', region_name: Ontario}
       - input: ref('int_kpi_events')
         rows:
           - {iso_week_id: '2025-W45', branch_id: BR-A, activities_completed: 1, book_size: 100, clients_covered_13w: 10}
