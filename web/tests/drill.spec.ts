@@ -78,7 +78,8 @@ test('an org page plots any measure against its parent and lists its children as
 
 test('an advisor page plots a measure against the branch median', async ({ page }) => {
   await page.goto('/r/ON/d/GTA/b/BR-0101/a/ADV-10003')
-  await expect(page.getByRole('img', { name: /Activities completed for ADV-10003 over \d+ weeks, with the branch's median advisor dashed/ })).toBeVisible()
+  // The advisor series needs DuckDB-WASM from the CDN, which can take a while on a CI runner.
+  await expect(page.getByRole('img', { name: /Activities completed for ADV-10003 over \d+ weeks, with the branch's median advisor dashed/ })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('combobox', { name: 'Plot' }).selectOption('SHOW_RATE')
   await expect(page).toHaveURL(/kpi=SHOW_RATE/)
 })
