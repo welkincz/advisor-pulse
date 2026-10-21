@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import type { WeeklyReport } from '../../data/generated/weekly_report'
 import { barShare, movedRows } from './WhatMoved'
