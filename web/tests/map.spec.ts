@@ -198,3 +198,54 @@ test('map code is fetched only on the map route', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Map', exact: true })).toBeVisible()
   expect(mapRequests).toHaveLength(1)
 })
+
+test('the relief map is the default where WebGL and motion are welcome, and Flat switches back', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/map')
+  const relief = page.locator('.relief canvas')
+  test.skip(!(await page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl')))), 'no WebGL in this browser')
+  await expect(relief).toBeVisible()
+  await expect(relief).toHaveAttribute('aria-label', /in relief: height is the value, colour the comparison/)
+  await expect(page.locator('.relief-label', { hasText: 'Ontario' })).toBeVisible()
+  await expect(page.locator('.relief-leaders line')).toHaveCount(3)
+
+  await page.getByRole('button', { name: /Ontario/ }).click()
+  await expect(page).toHaveURL(/\/map\?region=ON$/)
+  await expect(page.getByRole('heading', { name: 'Districts in Ontario' })).toBeVisible()
+  await expect(relief).toBeVisible()
+
+  await page.getByLabel('Flat').check()
+  await expect(page).toHaveURL(/view=flat/)
+  await expect(relief).toHaveCount(0)
+  await expect(page.getByLabel('districts map')).toBeVisible()
+})
+
+test('the relief canvas keeps its size and name when the measure or week changes', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/map')
+  const relief = page.locator('.relief canvas')
+  await expect(relief).toBeVisible()
+  const before = await relief.boundingBox()
+  await page.getByRole('combobox', { name: 'Measure', exact: true }).selectOption('CALLS_OUT')
+  await expect(relief).toHaveAttribute('aria-label', /Outbound calls by province/)
+  await page.goto('/map?kpi=CALLS_OUT&week=2026-W39')
+  await expect(relief).toHaveAttribute('aria-label', /2026-W39/)
+  expect((await relief.boundingBox())?.width).toBeCloseTo(before!.width, 0)
+  expect((await relief.boundingBox())?.height).toBeGreaterThan(200)
+})
+
+test('reduced motion keeps the flat map, even when the link asks for relief', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/map?view=relief')
+  await expect(page.getByLabel('regions map')).toBeVisible()
+  await expect(page.locator('.relief canvas')).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'View' })).toHaveCount(0)
+})
+
+test('the relief map fits a 375 px screen without sideways scrolling', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/map?view=relief')
+  await expect(page.locator('.relief canvas')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})

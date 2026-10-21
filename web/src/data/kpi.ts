@@ -17,10 +17,13 @@ export const KPI_LABELS: Record<KpiCode, string> = {
 }
 
 const RATES = new Set<KpiCode>(['CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
+/** Averages keep one decimal even when whole, so a column of them lines up (16.0, not 16). */
+const AVERAGES = new Set<KpiCode>(['ACT_PER_ADV', 'AVG_MEET_MIN'])
 
 export function formatKpi(code: KpiCode, value: number | null | undefined): string {
   if (value === null || value === undefined) return '–'
   if (RATES.has(code)) return `${(value * 100).toFixed(1)}%`
+  if (AVERAGES.has(code)) return value.toFixed(1)
   return Number.isInteger(value) ? value.toLocaleString('en-CA') : value.toFixed(1)
 }
 
