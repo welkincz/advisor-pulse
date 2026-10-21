@@ -158,6 +158,7 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
 
   // One flagged week circled and named, so the eye finds it before reading the tooltip.
   const ringAt = compact ? null : annotatedWeek(flagged, values, index)
+  // On the drawn line, not the raw value: during a morph the ring rides the moving point.
   const ringPoint = ringAt !== null ? shown.line[ringAt] : null
   // An anomaly is an extreme, so its name goes on the outside of the line: below a dip, above a spike.
   const near = ringAt === null ? [] : shown.line.slice(Math.max(0, ringAt - 4), ringAt + 5).filter((p): p is [number, number] => p !== null)

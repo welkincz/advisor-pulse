@@ -38,4 +38,6 @@ it('circles the selected week when flagged, else the latest flagged week with a 
   expect(annotatedWeek([false, true, false, true, false], values, -1)).toBe(1)
   expect(annotatedWeek([false, false, false, false, false], values, 0)).toBeNull()
   expect(annotatedWeek(undefined, values, 0)).toBeNull()
+  // A flagged week with no value cannot be circled: fall back to the latest one that has a value.
+  expect(annotatedWeek([true, false, false, true, false], values, 3)).toBe(0)
 })
