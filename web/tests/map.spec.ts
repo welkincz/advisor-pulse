@@ -249,3 +249,18 @@ test('the relief map fits a 375 px screen without sideways scrolling', async ({ 
   await expect(page.locator('.relief canvas')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
+
+test('the list shows the comparison the colours show, and each row explains itself on hover', async ({ page }) => {
+  await page.goto('/map?view=flat')
+  // Colouring by usual: the list compares with usual too; four fixture weeks have no usual yet.
+  await expect(page.locator('.map-rows-head')).toContainText('vs usual')
+  const ontario = page.locator('.map-rows li', { hasText: 'Ontario' })
+  await expect(ontario).toContainText('No usual yet')
+  await ontario.locator('button').hover()
+  const card = page.getByRole('tooltip')
+  await expect(card).toContainText('Share of advisors’ clients contacted')
+  await expect(card).toContainText('Click to fly to its districts.')
+  // Colouring by value: the list falls back to the change from last week, and says so.
+  await page.getByLabel('Value').check()
+  await expect(page.locator('.map-rows-head')).toContainText('vs last week')
+})
