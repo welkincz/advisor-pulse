@@ -5,6 +5,7 @@ Subcommands are stubs until their issues land; each one names the issue that imp
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -132,6 +133,27 @@ def backfill(
 def export() -> None:
     """Export marts to Parquet and JSON for the web app."""
     _not_implemented("export", 46)
+
+
+@app.command()
+def recap(
+    week: WeekOption = None,
+    exports: Annotated[
+        Path, typer.Option("--exports", help="Published export folder to read.")
+    ] = Path("web/public/data"),
+    out: Annotated[Path, typer.Option("--out", help="Where to write the JSON.")] = Path(
+        "web/public/recap/recap.json"
+    ),
+) -> None:
+    """Write the weekly recap video's input from the published export."""
+    from pulse.export.recap import write_recap
+
+    try:
+        written = write_recap(exports, out, week)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(f"pulse recap: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Wrote {written}")
 
 
 @app.command()

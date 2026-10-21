@@ -12,6 +12,7 @@ import { weekHeadline } from '../features/overview/headline'
 import { type BoardRow, KpiBoard, boardRows } from '../features/overview/KpiBoard'
 import { KPI_CODES, KPI_DEFINITIONS, LOWER_IS_BETTER } from '../features/overview/kpis'
 import { RegionMultiples } from '../features/overview/RegionMultiples'
+import { WeekRecap, useRecap } from '../features/overview/WeekRecap'
 import { WhatMoved } from '../features/overview/WhatMoved'
 import { RunStatusBanner } from '../features/overview/RunStatusBanner'
 import { WeekHeatmap } from '../features/overview/WeekHeatmap'
@@ -63,6 +64,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const funnel = funnelFor(org.status === 'ready' ? org.data[0] : undefined, all, week, settled.has(week))
   const drill = (id: string) => `/r/${encodeURIComponent(id)}${week === latest ? '' : `?week=${encodeURIComponent(week)}`}`
   const flagged = series.filter((r) => r?.flag === 'ANOMALY').length
+  const recap = useRecap()
 
   return <>
     <header className="briefing-head">
@@ -122,6 +124,10 @@ function Briefing({ manifest }: { manifest: Manifest }) {
     <Section id="measures" title="Every measure" lede="Hover or focus a measure for what it means; click to plot it.">
       <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} />
     </Section>
+
+    {recap?.week === week && <Section id="recap" title="The week in 20 seconds" lede="A short video the weekly run renders from the same numbers.">
+      <WeekRecap recap={recap} />
+    </Section>}
 
     <QuarterPanel nodeId="CA" nodeName="Canada" code={code} better={better} childLabel="Regions" hrefFor={(id) => `/r/${encodeURIComponent(id)}`} />
 

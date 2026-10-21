@@ -109,6 +109,13 @@ backfill: ## Weekly runs over a range (FROM=YYYY-Www TO=YYYY-Www)
 export: ## Export marts to web/public/data
 	$(RUN) pulse export
 
+# The poster (frame 320) is the four national measures, fully counted up (video/src/Recap.tsx SCENES).
+.PHONY: video
+video: ## Weekly recap video from the published export into web/public/recap (WEEK=… optional; needs video/ installed)
+	$(RUN) pulse recap --exports web/public/data --out web/public/recap/recap.json $(if $(WEEK),--week $(WEEK))
+	cd video && pnpm exec remotion render src/index.ts Recap ../web/public/recap/recap.mp4 --props=../web/public/recap/recap.json --log=error
+	cd video && pnpm exec remotion still src/index.ts Recap ../web/public/recap/poster.jpg --frame=320 --props=../web/public/recap/recap.json --log=error
+
 .PHONY: narrative-eval
 narrative-eval: ## Live narrative eval pass-rate table (RECORD=1 saves the answers)
 	$(RUN) python tests/narrative/eval/run_eval.py --live $(if $(RECORD),--record)

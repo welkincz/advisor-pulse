@@ -25,6 +25,7 @@ web/dist/
 web/public/data
 web/.public-data-versions/
 web/public/lineage/
+web/public/recap/
 
 # Secrets and OS
 .env

@@ -150,6 +150,25 @@ test('the hero series downloads as CSV with raw values', async ({ page }) => {
   expect(lines[1]).toMatch(/^2026-W37,CA,Canada,SHOW_RATE,0\.\d+/)
 })
 
+test('the week in 20 seconds plays only when asked and has a transcript, for its own week only', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  const recap = readFileSync(resolve(import.meta.dirname, '../../video/src/sample.json'), 'utf8')
+  await page.route('**/recap/recap.json', (route) => route.fulfill({ body: recap, contentType: 'application/json' }))
+  await page.goto('/')
+  const section = page.getByRole('region', { name: 'The week in 20 seconds' })
+  await expect(section).toBeVisible()
+  const video = section.locator('video')
+  await expect(video).toHaveAttribute('poster', /recap\/poster\.jpg$/)
+  expect(await video.evaluate((el: HTMLVideoElement) => el.paused && !el.autoplay)).toBe(true)
+  await section.getByText('What the video shows').click()
+  await expect(section.locator('.recap-transcript')).toContainText(JSON.parse(recap).headline)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+  // Another week has no video: the recap covers only the week it was rendered for.
+  await page.goto('/?week=2026-W39')
+  await expect(page.getByRole('heading', { name: 'Activities per advisor', level: 2 })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'The week in 20 seconds' })).toHaveCount(0)
+})
+
 test.describe('on a touch screen', () => {
   test.use({ hasTouch: true, viewport: { width: 375, height: 812 } })
 
