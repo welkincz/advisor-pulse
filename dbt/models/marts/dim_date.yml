@@ -5,7 +5,9 @@ models:
     description: >
       Calendar dimension, one row per day. Weeks are ISO weeks (Monday start) labelled
       `YYYY-Www`; every weekly mart joins on `iso_week_id`. Dates are America/Toronto
-      business dates (PLAN.md §6).
+      business dates (PLAN.md §6). The fiscal year starts on 1 November, as at Canadian
+      banks: FY26 is 2025-11-01 to 2026-10-31, Q1 Nov–Jan … Q4 Aug–Oct. A week is reported
+      in the fiscal quarter that holds its Sunday (`week_fiscal_quarter_id`).
     config:
       contract:
         enforced: true
@@ -19,6 +21,12 @@ models:
       - expression_is_true:
           arguments:
             expression: "iso_week_id = format('{:04d}-W{:02d}', iso_year, iso_week)"
+      - expression_is_true:
+          arguments:
+            expression: "date_day between fiscal_quarter_start and fiscal_quarter_end"
+      - expression_is_true:
+          arguments:
+            expression: "fiscal_quarter_id = format('FY{:02d}-Q{:d}', fiscal_year % 100, fiscal_quarter)"
     columns:
       - name: date_day
         description: Calendar date (primary key).
@@ -79,4 +87,37 @@ models:
       - name: is_weekend
         description: True on Saturday and Sunday.
         data_type: boolean
+        data_tests: [not_null]
+      - name: fiscal_year
+        description: Fiscal year, named for the calendar year it ends in (2025-11-01 is FY2026).
+        data_type: integer
+        data_tests: [not_null]
+      - name: fiscal_quarter
+        description: Fiscal quarter, 1–4 (Q1 Nov–Jan, Q2 Feb–Apr, Q3 May–Jul, Q4 Aug–Oct).
+        data_type: integer
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4]
+                quote: false
+      - name: fiscal_quarter_id
+        description: Fiscal quarter label, e.g. `FY26-Q1`.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: fiscal_month
+        description: Month of the fiscal year, 1 = November … 12 = October.
+        data_type: integer
+        data_tests: [not_null]
+      - name: fiscal_quarter_start
+        description: First day of the fiscal quarter.
+        data_type: date
+        data_tests: [not_null]
+      - name: fiscal_quarter_end
+        description: Last day of the fiscal quarter.
+        data_type: date
+        data_tests: [not_null]
+      - name: week_fiscal_quarter_id
+        description: The fiscal quarter this day's ISO week is reported in, the one holding the week's Sunday.
+        data_type: varchar
         data_tests: [not_null]

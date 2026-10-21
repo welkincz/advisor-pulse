@@ -1,0 +1,181 @@
+version: 2
+
+models:
+  - name: mart_org_quarterly
+    description: >
+      Node × fiscal quarter KPIs at every level (PLAN.md §6.8, §7), exported as
+      org_quarterly.parquet. The fiscal year starts on 1 November, as at Canadian banks, and a
+      week counts in the quarter holding its Sunday. Flows are summed, distinct clients are
+      counted over the quarter, stocks are taken at each branch's own last reported week and
+      summed up the hierarchy, and every ratio is
+      rebuilt from summed parts.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "weeks_reported between 1 and weeks_in_quarter"
+      - expression_is_true:
+          arguments:
+            expression: "clients_covered_13w <= book_size"
+      - expression_is_true:
+          arguments:
+            expression: "show_rate is null or show_rate between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "(level = 'NATIONAL') = (parent_id is null)"
+      - expression_is_true:
+          arguments:
+            expression: "fiscal_quarter_id = format('FY{:02d}-Q{:d}', fiscal_year % 100, fiscal_quarter)"
+    columns:
+      - name: fiscal_quarter_id
+        description: Fiscal quarter, e.g. `FY26-Q1` (FY starts 1 November).
+        data_type: varchar
+        data_tests: [not_null]
+      - name: fiscal_year
+        description: Fiscal year, named for the calendar year it ends in.
+        data_type: integer
+        data_tests: [not_null]
+      - name: fiscal_quarter
+        description: Fiscal quarter, 1–4 (Q1 Nov–Jan … Q4 Aug–Oct).
+        data_type: integer
+        data_tests: [not_null]
+      - name: quarter_start
+        description: First calendar day of the quarter.
+        data_type: date
+        data_tests: [not_null]
+      - name: quarter_end
+        description: Last calendar day of the quarter.
+        data_type: date
+        data_tests: [not_null]
+      - name: first_week
+        description: First ISO week reported in the quarter, across all nodes (the same on every row of the quarter).
+        data_type: varchar
+        data_tests: [not_null]
+      - name: last_week
+        description: Last ISO week reported in the quarter, across all nodes. Stocks use each branch's own last week, which is this one unless the branch missed it.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: weeks_reported
+        description: ISO weeks with data in the quarter, across all nodes.
+        data_type: integer
+        data_tests: [not_null]
+      - name: weeks_in_quarter
+        description: ISO weeks whose Sunday falls in the quarter (12 to 14), from the calendar.
+        data_type: integer
+        data_tests: [not_null]
+      - name: is_complete
+        description: True when every week of the quarter is reported; false for a quarter to date or a partial first quarter.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: level
+        description: NATIONAL, REGION, DISTRICT or BRANCH.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: node_id
+        description: "'CA' for national; region, district or branch code."
+        data_type: varchar
+        data_tests: [not_null]
+      - name: node_name
+        description: Display name of the node.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: parent_id
+        description: Parent node; null for national.
+        data_type: varchar
+      - name: advisor_weeks
+        description: "Sum of weekly active advisors: the denominator of activities per advisor."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: activities_completed
+        description: Completed activities in the quarter.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: calls_out
+        description: Completed outbound calls.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: calls_in
+        description: Completed inbound calls.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: appointments_booked
+        description: Appointments and reviews created in the quarter.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: booked_from_call
+        description: Of those, booked from a call (CALL_TO_APPT numerator).
+        data_type: bigint
+        data_tests: [not_null]
+      - name: appointments_held
+        description: Held appointments scheduled in the quarter.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: no_shows
+        description: No-shows scheduled in the quarter.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: conversions
+        description: Held appointments that converted.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: unique_clients_contacted
+        description: Distinct clients contacted at least once in the quarter (not a sum of weekly counts).
+        data_type: bigint
+        data_tests: [not_null]
+      - name: book_size
+        description: Active book clients, each branch at its own last reported week in the quarter, summed up the hierarchy.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: clients_covered_13w
+        description: Book clients contacted in the 13 weeks to each branch's last reported week, summed up the hierarchy.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: coverage_rate_13w
+        description: clients_covered_13w / book_size at quarter end.
+        data_type: double
+      - name: avg_meeting_duration_min
+        description: Meeting minutes over meetings held.
+        data_type: double
+      - name: activities_per_advisor
+        description: "Activities over advisor-weeks: the average weekly rate in the quarter."
+        data_type: double
+      - name: show_rate
+        description: Held over held plus no-shows.
+        data_type: double
+      - name: conversion_rate
+        description: Conversions over held.
+        data_type: double
+      - name: call_to_appt_rate
+        description: Booked from a call over outbound calls.
+        data_type: double
+
+unit_tests:
+  - name: mart_org_quarterly_keeps_the_book_of_a_branch_that_missed_the_last_week
+    description: >
+      Two branches in one district. BR-A reports W45 to W47; BR-B reports W45 and W46 only.
+      BR-B's stock is its W46 value (not zero), and the district adds BR-A at W47 to BR-B at W46.
+      FY26-Q1 (Nov to Jan) has 13 Sundays, so three weeks reported is a quarter to date.
+    model: mart_org_quarterly
+    given:
+      - input: ref('dim_date')
+        rows:
+          - {iso_week_id: '2025-W45', week_fiscal_quarter_id: FY26-Q1, fiscal_quarter_id: FY26-Q1, fiscal_year: 2026, fiscal_quarter: 1, fiscal_quarter_start: '2025-11-01', fiscal_quarter_end: '2026-01-31'}
+          - {iso_week_id: '2025-W46', week_fiscal_quarter_id: FY26-Q1, fiscal_quarter_id: FY26-Q1, fiscal_year: 2026, fiscal_quarter: 1, fiscal_quarter_start: '2025-11-01', fiscal_quarter_end: '2026-01-31'}
+          - {iso_week_id: '2025-W47', week_fiscal_quarter_id: FY26-Q1, fiscal_quarter_id: FY26-Q1, fiscal_year: 2026, fiscal_quarter: 1, fiscal_quarter_start: '2025-11-01', fiscal_quarter_end: '2026-01-31'}
+      - input: ref('dim_org')
+        rows:
+          - {branch_id: BR-A, branch_name: A Branch, district_code: DDD, district_name: D District, region_code: 'ON', region_name: Ontario}
+          - {branch_id: BR-B, branch_name: B Branch, district_code: DDD, district_name: D District, region_code: 'ON', region_name: Ontario}
+      - input: ref('int_kpi_events')
+        rows:
+          - {iso_week_id: '2025-W45', branch_id: BR-A, activities_completed: 1, book_size: 100, clients_covered_13w: 10}
+          - {iso_week_id: '2025-W46', branch_id: BR-A, activities_completed: 1, book_size: 110, clients_covered_13w: 20}
+          - {iso_week_id: '2025-W47', branch_id: BR-A, activities_completed: 1, book_size: 120, clients_covered_13w: 30}
+          - {iso_week_id: '2025-W45', branch_id: BR-B, activities_completed: 1, book_size: 50, clients_covered_13w: 5}
+          - {iso_week_id: '2025-W46', branch_id: BR-B, activities_completed: 1, book_size: 60, clients_covered_13w: 6}
+    expect:
+      rows:
+        - {level: NATIONAL, node_id: CA, book_size: 180, clients_covered_13w: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: REGION, node_id: 'ON', book_size: 180, clients_covered_13w: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: DISTRICT, node_id: DDD, book_size: 180, clients_covered_13w: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: BRANCH, node_id: BR-A, book_size: 120, clients_covered_13w: 30, activities_completed: 3, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: BRANCH, node_id: BR-B, book_size: 60, clients_covered_13w: 6, activities_completed: 2, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}

@@ -38,6 +38,7 @@ NARRATIVE_WINDOW_WEEKS = 26
 
 _ORDER = {
     "org_weekly": "iso_week_id, level, node_id",
+    "org_quarterly": "fiscal_quarter_id, level, node_id",
     "advisor_weekly": "iso_week_id, advisor_id",
     "weekly_report": "iso_week_id, level, node_id, kpi_code",
     "geo_weekly": "iso_week_id, fsa_code, district_code",

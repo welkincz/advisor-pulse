@@ -330,7 +330,9 @@ These hold source columns as-is, plus:
 
 ### 6.8 Marts (star schema; dbt contracts enforced)
 
-**dim_date**: `date_day` PK, `iso_week_id`, `week_start`, `week_end`, `iso_year`, `iso_week`, `month`, `quarter`, `day_of_week`, `is_weekend`.
+**dim_date**: `date_day` PK, `iso_week_id`, `week_start`, `week_end`, `iso_year`, `iso_week`, `month`, `quarter`, `day_of_week`, `is_weekend`, and the fiscal calendar: `fiscal_year`, `fiscal_quarter`, `fiscal_quarter_id` (`FY26-Q1`), `fiscal_month` (1 = November), `fiscal_quarter_start`, `fiscal_quarter_end`, `week_fiscal_quarter_id`.
+
+**Fiscal calendar (#195).** The fiscal year starts on 1 November, as at Canadian banks: FY26 runs from 2025-11-01 to 2026-10-31, and is named for the year it ends in. Quarters: Q1 Nov–Jan, Q2 Feb–Apr, Q3 May–Jul, Q4 Aug–Oct. A weekly figure counts in the quarter that holds its ISO week's **Sunday**, so every week falls in exactly one quarter and a quarter has 12 to 14 weeks (Feb–Apr is 89 or 90 days and can hold only 12 Sundays). The rules live once in dbt macros (`dbt/macros/dates.sql`) and once in Python (`src/pulse/fiscal.py`), pinned by the same edge cases.
 
 **dim_org** (branch grain + hierarchy): `branch_sk` PK, `branch_id`, `branch_name`, `district_code`, `district_name`, `region_code`, `region_name`, `fsa_code`, `province_code`, `open_date`, `close_date`, `is_open`.
 
@@ -351,6 +353,8 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
 **mart_weekly_report** (long format, Tableau- and LLM-friendly): `iso_week_id`, `level`, `node_id`, `node_name`, `parent_id`, `kpi_code`, `value`, `prior_week_value`, `wow_delta`, `wow_pct`, `trailing_13w_avg`, `rank_in_parent`, `peer_count`, `flag` (`UP`, `DOWN`, `FLAT`, `ANOMALY`).
 
+**mart_org_quarterly** (node × fiscal quarter, every level): `fiscal_quarter_id`, `fiscal_year`, `fiscal_quarter`, `quarter_start`, `quarter_end`, `first_week`, `last_week`, `weeks_reported`, `weeks_in_quarter`, `is_complete`, `level`, `node_id`, `node_name`, `parent_id`, `advisor_weeks`, the flow counts of mart_org_weekly plus `booked_from_call`, `unique_clients_contacted`, `book_size`, `clients_covered_13w` and the six ratios. Flows are summed over the quarter's weeks; distinct clients are counted over the quarter (not added up); book size and 13-week coverage are taken at each branch's own last reported week and summed up the hierarchy (a branch that misses the final week keeps its book), where the 13-week window is the quarter itself; ratios are rebuilt from summed parts, and activities per advisor is activities over advisor-weeks (the average weekly rate). A quarter in progress has `is_complete = false` and reads as "to date".
+
 **mart_geo_weekly** (FSA × district × week; an FSA served from two districts has a row in each, and clients with an unreadable postal code sit under `UNK`, so consumers sum across districts for one value per FSA): `iso_week_id`, `fsa_code`, `district_code`, `active_clients`, `clients_contacted_13w`, `coverage_rate_13w`, `activities_completed`.
 
 **mart_dq_weekly** (rule × week): `iso_week_id`, `rule_id`, `rule_name`, `action`, `rows_affected`, `rows_in_batch`, `rate`.
@@ -363,6 +367,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 | org_weekly.parquet | mart_org_weekly |
 | advisor_weekly.parquet | mart_advisor_weekly (last 26 weeks) |
 | weekly_report.parquet | mart_weekly_report |
+| org_quarterly.parquet | mart_org_quarterly (every fiscal quarter in the history) |
 | geo_weekly.parquet | mart_geo_weekly (last 13 weeks) |
 | dq_weekly.parquet | mart_dq_weekly |
 | run_log.json | Last 12 runs: stage timeline and check results |

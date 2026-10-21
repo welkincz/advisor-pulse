@@ -6,7 +6,7 @@ fractions in [0, 1] and null when their denominator is zero.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 
 from pydantic import Field
@@ -90,6 +90,51 @@ class OrgWeekly(Contract):
     call_to_appt_rate: Rate | None = None
 
 
+class OrgQuarterly(Contract):
+    contract_name = "org_quarterly"
+    contract_description = (
+        "mart_org_quarterly: one row per hierarchy node and fiscal quarter (the fiscal year "
+        "starts 1 November). Flows are summed, distinct clients counted over the quarter, "
+        "stocks taken at each branch's own last reported week and summed up the hierarchy, "
+        "ratios rebuilt from parts."
+    )
+
+    fiscal_quarter_id: str = Field(
+        pattern=patterns.FISCAL_QUARTER_ID, description="e.g. 'FY26-Q1'."
+    )
+    fiscal_year: int = Field(ge=2000, le=2100)
+    fiscal_quarter: int = Field(ge=1, le=4)
+    quarter_start: date
+    quarter_end: date
+    first_week: IsoWeek
+    last_week: IsoWeek = Field(description="Last week reported in the quarter, across all nodes.")
+    weeks_reported: int = Field(ge=1, le=14)
+    weeks_in_quarter: int = Field(ge=12, le=14)
+    is_complete: bool = Field(description="False for a quarter to date or a partial first quarter.")
+    level: OrgLevel
+    node_id: str = Field(min_length=1)
+    node_name: str = Field(min_length=1)
+    parent_id: str | None = None
+    advisor_weeks: Count
+    activities_completed: Count
+    calls_out: Count
+    calls_in: Count
+    appointments_booked: Count
+    booked_from_call: Count
+    appointments_held: Count
+    no_shows: Count
+    conversions: Count
+    unique_clients_contacted: Count
+    book_size: Count
+    clients_covered_13w: Count
+    coverage_rate_13w: Rate | None = None
+    avg_meeting_duration_min: float | None = Field(default=None, ge=0)
+    activities_per_advisor: float | None = Field(default=None, ge=0)
+    show_rate: Rate | None = None
+    conversion_rate: Rate | None = None
+    call_to_appt_rate: Rate | None = None
+
+
 class WeeklyReport(Contract):
     contract_name = "weekly_report"
     contract_description = (
@@ -141,6 +186,7 @@ class DqWeekly(Contract):
 
 EXPORT_TABLE_CONTRACTS: tuple[type[Contract], ...] = (
     OrgWeekly,
+    OrgQuarterly,
     AdvisorWeekly,
     WeeklyReport,
     GeoWeekly,

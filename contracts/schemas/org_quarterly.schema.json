@@ -1,0 +1,273 @@
+{
+  "$defs": {
+    "OrgLevel": {
+      "enum": [
+        "NATIONAL",
+        "REGION",
+        "DISTRICT",
+        "BRANCH"
+      ],
+      "title": "OrgLevel",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/org_quarterly.schema.json",
+  "additionalProperties": false,
+  "description": "mart_org_quarterly: one row per hierarchy node and fiscal quarter (the fiscal year starts 1 November). Flows are summed, distinct clients counted over the quarter, stocks taken at each branch's own last reported week and summed up the hierarchy, ratios rebuilt from parts.",
+  "properties": {
+    "activities_completed": {
+      "minimum": 0,
+      "title": "Activities Completed",
+      "type": "integer"
+    },
+    "activities_per_advisor": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Activities Per Advisor"
+    },
+    "advisor_weeks": {
+      "minimum": 0,
+      "title": "Advisor Weeks",
+      "type": "integer"
+    },
+    "appointments_booked": {
+      "minimum": 0,
+      "title": "Appointments Booked",
+      "type": "integer"
+    },
+    "appointments_held": {
+      "minimum": 0,
+      "title": "Appointments Held",
+      "type": "integer"
+    },
+    "avg_meeting_duration_min": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Avg Meeting Duration Min"
+    },
+    "book_size": {
+      "minimum": 0,
+      "title": "Book Size",
+      "type": "integer"
+    },
+    "booked_from_call": {
+      "minimum": 0,
+      "title": "Booked From Call",
+      "type": "integer"
+    },
+    "call_to_appt_rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Call To Appt Rate"
+    },
+    "calls_in": {
+      "minimum": 0,
+      "title": "Calls In",
+      "type": "integer"
+    },
+    "calls_out": {
+      "minimum": 0,
+      "title": "Calls Out",
+      "type": "integer"
+    },
+    "clients_covered_13w": {
+      "minimum": 0,
+      "title": "Clients Covered 13W",
+      "type": "integer"
+    },
+    "conversion_rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conversion Rate"
+    },
+    "conversions": {
+      "minimum": 0,
+      "title": "Conversions",
+      "type": "integer"
+    },
+    "coverage_rate_13w": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Coverage Rate 13W"
+    },
+    "first_week": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "First Week",
+      "type": "string"
+    },
+    "fiscal_quarter": {
+      "maximum": 4,
+      "minimum": 1,
+      "title": "Fiscal Quarter",
+      "type": "integer"
+    },
+    "fiscal_quarter_id": {
+      "description": "e.g. 'FY26-Q1'.",
+      "pattern": "^FY\\d{2}-Q[1-4]$",
+      "title": "Fiscal Quarter Id",
+      "type": "string"
+    },
+    "fiscal_year": {
+      "maximum": 2100,
+      "minimum": 2000,
+      "title": "Fiscal Year",
+      "type": "integer"
+    },
+    "is_complete": {
+      "description": "False for a quarter to date or a partial first quarter.",
+      "title": "Is Complete",
+      "type": "boolean"
+    },
+    "last_week": {
+      "description": "Last week reported in the quarter, across all nodes.",
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Last Week",
+      "type": "string"
+    },
+    "level": {
+      "$ref": "#/$defs/OrgLevel"
+    },
+    "no_shows": {
+      "minimum": 0,
+      "title": "No Shows",
+      "type": "integer"
+    },
+    "node_id": {
+      "minLength": 1,
+      "title": "Node Id",
+      "type": "string"
+    },
+    "node_name": {
+      "minLength": 1,
+      "title": "Node Name",
+      "type": "string"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Id"
+    },
+    "quarter_end": {
+      "format": "date",
+      "title": "Quarter End",
+      "type": "string"
+    },
+    "quarter_start": {
+      "format": "date",
+      "title": "Quarter Start",
+      "type": "string"
+    },
+    "show_rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Show Rate"
+    },
+    "unique_clients_contacted": {
+      "minimum": 0,
+      "title": "Unique Clients Contacted",
+      "type": "integer"
+    },
+    "weeks_in_quarter": {
+      "maximum": 14,
+      "minimum": 12,
+      "title": "Weeks In Quarter",
+      "type": "integer"
+    },
+    "weeks_reported": {
+      "maximum": 14,
+      "minimum": 1,
+      "title": "Weeks Reported",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "fiscal_quarter_id",
+    "fiscal_year",
+    "fiscal_quarter",
+    "quarter_start",
+    "quarter_end",
+    "first_week",
+    "last_week",
+    "weeks_reported",
+    "weeks_in_quarter",
+    "is_complete",
+    "level",
+    "node_id",
+    "node_name",
+    "advisor_weeks",
+    "activities_completed",
+    "calls_out",
+    "calls_in",
+    "appointments_booked",
+    "booked_from_call",
+    "appointments_held",
+    "no_shows",
+    "conversions",
+    "unique_clients_contacted",
+    "book_size",
+    "clients_covered_13w"
+  ],
+  "title": "org_quarterly",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

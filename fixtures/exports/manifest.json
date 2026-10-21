@@ -17,6 +17,12 @@
       "bytes": 9852
     },
     {
+      "name": "org_quarterly.parquet",
+      "sha256": "ef893feee79386044f04ecbe6b18e5840c6f97ebf95cc85f7f9143004d209654",
+      "rows": 12,
+      "bytes": 11455
+    },
+    {
       "name": "advisor_weekly.parquet",
       "sha256": "b459d38c5f56f1c8b33f002d8043f8d0733591e8a397382f3600e4335144cf01",
       "rows": 55,
