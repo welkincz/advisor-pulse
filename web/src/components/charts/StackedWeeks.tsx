@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { weekFiscalYear } from '../../data/fiscal'
 import { ticks } from './scale'
 import './charts.css'
 
@@ -36,7 +37,8 @@ export function StackedWeeks({ weeks, series, label, height = 220, format = (v) 
   const band = innerW / Math.max(1, weeks.length)
   const barW = Math.max(1, band - (band > 4 ? 2 : 0.5))
   const y = (v: number) => margin.top + innerH - (v / yMax) * innerH
-  const years = weeks.flatMap((w, i) => (i > 0 && w.slice(0, 4) !== weeks[i - 1]!.slice(0, 4) ? [{ i, label: w.slice(0, 4) }] : []))
+  const fiscal = weeks.map(weekFiscalYear)
+  const years = weeks.flatMap((_, i) => (i > 0 && fiscal[i] !== fiscal[i - 1] ? [{ i, label: fiscal[i]! }] : []))
 
   return <div ref={box} className="stacked" style={{ height }}>
     {width > 0 && <svg width={width} height={height} role="img" aria-label={label} onPointerLeave={() => setHover(null)}

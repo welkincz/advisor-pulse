@@ -4,12 +4,13 @@ import type { DqWeekly } from './generated/dq_weekly'
 import type { GeoWeekly } from './generated/geo_weekly'
 import type { Manifest } from './generated/manifest'
 import type { Narrative, NodeNarrative } from './generated/narrative'
+import type { OrgQuarterly } from './generated/org_quarterly'
 import type { OrgLevel, OrgWeekly } from './generated/org_weekly'
 import type { PipelineGraph } from './generated/pipeline_graph'
 import type { RunLog } from './generated/run_log'
 import type { KpiCode, WeeklyReport } from './generated/weekly_report'
 import { type Fetch, fetchJson, fetchVerified, manifestFile } from './manifest'
-import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, levelKpiHistorySql, nodeNamesSql, orgDirectorySql, orgLevelSql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
+import { TABLES, type Table, advisorWeeklySql, childReportHistorySql, geoWeeklySql, levelKpiHistorySql, nodeNamesSql, orgDirectorySql, orgLevelSql, orgQuarterlySql, orgWeeklySql, weeklyReportHistorySql, weeklyReportSql } from './queries'
 
 /** An org node for search and links. */
 export interface OrgNode { node_id: string; node_name: string; level: OrgLevel; parent_id: string | null }
@@ -71,6 +72,13 @@ export class PulseData {
 
   orgWeekly(nodeId: string, weeks: readonly string[]): Promise<OrgWeekly[]> {
     return this.select<OrgWeekly>('org_weekly', orgWeeklySql(nodeId, weeks))
+  }
+
+  /** Null when the export predates the fiscal-quarter mart, so pages can leave it out. */
+  async orgQuarterly(nodeId: string): Promise<OrgQuarterly[] | null> {
+    const manifest = await this.manifest()
+    if (!manifest.files.some((f) => f.name === TABLES.org_quarterly)) return null
+    return this.select<OrgQuarterly>('org_quarterly', orgQuarterlySql(nodeId))
   }
 
   orgLevel(level: OrgLevel, week: string): Promise<OrgWeekly[]> {

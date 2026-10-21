@@ -5,6 +5,7 @@ import type { KpiCode } from './generated/weekly_report'
 /** Parquet exports, each registered as a view of the same name. */
 export const TABLES = {
   org_weekly: 'org_weekly.parquet',
+  org_quarterly: 'org_quarterly.parquet',
   weekly_report: 'weekly_report.parquet',
   geo_weekly: 'geo_weekly.parquet',
   advisor_weekly: 'advisor_weekly.parquet',
@@ -15,6 +16,12 @@ export type Table = keyof typeof TABLES
 
 function inList(values: readonly string[]): string {
   return values.length ? `(${values.map(sqlString).join(', ')})` : '(NULL)'
+}
+
+/** A node's fiscal quarters and its children's, oldest first. */
+export function orgQuarterlySql(nodeId: string): string {
+  // Dates arrive from DuckDB as numbers; the contract (and the page) read ISO strings.
+  return `select * replace (strftime(quarter_start, '%Y-%m-%d') as quarter_start, strftime(quarter_end, '%Y-%m-%d') as quarter_end) from org_quarterly where node_id = ${sqlString(nodeId)} or parent_id = ${sqlString(nodeId)} order by fiscal_quarter_id, node_id`
 }
 
 export function orgWeeklySql(nodeId: string, weeks: readonly string[]): string {

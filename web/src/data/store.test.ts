@@ -21,6 +21,21 @@ describe('PulseData on fixtures/exports', () => {
     expect(Number.isInteger(rows[0].active_advisors)).toBe(true)
   })
 
+  it('returns a node\'s fiscal quarters with its children\'s', async () => {
+    const rows = (await fixtureData().orgQuarterly('CA'))!
+    expect(new Set(rows.map((r) => r.node_id))).toEqual(new Set(['CA', 'ON', 'QC']))
+    const national = rows.find((r) => r.node_id === 'CA')!
+    expect(national).toMatchObject({ fiscal_quarter_id: 'FY26-Q4', level: 'NATIONAL', is_complete: false, quarter_start: '2026-08-01', quarter_end: '2026-10-31' })
+    expect(Number.isInteger(national.calls_out)).toBe(true)
+  })
+
+  it('leaves fiscal quarters out of an export made before the quarterly mart', async () => {
+    const manifest = JSON.parse(await readFile(join(FIXTURES, 'manifest.json'), 'utf8'))
+    manifest.files = manifest.files.filter((f: { name: string }) => f.name !== 'org_quarterly.parquet')
+    const data = fixtureData(fixtureFetch({ 'manifest.json': () => new Response(JSON.stringify(manifest)) }))
+    expect(await data.orgQuarterly('CA')).toBeNull()
+  })
+
   it('returns one node or every child of a parent from weekly_report', async () => {
     const data = fixtureData()
     const national = await data.weeklyReport('2026-W40', { nodeId: 'CA' })
