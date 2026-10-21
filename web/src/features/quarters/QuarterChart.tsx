@@ -29,11 +29,13 @@ function column(x: number, y: number, w: number, h: number): string {
  * still running is hatched and says how many of its weeks are in. Choose a quarter by click
  * or arrow keys; hover shows its months and value.
  */
-export function QuarterChart({ points, selected, onSelect, format, label, height = 240 }: {
+export function QuarterChart({ points, selected, onSelect, format, tickFormat = format, label, height = 240 }: {
   points: readonly QuarterPoint[]
   selected: string
   onSelect: (id: string) => void
   format: (value: number | null | undefined) => string
+  /** Axis ticks, when they need fewer decimals than the values (5,000 rather than 5,000.0). */
+  tickFormat?: (value: number) => string
   label: string
   height?: number
 }) {
@@ -83,7 +85,7 @@ export function QuarterChart({ points, selected, onSelect, format, label, height
       </defs>
       {yTicks.map((t) => <g key={t} className="trend-tick">
         <line x1={margin.left} x2={margin.left + innerW} y1={y(t)} y2={y(t)} />
-        <text x={margin.left - 8} y={y(t)} dy="0.32em" textAnchor="end">{format(t)}</text>
+        <text x={margin.left - 8} y={y(t)} dy="0.32em" textAnchor="end">{tickFormat(t)}</text>
       </g>)}
       {years.map((year, g) => <g key={year.label} className="quarters-year">
         {g > 0 && <line x1={margin.left + band * year.from} x2={margin.left + band * year.from} y1={margin.top - 8} y2={height - 4} />}

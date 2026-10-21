@@ -81,6 +81,7 @@ export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefF
           </p>
         </div>
         <QuarterChart points={series} selected={point.id} onSelect={setChosen} format={fmt}
+          tickFormat={measure.basis === 'weekly' ? (v) => Math.round(v).toLocaleString('en-CA') : fmt}
           label={`${KPI_LABELS[code]}${unit}, ${nodeName}, by fiscal quarter from ${quarterLabel(series[0]!.id)} to ${quarterLabel(series.at(-1)!.id)}. Use the arrow keys to choose a quarter.`} />
         <figcaption className="figure-note">
           {basisNote} A week counts in the quarter that holds its Sunday. Hatched columns are quarters still running.
