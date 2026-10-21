@@ -123,7 +123,6 @@
 .moved-away-unit { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .moved-link .delta { justify-self: end; }
 @media (max-width: 40rem) {
-  .moved { --moved-cols: minmax(0, 1fr) 4rem 4.5rem; }
   .moved-link { grid-template-areas: 'name value delta' 'track track away'; row-gap: var(--space-1); }
   .moved-name { grid-area: name; } .moved-value { grid-area: value; } .moved-link .delta { grid-area: delta; }
   .moved-track { grid-area: track; } .moved-away { grid-area: away; }

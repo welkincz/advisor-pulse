@@ -128,3 +128,19 @@ test('the hero series downloads as CSV with raw values', async ({ page }) => {
   expect(lines).toHaveLength(5)
   expect(lines[1]).toMatch(/^2026-W37,CA,Canada,SHOW_RATE,0\.\d+/)
 })
+
+test.describe('on a touch screen', () => {
+  test.use({ hasTouch: true, viewport: { width: 375, height: 812 } })
+
+  test('the first tap on a region opens its card; the second follows the link', async ({ page }) => {
+    await page.goto('/')
+    const link = page.locator('.moved-link').first()
+    await expect(link).toBeVisible({ timeout: 30_000 })
+    await link.scrollIntoViewIfNeeded()
+    await link.tap()
+    await expect(page.getByRole('tooltip')).toContainText(/Click to open the (Ontario|Quebec) report/)
+    await expect(page).toHaveURL(/\/$/)
+    await link.tap()
+    await expect(page).toHaveURL(/\/r\/(ON|QC)/)
+  })
+})
