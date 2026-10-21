@@ -208,6 +208,9 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const rows = focus ? districtRows : regionRows
   const range = focus ? districtRange : regionRange
   const reach = colouring === 'usual' ? (focus ? districtReach : regionReach) : null
+  // What the colours actually compare: usual needs settled weeks to size its scale; without them the map falls back to value.
+  const comparing: Colouring = colouring === 'usual' && reach !== null ? 'usual' : 'value'
+  const weekSettled = settled.has(week)
   const ready = regionHistory.status === 'ready' && (!focus || districtHistory.status === 'ready')
   // A region the export does not cover still gets a row, so a gap reads as missing data, not as no region.
   const missing: Row[] = !focus && ready ? REGIONS.filter(([id]) => !regionById.has(id)).map(([id, name]) => ({ id, name, value: null, wow: null, usual: null, usualValue: null, flag: false, trend: [] })) : []
@@ -307,7 +310,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             </table></div>}
           </> : <>
             <h2>{focus ? `Districts in ${scope}` : 'Regions'}</h2>
-            <p className="map-rows-head" aria-hidden="true"><span>{KPI_LABELS[code]}</span><span>{colouring === 'usual' ? 'vs usual' : 'vs last week'}</span></p>
+            <p className="map-rows-head" aria-hidden="true"><span>{KPI_LABELS[code]}</span><span>{comparing === 'usual' ? 'vs usual' : 'vs last week'}</span></p>
             {regionHistory.status === 'loading' && <p aria-busy="true">Loading map values…</p>}
             {regionHistory.status === 'error' && <DataNotice what="map values" onRetry={regionHistory.retry} />}
             {districtHistory.status === 'error' && focus && <DataNotice what="district values" onRetry={districtHistory.retry} />}
@@ -320,9 +323,11 @@ function MapContent({ manifest }: { manifest: Manifest }) {
                     <span className="map-row-name">{row.name}</span>
                     <span className="map-row-value figure-num">{formatKpi(code, row.value)}</span>
                     <span className="map-row-bar" aria-hidden="true"><i style={{ inlineSize: `${Math.max(2, share * 100)}%`, background: fillOf(row, range, reach) ?? undefined }} /></span>
-                    {colouring === 'usual'
-                      ? row.usual === null ? <span className="delta delta-none">No usual yet</span> : <Delta value={row.usual} better={better} against="its usual week" />
-                      : <Delta value={row.wow} better={better} />}
+                    {row.value == null ? <span className="delta delta-none">No value</span>
+                      : comparing === 'value' ? <Delta value={row.wow} better={better} />
+                        : !weekSettled ? <span className="delta delta-none">No usual yet</span>
+                          : row.usual === null ? <span className="delta delta-none">No usual</span>
+                            : <Delta value={row.usual} better={better} against="its usual week" />}
                   </button>}</Explain>
               </li>
             })}</FlipList>
