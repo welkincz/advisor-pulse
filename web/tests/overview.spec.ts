@@ -64,6 +64,11 @@ test('the hero chart reads every fixture week and moves the report week by keybo
   await page.goto('/?kpi=LATE_RATE')
   const chart = page.getByRole('img', { name: /Late-arriving rate, national, 2026-W37 to 2026-W40/ })
   await expect(chart).toBeVisible()
+  // The circled anomaly is there at once, with no draw-on, and the chart's name says which week it is.
+  await expect(chart).toHaveAccessibleName(/Latest anomaly: 2026-W\d{2}\.$/)
+  const ring = page.locator('.trend-ring-circle')
+  expect(await ring.evaluate((el) => getComputedStyle(el).animationName)).toBe('none')
+  expect(await ring.evaluate((el) => getComputedStyle(el).strokeDashoffset)).toMatch(/^0(px)?$/)
   await chart.focus()
   await page.keyboard.press('ArrowLeft')
   await expect(page).toHaveURL(/week=2026-W39/)

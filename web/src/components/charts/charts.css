@@ -1,5 +1,5 @@
 /* Hand-drawn SVG charts. Tokens only; rules in docs/design.md §7. */
-.trend { position: relative; width: 100%; min-width: 0; }
+.trend { position: relative; width: 100%; min-width: 0; --trend-draw: 1100ms; }
 .trend-svg { display: block; overflow: visible; }
 .trend-svg.is-interactive { cursor: crosshair; }
 .trend-svg:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
@@ -13,7 +13,7 @@
 .trend-compact .trend-usual { stroke-width: 5; }
 .trend-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .trend-compact .trend-line { stroke-width: 1.5; }
-.trend-line.is-drawing { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trend-draw 1100ms var(--ease-standard) forwards; }
+.trend-line.is-drawing { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trend-draw var(--trend-draw) var(--ease-standard) forwards; }
 .trend-flag { fill: var(--paper); stroke: var(--signal); stroke-width: 2; transition: opacity var(--duration-standard); }
 .trend-flag.is-waiting { opacity: 0; }
 /* The circled anomaly: the ring draws on after the line, then its name fades in. */
@@ -22,8 +22,10 @@
   animation: trend-draw 560ms var(--ease-standard) 80ms forwards; }
 .trend-ring-label { fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; font-size: var(--text-xs); font-weight: 600; animation: trend-fade var(--duration-standard) var(--ease-standard) 480ms both; }
 .trend-ring-week { fill: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums lining-nums; }
-.trend-ring.is-waiting .trend-ring-circle { animation-delay: 1150ms; }
-.trend-ring.is-waiting .trend-ring-label { animation-delay: 1550ms; }
+.trend-ring.is-waiting .trend-ring-circle { animation-delay: calc(var(--trend-draw) + 50ms); }
+.trend-ring.is-waiting .trend-ring-label { animation-delay: calc(var(--trend-draw) + 450ms); }
+/* The tooltip says the same thing when it is on the circled week. */
+.trend-ring.is-covered .trend-ring-label { visibility: hidden; }
 .trend-cursor { transition: transform var(--duration-step) var(--ease-standard); }
 .trend-cursor line { stroke: var(--signal); stroke-width: 2; }
 .trend-cursor circle { fill: var(--ink); stroke: var(--paper); stroke-width: 2; }
