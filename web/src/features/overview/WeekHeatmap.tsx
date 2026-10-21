@@ -5,7 +5,7 @@ import { settledWeeks, usualStep, versusUsual } from '../../data/usual'
 import { fenced } from '../../components/charts/scale'
 import { DIVERGING } from '../../theme/tokens'
 import { LOWER_IS_BETTER } from './kpis'
-import { REGION_ORDER } from './RegionMultiples'
+import { REGION_ORDER } from '../../data/regions'
 
 const SPLIT = DIVERGING.map((name) => `var(--${name})`)
 const REGION_H = 18

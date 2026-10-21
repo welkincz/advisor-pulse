@@ -2,12 +2,9 @@ import { Link } from 'react-router-dom'
 import { TrendChart } from '../../components/charts/TrendChart'
 import { Delta } from '../../components/primitives'
 import { KPI_LABELS, formatKpi } from '../../data'
+import { REGION_ORDER } from '../../data/regions'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { LOWER_IS_BETTER } from './kpis'
-
-import { REGION_ORDER } from '../../data/regions'
-
-export { REGION_ORDER }
 
 function series(rows: readonly WeeklyReport[], nodeId: string, code: KpiCode, weeks: readonly string[]) {
   const byWeek = new Map(rows.filter((r) => r.node_id === nodeId && r.kpi_code === code).map((r) => [r.iso_week_id, r]))
@@ -15,9 +12,10 @@ function series(rows: readonly WeeklyReport[], nodeId: string, code: KpiCode, we
 }
 
 /**
- * One small chart per region (province) on a shared week axis. Ten regions are more than
- * the four categorical colours, so every line is ink and the name carries identity, each with the national line dashed
- * beneath it, so "is Quebec just following the country?" is answered at a glance.
+ * One small chart per region (province) on a shared week axis, each with the national line
+ * dashed beneath it, so "is Quebec just following the country?" is answered at a glance.
+ * Ten regions are more than the four categorical colours, so every line is ink and the
+ * region's name carries its identity.
  */
 export function RegionMultiples({ regions, national, code, week, weeks, hrefFor }: {
   regions: readonly WeeklyReport[]

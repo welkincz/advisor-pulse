@@ -69,9 +69,15 @@ def test_ids_are_unique_and_well_formed() -> None:
     assert all(re.match(patterns.DISTRICT_CODE, c) for c in codes)
 
 
-def test_branch_ids_encode_district_order() -> None:
-    for d_no, d in enumerate(org().districts, start=1):
-        assert all(b.branch_id.startswith(f"BR-{d_no:02d}") for b in d.branches)
+def test_branch_ids_survive_a_district_move() -> None:
+    # A branch ID is a natural key: it stays with its branch when the hierarchy is redrawn,
+    # so historical facts keep pointing at the same branch.
+    placed = {
+        b.branch_id: (b.branch_name, d.district_code) for d in org().districts for b in d.branches
+    }
+    assert placed["BR-1010"] == ("Lethbridge Branch", "CGY")
+    assert placed["BR-1101"] == ("Regina Downtown Branch", "SKD")
+    assert placed["BR-1204"] == ("Charlottetown Branch", "PEI")
 
 
 def test_every_fsa_is_valid_and_in_its_district_province() -> None:

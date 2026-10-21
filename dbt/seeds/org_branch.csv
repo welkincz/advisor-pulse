@@ -95,29 +95,29 @@ BR-1001,Calgary Downtown Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T2P,AB
 BR-1002,Beltline Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T2R,AB,1998-06-25
 BR-1003,Calgary Northeast Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T1Y,AB,2012-11-06
 BR-1004,Calgary Southwest Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T2W,AB,1977-11-23
-BR-1005,Lethbridge Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T1J,AB,2004-10-04
-BR-1006,Medicine Hat Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T1A,AB,1976-10-08
-BR-1101,Edmonton Downtown Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T5J,AB,2004-10-13
-BR-1102,Whyte Avenue Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T6E,AB,1978-10-09
-BR-1103,Edmonton West Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T5T,AB,2000-04-10
-BR-1104,St. Albert Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T8N,AB,1989-03-06
-BR-1105,Red Deer Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T4N,AB,1986-09-02
-BR-1106,Fort McMurray Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T9H,AB,2011-11-12
-BR-1201,Regina Downtown Branch,SKD,Saskatchewan,SK,Saskatchewan,S4P,SK,1994-08-13
-BR-1202,Saskatoon Downtown Branch,SKD,Saskatchewan,SK,Saskatchewan,S7K,SK,1993-08-02
-BR-1203,University Heights Branch,SKD,Saskatchewan,SK,Saskatchewan,S7N,SK,2015-01-15
-BR-1301,Winnipeg Exchange Branch,MBD,Manitoba,MB,Manitoba,R3C,MB,2009-01-27
-BR-1302,Fort Garry Branch,MBD,Manitoba,MB,Manitoba,R3T,MB,2011-04-06
-BR-1303,Brandon Branch,MBD,Manitoba,MB,Manitoba,R7A,MB,2017-06-22
-BR-1401,Halifax Downtown Branch,NSD,Nova Scotia,NS,Nova Scotia,B3J,NS,1993-11-14
-BR-1402,Dartmouth Branch,NSD,Nova Scotia,NS,Nova Scotia,B2Y,NS,2015-07-25
-BR-1403,Sydney Branch,NSD,Nova Scotia,NS,Nova Scotia,B1P,NS,2005-02-06
-BR-1501,Charlottetown Branch,PEI,Prince Edward Island,PE,Prince Edward Island,C1A,PE,1987-01-01
-BR-1502,Summerside Branch,PEI,Prince Edward Island,PE,Prince Edward Island,C1N,PE,1996-11-15
-BR-1601,Moncton Branch,NBK,New Brunswick,NB,New Brunswick,E1C,NB,2000-05-05
-BR-1602,Fredericton Branch,NBK,New Brunswick,NB,New Brunswick,E3B,NB,1987-09-12
-BR-1603,Saint John Branch,NBK,New Brunswick,NB,New Brunswick,E2L,NB,1982-04-05
-BR-1604,Bathurst Branch,NBK,New Brunswick,NB,New Brunswick,E2A,NB,2015-11-28
-BR-1701,St. John's Downtown Branch,NFL,Newfoundland & Labrador,NL,Newfoundland and Labrador,A1C,NL,2009-07-04
-BR-1702,Mount Pearl Branch,NFL,Newfoundland & Labrador,NL,Newfoundland and Labrador,A1N,NL,2009-03-04
-BR-1703,Corner Brook Branch,NFL,Newfoundland & Labrador,NL,Newfoundland and Labrador,A2H,NL,2006-04-06
+BR-1010,Lethbridge Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T1J,AB,2004-10-04
+BR-1011,Medicine Hat Branch,CGY,Calgary & Southern Alberta,AB,Alberta,T1A,AB,1976-10-08
+BR-1005,Edmonton Downtown Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T5J,AB,2004-10-13
+BR-1006,Whyte Avenue Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T6E,AB,1978-10-09
+BR-1007,Edmonton West Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T5T,AB,2000-04-10
+BR-1008,St. Albert Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T8N,AB,1989-03-06
+BR-1009,Red Deer Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T4N,AB,1986-09-02
+BR-1012,Fort McMurray Branch,EDM,Edmonton & Northern Alberta,AB,Alberta,T9H,AB,2011-11-12
+BR-1101,Regina Downtown Branch,SKD,Saskatchewan,SK,Saskatchewan,S4P,SK,1994-08-13
+BR-1102,Saskatoon Downtown Branch,SKD,Saskatchewan,SK,Saskatchewan,S7K,SK,1993-08-02
+BR-1103,University Heights Branch,SKD,Saskatchewan,SK,Saskatchewan,S7N,SK,2015-01-15
+BR-1104,Winnipeg Exchange Branch,MBD,Manitoba,MB,Manitoba,R3C,MB,2009-01-27
+BR-1105,Fort Garry Branch,MBD,Manitoba,MB,Manitoba,R3T,MB,2011-04-06
+BR-1106,Brandon Branch,MBD,Manitoba,MB,Manitoba,R7A,MB,2017-06-22
+BR-1201,Halifax Downtown Branch,NSD,Nova Scotia,NS,Nova Scotia,B3J,NS,1993-11-14
+BR-1202,Dartmouth Branch,NSD,Nova Scotia,NS,Nova Scotia,B2Y,NS,2015-07-25
+BR-1203,Sydney Branch,NSD,Nova Scotia,NS,Nova Scotia,B1P,NS,2005-02-06
+BR-1204,Charlottetown Branch,PEI,Prince Edward Island,PE,Prince Edward Island,C1A,PE,1987-01-01
+BR-1205,Summerside Branch,PEI,Prince Edward Island,PE,Prince Edward Island,C1N,PE,1996-11-15
+BR-1301,Moncton Branch,NBK,New Brunswick,NB,New Brunswick,E1C,NB,2000-05-05
+BR-1302,Fredericton Branch,NBK,New Brunswick,NB,New Brunswick,E3B,NB,1987-09-12
+BR-1303,Saint John Branch,NBK,New Brunswick,NB,New Brunswick,E2L,NB,1982-04-05
+BR-1304,Bathurst Branch,NBK,New Brunswick,NB,New Brunswick,E2A,NB,2015-11-28
+BR-1401,St. John's Downtown Branch,NFL,Newfoundland & Labrador,NL,Newfoundland and Labrador,A1C,NL,2009-07-04
+BR-1402,Mount Pearl Branch,NFL,Newfoundland & Labrador,NL,Newfoundland and Labrador,A1N,NL,2009-03-04
+BR-1403,Corner Brook Branch,NFL,Newfoundland & Labrador,NL,Newfoundland and Labrador,A2H,NL,2006-04-06

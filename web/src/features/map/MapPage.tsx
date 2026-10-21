@@ -20,7 +20,6 @@ const SPLIT = DIVERGING.map((name) => `var(--${name})`)
 type Colouring = 'usual' | 'value'
 const TREND_WEEKS = 26
 
-
 function useLoaded<T>(load: (() => Promise<T>) | null, key: string) {
   const [state, setState] = useState<{ key: string; data?: T; error?: Error } | null>(null)
   const loadRef = useRef(load)
