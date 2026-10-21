@@ -170,6 +170,10 @@ class StateSync:
         note = f" Took over expired lock from {got.took_over.run_id}." if got.took_over else ""
 
         if skip_remote:
+            # Drop the old warehouse first. A rebuild stopped at any point then leaves either
+            # its own warehouse with matching sources, or none, which makes the next run rebuild
+            # cold. It never leaves the old warehouse beside new sources.
+            store.delete(WAREHOUSE_FILE)
             self._fresh.add(ctx.run_id)
             return StageResult(message=f"Rebuild starts from empty local state.{note}")
 
@@ -181,6 +185,7 @@ class StateSync:
             if not weeks:
                 return StageResult(message=f"Cold start: no state in R2.{note}")
             log.warning("No warehouse in R2: cold rebuild of %d weeks.", len(weeks))
+            self._fresh.add(ctx.run_id)
             result = self.rebuild(ctx, weeks)
             if result.status is StageStatus.FAILED:
                 return replace(result, message=f"Cold start: {result.message}{note}")
