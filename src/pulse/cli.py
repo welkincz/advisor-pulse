@@ -142,7 +142,7 @@ def recap(
         Path, typer.Option("--exports", help="Published export folder to read.")
     ] = Path("web/public/data"),
     out: Annotated[Path, typer.Option("--out", help="Where to write the JSON.")] = Path(
-        "video/public/recap.json"
+        "web/public/recap/recap.json"
     ),
 ) -> None:
     """Write the weekly recap video's input from the published export."""
