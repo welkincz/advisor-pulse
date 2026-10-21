@@ -4,8 +4,9 @@
 -- One GROUPING SETS pass over int_kpi_events, like mart_org_weekly:
 --   flows (activities, calls, appointments) are summed over the quarter's weeks;
 --   distinct clients are counted over the whole quarter, not added up week by week;
---   stocks (book size, 13-week coverage) are taken at the quarter's last reported week,
---     where a 13-week window is the quarter itself;
+--   stocks (book size, 13-week coverage) are taken at each branch's own last reported week
+--     in the quarter, then summed up the hierarchy, so a branch that misses the final week
+--     keeps its book; a 13-week window is the quarter itself;
 --   ratios are rebuilt from summed parts. Activities per advisor is activities over
 --     advisor-weeks: the average weekly rate across the quarter.
 with week_quarter as (
@@ -28,9 +29,13 @@ quarters as (
 ),
 
 weeks_per_quarter as (
-    select fiscal_quarter_id, count(*) as weeks_in_quarter
-    from week_quarter
-    group by fiscal_quarter_id
+    -- Sundays from the quarter's first Sunday to its last day: 12 to 14. Computed from the
+    -- calendar, not from dim_date's rows, so a quarter cut by the date range still counts right.
+    select
+        fiscal_quarter_id,
+        date_diff('day', quarter_start + cast((7 - isodow(quarter_start)) % 7 as integer), quarter_end) // 7 + 1
+            as weeks_in_quarter
+    from quarters
 ),
 
 events as (
@@ -52,6 +57,12 @@ reported as (
         count(distinct iso_week_id) as weeks_reported
     from events
     group by fiscal_quarter_id
+),
+
+branch_last as (
+    select fiscal_quarter_id, branch_id, max(iso_week_id) as last_week
+    from events
+    group by fiscal_quarter_id, branch_id
 ),
 
 flows as (
@@ -92,9 +103,10 @@ stocks as (
         sum(events.book_size) as book_size,
         sum(events.clients_covered_13w) as clients_covered_13w
     from events
-    inner join reported
-        on reported.fiscal_quarter_id = events.fiscal_quarter_id
-        and reported.last_week = events.iso_week_id
+    inner join branch_last
+        on branch_last.fiscal_quarter_id = events.fiscal_quarter_id
+        and branch_last.branch_id = events.branch_id
+        and branch_last.last_week = events.iso_week_id
     group by grouping sets (
         (events.fiscal_quarter_id),
         (events.fiscal_quarter_id, events.region_code),

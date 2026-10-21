@@ -228,7 +228,7 @@
     },
     "weeks_in_quarter": {
       "maximum": 14,
-      "minimum": 13,
+      "minimum": 12,
       "title": "Weeks In Quarter",
       "type": "integer"
     },

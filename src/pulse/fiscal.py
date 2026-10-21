@@ -51,7 +51,7 @@ def week_fiscal_quarter_id(iso_week_id: str) -> str:
 
 
 def weeks_in_quarter(quarter_id: str) -> int:
-    """ISO weeks whose Sunday falls in the quarter (13 or 14)."""
+    """ISO weeks whose Sunday falls in the quarter: 12 to 14 (Feb–Apr can hold only 12)."""
     year = 2000 + int(quarter_id[2:4])
     q = int(quarter_id[-1])
     # Step to the quarter's first month, then count Sundays up to its last day.

@@ -42,4 +42,6 @@ def test_a_week_reports_in_the_quarter_holding_its_sunday() -> None:
     assert week_fiscal_quarter_id("2025-W44") == "FY26-Q1"  # Mon 27 Oct to Sun 2 Nov 2025
     assert week_fiscal_quarter_id("2025-W43") == "FY25-Q4"
     assert weeks_in_quarter("FY26-Q1") in (13, 14)
+    # 2027-02-01 to 2027-04-30 holds only 12 Sundays (7 Feb to 25 Apr).
+    assert weeks_in_quarter("FY27-Q2") == 12
     assert sum(weeks_in_quarter(f"FY26-Q{q}") for q in range(1, 5)) in (52, 53)

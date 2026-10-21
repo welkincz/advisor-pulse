@@ -108,7 +108,7 @@ class OrgQuarterly(Contract):
     first_week: IsoWeek
     last_week: IsoWeek = Field(description="Stocks (book, coverage) are taken at this week.")
     weeks_reported: int = Field(ge=1, le=14)
-    weeks_in_quarter: int = Field(ge=13, le=14)
+    weeks_in_quarter: int = Field(ge=12, le=14)
     is_complete: bool = Field(description="False for a quarter to date or a partial first quarter.")
     level: OrgLevel
     node_id: str = Field(min_length=1)
