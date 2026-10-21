@@ -2,7 +2,7 @@ import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useId
 import { useReducedMotion } from '../../app/useReducedMotion'
 import { weekFiscalYear } from '../../data/fiscal'
 import { standardEase } from '../../motion/tween'
-import { type Pt, domain, linePath, mixPoints, ticks } from './scale'
+import { type Pt, annotatedWeek, domain, linePath, mixPoints, ticks } from './scale'
 import './charts.css'
 
 const MORPH_MS = 620
@@ -16,7 +16,7 @@ export interface TrendChartProps {
   usual?: readonly (number | null)[]
   /** A comparison line drawn underneath in hairline, e.g. the national figure. */
   reference?: readonly (number | null)[]
-  /** Weeks flagged as anomalies get a ring. */
+  /** Weeks flagged as anomalies get a dot; a full chart also circles one of them (see `annotatedWeek`). */
   flagged?: readonly boolean[]
   selected?: string
   onSelect?: (week: string) => void
@@ -156,6 +156,13 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
   const pointY = tipPoint?.[1] ?? margin.top
   const tipBelow = pointY - 12 - tipSize.h < 0
 
+  // One flagged week circled and named, so the eye finds it before reading the tooltip.
+  const ringAt = compact ? null : annotatedWeek(flagged, values, index)
+  const ringPoint = ringAt !== null ? shown.line[ringAt] : null
+  // An anomaly is an extreme, so its name goes on the outside of the line: below a dip, above a spike.
+  const near = ringAt === null ? [] : shown.line.slice(Math.max(0, ringAt - 4), ringAt + 5).filter((p): p is [number, number] => p !== null)
+  const dip = ringPoint != null && near.length > 0 && ringPoint[1] > near.reduce((sum, p) => sum + p[1], 0) / near.length
+
   return <div ref={box} className={`trend${compact ? ' trend-compact' : ''}`} style={{ height }}>
     {width > 0 && <svg width={width} height={height} role="img" aria-label={label}
       tabIndex={onSelect ? 0 : undefined} onKeyDown={onKeyDown} onBlur={() => setKeyed(false)}
@@ -182,6 +189,8 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
           ? <circle key={i} className={`trend-flag${drawing ? ' is-waiting' : ''}`} cx={shown.line[i]![0]} cy={shown.line[i]![1]} r={compact ? 2.5 : 4.5} />
           : null)}
       </g>
+      {ringAt !== null && ringPoint && <AnomalyRing key={`${weeks[ringAt]}-${morphKey}`} point={ringPoint} week={weeks[ringAt]!}
+        waiting={drawing} dip={dip} plot={{ left: margin.left, right: margin.left + innerW, top: margin.top, bottom: margin.top + innerH }} />}
       {index >= 0 && <g className="trend-cursor" style={{ transform: `translateX(${scale.x(index)}px)` }}>
         <line x1={0} x2={0} y1={margin.top - 6} y2={margin.top + innerH} />
         {target[index] && <circle cx={0} cy={target[index]![1]} r={compact ? 3 : 5} style={color ? { fill: color } : undefined} />}
@@ -200,4 +209,26 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
       {hint && onSelect && hover !== null && <span className="trend-tip-hint">{hint}</span>}
     </div>}
   </div>
+}
+
+const RING = 11
+
+/**
+ * A ring that draws itself round a flagged week, with a short name beside it. It waits for the
+ * line to finish drawing, and is keyed by week and measure so it redraws when either changes.
+ */
+function AnomalyRing({ point, week, waiting, dip, plot }: { point: [number, number]; week: string; waiting: boolean; dip: boolean; plot: { left: number; right: number; top: number; bottom: number } }) {
+  const [x, y] = point
+  // Outside the line when there is room there, else the other side; toward the plot's middle so it never runs off.
+  const roomAbove = y - RING - 18 >= plot.top
+  const roomBelow = y + RING + 16 <= plot.bottom + 20
+  const above = dip ? !roomBelow : roomAbove
+  const toLeft = x > (plot.left + plot.right) / 2
+  const short = week.slice(week.indexOf('-') + 1)
+  return <g className={`trend-ring${waiting ? ' is-waiting' : ''}`} aria-hidden="true">
+    <circle className="trend-ring-circle" cx={x} cy={y} r={RING} pathLength={1} transform={`rotate(-90 ${x} ${y})`} />
+    <text className="trend-ring-label" x={x + (toLeft ? -RING : RING)} y={above ? y - RING - 6 : y + RING + 14} textAnchor={toLeft ? 'end' : 'start'}>
+      Anomaly <tspan className="trend-ring-week">{short}</tspan>
+    </text>
+  </g>
 }

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { domain, fenced, linePath, mixPoints, ticks } from './scale'
+import { annotatedWeek, domain, fenced, linePath, mixPoints, ticks } from './scale'
 
 it('handles empty, all-null and single-value series', () => {
   expect(fenced([])).toBeNull()
@@ -29,4 +29,13 @@ it('breaks lines at gaps and morphs only points present at the end', () => {
   expect(linePath([[0, 0], [1, 1], null, [3, 3]])).toBe('M0.0,0.0L1.0,1.0M3.0,3.0')
   expect(mixPoints([[0, 0], null], [[10, 10], [5, 5]], 0.5)).toEqual([[5, 5], [5, 5]])
   expect(mixPoints([[0, 0]], [null], 0.5)).toEqual([null])
+})
+
+it('circles the selected week when flagged, else the latest flagged week with a value', () => {
+  const values = [1, 2, 3, null, 5]
+  expect(annotatedWeek([false, true, false, false, true], values, 1)).toBe(1)
+  expect(annotatedWeek([false, true, false, false, true], values, 2)).toBe(4)
+  expect(annotatedWeek([false, true, false, true, false], values, -1)).toBe(1)
+  expect(annotatedWeek([false, false, false, false, false], values, 0)).toBeNull()
+  expect(annotatedWeek(undefined, values, 0)).toBeNull()
 })

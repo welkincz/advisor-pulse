@@ -43,6 +43,22 @@ test('overview shows all contracted KPIs, and choosing one plots it with its def
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
 })
 
+test('the hero chart circles an anomaly week and names it inside the plot at 375 px', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  // In the fixtures, Canada's only flagged week is a late-row rate.
+  await page.goto('/?kpi=LATE_RATE')
+  const hero = page.getByRole('img', { name: /national/ }).first()
+  await hero.scrollIntoViewIfNeeded()
+  const ring = page.locator('.trend-ring')
+  await expect(ring).toHaveCount(1)
+  await expect(ring.locator('text')).toHaveText(/^Anomaly W\d{2}$/)
+  const label = (await ring.locator('text').boundingBox())!
+  const plot = (await hero.boundingBox())!
+  expect(label.x).toBeGreaterThanOrEqual(plot.x)
+  expect(label.x + label.width).toBeLessThanOrEqual(plot.x + plot.width)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+})
+
 test('the hero chart reads every fixture week and moves the report week by keyboard, in dark reduced motion', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
   await page.goto('/?kpi=LATE_RATE')

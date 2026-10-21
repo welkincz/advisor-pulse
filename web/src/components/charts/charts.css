@@ -16,6 +16,14 @@
 .trend-line.is-drawing { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trend-draw 1100ms var(--ease-standard) forwards; }
 .trend-flag { fill: var(--paper); stroke: var(--signal); stroke-width: 2; transition: opacity var(--duration-standard); }
 .trend-flag.is-waiting { opacity: 0; }
+/* The circled anomaly: the ring draws on after the line, then its name fades in. */
+.trend-ring { pointer-events: none; }
+.trend-ring-circle { fill: none; stroke: var(--signal); stroke-width: 1.5; stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: trend-draw 560ms var(--ease-standard) 80ms forwards; }
+.trend-ring-label { fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; font-size: var(--text-xs); font-weight: 600; animation: trend-fade var(--duration-standard) var(--ease-standard) 480ms both; }
+.trend-ring-week { fill: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums lining-nums; }
+.trend-ring.is-waiting .trend-ring-circle { animation-delay: 1150ms; }
+.trend-ring.is-waiting .trend-ring-label { animation-delay: 1550ms; }
 .trend-cursor { transition: transform var(--duration-step) var(--ease-standard); }
 .trend-cursor line { stroke: var(--signal); stroke-width: 2; }
 .trend-cursor circle { fill: var(--ink); stroke: var(--paper); stroke-width: 2; }
@@ -34,6 +42,7 @@
 @media (prefers-reduced-motion: reduce) {
   .trend-line.is-drawing { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
   .trend-tick { animation: none; }
+  .trend-ring-circle, .trend-ring-label { animation: none; stroke-dashoffset: 0; }
 }
 
 /* Bullet: observed bar from zero, warn and fail ticks. */

@@ -116,7 +116,7 @@
 .moved-track { position: relative; block-size: 0.75rem; }
 .moved-mid { position: absolute; inset-block: -0.25rem; inset-inline-start: 50%; inline-size: 1px; background: var(--ink); opacity: 0.5; }
 .moved-bar { position: absolute; inset-block: 0; inset-inline-start: 50%; border-radius: 0 4px 4px 0; background: var(--diverging-mid);
-  transition: inline-size var(--duration-tween) var(--ease-standard), background var(--duration-tween) var(--ease-standard); }
+  transition: inline-size var(--duration-tween) var(--ease-spring), background var(--duration-tween) var(--ease-standard); }
 .moved-bar.is-below { inset-inline-start: auto; inset-inline-end: 50%; border-radius: 4px 0 0 4px; }
 .moved-away, .moved-value { text-align: right; }
 .moved-away { color: var(--muted); }
