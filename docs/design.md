@@ -316,6 +316,8 @@ Motion answers a change of data or place. It is never decoration, and nothing mo
   and above a spike (#215).
 - Lengths that settle on a new value (What moved bars) use `--ease-spring`, a CSS `linear()`
   curve with about 4% overshoot. Moves of place keep `--ease-standard`.
+- The weekly recap video (`video/`, #216) never plays on its own: it waits for the play
+  button, so reduced motion needs nothing more, and a transcript says what it shows.
 - `prefers-reduced-motion: reduce` sets every duration token to 0, and the charts skip the
   draw-on and the morph. Content must make sense with no motion at all.
 

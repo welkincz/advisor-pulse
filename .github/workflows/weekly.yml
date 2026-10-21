@@ -76,6 +76,14 @@ jobs:
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
         run: uv run pulse run --week last --run-type WEEKLY
 
+      # Optional: a failed render warns and the site ships without the recap video.
+      - name: Render weekly recap video
+        if: steps.weekly_run.outcome == 'success'
+        continue-on-error: true
+        run: |
+          pnpm -C video install --frozen-lockfile
+          make video
+
       - name: Build weekly site
         id: build_site
         run: pnpm -C web build

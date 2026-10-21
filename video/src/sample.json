@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "week": "2026-W40",
+  "dates": "September 28 to October 4, 2026",
+  "headline": "Activities per advisor rose 14.6% to 11.5.",
+  "support": "Late-arriving rate rose 373.8% to 2.9%, outside its usual range.",
+  "kpis": [
+    {
+      "code": "ACT_PER_ADV",
+      "label": "Activities per advisor",
+      "value": 11.54,
+      "text": "11.5",
+      "wow": 0.146,
+      "better": "higher",
+      "flag": false
+    },
+    {
+      "code": "CALLS_OUT",
+      "label": "Outbound calls",
+      "value": 94.0,
+      "text": "94",
+      "wow": 0.0444,
+      "better": "higher",
+      "flag": false
+    },
+    {
+      "code": "APPT_BOOKED",
+      "label": "Appointments booked",
+      "value": 26.0,
+      "text": "26",
+      "wow": -0.0714,
+      "better": "higher",
+      "flag": false
+    },
+    {
+      "code": "SHOW_RATE",
+      "label": "Show rate",
+      "value": 0.8438,
+      "text": "84.4%",
+      "wow": 0.0849,
+      "better": "higher",
+      "flag": false
+    }
+  ],
+  "rankedLabel": "Activities per advisor",
+  "regions": [
+    {
+      "id": "QC",
+      "name": "Quebec",
+      "away": 0.28,
+      "text": "14.0",
+      "flag": true
+    },
+    {
+      "id": "ON",
+      "name": "Ontario",
+      "away": 0.030093734583127807,
+      "text": "10.4",
+      "flag": false
+    }
+  ],
+  "flagged": [
+    {
+      "name": "Quebec",
+      "label": "Activities per advisor",
+      "wow": 0.4
+    },
+    {
+      "name": "Quebec",
+      "label": "Clients contacted",
+      "wow": 0.3333
+    }
+  ],
+  "summary": "Quebec: activities per advisor rose 40.0% week over week to 14."
+}
