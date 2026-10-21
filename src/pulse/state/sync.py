@@ -129,6 +129,8 @@ class StateSync:
         self.start_week = start_week
         self.new_token = new_token
         self._tokens: dict[str, str] = {}
+        # Runs that started from empty local state: their first persist prunes stale sources.
+        self._fresh: set[str] = set()
 
     def _store(self) -> ObjectStore | None:
         store = self.store_factory()
@@ -168,6 +170,7 @@ class StateSync:
         note = f" Took over expired lock from {got.took_over.run_id}." if got.took_over else ""
 
         if skip_remote:
+            self._fresh.add(ctx.run_id)
             return StageResult(message=f"Rebuild starts from empty local state.{note}")
 
         if not store.exists(WAREHOUSE_FILE):
@@ -225,9 +228,15 @@ class StateSync:
         # checked week is what persist exists to keep. Narratives come last and are best effort,
         # so a failed upload of a page of text never costs the warehouse.
         sources = self._mirror(store, ctx.data_dir, SOURCES_DIR)
+        pruned = ""
+        if ctx.run_id in self._fresh:
+            # A rebuild regenerates every source. Older files left in R2 would be restored and
+            # ingested by the next week; they come from an older generator and break its joins.
+            pruned = f", removed {self._prune(store, ctx.data_dir, SOURCES_DIR)} stale ones"
+            self._fresh.discard(ctx.run_id)
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
         store.put(RUNS_KEY, json.dumps(_run_ids(ctx.data_dir / WAREHOUSE_FILE)).encode())
-        persisted = f"Persisted {WAREHOUSE_FILE} and {sources} new or changed source files"
+        persisted = f"Persisted {WAREHOUSE_FILE} and {sources} new or changed source files{pruned}"
         try:
             narratives = self._mirror(store, ctx.data_dir, NARRATIVES_DIR)
         except Exception as exc:  # any failure here must leave the warehouse kept
@@ -251,6 +260,14 @@ class StateSync:
             key = path.relative_to(data_dir).as_posix()
             uploaded += store.upload_if_changed(path, key, remote.get(key))
         return uploaded
+
+    @staticmethod
+    def _prune(store: ObjectStore, data_dir: Path, name: str) -> int:
+        """Delete remote files under ``name`` that ``data_dir/name`` lacks; return how many."""
+        stale = [key for key in sorted(store.etags(f"{name}/")) if not (data_dir / key).is_file()]
+        for key in stale:
+            store.delete(key)
+        return len(stale)
 
     def release(self, ctx: StageContext) -> StageResult:
         token = self._tokens.pop(ctx.run_id, None)

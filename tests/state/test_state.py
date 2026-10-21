@@ -291,6 +291,40 @@ def test_rebuild_restore_takes_lock_without_restoring_old_state(
     assert sync.release(c).status is StageStatus.SUCCESS
 
 
+def test_rebuild_persist_removes_stale_sources(store: ObjectStore, tmp_path: Path) -> None:
+    """Week 2 of a rebuild restores R2's sources, so older files must be gone by then."""
+    seed_remote(store, tmp_path)
+    store.put("narratives/2026-W39.json", b"N")
+    sync = sync_for(store)
+    c = ctx(tmp_path / "rebuild")
+    assert sync.restore(c, skip_remote=True).status is StageStatus.SUCCESS
+    con = connect(c.data_dir / WAREHOUSE_FILE)
+    init_warehouse(con)
+    con.close()
+    fresh = c.data_dir / "sources" / "teradata" / "client_20261001.csv"
+    fresh.parent.mkdir(parents=True)
+    fresh.write_bytes(b"new")
+    result = sync.persist(c)
+    assert result.status is StageStatus.SUCCESS
+    assert "removed 1 stale ones" in (result.message or "")
+    assert set(store.etags("sources/")) == {"sources/teradata/client_20261001.csv"}
+    assert store.get("sources/teradata/client_20261001.csv")[0] == b"new"  # type: ignore[index]
+    assert store.exists("narratives/2026-W39.json")  # the model cache stays
+    assert sync.release(c).status is StageStatus.SUCCESS
+
+
+def test_ordinary_persist_never_removes_sources(store: ObjectStore, tmp_path: Path) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "run")
+    assert sync.restore(c).status is StageStatus.SUCCESS
+    (c.data_dir / "sources" / "snowflake" / "activity" / "a.csv").unlink()
+    result = sync.persist(c)
+    assert "stale" not in (result.message or "")
+    assert store.exists("sources/snowflake/activity/a.csv")
+    assert sync.release(c).status is StageStatus.SUCCESS
+
+
 def test_failed_run_still_releases_the_lock(
     store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
