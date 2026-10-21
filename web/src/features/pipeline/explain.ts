@@ -28,10 +28,13 @@ const count = (n: number | null) => (n == null ? null : n.toLocaleString('en-CA'
 export function stageCard(node: PipelineNode, summary: StageSummary | undefined, inflight: boolean): CardContent {
   if (node.kind === 'SOURCE') return { title: node.label, what: 'A source the weekly run reads.' }
   if (node.kind === 'OUTPUT') return { title: node.label, what: 'Where the weekly run publishes.' }
-  if (node.kind === 'DBT_LAYER') {
-    return { title: node.label, what: STAGE_PLAIN.dbt_build, happened: node.models?.length ? [`${node.models.length} models: ${node.models.slice(0, 4).join(', ')}${node.models.length > 4 ? ', …' : ''}`] : undefined, hint: 'Click for every model.' }
-  }
   const what = STAGE_PLAIN[node.stage ?? ''] ?? undefined
+  if (node.kind === 'DBT_LAYER') {
+    // A layer is part of the dbt build: its card carries the build's outcome, then the layer's models.
+    const build = stageCard({ ...node, kind: 'STAGE', label: 'dbt build' }, summary, inflight)
+    const models = node.models?.length ? [`${node.models.length} models: ${node.models.slice(0, 4).join(', ')}${node.models.length > 4 ? ', …' : ''}`] : []
+    return { ...build, title: node.label, happened: [...(build.happened ?? []), ...models], hint: 'Click for every model.' }
+  }
   if (!summary) {
     return {
       title: node.label, what, value: 'Not run',

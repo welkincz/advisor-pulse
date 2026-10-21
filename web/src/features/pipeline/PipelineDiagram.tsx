@@ -17,9 +17,9 @@ const WORD: Record<string, string> = { SUCCESS: 'Succeeded', WARN: 'Warning', FA
 const GLYPH: Record<string, string> = { SUCCESS: '✓', WARN: '!', FAILED: '✕', SKIPPED: '–' }
 
 /** A label in at most two short lines: "Marts (12 models)" becomes "Marts" over "12 models". */
-export function labelLines(label: string, width = 13): string[] {
-  // A web address has no spaces to break at and runs into its neighbour; the card names it in full.
-  if (/^[\w-]+(\.[\w-]+)+$/.test(label)) return ['Website']
+export function labelLines(label: string, width = 13, output = false): string[] {
+  // An output's web address has no spaces to break at and runs into its neighbour; the card names it in full.
+  if (output && /^[\w-]+(\.[\w-]+)+$/.test(label)) return ['Website']
   const bracket = /^(.*?)\s*\((.+)\)$/.exec(label)
   if (bracket) return [bracket[1]!, bracket[2]!]
   if (label.length <= width || !label.includes(' ')) return [label]
@@ -99,8 +99,9 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
         const travelled = done(target ? state.get(target) : null)
         return <g key={edge.id}>
           <path d={d} className={`line-edge${active ? ' is-active' : travelled ? ' is-done' : ''}`} />
-          {/* Rows on their way: three dots travel the line while its stage works (replay is off under reduced motion). */}
-          {active && [0, 1, 2].map((i) => <circle key={i} className="line-flow" r={3}>
+          {/* Rows on their way: three dots travel the line while the replay shows its stage working.
+              A stage a mid-run log left running keeps its dashed line once the replay ends, but no moving rows. */}
+          {active && replaying && [0, 1, 2].map((i) => <circle key={i} className="line-flow" r={3}>
             <animateMotion dur="1.5s" begin={`${i * 0.5}s`} repeatCount="indefinite" path={d} />
           </circle>)}
         </g>
@@ -134,7 +135,7 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
           </>}
         {(() => {
           // dbt layers sit close together on the main line, so their names go above it.
-          const lines = labelLines(node.label)
+          const lines = labelLines(node.label, 13, node.kind === 'OUTPUT')
           const top = small ? -14 - (lines.length - 1) * 13 : 28
           // The group's aria-label already says all of this; the drawn text is presentation.
           return <text className="line-label" y={top} textAnchor="middle" aria-hidden="true">

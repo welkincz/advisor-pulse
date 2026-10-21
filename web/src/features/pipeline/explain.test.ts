@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PipelineNode } from '../../data/generated/pipeline_graph'
 import { labelLines } from './PipelineDiagram'
+import { runShare } from './StageTimeline'
 import { stageCard } from './explain'
 import type { StageSummary } from './timeline'
 
@@ -27,9 +28,26 @@ describe('stageCard', () => {
   })
 })
 
+describe('dbt layers and shares', () => {
+  it('gives a dbt layer the build’s outcome as well as its models', () => {
+    const layer = node({ id: 'dbt_marts', kind: 'DBT_LAYER', stage: 'dbt_build', label: 'Marts (13 models)', models: ['mart_a', 'mart_b'] } as Partial<PipelineNode>)
+    const card = stageCard(layer, summary({ status: 'WARN', attempts: [{ attempt: 1, status: 'WARN', message: '1 warned' }] as StageSummary['attempts'] }), false)
+    expect(card.title).toBe('Marts (13 models)')
+    expect(card.happened).toContain('2 models: mart_a, mart_b')
+    expect(card.answer?.a).toBe('1 warned')
+  })
+
+  it('says 0% for no time and <1% for a sliver', () => {
+    expect(runShare(0, 1000)).toBe('0%')
+    expect(runShare(5, 1000)).toBe('<1%')
+    expect(runShare(250, 1000)).toBe('25%')
+  })
+})
+
 describe('labelLines', () => {
-  it('draws a web address as "Website", so it does not run into its neighbour', () => {
-    expect(labelLines('pulse.charliebuild.com')).toEqual(['Website'])
+  it('draws an output’s web address as "Website", so it does not run into its neighbour', () => {
+    expect(labelLines('pulse.charliebuild.com', 13, true)).toEqual(['Website'])
+    expect(labelLines('v1.2.3')).toEqual(['v1.2.3'])
     expect(labelLines('Marts (13 models)')).toEqual(['Marts', '13 models'])
   })
 })
