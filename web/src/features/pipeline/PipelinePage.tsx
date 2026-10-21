@@ -105,7 +105,7 @@ function Canvas({ graph, run }: { graph: PipelineGraph; run: RunSummary }) {
       <button type="button" onClick={restart} disabled={reducedMotion || replaying}>Replay run</button>
       {reducedMotion && <span className="pipe-note">Replay is off because your system asks for reduced motion.</span>}
     </div>
-    {inflight && <p className="pipe-note pipe-inflight"><Term title="Logged mid-run" text="This run wrote its log before it finished, so a stage shows as running and the ones after it as waiting. The next run’s log records how they finished.">Logged mid-run</Term>: hover a stage for what it did.</p>}
+    {inflight && <p className="pipe-note pipe-inflight"><Term title="Logged mid-run" text="This run wrote its log before it finished, so a stage shows as running and the ones after it as waiting. The next run’s log records how they finished.">Logged mid-run</Term>: hover or focus a stage for what it did.</p>}
     <div className="pipe-layout">
       <div className="pipe-canvas" ref={box} role="group" aria-label="Pipeline stages">
         {width > 0 && <PipelineDiagram graph={graph} state={state} summaries={summaries} selected={selected} onSelect={setSelected} width={width} replaying={replaying} inflight={inflight} />}
@@ -146,7 +146,7 @@ export function PipelinePage() {
 
   return <main className="pipe-page">
     <h1>Pipeline</h1>
-    <p className="intro">{latestWeekly ? runSentence(latestWeekly) : 'The weekly batch from source extracts to the published report.'} Hover a stage for what it does; click for its attempts, rows and checks.</p>
+    <p className="intro">{latestWeekly ? runSentence(latestWeekly) : 'The weekly batch from source extracts to the published report.'} Hover or focus a stage for what it does; click for its attempts, rows and checks.</p>
     {(graph.status === 'loading' || runLog.status === 'loading') && <p aria-busy="true">Loading the pipeline…</p>}
     {graph.status === 'error' && <DataNotice what="the pipeline graph" onRetry={graph.retry} />}
     {runLog.status === 'error' && <DataNotice what="the run log" onRetry={runLog.retry} />}
