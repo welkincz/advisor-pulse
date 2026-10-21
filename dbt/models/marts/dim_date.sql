@@ -1,4 +1,4 @@
--- One row per calendar day. The range covers the 104-week history and the reporting
+-- One row per calendar day, with ISO weeks and the fiscal calendar (FY starts 1 November). The range covers the 104-week history and the reporting
 -- horizon; override with --vars '{dim_date_start: ..., dim_date_end: ...}'.
 with days as (
     select cast(day as date) as date_day
@@ -19,5 +19,13 @@ select
     cast(month(date_day) as integer) as month,
     cast(quarter(date_day) as integer) as quarter,
     cast(isodow(date_day) as integer) as day_of_week,
-    isodow(date_day) >= 6 as is_weekend
+    isodow(date_day) >= 6 as is_weekend,
+    {{ fiscal_year('date_day') }} as fiscal_year,
+    {{ fiscal_quarter('date_day') }} as fiscal_quarter,
+    {{ fiscal_quarter_id('date_day') }} as fiscal_quarter_id,
+    {{ fiscal_month('date_day') }} as fiscal_month,
+    {{ fiscal_quarter_start('date_day') }} as fiscal_quarter_start,
+    cast({{ fiscal_quarter_start('date_day') }} + interval 3 month - interval 1 day as date) as fiscal_quarter_end,
+    -- The quarter a weekly figure is reported in: the one that holds the week's Sunday.
+    {{ fiscal_quarter_id(iso_week_start('date_day') ~ " + interval 6 day") }} as week_fiscal_quarter_id
 from days

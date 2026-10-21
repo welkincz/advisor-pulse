@@ -35,6 +35,7 @@ def test_registry_covers_every_planned_contract() -> None:
         "meta.check_result",
         "quarantine.rejected_rows",
         "org_weekly",
+        "org_quarterly",
         "advisor_weekly",
         "weekly_report",
         "geo_weekly",

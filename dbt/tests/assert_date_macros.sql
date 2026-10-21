@@ -15,6 +15,21 @@ with cases as (
     union all
     select 'iso_week_year_start', {{ iso_week_id("date '2024-12-30'") }}, '2025-W01'
     union all
+    -- Fiscal year starts 1 November: FY26 is 2025-11-01 to 2026-10-31.
+    select 'fy_last_day', {{ fiscal_quarter_id("date '2025-10-31'") }}, 'FY25-Q4'
+    union all
+    select 'fy_first_day', {{ fiscal_quarter_id("date '2025-11-01'") }}, 'FY26-Q1'
+    union all
+    select 'fy_q2_start', {{ fiscal_quarter_id("date '2026-02-01'") }}, 'FY26-Q2'
+    union all
+    select 'fy_end', {{ fiscal_quarter_id("date '2026-10-31'") }}, 'FY26-Q4'
+    union all
+    select 'fy_month_november', cast({{ fiscal_month("date '2025-11-15'") }} as varchar), '1'
+    union all
+    select 'fy_quarter_start', cast({{ fiscal_quarter_start("date '2026-01-20'") }} as varchar), '2025-11-01'
+    union all
+    select 'fy_quarter_start_q4', cast({{ fiscal_quarter_start("date '2026-10-18'") }} as varchar), '2026-08-01'
+    union all
     select 'iso_week_start_sunday',
         cast({{ iso_week_start("date '2026-10-04'") }} as varchar),
         '2026-09-28'

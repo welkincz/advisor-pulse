@@ -75,6 +75,7 @@ from pulse.contracts.exports import (
     NarrativeFact,
     NarrativeFile,
     NodeNarrative,
+    OrgQuarterly,
     OrgWeekly,
     PipelineGraph,
     RunCheck,
@@ -92,6 +93,7 @@ from pulse.contracts.sources import (
     TeradataBranch,
     TeradataClient,
 )
+from pulse.fiscal import quarter_bounds, week_fiscal_quarter_id, week_sunday, weeks_in_quarter
 from pulse.reference import org
 
 FIXTURES_DIR = Path(__file__).resolve().parents[2] / "fixtures"
@@ -1080,7 +1082,9 @@ class Scope:
     active_advisors: int
 
 
-def _measures(s: Scope) -> dict[str, Any]:
+def _parts(s: Scope) -> dict[str, Any]:
+    """The additive parts behind every KPI for one scope (week), plus the clients contacted."""
+
     def in_week(ts: datetime | None) -> bool:
         return ts is not None and iso_week(local_date(ts)) == s.week
 
@@ -1090,30 +1094,52 @@ def _measures(s: Scope) -> dict[str, Any]:
     held = [a for a in scheduled if a["STATUS"] == "COMPLETED"]
     held_meetings = [a for a in completed if a["ACTIVITY_TYPE"] in APPOINTMENT_LIKE]
     booked = [a for a in meetings if in_week(a["CREATED_TS"])]
-    calls_out = sum(a["ACTIVITY_TYPE"] == "CALL_OUT" for a in completed)
-    no_shows = sum(a["STATUS"] == "NO_SHOW" for a in scheduled)
-    conversions = sum(a["OUTCOME"] in CONVERTING for a in held)
-    covered = len(s.book & s.contacted_13w)
     minutes = [a["DURATION_MIN"] for a in held_meetings]
-    from_call = sum(a["BOOKED_FROM_ACTIVITY_ID"] is not None for a in booked)
     return {
         "active_advisors": s.active_advisors,
         "activities_completed": len(completed),
-        "calls_out": calls_out,
+        "calls_out": sum(a["ACTIVITY_TYPE"] == "CALL_OUT" for a in completed),
         "calls_in": sum(a["ACTIVITY_TYPE"] == "CALL_IN" for a in completed),
         "appointments_booked": len(booked),
+        "booked_from_call": sum(a["BOOKED_FROM_ACTIVITY_ID"] is not None for a in booked),
         "appointments_held": len(held),
-        "no_shows": no_shows,
-        "conversions": conversions,
-        "unique_clients_contacted": len({a["CLIENT_ID"] for a in completed if a["CLIENT_ID"]}),
+        "no_shows": sum(a["STATUS"] == "NO_SHOW" for a in scheduled),
+        "conversions": sum(a["OUTCOME"] in CONVERTING for a in held),
+        "clients": {a["CLIENT_ID"] for a in completed if a["CLIENT_ID"]},
         "book_size": len(s.book),
-        "clients_covered_13w": covered,
-        "coverage_rate_13w": _ratio(covered, len(s.book)),
-        "avg_meeting_duration_min": _ratio(sum(minutes), len(minutes), 2),
-        "activities_per_advisor": _ratio(len(completed), s.active_advisors, 2),
-        "show_rate": _ratio(len(held), len(held) + no_shows),
-        "conversion_rate": _ratio(conversions, len(held)),
-        "call_to_appt_rate": _ratio(from_call, calls_out),
+        "clients_covered_13w": len(s.book & s.contacted_13w),
+        "meeting_minutes": sum(minutes),
+        "meetings_held": len(minutes),
+    }
+
+
+def _rates(p: dict[str, Any], advisors: int) -> dict[str, Any]:
+    """Every ratio from its summed parts, as mart_org_weekly and mart_org_quarterly do."""
+    return {
+        "coverage_rate_13w": _ratio(p["clients_covered_13w"], p["book_size"]),
+        "avg_meeting_duration_min": _ratio(p["meeting_minutes"], p["meetings_held"], 2),
+        "activities_per_advisor": _ratio(p["activities_completed"], advisors, 2),
+        "show_rate": _ratio(p["appointments_held"], p["appointments_held"] + p["no_shows"]),
+        "conversion_rate": _ratio(p["conversions"], p["appointments_held"]),
+        "call_to_appt_rate": _ratio(p["booked_from_call"], p["calls_out"]),
+    }
+
+
+_COUNTS = (
+    "activities_completed", "calls_out", "calls_in", "appointments_booked", "appointments_held",
+    "no_shows", "conversions",
+)  # fmt: skip
+
+
+def _measures(s: Scope) -> dict[str, Any]:
+    p = _parts(s)
+    return {
+        "active_advisors": s.active_advisors,
+        **{k: p[k] for k in _COUNTS},
+        "unique_clients_contacted": len(p["clients"]),
+        "book_size": p["book_size"],
+        "clients_covered_13w": p["clients_covered_13w"],
+        **_rates(p, s.active_advisors),
     }
 
 
@@ -1263,6 +1289,67 @@ class Marts:
                         "node_name": node.name,
                         "parent_id": node.parent_id,
                         **m,
+                    }
+                )
+        return rows
+
+    def org_quarterly(self) -> list[dict[str, Any]]:
+        """The fiscal-quarter mart: flows summed, clients distinct over the quarter, stocks at
+        the last reported week, ratios rebuilt from parts (mart_org_quarterly)."""
+        rows = []
+        by_quarter: dict[str, list[str]] = {}
+        for week in WEEKS:
+            by_quarter.setdefault(week_fiscal_quarter_id(week), []).append(week)
+        for quarter, weeks in by_quarter.items():
+            start, end = quarter_bounds(week_sunday(weeks[0]))
+            for node in self.nodes:
+                parts = []
+                for week in weeks:
+                    active = self.world.active_advisors(week)
+                    advisors = [
+                        a for a in active if self.world.branch_for_week(a, week) in node.branches
+                    ]
+                    acts = [a for a in self.acts if self.credited_branch(a, week) in node.branches]
+                    book = self.book(week, advisors)
+                    parts.append(
+                        _parts(Scope(week, acts, book, self.contacted_13w(week), len(advisors)))
+                    )
+                total = {
+                    k: sum(p[k] for p in parts)
+                    for k in (*_COUNTS, "booked_from_call", "meeting_minutes", "meetings_held")
+                }
+                advisor_weeks = sum(p["active_advisors"] for p in parts)
+                last = parts[-1]
+                summed = {
+                    **total,
+                    "book_size": last["book_size"],
+                    "clients_covered_13w": last["clients_covered_13w"],
+                }
+                rows.append(
+                    {
+                        "fiscal_quarter_id": quarter,
+                        "fiscal_year": 2000 + int(quarter[2:4]),
+                        "fiscal_quarter": int(quarter[-1]),
+                        "quarter_start": start,
+                        "quarter_end": end,
+                        "first_week": weeks[0],
+                        "last_week": weeks[-1],
+                        "weeks_reported": len(weeks),
+                        "weeks_in_quarter": weeks_in_quarter(quarter),
+                        "is_complete": len(weeks) == weeks_in_quarter(quarter),
+                        "level": node.level.value,
+                        "node_id": node.node_id,
+                        "node_name": node.name,
+                        "parent_id": node.parent_id,
+                        "advisor_weeks": advisor_weeks,
+                        **{k: total[k] for k in _COUNTS},
+                        "booked_from_call": total["booked_from_call"],
+                        "unique_clients_contacted": len(
+                            set().union(*(p["clients"] for p in parts))
+                        ),
+                        "book_size": last["book_size"],
+                        "clients_covered_13w": last["clients_covered_13w"],
+                        **_rates(summed, advisor_weeks),
                     }
                 )
         return rows
@@ -1978,6 +2065,7 @@ def write_exports(world: World, root: Path) -> None:
     report = marts.weekly_report(org_rows)
     tables: list[tuple[str, type[Contract], list[dict[str, Any]]]] = [
         ("org_weekly.parquet", OrgWeekly, org_rows),
+        ("org_quarterly.parquet", OrgQuarterly, marts.org_quarterly()),
         ("advisor_weekly.parquet", AdvisorWeekly, marts.advisor_weekly()),
         ("weekly_report.parquet", WeeklyReport, report),
         ("geo_weekly.parquet", GeoWeekly, marts.geo_weekly()),
