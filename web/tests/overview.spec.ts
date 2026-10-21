@@ -15,7 +15,8 @@ test('overview shows all contracted KPIs, and choosing one plots it with its def
   await page.goto('/')
   await expect(page.locator('[data-kpi]')).toHaveCount(12)
   await expect(page.locator('[data-kpi="ACT_PER_ADV"]')).toContainText('11.5')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Activities per advisor rose 14\.6% to 11\.5/)
+  // The sentence needs DuckDB-WASM from the CDN, which can take a while on a CI runner.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Activities per advisor rose 14\.6% to 11\.5/, { timeout: 30_000 })
   const showRate = page.locator('[data-kpi="SHOW_RATE"] button')
   await showRate.focus()
   await page.keyboard.press('Enter')
