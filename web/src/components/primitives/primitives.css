@@ -99,3 +99,27 @@
 .ks-trail { margin: var(--space-8) 0 var(--space-4); }
 .ks-multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-4); }
 .ks-group h3 { font-size: var(--text-sm); color: var(--muted); font-weight: 500; }
+
+/* Hover card: what a thing is, what happened, and the answer to the question it raises.
+   It floats, so it is the one element with a shadow. */
+.explain { position: relative; }
+.explain-block { display: block; }
+.hc-layer { position: fixed; z-index: 50; max-width: min(20rem, calc(100vw - 2rem)); pointer-events: none; visibility: hidden; }
+.hc-layer.is-placed { visibility: visible; animation: hc-in var(--duration-quick) var(--ease-standard) both; }
+.hc-layer.is-placed.is-below { animation-name: hc-in-below; }
+@keyframes hc-in { from { opacity: 0; transform: translateY(4px); } }
+@keyframes hc-in-below { from { opacity: 0; transform: translateY(-4px); } }
+.hc { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); box-shadow: var(--shadow-raised);
+  color: var(--ink); font-size: var(--text-sm); line-height: var(--leading-tight); text-align: left; white-space: normal; }
+.hc p, .hc ul { margin: 0; }
+.hc-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); }
+.hc-title { font-weight: 600; }
+.hc-value { font-size: var(--text-lg); font-weight: 500; }
+.hc-what { color: var(--muted); }
+.hc-happened { display: grid; gap: var(--space-1); padding: var(--space-2) 0 0; border-top: 1px solid var(--rule); list-style: none; }
+.hc-answer { padding-top: var(--space-2); border-top: 1px solid var(--rule); }
+.hc-q { font-weight: 600; }
+.hc .hc-a { margin-top: var(--space-1); color: var(--muted); }
+.hc-hint { color: var(--muted); font-size: var(--text-xs); }
+.term { text-decoration: underline dotted var(--muted); text-underline-offset: 3px; cursor: help; }
+.term:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }

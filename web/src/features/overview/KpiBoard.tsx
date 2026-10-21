@@ -1,5 +1,6 @@
-import { Delta, Sparkline } from '../../components/primitives'
-import { KPI_LABELS } from '../../data'
+import { Delta, Explain, Sparkline } from '../../components/primitives'
+import { KPI_LABELS, KPI_PLAIN, formatKpi, happened } from '../../data'
+import { settledWeeks } from '../../data/usual'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { AnimatedKpiValue } from '../../motion/AnimatedKpiValue'
 import { LOWER_IS_BETTER } from './kpis'
@@ -13,12 +14,14 @@ export const KPI_GROUPS: readonly { title: string; codes: readonly KpiCode[] }[]
   { title: 'Data quality', codes: ['LATE_RATE', 'QUAR_RATE'] },
 ]
 
-export interface BoardRow { value: number | null; wow: number | null; flag: boolean; trend: (number | null)[] }
+/** `usual` is the trailing 13-week average once the week has 13 weeks behind it; undefined when unknown. */
+export interface BoardRow { value: number | null; wow: number | null; flag: boolean; trend: (number | null)[]; usual?: number | null }
 
 /** Board rows for `week`: the value, its change, its flag and the trend up to it. */
 export function boardRows(history: readonly WeeklyReport[], weeks: readonly string[], week: string): Map<KpiCode, BoardRow> {
   const end = weeks.indexOf(week)
   const window = weeks.slice(Math.max(0, end - SPARK_WEEKS + 1), end + 1)
+  const settled = settledWeeks(weeks).has(week)
   const byCode = new Map<KpiCode, Map<string, WeeklyReport>>()
   for (const row of history) {
     let weeksOf = byCode.get(row.kpi_code)
@@ -31,6 +34,7 @@ export function boardRows(history: readonly WeeklyReport[], weeks: readonly stri
       value: current?.value ?? null,
       wow: current?.wow_pct ?? null,
       flag: current?.flag === 'ANOMALY',
+      usual: settled ? current?.trailing_13w_avg ?? null : null,
       trend: window.map((w) => weeksOf.get(w)?.value ?? null),
     }]
   }))
@@ -50,14 +54,21 @@ export function KpiBoard({ rows, selected, onSelect, only }: { rows: Map<KpiCode
         {group.codes.map((code) => {
           const row = rows.get(code)
           const better = code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'
-          return <li key={code} data-kpi={code}>
-            <button type="button" className="board-row" aria-pressed={code === selected} onClick={() => onSelect(code)}>
+          const card = () => ({
+            title: KPI_LABELS[code],
+            value: formatKpi(code, row?.value),
+            what: KPI_PLAIN[code],
+            happened: row ? happened({ code, value: row.value, wow: row.wow, usual: row.usual, flag: row.flag, better }) : [],
+            hint: code === selected ? 'Plotted in the chart above.' : 'Click to plot it in the chart above.',
+          })
+          return <li key={code} data-kpi={code}><Explain block card={card}>{(described) =>
+            <button type="button" className="board-row" aria-pressed={code === selected} onClick={() => onSelect(code)} {...described}>
               <span className="board-label">{KPI_LABELS[code]}{row?.flag && <span className="board-flag">Anomaly</span>}</span>
               <span className="board-value figure-num"><AnimatedKpiValue code={code} value={row?.value ?? null} /></span>
               <span className="board-spark">{row && <Sparkline values={row.trend} label={`${KPI_LABELS[code]}, last ${row.trend.length} weeks`} width={88} height={22} />}</span>
               <span className="board-delta"><Delta value={row?.wow} better={better} />{row?.wow != null && <span className="board-wow"> WoW</span>}</span>
-            </button>
-          </li>
+            </button>}
+          </Explain></li>
         })}
       </ul>
     </section>)}

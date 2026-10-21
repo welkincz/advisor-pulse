@@ -16,7 +16,7 @@ export const KPI_LABELS: Record<KpiCode, string> = {
   QUAR_RATE: 'Quarantine rate',
 }
 
-const RATES = new Set<KpiCode>(['CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
+export const RATES: ReadonlySet<KpiCode> = new Set<KpiCode>(['CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
 /** Averages keep one decimal even when whole, so a column of them lines up (16.0, not 16). */
 const AVERAGES = new Set<KpiCode>(['ACT_PER_ADV', 'AVG_MEET_MIN'])
 

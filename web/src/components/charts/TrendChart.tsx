@@ -29,6 +29,10 @@ export interface TrendChartProps {
   color?: string
   /** Extra rows for the tooltip, e.g. a definition or the week's WoW. */
   tip?: (index: number) => ReactNode
+  /** What happened that week, in short lines; replaces the default usual and anomaly rows. */
+  describe?: (index: number) => readonly string[]
+  /** The tooltip's last line: what a click does. */
+  hint?: string
   /** Change this to morph the line from the previous measure instead of redrawing. */
   morphKey?: string
   /** Fit the y axis from this index on, so warm-up weeks do not flatten the rest. */
@@ -54,7 +58,7 @@ function useWidth<T extends HTMLElement>() {
  * changes, and moves its week cursor when the week does. Hover shows a crosshair and the
  * week's numbers; click or arrow keys choose a week when `onSelect` is given.
  */
-export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, morphKey, fitFrom = 0 }: TrendChartProps) {
+export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, describe, hint, morphKey, fitFrom = 0 }: TrendChartProps) {
   const reducedMotion = useReducedMotion()
   const clip = useId()
   const [box, width] = useWidth<HTMLDivElement>()
@@ -168,9 +172,12 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
     {hover !== null && !compact && <div className="trend-tip" style={{ left: Math.min(Math.max(tipX, 90), width - 90), top: Math.max(0, (tipPoint?.[1] ?? margin.top) - 12) }}>
       <span className="trend-tip-week figure-num">{weeks[hover]}</span>
       <strong className="figure-num">{format(values[hover])}</strong>
-      {usual && usual[hover] != null && <span>Usual {format(usual[hover])}</span>}
-      {flagged?.[hover] && <span className="trend-tip-flag">Anomaly</span>}
+      {describe ? describe(hover).map((line) => <span key={line} className="trend-tip-line">{line}</span>) : <>
+        {usual && usual[hover] != null && <span>Usual {format(usual[hover])}</span>}
+        {flagged?.[hover] && <span className="trend-tip-flag">Anomaly</span>}
+      </>}
       {tip?.(hover)}
+      {hint && onSelect && <span className="trend-tip-hint">{hint}</span>}
     </div>}
   </div>
 }

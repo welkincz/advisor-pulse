@@ -18,12 +18,20 @@ test('overview shows all contracted KPIs, and choosing one plots it with its def
   // The sentence needs DuckDB-WASM from the CDN, which can take a while on a CI runner.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Activities per advisor rose 14\.6% to 11\.5/, { timeout: 30_000 })
   const showRate = page.locator('[data-kpi="SHOW_RATE"] button')
+  await page.keyboard.press('Tab')
   await showRate.focus()
+  // Keyboard focus opens the hover card: what the measure is, and what happened this week.
+  const card = page.getByRole('tooltip')
+  await expect(card).toContainText('Of the meetings due in the week')
+  await expect(card).toContainText('Click to plot it in the chart above.')
+  await expect(showRate).toHaveAttribute('aria-describedby', await card.getAttribute('id') ?? '')
+  await page.keyboard.press('Escape')
+  await expect(card).toBeHidden()
   await page.keyboard.press('Enter')
   await expect(showRate).toHaveAttribute('aria-pressed', 'true')
   await expect(page).toHaveURL(/kpi=SHOW_RATE/)
   await expect(page.getByRole('heading', { name: 'Show rate', level: 2 })).toBeVisible()
-  await expect(page.locator('.hero-definition')).toContainText('Held appointments divided by')
+  await expect(page.locator('.hero-definition')).toContainText('Of the meetings due in the week')
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
 })
 

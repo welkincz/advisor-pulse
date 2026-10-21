@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TrendChart } from '../components/charts/TrendChart'
-import { Delta, Section, SeriesCsvButton, WeekStepper } from '../components/primitives'
-import { DataNotice, KPI_LABELS, formatKpi, formatWow, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
+import { Delta, Explain, Section, SeriesCsvButton, Term, WeekStepper } from '../components/primitives'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, formatKpi, formatWow, happened, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
 import type { Manifest } from '../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../data/usual'
@@ -80,8 +80,12 @@ function Briefing({ manifest }: { manifest: Manifest }) {
     <section className="hero" aria-labelledby="hero-title">
       <div className="hero-head">
         <div>
-          <h2 id="hero-title" className="hero-title">{KPI_LABELS[code]}</h2>
-          <p className="hero-definition">{KPI_DEFINITIONS[code]}</p>
+          <h2 id="hero-title" className="hero-title">
+            <Explain card={{ title: KPI_LABELS[code], what: KPI_PLAIN[code], answer: { q: 'How is it counted?', a: KPI_DEFINITIONS[code] } }}>
+              {(described) => <span className="term" tabIndex={0} {...described}>{KPI_LABELS[code]}</span>}
+            </Explain>
+          </h2>
+          <p className="hero-definition">{KPI_PLAIN[code]}</p>
         </div>
         <p className="hero-now">
           <span className="hero-value figure-num">{formatKpi(code, current?.value ?? rows.get(code)?.value)}</span>
@@ -91,7 +95,11 @@ function Briefing({ manifest }: { manifest: Manifest }) {
       {history.status === 'error' && <DataNotice what="the weekly history" onRetry={history.retry} />}
       <TrendChart weeks={weeks} values={series.map((r) => r?.value ?? null)} usual={series.map((r) => (r && settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null))}
         flagged={series.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={WARM_UP_WEEKS}
-        format={(v) => formatKpi(code, v)} height={300}
+        format={(v) => formatKpi(code, v)} height={300} hint="Click to open this week"
+        describe={(i) => {
+          const r = series[i]
+          return r ? happened({ code, value: r.value, wow: r.wow_pct, usual: settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null, flag: r.flag === 'ANOMALY', better }) : []
+        }}
         label={`${KPI_LABELS[code]}, national, ${weeks[0]} to ${weeks.at(-1)}; ${flagged} anomaly weeks. Use the arrow keys to choose a week.`} />
       <details className="figure-table hero-table">
         <summary>Show the numbers</summary>
@@ -106,14 +114,13 @@ function Briefing({ manifest }: { manifest: Manifest }) {
       </details>
       <p className="hero-legend">
         <span><i className="hero-key-line" aria-hidden="true" />Weekly value</span>
-        <span><i className="hero-key-usual" aria-hidden="true" />Usual: trailing 13-week average</span>
-        <span><i className="hero-key-flag" aria-hidden="true" />Anomaly, more than two standard deviations from the 13 weeks before</span>
-        <span className="hero-hint">Choose a week on the chart, or a measure below.</span>
+        <span><i className="hero-key-usual" aria-hidden="true" /><Term {...TERMS.usual} /></span>
+        <span><i className="hero-key-flag" aria-hidden="true" /><Term {...TERMS.anomaly} /></span>
         <SeriesCsvButton rows={series} filename={`advisor-pulse_CA_${code}.csv`} />
       </p>
     </section>
 
-    <Section id="measures" title="Every measure" lede={`Week ${week}, against the week before. Choose one to plot it above.`}>
+    <Section id="measures" title="Every measure" lede="Hover for what each means; click to plot it.">
       <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} />
     </Section>
 
