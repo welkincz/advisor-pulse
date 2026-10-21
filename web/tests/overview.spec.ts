@@ -51,9 +51,9 @@ test('the hero chart reads every fixture week and moves the report week by keybo
   await chart.focus()
   await page.keyboard.press('ArrowLeft')
   await expect(page).toHaveURL(/week=2026-W39/)
-  // Keyboard users get the week's tooltip too, tied to the chart.
+  // Keyboard users get the week's tooltip too, announced as the week moves.
   await expect(page.locator('.trend-tip')).toContainText('2026-W39')
-  await expect(chart).toHaveAttribute('aria-describedby', await page.locator('.trend-tip').getAttribute('id') ?? '')
+  await expect(page.locator('.trend-tip')).toHaveAttribute('aria-live', 'polite')
   await expect(page.locator('.stepper-week')).toHaveValue('2026-W39')
   await expect(page.locator('[data-kpi]')).toHaveCount(12)
   await page.getByRole('button', { name: 'Next week' }).click()

@@ -22,6 +22,7 @@
 .trend-crosshair { stroke: var(--muted); stroke-width: 1; pointer-events: none; }
 .trend-tip { position: absolute; z-index: 2; display: grid; gap: 2px; min-width: 9rem; transform: translate(-50%, -100%); padding: var(--space-2) var(--space-3);
   border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); font-size: var(--text-sm); pointer-events: none; }
+.trend-tip.is-below { transform: translate(-50%, 0); }
 .trend-tip strong { font-size: var(--text-lg); font-weight: 500; line-height: 1.1; }
 .trend-tip-week, .trend-tip span { color: var(--muted); font-size: var(--text-xs); }
 .trend-tip .trend-tip-flag { color: var(--signal); font-weight: 600; }

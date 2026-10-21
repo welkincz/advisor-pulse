@@ -120,7 +120,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
       </p>
     </section>
 
-    <Section id="measures" title="Every measure" lede="Hover for what each means; click to plot it.">
+    <Section id="measures" title="Every measure" lede="Hover or focus a measure for what it means; click to plot it.">
       <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} />
     </Section>
 

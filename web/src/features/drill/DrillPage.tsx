@@ -125,7 +125,7 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, childHre
         <span className="hero-hint"><SeriesCsvButton rows={series} filename={`advisor-pulse_${path.nodeId}_${code}.csv`} /></span>
       </p>
     </section>
-    <Section id="kpis" title={`${name}, week ${week}`} lede="Hover for what each means; click to plot it." revealOrder={0}>
+    <Section id="kpis" title={`${name}, week ${week}`} lede="Hover or focus a measure for what it means; click to plot it." revealOrder={0}>
       {history.status === 'loading' && !rows.size ? <p aria-busy="true">Loading the KPIs…</p> : <KpiBoard rows={rows} selected={code} onSelect={setKpi} only={ORG_KPIS} />}
     </Section>
     {childLabel && path.childSegment !== 'a' && <Section id="children" title={`${childLabel} in ${name}`} lede={`${KPI_LABELS[code]}, last ${childWeeks.length} weeks, best first. The dashed line is ${name}.`}>

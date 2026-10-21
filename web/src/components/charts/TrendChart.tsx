@@ -67,7 +67,7 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
   const [keyed, setKeyed] = useState(false)
   const tipId = useId()
   const tipRef = useRef<HTMLDivElement>(null)
-  const [tipW, setTipW] = useState(0)
+  const [tipSize, setTipSize] = useState({ w: 0, h: 0 })
   const margin = compact ? { top: 6, right: 6, bottom: 6, left: 6 } : { top: 16, right: 12, bottom: 26, left: 48 }
   const innerW = Math.max(0, width - margin.left - margin.right)
   const innerH = Math.max(0, height - margin.top - margin.bottom)
@@ -147,16 +147,19 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
   // Clamp by the tooltip's measured width, so a wide one never runs off a narrow screen.
   useLayoutEffect(() => {
     const w = tipRef.current?.offsetWidth ?? 0
-    if (w && w !== tipW) setTipW(w)
-  }, [tipAt, tipW])
-  const half = (tipW || 180) / 2
+    const h = tipRef.current?.offsetHeight ?? 0
+    if (w && (w !== tipSize.w || h !== tipSize.h)) setTipSize({ w, h })
+  }, [tipAt, tipSize])
+  const half = (tipSize.w || 180) / 2
   const tipLeft = Math.min(Math.max(tipX, half + 4), Math.max(half + 4, width - half - 4))
+  // Above the point when it fits inside the chart, else below it, so a high week's card stays readable.
+  const pointY = tipPoint?.[1] ?? margin.top
+  const tipBelow = pointY - 12 - tipSize.h < 0
 
   return <div ref={box} className={`trend${compact ? ' trend-compact' : ''}`} style={{ height }}>
     {width > 0 && <svg width={width} height={height} role="img" aria-label={label}
       tabIndex={onSelect ? 0 : undefined} onKeyDown={onKeyDown} onBlur={() => setKeyed(false)}
       onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) setKeyed(true) }}
-      aria-describedby={tipAt !== null ? tipId : undefined}
       onPointerMove={compact ? undefined : (event) => { setKeyed(false); setHover(pick(event)) }}
       onPointerLeave={() => setHover(null)}
       onClick={onSelect ? (event) => onSelect(weeks[pick(event as unknown as PointerEvent<SVGSVGElement>)]!) : undefined}
@@ -185,8 +188,8 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
       </g>}
       {hover !== null && !compact && <line className="trend-crosshair" x1={tipX} x2={tipX} y1={margin.top} y2={margin.top + innerH} />}
     </svg>}
-    {tipAt !== null && !compact && <div ref={tipRef} id={tipId} className="trend-tip" aria-live={keyed ? 'polite' : undefined}
-      style={{ left: tipLeft, top: Math.max(0, (tipPoint?.[1] ?? margin.top) - 12) }}>
+    {tipAt !== null && !compact && <div ref={tipRef} id={tipId} className={`trend-tip${tipBelow ? ' is-below' : ''}`} aria-live={keyed ? 'polite' : undefined}
+      style={{ left: tipLeft, top: tipBelow ? pointY + 12 : pointY - 12 }}>
       <span className="trend-tip-week figure-num">{weeks[tipAt]}</span>
       <strong className="figure-num">{format(values[tipAt])}</strong>
       {describe ? describe(tipAt).map((line) => <span key={line} className="trend-tip-line">{line}</span>) : <>

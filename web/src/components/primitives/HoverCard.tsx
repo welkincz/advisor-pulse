@@ -114,7 +114,12 @@ export function Explain({ card, children, block = false, className }: {
   const onPointerLeave = (event: PointerEvent) => { if (event.pointerType !== 'touch') closeSoon() }
   // A tap opens the card on touch screens, where there is no hover; a second tap closes it.
   const onPointerDown = (event: PointerEvent) => { touched.current = event.pointerType === 'touch' }
-  const onClick = () => { if (touched.current) setOpen((was) => !was) }
+  const onClick = () => {
+    if (!touched.current) return
+    // Reset, so Enter on the same control later (a hybrid device) does not toggle the card.
+    touched.current = false
+    setOpen((was) => !was)
+  }
   const onFocus = (event: FocusEvent) => { if (event.target.matches(':focus-visible')) setOpen(true) }
   const onBlur = (event: FocusEvent) => { if (!anchor.current?.contains(event.relatedTarget as Node | null)) close() }
 
