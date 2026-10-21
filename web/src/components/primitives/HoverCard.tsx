@@ -46,6 +46,24 @@ export function placeCard(anchor: { top: number; bottom: number; left: number; w
   return { left, top: below ? anchor.bottom + GAP : anchor.top - card.height - GAP, below }
 }
 
+const OPEN_EVENT = 'pulse:hovercard-open'
+
+/**
+ * One card at a time: when this card opens it tells the others, and it closes when another
+ * opens (say, a hovered card while a focused one is showing).
+ */
+export function useOnlyCard(id: string, open: boolean, close: () => void) {
+  const closeRef = useRef(close)
+  closeRef.current = close
+  useEffect(() => {
+    if (!open) return
+    window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: id }))
+    const onOther = (event: Event) => { if ((event as CustomEvent<string>).detail !== id) closeRef.current() }
+    window.addEventListener(OPEN_EVENT, onOther)
+    return () => window.removeEventListener(OPEN_EVENT, onOther)
+  }, [id, open])
+}
+
 interface TriggerProps {
   'aria-describedby'?: string
 }
@@ -78,6 +96,7 @@ export function Explain({ card, children, block = false, className }: {
   const closeSoon = useCallback(() => { window.clearTimeout(timer.current); timer.current = window.setTimeout(close, CLOSE_DELAY) }, [close])
   const keep = () => window.clearTimeout(timer.current)
   useEffect(() => () => window.clearTimeout(timer.current), [])
+  useOnlyCard(id, open, close)
 
   const measure = useCallback(() => {
     if (!anchor.current || !panel.current) return
@@ -145,6 +164,23 @@ export function Explain({ card, children, block = false, className }: {
       <HoverCard card={content} id={id} />
     </div>, document.body)}
   </Tag>
+}
+
+/**
+ * The card placed against any element, for marks that cannot be wrapped in `Explain`, such as
+ * the nodes of an SVG diagram. The caller decides when it shows; it places itself like `Explain`.
+ */
+export function FloatingCard({ anchor, card, id }: { anchor: Element; card: CardContent; id?: string }) {
+  const panel = useRef<HTMLDivElement>(null)
+  const [place, setPlace] = useState<Placement | null>(null)
+  useLayoutEffect(() => {
+    if (!panel.current) return
+    setPlace(placeCard(anchor.getBoundingClientRect(), panel.current.getBoundingClientRect(), window.innerWidth))
+  }, [anchor, card])
+  return createPortal(<div ref={panel} className={`hc-layer${place ? ' is-placed' : ''}${place?.below ? ' is-below' : ''}`}
+    style={place ? { left: place.left, top: place.top, pointerEvents: 'none' } : { left: 0, top: 0 }}>
+    <HoverCard card={card} id={id} />
+  </div>, document.body)
 }
 
 /** A word the reader may not know, underlined with dots; hover, focus or a tap explains it. */

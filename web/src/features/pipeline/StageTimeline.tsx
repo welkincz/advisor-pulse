@@ -1,4 +1,4 @@
-import { StatusMark } from '../../components/primitives'
+import { type CardContent, Explain, StatusMark, Term } from '../../components/primitives'
 import { formatDuration } from './format'
 import type { NodeState, StageSummary } from './timeline'
 
@@ -10,17 +10,28 @@ export function logShare(ms: number, longest: number): number {
   return Math.max(0.02, Math.log(ms / FLOOR_MS) / Math.log(Math.max(longest, FLOOR_MS * 10) / FLOOR_MS))
 }
 
+/** A stage's share of the run, as the card says it: 0% for no time, "<1%" for a sliver. */
+export function runShare(ms: number, total: number): string {
+  if (ms <= 0 || total <= 0) return '0%'
+  const pct = (ms / total) * 100
+  return pct < 1 ? '<1%' : `${Math.round(pct)}%`
+}
+
 /**
  * Where the run's time went, one bar per stage in run order on a log scale. During a replay
  * a bar grows when its stage finishes, in step with the line diagram.
  */
-export function StageTimeline({ order, labels, summaries, state, onSelect }: {
+export function StageTimeline({ order, labels, summaries, state, onSelect, cardFor }: {
   order: readonly string[]
   labels: ReadonlyMap<string, string>
   summaries: ReadonlyMap<string, StageSummary>
   state: ReadonlyMap<string, NodeState>
   onSelect: (stage: string) => void
+  /** The stage's hover card. */
+  cardFor?: (stage: string) => CardContent | null
 }) {
+  // Shares of the finished stages only: a stage a mid-run log left running has a partial time.
+  const total = [...summaries.values()].filter((s) => s.status !== 'RUNNING').reduce((sum, s) => sum + s.durationMs, 0)
   const longest = Math.max(1, ...[...summaries.values()].map((s) => s.durationMs))
   const ticks = [1000, 60_000, 3_600_000].filter((t) => t <= longest * 1.5)
   return <div className="timeline">
@@ -32,8 +43,13 @@ export function StageTimeline({ order, labels, summaries, state, onSelect }: {
         const summary = summaries.get(stage)
         const now = state.get(stage) ?? 'PENDING'
         const finished = now !== 'PENDING' && now !== 'RUNNING'
-        return <li key={stage} className="timeline-row" data-state={now}>
-          <button type="button" onClick={() => onSelect(stage)}>
+        const card = () => {
+          const base = cardFor?.(stage) ?? { title: labels.get(stage) ?? stage }
+          if (!summary || !finished || !total) return base
+          return { ...base, happened: [...(base.happened ?? []), `${runShare(summary.durationMs, total)} of the run’s time.`] }
+        }
+        return <li key={stage} className="timeline-row" data-state={now}><Explain block card={card}>{(described) =>
+          <button type="button" onClick={() => onSelect(stage)} {...described}>
             <span className="timeline-name">{labels.get(stage) ?? stage}</span>
             <span className="timeline-status">{!summary ? 'Not run' : finished ? <StatusMark status={summary.status} /> : now === 'RUNNING' ? <StatusMark status="RUNNING" /> : 'Waiting'}</span>
             <span className="timeline-track" aria-hidden="true">
@@ -41,10 +57,10 @@ export function StageTimeline({ order, labels, summaries, state, onSelect }: {
               {summary && summary.attempts.length > 1 && <span className="timeline-attempts">{summary.attempts.length} attempts</span>}
             </span>
             <span className="timeline-ms figure-num">{summary && finished ? formatDuration(summary.durationMs) : '–'}</span>
-          </button>
+          </button>}</Explain>
         </li>
       })}
     </ol>
-    <p className="timeline-note">Log scale, so a three-hour rebuild and a one-second lock release fit on the same line.</p>
+    <p className="timeline-note"><Term title="Log scale" text="Each step on the axis is ten times the last, so a three-hour rebuild and a one-second lock release fit on the same line.">Log scale</Term>.</p>
   </div>
 }
