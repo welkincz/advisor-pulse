@@ -192,6 +192,10 @@ Rules for agents:
 - Do not label every point. Label the latest value or the one the reading talks about.
 - Rates are shown as percentages with one decimal; counts as integers.
 
+### Map list and cards (#211)
+
+The list beside the map shows the comparison the colours show: "vs usual" when colouring by usual, "vs last week" when colouring by value, under a column header, so the map sentence, the colours and the list never seem to disagree. Every province, district column and list row has the shared hover card (what the measure is, what happened, the trend, the next click); on the map it flips above the pointer in the lower half so it is never clipped. Rows slide to their new rank when the week changes or plays (`FlipList`, none under reduced motion).
+
 ### The overview (#171)
 
 The overview is a weekly briefing, not a tile dashboard. In reading order:

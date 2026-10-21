@@ -52,10 +52,10 @@
 .map-label-small { font-size: var(--text-xs); }
 .map-leader { stroke: var(--muted); stroke-width: 1; }
 
-.map-tooltip { position: absolute; z-index: 1; display: grid; gap: var(--space-1); min-width: 11rem; transform: translate(14px, 14px); padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font-size: var(--text-sm); pointer-events: none; }
-.map-tip-value { font-size: var(--text-xl); font-weight: 500; line-height: 1.1; }
-.map-tooltip .sparkline { margin-top: var(--space-1); }
+/* The map's hover card follows the pointer; the card itself is the shared HoverCard. */
+.map-tooltip { position: absolute; z-index: 3; inline-size: max-content; max-inline-size: min(20rem, calc(100% - 1rem)); transform: translate(14px, 14px); pointer-events: none; }
+.map-tooltip.is-above { transform: translate(14px, calc(-100% - 14px)); }
+.hc-chart .sparkline { display: block; }
 
 /* Ranking: the keyboard route into every area, and the bars give the same order the colours do. */
 .map-ranking h2 { margin: 0; font-size: var(--text-md); }
@@ -71,6 +71,7 @@
 .map-row-bar { display: block; height: 4px; background: var(--field); border-radius: 2px; overflow: hidden; }
 .map-row-bar i { display: block; height: 100%; border-radius: 2px; background: var(--seq-4); transition: inline-size var(--duration-step) var(--ease-standard), background var(--duration-step) var(--ease-standard); }
 .map-rows .delta { justify-self: end; }
+.map-rows-head { display: flex; justify-content: space-between; gap: var(--space-3); margin: var(--space-2) 0 var(--space-1); color: var(--muted); font-size: var(--text-xs); }
 
 .map-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-6); color: var(--muted); font-size: var(--text-xs); }
 .map-legend-scale { display: flex; align-items: center; gap: var(--space-2); }
@@ -84,7 +85,6 @@
 .map-swatch-7 { background: var(--seq-7); }
 .map-legend-mid { color: var(--muted); }
 .map-legend-empty { display: inline-block; width: 0.75rem; height: 0.75rem; border: 1.5px dashed var(--muted); border-radius: 50%; }
-.map-tip-usual { color: var(--muted); font-size: var(--text-xs); }
 .map-legend-key { display: inline-flex; align-items: center; gap: var(--space-2); }
 .map-legend-key circle { fill: none; stroke: var(--ink); stroke-opacity: 0.6; }
 .map-legend-hatch { width: 1.25rem; height: 0.75rem; background: repeating-linear-gradient(45deg, var(--rule) 0 1.5px, transparent 1.5px 4px); }

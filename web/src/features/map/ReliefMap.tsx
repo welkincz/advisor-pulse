@@ -418,6 +418,6 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
         <b>{id in LEADER ? id : regionNames.get(id)}</b>{regionValue(id) && <i>{regionValue(id)}</i>}
       </span>)}
     </div>
-    {tip && hot && <div className="map-tooltip" style={{ left: Math.min(tip.x, width - 220), top: tip.y }}>{tooltip(hot)}</div>}
+    {tip && hot && <div className={`map-tooltip${tip.y > height / 2 ? ' is-above' : ''}`} style={{ left: Math.max(0, Math.min(tip.x, width - 340)), top: tip.y }}>{tooltip(hot)}</div>}
   </div>
 }

@@ -9,6 +9,8 @@ export interface CardContent {
   what?: ReactNode
   /** What happened: short lines written from the data. */
   happened?: readonly ReactNode[]
+  /** A small chart under the lines, e.g. the trend. */
+  chart?: ReactNode
   /** The question the visual is likely to raise, answered on the spot. */
   answer?: { q: string; a: ReactNode }
   /** What a click or Enter does next. */
@@ -23,6 +25,7 @@ export function HoverCard({ card, id }: { card: CardContent; id?: string }) {
     {card.happened && card.happened.length > 0 && <ul className="hc-happened" aria-label="What happened">
       {card.happened.map((line, i) => <li key={i}>{line}</li>)}
     </ul>}
+    {card.chart && <div className="hc-chart">{card.chart}</div>}
     {card.answer && <div className="hc-answer"><p className="hc-q">{card.answer.q}</p><p className="hc-a">{card.answer.a}</p></div>}
     {card.hint && <p className="hc-hint">{card.hint}</p>}
   </div>

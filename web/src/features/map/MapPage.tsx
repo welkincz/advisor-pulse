@@ -1,12 +1,13 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Delta, Sparkline, WeekPlayer } from '../../components/primitives'
-import { DataNotice, KPI_LABELS, formatKpi, useChildReportHistory, useGeoWeekly, useManifest, useOrgLevel, useWeeklyReportHistory } from '../../data'
+import { Delta, Explain, HoverCard, type CardContent, Sparkline, Term, WeekPlayer } from '../../components/primitives'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, formatKpi, happened, useChildReportHistory, useGeoWeekly, useManifest, useOrgLevel, useWeeklyReportHistory } from '../../data'
 import type { Manifest } from '../../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { REGIONS } from '../../data/regions'
 import { settledWeeks } from '../../data/usual'
 import { useReducedMotion } from '../../app/useReducedMotion'
+import { FlipList } from '../../motion/FlipList'
 import { DIVERGING, SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
 import { KPI_CODES, LOWER_IS_BETTER } from '../overview/kpis'
@@ -51,7 +52,8 @@ function useLoaded<T>(load: (() => Promise<T>) | null, key: string) {
   return load && state?.key === key ? state : null
 }
 
-interface Row { id: string; name: string; value: number | null; wow: number | null; usual: number | null; trend: (number | null)[] }
+/** `usual` is the share from the area's usual week; `usualValue` that week's level; both null before 13 weeks. */
+interface Row { id: string; name: string; value: number | null; wow: number | null; usual: number | null; usualValue: number | null; flag: boolean; trend: (number | null)[] }
 
 /** One row per child node for `week`, with its trend over the weeks up to it. */
 function rowsFor(history: readonly WeeklyReport[], code: KpiCode, week: string, weeks: readonly string[]): Row[] {
@@ -67,7 +69,12 @@ function rowsFor(history: readonly WeeklyReport[], code: KpiCode, week: string, 
   return [...byNode].map(([id, weeksOf]) => {
     const current = weeksOf.get(week)
     const any = current ?? [...weeksOf.values()][0]!
-    return { id, name: any.node_name, value: current?.value ?? null, wow: current?.wow_pct ?? null, usual: current && settled.has(week) ? versusUsual(current) : null, trend: window.map((w) => weeksOf.get(w)?.value ?? null) }
+    const isSettled = Boolean(current && settled.has(week))
+    return {
+      id, name: any.node_name, value: current?.value ?? null, wow: current?.wow_pct ?? null,
+      usual: isSettled ? versusUsual(current!) : null, usualValue: isSettled ? current!.trailing_13w_avg ?? null : null,
+      flag: current?.flag === 'ANOMALY', trend: window.map((w) => weeksOf.get(w)?.value ?? null),
+    }
   })
 }
 
@@ -79,11 +86,12 @@ function Legend({ range, reach, code, fsa }: { range: [number, number] | null; r
       <span>Worse <span className="figure-num">{percent(reach)}</span></span>
       <div className="map-legend-colours" aria-hidden="true">{SPLIT.map((fill, i) => <i key={i} className="map-swatch" style={{ background: fill }} />)}</div>
       <span>Better <span className="figure-num">{percent(reach)}</span></span>
-      <span className="map-legend-mid">than its own 13-week average; the grey middle is a usual week</span>
+      <span className="map-legend-mid">than its own <Term {...TERMS.usual}>usual week</Term>; grey is a usual week</span>
     </div> : <div className="map-legend-scale" aria-label={`${KPI_LABELS[code]} colour scale`}>
       <span className="figure-num">{range ? formatKpi(code, range[0]) : '–'}</span>
       <div className="map-legend-colours" aria-hidden="true">{PALETTE.map((_, i) => <i key={i} className={`map-swatch map-swatch-${i + 1}`} />)}</div>
       <span className="figure-num">{range ? formatKpi(code, range[1]) : '–'}</span>
+      <span className="map-legend-mid"><Term title="Shade" text="Each area against its peers across every week shown, so a shade keeps its meaning while the weeks play.">across every week shown</Term></span>
     </div>}
     {!fsa && <span className="map-legend-key"><svg width="22" height="14" aria-hidden="true"><circle cx="5" cy="9" r="3" /><circle cx="15" cy="7" r="6" /></svg>Circle size: activities completed</span>}
     <span className="map-legend-key"><i className="map-legend-hatch" aria-hidden="true" />No Maplecrest branches</span>
@@ -200,9 +208,12 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const rows = focus ? districtRows : regionRows
   const range = focus ? districtRange : regionRange
   const reach = colouring === 'usual' ? (focus ? districtReach : regionReach) : null
+  // What the colours actually compare: usual needs settled weeks to size its scale; without them the map falls back to value.
+  const comparing: Colouring = colouring === 'usual' && reach !== null ? 'usual' : 'value'
+  const weekSettled = settled.has(week)
   const ready = regionHistory.status === 'ready' && (!focus || districtHistory.status === 'ready')
   // A region the export does not cover still gets a row, so a gap reads as missing data, not as no region.
-  const missing: Row[] = !focus && ready ? REGIONS.filter(([id]) => !regionById.has(id)).map(([id, name]) => ({ id, name, value: null, wow: null, usual: null, trend: [] })) : []
+  const missing: Row[] = !focus && ready ? REGIONS.filter(([id]) => !regionById.has(id)).map(([id, name]) => ({ id, name, value: null, wow: null, usual: null, usualValue: null, flag: false, trend: [] })) : []
   const sorted = [...rows, ...missing].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   const top = Math.max(0, ...rows.map((row) => row.value ?? 0))
   const scope = focus ? regionNames.get(focus) ?? focus : 'Canada'
@@ -211,17 +222,20 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const readoutRows = focus ? regionRowsAll : national.status === 'ready' ? national.data : []
   const readout = readoutRows.find((row) => row.node_id === (focus ?? 'CA') && row.kpi_code === readoutCode && row.iso_week_id === week)?.value ?? null
 
+  /** One card for an area, on the map and in the list: what the measure is, what happened, the trend, and the next click. */
+  const cardFor = (row: Row): CardContent => ({
+    title: row.name,
+    value: formatKpi(code, row.value),
+    what: KPI_PLAIN[code],
+    happened: happened({ code, value: row.value, wow: row.wow, usual: row.usualValue, flag: row.flag, better }),
+    chart: row.trend.some((v) => v != null) ? <Sparkline values={row.trend} label={`${row.name}, last ${TREND_WEEKS} weeks`} width={200} height={28} /> : undefined,
+    hint: focus ? 'Click to open its weekly report.' : 'Click to fly to its districts.',
+  })
   const tooltip = (id: string) => {
-    if (fsaMode) return <><strong>{id}</strong><span className="map-tip-value figure-num">{formatKpi('COVERAGE_13W', geoValues.get(id))}</span></>
+    if (fsaMode) return <HoverCard card={{ title: id, value: formatKpi('COVERAGE_13W', geoValues.get(id)), what: KPI_PLAIN.COVERAGE_13W }} />
     const row = districtById.get(id) ?? regionById.get(id)
-    if (!row) return <strong>{id}</strong>
-    return <>
-      <strong>{row.name}</strong>
-      <span className="map-tip-value figure-num">{formatKpi(code, row.value)}</span>
-      <Delta value={row.wow} better={better} />
-      {row.usual !== null && <span className="map-tip-usual">{percent(Math.abs(row.usual))} {row.usual >= 0 ? 'above' : 'below'} its 13-week average</span>}
-      <Sparkline values={row.trend} label={`${row.name}, last ${TREND_WEEKS} weeks`} width={160} height={28} />
-    </>
+    if (!row) return <HoverCard card={{ title: regionNames.get(id) ?? id, what: 'No value for this area this week.' }} />
+    return <HoverCard card={cardFor(row)} />
   }
 
   return <>
@@ -296,22 +310,27 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             </table></div>}
           </> : <>
             <h2>{focus ? `Districts in ${scope}` : 'Regions'}</h2>
-            <p>{focus ? 'Choose a district to open its weekly report.' : 'Choose a region to fly to its districts.'}</p>
+            <p className="map-rows-head" aria-hidden="true"><span>{KPI_LABELS[code]}</span><span>{comparing === 'usual' ? 'vs usual' : 'vs last week'}</span></p>
             {regionHistory.status === 'loading' && <p aria-busy="true">Loading map values…</p>}
             {regionHistory.status === 'error' && <DataNotice what="map values" onRetry={regionHistory.retry} />}
             {districtHistory.status === 'error' && focus && <DataNotice what="district values" onRetry={districtHistory.retry} />}
-            <ol className="map-rows">{sorted.map((row) => {
+            <FlipList className="map-rows" order={sorted.map((row) => row.id)}>{sorted.map((row) => {
               // Bars start at zero, like every bar in the report; the colour carries the comparison.
               const share = row.value != null && top > 0 ? row.value / top : 0
-              return <li key={row.id} className={row.id === hot ? 'is-hot' : undefined} onPointerEnter={() => setHot(row.id)} onPointerLeave={() => setHot(null)}>
-                <button type="button" onClick={() => focus ? openDistrict(row.id) : focusRegion(row.id)} onFocus={() => setHot(row.id)} onBlur={() => setHot(null)}>
-                  <span className="map-row-name">{row.name}</span>
-                  <span className="map-row-value figure-num">{formatKpi(code, row.value)}</span>
-                  <span className="map-row-bar" aria-hidden="true"><i style={{ inlineSize: `${Math.max(2, share * 100)}%`, background: fillOf(row, range, reach) ?? undefined }} /></span>
-                  <Delta value={row.wow} better={better} />
-                </button>
+              return <li key={row.id} data-row={row.id} className={row.id === hot ? 'is-hot' : undefined} onPointerEnter={() => setHot(row.id)} onPointerLeave={() => setHot(null)}>
+                <Explain block card={() => cardFor(row)}>{(described) =>
+                  <button type="button" onClick={() => focus ? openDistrict(row.id) : focusRegion(row.id)} onFocus={() => setHot(row.id)} onBlur={() => setHot(null)} {...described}>
+                    <span className="map-row-name">{row.name}</span>
+                    <span className="map-row-value figure-num">{formatKpi(code, row.value)}</span>
+                    <span className="map-row-bar" aria-hidden="true"><i style={{ inlineSize: `${Math.max(2, share * 100)}%`, background: fillOf(row, range, reach) ?? undefined }} /></span>
+                    {row.value == null ? <span className="delta delta-none">No value</span>
+                      : comparing === 'value' ? <Delta value={row.wow} better={better} />
+                        : !weekSettled ? <span className="delta delta-none">No usual yet</span>
+                          : row.usual === null ? <span className="delta delta-none">No usual</span>
+                            : <Delta value={row.usual} better={better} against="its usual week" />}
+                  </button>}</Explain>
               </li>
-            })}</ol>
+            })}</FlipList>
           </>}
         </aside>
       </div>
@@ -320,7 +339,6 @@ function MapContent({ manifest }: { manifest: Manifest }) {
       <WeekPlayer weeks={weeks} value={week} onChange={(next) => setQuery({ week: next })} series={playerSeries}
         label={`Week shown on the map; the strip is ${focus ? scope : 'national'} ${KPI_LABELS[code].toLowerCase()}`} />
       <p className="map-source">
-        {colouring === 'usual' ? 'Colours compare each area with its own trailing 13-week average, so a large region and a small one are judged on the same footing.' : 'Colours compare each area with its peers across every week shown, so a shade keeps its meaning while the weeks play.'}{' '}
         Province shapes from <a href="https://www.naturalearthdata.com/">Natural Earth</a> (public domain); district circles sit at the middle
         of each district’s branch FSAs, adapted from <a href="https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21">Statistics Canada 2021 boundary files</a> under the Statistics Canada Open Licence.
       </p>
@@ -333,7 +351,7 @@ export function MapPage() {
   const manifest = useManifest()
   return <main className="map-page">
     <h1>Map</h1>
-    <p className="intro">Where the week happened. Each province is a region; choose one to fly to its districts, then a district to open its report.</p>
+    <p className="intro">Where the week happened. Hover or focus an area to see what changed; click to go deeper.</p>
     {manifest.status === 'loading' && <p aria-busy="true">Loading the latest weekly report…</p>}
     {manifest.status === 'error' && <DataNotice what="this week's report" onRetry={manifest.retry} />}
     {manifest.status === 'ready' && <MapContent manifest={manifest.data} />}
