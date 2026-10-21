@@ -163,7 +163,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
     return step === null ? null : PALETTE[step]!
   }
   const better = LOWER_IS_BETTER.has(code) ? 'lower' : code === 'AVG_MEET_MIN' ? 'neither' : 'higher'
-  /** Blue when an area is doing better than its own usual week, vermilion when worse. */
+  /** Blue when an area is doing better than its own usual week, brick when worse. */
   const fillOf = (row: Row | undefined, range: [number, number] | null, reach: number | null) => {
     if (!row) return null
     if (colouring === 'value' || reach === null) return shade(row.value, range)

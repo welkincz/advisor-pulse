@@ -112,7 +112,8 @@ export function QuarterChart({ points, selected, onSelect, format, tickFormat = 
     {hover !== null && active !== null && <div className="trend-tip" style={{ left: Math.min(Math.max(cx(active), 90), width - 90), top: Math.max(0, y(points[active]!.value ?? 0) - 12) }}>
       <span className="trend-tip-week figure-num">{quarterLabel(points[active]!.id)}, {quarterMonths(points[active]!.start, points[active]!.end)}</span>
       <strong className="figure-num">{format(points[active]!.value)}</strong>
-      {toDate(points[active]!) && <span>To date: {toDate(points[active]!)}</span>}
+      {toDate(points[active]!) && <span className="trend-tip-line">Still running: {toDate(points[active]!)} so far, shown hatched.</span>}
+      {active !== index && <span className="trend-tip-hint">Click to choose this quarter</span>}
     </div>}
   </div>
 }

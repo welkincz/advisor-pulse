@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Delta, Section } from '../../components/primitives'
+import { Delta, Explain, Section, Term } from '../../components/primitives'
 import type { Better } from '../../components/primitives/Delta'
-import { DataNotice, KPI_LABELS, formatKpi, useOrgQuarterly } from '../../data'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, formatKpi, useOrgQuarterly } from '../../data'
 import { quarterLabel, quarterMonths } from '../../data/fiscal'
 import type { KpiCode } from '../../data/generated/weekly_report'
 import { QuarterChart } from './QuarterChart'
@@ -38,7 +38,7 @@ export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefF
 
   // Empty: an export made before the quarterly mart, or one with no quarter in it yet.
   if (result.status === 'empty') return null
-  const lede = 'The fiscal year starts on 1 November, as at Canadian banks: FY26 runs from November 2025 to October 2026.'
+  const lede = <>The <Term title="Fiscal year" text="Starts on 1 November, as at Canadian banks, and is named for the year it ends in. A week counts in the quarter that holds its Sunday.">fiscal year</Term> starts on 1 November.</>
   if (result.status === 'error') return <Section id="quarters" title="Fiscal quarters" lede={lede}><DataNotice what="the fiscal quarters" onRetry={result.retry} /></Section>
   if (!measure) return <Section id="quarters" title="Fiscal quarters" lede={lede}>
     <p className="quarters-none">{KPI_LABELS[code]} is a batch measure, reported week by week for Canada only, so it has no quarterly figure. Choose another measure above.</p>
@@ -70,10 +70,12 @@ export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefF
         <div className="quarters-head">
           <div>
             <h3 className="figure-title">{quarterLabel(point.id)}</h3>
-            <p className="quarters-months">{quarterMonths(point.start, point.end)}{toDate(point) && <span className="quarters-to-date">To date: {toDate(point)}</span>}</p>
+            <p className="quarters-months">{quarterMonths(point.start, point.end)}{toDate(point) && <span className="quarters-to-date"><Term title={TERMS.toDate.title} text={TERMS.toDate.text}>To date</Term>: {toDate(point)}</span>}</p>
           </div>
           <p className="quarters-now">
-            <span className="quarters-value figure-num">{fmt(point.value)}<small>{unit}</small></span>
+            <Explain card={{ title: `${KPI_LABELS[code]}, ${quarterLabel(point.id)}`, value: `${fmt(point.value)}${unit}`, what: KPI_PLAIN[code], answer: { q: 'How is the quarter worked out?', a: basisNote } }}>
+              {(described) => <span className="quarters-value figure-num term-quiet" tabIndex={0} {...described}>{fmt(point.value)}<small>{unit}</small></span>}
+            </Explain>
             <span className="quarters-versus">
               <span>vs last quarter <Versus result={change(series, point.id, code, 'qoq')} better={better} against="last quarter" /></span>
               <span>vs a year earlier <Versus result={change(series, point.id, code, 'yoy')} better={better} against="the same quarter last year" /></span>
@@ -84,7 +86,6 @@ export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefF
           tickFormat={measure.basis === 'weekly' ? (v) => Math.round(v).toLocaleString('en-CA') : fmt}
           label={`${KPI_LABELS[code]}${unit}, ${nodeName}, by fiscal quarter from ${quarterLabel(series[0]!.id)} to ${quarterLabel(series.at(-1)!.id)}. Use the arrow keys to choose a quarter.`} />
         <figcaption className="figure-note">
-          {basisNote} A week counts in the quarter that holds its Sunday. Hatched columns are quarters still running.
           <details className="figure-table">
             <summary>Show the numbers</summary>
             <table><thead><tr><th scope="col">Quarter</th><th scope="col">Months</th><th scope="col" className="num">{KPI_LABELS[code]}{unit}</th><th scope="col" className="num">Weeks</th></tr></thead>

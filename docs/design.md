@@ -207,6 +207,10 @@ The overview is a weekly briefing, not a tile dashboard. In reading order:
 
 `TrendChart` and the heatmap are hand-written SVG (`components/charts/`).
 
+### What moved (#209)
+
+The overview's region notes were ten paragraphs. They are now one row per region: a bar from the region's own usual week (better to the right, worse to the left, by the measure's direction), the gap, this week's value and the change from last week, with column headers so the two percentages cannot be confused. Best first. Bars slide to their new length when the week or measure changes (`--duration-tween`, none under reduced motion). The run summary is in each row's hover card; the full note stays on the region page.
+
 ### Fiscal quarters (#202)
 
 Canadian banks report on a fiscal year that starts on 1 November (FY26 = Nov 2025 to

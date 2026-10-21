@@ -1,9 +1,9 @@
-import { Delta } from '../../components/primitives'
-import { KPI_LABELS, formatKpi } from '../../data'
+import { Delta, Explain } from '../../components/primitives'
+import { KPI_LABELS, KPI_PLAIN, formatKpi, happened } from '../../data'
 import type { OrgWeekly } from '../../data/generated/org_weekly'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 
-interface Stage { label: string; count: number }
+interface Stage { label: string; count: number; what: string }
 interface Step { code: KpiCode; value: number | null; usual: number | null; wow: number | null }
 
 export interface FunnelData { stages: Stage[]; steps: Step[] }
@@ -20,10 +20,10 @@ export function funnelFor(org: OrgWeekly | undefined, report: readonly WeeklyRep
   }
   return {
     stages: [
-      { label: 'Outbound calls', count: org.calls_out },
-      { label: 'Appointments booked', count: org.appointments_booked },
-      { label: 'Appointments held', count: org.appointments_held },
-      { label: 'Conversions', count: org.conversions },
+      { label: 'Outbound calls', count: org.calls_out, what: KPI_PLAIN.CALLS_OUT },
+      { label: 'Appointments booked', count: org.appointments_booked, what: KPI_PLAIN.APPT_BOOKED },
+      { label: 'Appointments held', count: org.appointments_held, what: 'Meetings scheduled in the week that took place.' },
+      { label: 'Conversions', count: org.conversions, what: 'Held meetings that ended in a plan or a new product.' },
     ],
     steps: STEP_CODES.map(rate),
   }
@@ -38,18 +38,28 @@ export function Funnel({ data }: { data: FunnelData }) {
   return <ol className="funnel">
     {data.stages.map((stage, i) => {
       const step = i > 0 ? data.steps[i - 1] : undefined
+      const before = i > 0 ? data.stages[i - 1] : undefined
+      // Held and converted count meetings scheduled this week, some booked earlier: a step can outgrow the one before.
+      const answer = before && stage.count > before.count
+        ? { q: `Why more than ${before.label.toLowerCase()}?`, a: 'This step counts meetings scheduled in the week, including ones booked in earlier weeks, so it can be larger than the step before.' }
+        : undefined
       return <li key={stage.label} className="funnel-stage">
-        {step && <div className="funnel-step">
-          <span className="funnel-step-rate figure-num">{formatKpi(step.code, step.value)}</span>
-          <span className="funnel-step-label">{KPI_LABELS[step.code].toLowerCase()}</span>
-          <Delta value={step.wow} />
-          {step.usual != null && <span className="funnel-step-usual">usual {formatKpi(step.code, step.usual)}</span>}
-        </div>}
-        <div className="funnel-bar-row">
-          <span className="funnel-label">{stage.label}</span>
-          <span className="funnel-count figure-num">{stage.count.toLocaleString('en-CA')}</span>
-          <span className="funnel-track" aria-hidden="true"><i style={{ inlineSize: `${Math.max(0.6, (stage.count / top) * 100)}%` }} /></span>
-        </div>
+        {step && <Explain card={() => ({ title: KPI_LABELS[step.code], value: formatKpi(step.code, step.value), what: KPI_PLAIN[step.code],
+          happened: happened({ code: step.code, value: step.value, wow: step.wow, usual: step.usual, better: 'higher' }) })}>
+          {(described) => <div className="funnel-step" tabIndex={0} {...described}>
+            <span className="funnel-step-rate figure-num">{formatKpi(step.code, step.value)}</span>
+            <span className="funnel-step-label">{KPI_LABELS[step.code].toLowerCase()}</span>
+            <Delta value={step.wow} />
+            {step.usual != null && <span className="funnel-step-usual">usual {formatKpi(step.code, step.usual)}</span>}
+          </div>}
+        </Explain>}
+        <Explain block card={{ title: stage.label, value: stage.count.toLocaleString('en-CA'), what: stage.what, answer }}>
+          {(described) => <div className={`funnel-bar-row${answer ? ' has-answer' : ''}`} tabIndex={0} {...described}>
+            <span className="funnel-label">{stage.label}</span>
+            <span className="funnel-count figure-num">{stage.count.toLocaleString('en-CA')}{answer && <span className="funnel-ask" aria-hidden="true">?</span>}</span>
+            <span className="funnel-track" aria-hidden="true"><i style={{ inlineSize: `${Math.max(0.6, (stage.count / top) * 100)}%` }} /></span>
+          </div>}
+        </Explain>
       </li>
     })}
   </ol>

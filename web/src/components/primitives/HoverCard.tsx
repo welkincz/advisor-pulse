@@ -1,4 +1,4 @@
-import { type FocusEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { type FocusEvent, type MouseEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 export interface CardContent {
@@ -49,7 +49,8 @@ interface TriggerProps {
 
 /**
  * Shows a hover card for its children: on pointer hover after a short pause (so passing over a
- * page does not flash cards), at once on keyboard focus, and on a tap on touch screens. The
+ * page does not flash cards), at once on keyboard focus, and on a first tap on touch screens
+ * (a second tap then does what the control does). The
  * pointer can move onto the card without closing it. Esc, leaving, blur or a tap elsewhere
  * closes it, and it follows its trigger when the page scrolls. It is portalled, so no
  * overflow clips it.
@@ -112,13 +113,21 @@ export function Explain({ card, children, block = false, className }: {
     timer.current = window.setTimeout(() => setOpen(true), OPEN_DELAY)
   }
   const onPointerLeave = (event: PointerEvent) => { if (event.pointerType !== 'touch') closeSoon() }
-  // A tap opens the card on touch screens, where there is no hover; a second tap closes it.
+  // Touch screens have no hover. The first tap on a trigger opens its card and is held back
+  // from the control (so a link does not navigate before the card is read); a tap while the
+  // card is open goes through to the control. Taps inside the card are ignored here.
   const onPointerDown = (event: PointerEvent) => { touched.current = event.pointerType === 'touch' }
-  const onClick = () => {
+  const onClickCapture = (event: MouseEvent) => {
     if (!touched.current) return
-    // Reset, so Enter on the same control later (a hybrid device) does not toggle the card.
     touched.current = false
-    setOpen((was) => !was)
+    if (panel.current?.contains(event.target as Node)) return
+    if (!open) {
+      event.preventDefault()
+      event.stopPropagation()
+      setOpen(true)
+    } else {
+      close()
+    }
   }
   const onFocus = (event: FocusEvent) => { if (event.target.matches(':focus-visible')) setOpen(true) }
   const onBlur = (event: FocusEvent) => { if (!anchor.current?.contains(event.relatedTarget as Node | null)) close() }
@@ -126,7 +135,7 @@ export function Explain({ card, children, block = false, className }: {
   const content = typeof card === 'function' ? (open ? card() : null) : card
   const Tag = block ? 'div' : 'span'
   return <Tag ref={anchor as never} className={`explain${block ? ' explain-block' : ''}${className ? ` ${className}` : ''}`}
-    onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onPointerDown={onPointerDown} onClick={onClick} onFocus={onFocus} onBlur={onBlur}>
+    onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onPointerDown={onPointerDown} onClickCapture={onClickCapture} onFocus={onFocus} onBlur={onBlur}>
     {typeof children === 'function' ? children(open ? { 'aria-describedby': id } : {}) : children}
     {open && content && createPortal(<div ref={panel} className={`hc-layer${place ? ' is-placed' : ''}${place?.below ? ' is-below' : ''}`}
       style={place ? { left: place.left, top: place.top } : { left: 0, top: 0 }} onPointerEnter={keep} onPointerLeave={closeSoon}>
