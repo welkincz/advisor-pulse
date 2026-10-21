@@ -287,7 +287,42 @@ def test_rebuild_restore_takes_lock_without_restoring_old_state(
     assert "empty local state" in (result.message or "")
     assert not (c.data_dir / WAREHOUSE_FILE).exists()
     assert not (c.data_dir / "sources").exists()
+    assert not store.exists(WAREHOUSE_FILE)  # a stopped rebuild makes the next run rebuild cold
     assert lock.holder(store) is not None
+    assert sync.release(c).status is StageStatus.SUCCESS
+
+
+def test_rebuild_persist_removes_stale_sources(store: ObjectStore, tmp_path: Path) -> None:
+    """Week 2 of a rebuild restores R2's sources, so older files must be gone by then."""
+    seed_remote(store, tmp_path)
+    store.put("narratives/2026-W39.json", b"N")
+    sync = sync_for(store)
+    c = ctx(tmp_path / "rebuild")
+    assert sync.restore(c, skip_remote=True).status is StageStatus.SUCCESS
+    con = connect(c.data_dir / WAREHOUSE_FILE)
+    init_warehouse(con)
+    con.close()
+    fresh = c.data_dir / "sources" / "teradata" / "client_20261001.csv"
+    fresh.parent.mkdir(parents=True)
+    fresh.write_bytes(b"new")
+    result = sync.persist(c)
+    assert result.status is StageStatus.SUCCESS
+    assert "removed 1 stale ones" in (result.message or "")
+    assert set(store.etags("sources/")) == {"sources/teradata/client_20261001.csv"}
+    assert store.get("sources/teradata/client_20261001.csv")[0] == b"new"  # type: ignore[index]
+    assert store.exists("narratives/2026-W39.json")  # the model cache stays
+    assert sync.release(c).status is StageStatus.SUCCESS
+
+
+def test_ordinary_persist_never_removes_sources(store: ObjectStore, tmp_path: Path) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "run")
+    assert sync.restore(c).status is StageStatus.SUCCESS
+    (c.data_dir / "sources" / "snowflake" / "activity" / "a.csv").unlink()
+    result = sync.persist(c)
+    assert "stale" not in (result.message or "")
+    assert store.exists("sources/snowflake/activity/a.csv")
     assert sync.release(c).status is StageStatus.SUCCESS
 
 
@@ -347,6 +382,8 @@ def test_missing_warehouse_triggers_cold_rebuild(
 ) -> None:
     """Empty bucket: rebuild W37..W39 through the real backfill path, then run W40."""
     monkeypatch.setattr(pulse.state, "STATE", sync_for(store, start_week="2026-W37"))
+    # Sources whose warehouse upload never happened, e.g. from a rebuild that stopped.
+    store.put("sources/snowflake/activity/old_generation.csv", b"O")
     data_dir = tmp_path / "runner"
     stale = data_dir / "sources" / "stale.csv"
     stale.parent.mkdir(parents=True)
@@ -369,6 +406,7 @@ def test_missing_warehouse_triggers_cold_rebuild(
     assert not {r.stage for r in rows if r.run_type is RunType.BACKFILL} & {"narrate"}
     assert not stale.exists()  # cold start begins from nothing
     assert store.exists(WAREHOUSE_FILE)  # persisted, so the next run restores instead
+    assert not store.exists("sources/snowflake/activity/old_generation.csv")
     assert lock.holder(store) is None
 
 
