@@ -10,8 +10,8 @@ describe('happened', () => {
     ])
   })
 
-  it('reads rates in percentage points and lower-is-better measures the right way round', () => {
-    expect(happened({ code: 'NO_SHOW_RATE', value: 0.04, wow: -0.174, usual: 0.05, better: 'lower' })[1]).toBe('1.0 pts below usual (5.0%): better than a normal week.')
+  it('gives the gap as a relative share, as the map and list do, and judges lower-is-better the right way round', () => {
+    expect(happened({ code: 'NO_SHOW_RATE', value: 0.04, wow: -0.174, usual: 0.05, better: 'lower' })[1]).toBe('20.0% below usual (5.0%): better than a normal week.')
   })
 
   it('compares a rate with a 0% usual in points', () => {
@@ -21,7 +21,7 @@ describe('happened', () => {
 
   it('states a small gap without calling it better or worse, so it never contradicts the colours', () => {
     expect(happened({ code: 'COVERAGE_13W', value: 0.642, usual: 0.648, flag: true, better: 'higher' })).toEqual([
-      '0.6 pts below usual (64.8%).',
+      '0.9% below usual (64.8%).',
       'Flagged as an anomaly: further from the 13 weeks before than this area normally moves.',
     ])
     expect(happened({ code: 'CALL_TO_APPT', value: 0.08201, usual: 0.082, better: 'higher' })).toEqual(['Level with usual (8.2%).'])

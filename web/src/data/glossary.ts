@@ -66,18 +66,17 @@ export function happened({ code, value, wow, usual, flag, better }: Facts): stri
   if (wow != null) {
     lines.push(Math.abs(wow) < 0.0005 ? 'Level with last week.' : `${wow > 0 ? 'Up' : 'Down'} ${pct(wow)} on last week.`)
   }
-  // Rates compare in percentage points, so a 0% usual still compares; a count needs a non-zero usual to divide by.
+  // The gap is relative, as on the map, the list and the sentence. Only a rate with a 0% usual,
+  // which has nothing to divide by, is given in points.
   const rate = RATES.has(code)
   if (usual != null && (rate || usual !== 0)) {
-    const diff = value - usual
-    const gap = rate ? diff : value / usual - 1
-    // A percent of a percent is hard to read, so rates say points.
-    const size = rate ? `${Math.abs(diff * 100).toFixed(1)} pts` : pct(gap)
+    const points = usual === 0
+    const gap = points ? value - usual : value / usual - 1
+    const size = points ? `${Math.abs(gap * 100).toFixed(1)} pts` : pct(gap)
     if (size === '0.0%' || size === '0.0 pts') {
       lines.push(`Level with usual (${formatKpi(code, usual)}).`)
     } else {
-      const small = rate ? usual !== 0 && Math.abs(diff / usual) < NO_VERDICT_BELOW : Math.abs(gap) < NO_VERDICT_BELOW
-      const judged = small ? 'level' : verdict(gap, better)
+      const judged = !points && Math.abs(gap) < NO_VERDICT_BELOW ? 'level' : verdict(gap, better)
       lines.push(`${size} ${gap > 0 ? 'above' : 'below'} usual (${formatKpi(code, usual)})${judged === 'level' ? '' : `: ${judged} than a normal week`}.`)
     }
   } else if (usual === null) {
