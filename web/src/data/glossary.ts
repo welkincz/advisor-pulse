@@ -33,8 +33,11 @@ export const TERMS = {
 export type Better = 'higher' | 'lower' | 'neither'
 
 const pct = (value: number) => `${Math.abs(value * 100).toFixed(1)}%`
-/** Closer to usual than this (relative) reads as "about usual": a smaller gap is noise, not news. */
-export const ABOUT_USUAL = 0.015
+/**
+ * Under this gap from usual (relative) the card states the gap but makes no better-or-worse
+ * call. It never says "about usual" for a gap the colours or the anomaly flag treat as real.
+ */
+export const NO_VERDICT_BELOW = 0.015
 
 /** "better" or "worse" for a change, judged by which way is good for the measure. */
 export function verdict(change: number, better: Better): 'better' | 'worse' | 'level' {
@@ -68,18 +71,19 @@ export function happened({ code, value, wow, usual, flag, better }: Facts): stri
   if (usual != null && (rate || usual !== 0)) {
     const diff = value - usual
     const gap = rate ? diff : value / usual - 1
-    const near = rate ? Math.abs(diff) < 0.0005 || (usual !== 0 && Math.abs(diff / usual) < ABOUT_USUAL) : Math.abs(gap) < ABOUT_USUAL
-    if (near) {
-      lines.push(`About usual (${formatKpi(code, usual)}).`)
+    // A percent of a percent is hard to read, so rates say points.
+    const size = rate ? `${Math.abs(diff * 100).toFixed(1)} pts` : pct(gap)
+    if (size === '0.0%' || size === '0.0 pts') {
+      lines.push(`Level with usual (${formatKpi(code, usual)}).`)
     } else {
-      // A percent of a percent is hard to read, so rates say points.
-      const size = rate ? `${Math.abs(diff * 100).toFixed(1)} pts` : pct(gap)
-      const judged = verdict(gap, better)
+      const small = rate ? usual !== 0 && Math.abs(diff / usual) < NO_VERDICT_BELOW : Math.abs(gap) < NO_VERDICT_BELOW
+      const judged = small ? 'level' : verdict(gap, better)
       lines.push(`${size} ${gap > 0 ? 'above' : 'below'} usual (${formatKpi(code, usual)})${judged === 'level' ? '' : `: ${judged} than a normal week`}.`)
     }
   } else if (usual === null) {
     lines.push(TERMS.warmUp.text)
   }
-  if (flag) lines.push('Flagged as an anomaly: worth a closer look.')
+  // The flag compares with how much this area normally moves, which a small gap can still exceed.
+  if (flag) lines.push('Flagged as an anomaly: further from the 13 weeks before than this area normally moves.')
   return lines
 }
