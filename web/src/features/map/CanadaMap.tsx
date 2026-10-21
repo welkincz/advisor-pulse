@@ -24,8 +24,20 @@ const NEUTRAL = 'color-mix(in srgb, var(--ink) 5%, var(--paper))'
 const QUIET = 'color-mix(in srgb, var(--ink) 3%, var(--paper))'
 const TERRITORY = 'var(--field)'
 
-// Where each region's name sits on the national view. Atlantic sits out in the ocean, below Nova Scotia, where it has room.
-const LABEL_AT: Record<string, [number, number]> = { WE: [-116, 56.5], ON: [-86.5, 50.2], QC: [-72.5, 52.5], AT: [-61.5, 42.4] }
+// Where each region's (province's) name sits on the national view. The Maritimes are too
+// small to hold a label, so theirs sit out in the water with a hairline back to the province.
+const LABEL_AT: Record<string, { at: [number, number]; anchor?: 'start' | 'end'; from?: [number, number] }> = {
+  BC: { at: [-124.6, 54.6] },
+  AB: { at: [-114.9, 55.2] },
+  SK: { at: [-105.8, 54.6] },
+  MB: { at: [-97.6, 55.6] },
+  ON: { at: [-86.5, 50.2] },
+  QC: { at: [-72.5, 52.5] },
+  NL: { at: [-61.2, 53.4] },
+  NB: { at: [-69.4, 44.0], anchor: 'end', from: [-66.4, 46.4] },
+  NS: { at: [-60.2, 43.4], anchor: 'start', from: [-63.4, 44.9] },
+  PE: { at: [-61.4, 48.3], anchor: 'start', from: [-63.2, 46.4] },
+}
 
 function grow([[x0, y0], [x1, y1]]: Box, by: number): Box {
   const dx = Math.max((x1 - x0) * by, 30)
@@ -122,7 +134,7 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
       const found = projectedBox(places.filter((m) => m.region === region).map((m) => m.geometry), project)
       if (found) regionBoxes.set(region, grow(found, 0.35))
     }
-    const labels = new Map(Object.entries(LABEL_AT).map(([id, at]) => [id, project(at)]))
+    const labels = new Map(Object.entries(LABEL_AT).map(([id, l]) => [id, { at: project(l.at), anchor: (l.anchor ?? 'middle') as 'start' | 'end' | 'middle', from: l.from ? project(l.from) : null }]))
     return {
       provinces, points, regionBoxes, labels,
       borders: lineData(basemap.borders, project),
@@ -276,13 +288,17 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
           onClick={clicked(() => inFocus ? onMark(mark.id) : onRegion(mark.region))} />)}
       </g>
       <g className="map-labels" aria-hidden="true">
-        {!focus && [...geometry.labels].filter(([id]) => regionNames.has(id)).map(([id, point]) => {
-          const [lx, ly] = screen(point)
+        {!focus && [...geometry.labels].filter(([id]) => regionNames.has(id)).map(([id, label]) => {
+          const [lx, ly] = screen(label.at)
           const value = regionValue(id)
-          return <text key={id} x={lx} y={ly} className={`map-label${id === hot ? ' is-hot' : ''}`} textAnchor="middle">
-            <tspan className="map-label-name">{regionNames.get(id)}</tspan>
-            {value && <tspan x={lx} dy="1.25em" className="map-label-value">{value}</tspan>}
-          </text>
+          const from = label.from ? screen(label.from) : null
+          return <g key={id} className={`map-label-group${id === hot ? ' is-hot' : ''}`}>
+            {from && <line className="map-leader" x1={from[0]} y1={from[1]} x2={lx + (label.anchor === 'end' ? 4 : -4)} y2={ly - 4} />}
+            <text x={lx} y={ly} className={`map-label${id === hot ? ' is-hot' : ''}${from ? ' map-label-small' : ''}`} textAnchor={label.anchor}>
+              <tspan className="map-label-name">{regionNames.get(id)}</tspan>
+              {value && <tspan x={lx} dy="1.25em" className="map-label-value">{value}</tspan>}
+            </text>
+          </g>
         })}
         {focus && labels.map((label) => {
           const mark = markAt.find((m) => m.mark.id === label.id)!.mark

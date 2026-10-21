@@ -1,11 +1,18 @@
 {
   "$defs": {
     "RegionCode": {
+      "description": "Regions follow the provinces, as a Canadian bank's branch network usually does.",
       "enum": [
         "ON",
         "QC",
-        "WE",
-        "AT"
+        "BC",
+        "AB",
+        "SK",
+        "MB",
+        "NS",
+        "PE",
+        "NB",
+        "NL"
       ],
       "title": "RegionCode",
       "type": "string"

@@ -346,8 +346,8 @@ regions:
             branch_name: "Rouyn-Noranda Branch"
             fsa_code: "J9X"
             open_date: 1983-02-21
-  - region_code: "WE"
-    region_name: "West"
+  - region_code: "BC"
+    region_name: "British Columbia"
     districts:
       - district_code: "BCL"
         district_name: "BC Lower Mainland"
@@ -425,8 +425,11 @@ regions:
             branch_name: "Vernon Branch"
             fsa_code: "V1T"
             open_date: 1997-01-04
-      - district_code: "ABT"
-        district_name: "Alberta"
+  - region_code: "AB"
+    region_name: "Alberta"
+    districts:
+      - district_code: "CGY"
+        district_name: "Calgary & Southern Alberta"
         provinces: ["AB"]
         branches:
           - branch_id: "BR-1001"
@@ -445,6 +448,18 @@ regions:
             branch_name: "Calgary Southwest Branch"
             fsa_code: "T2W"
             open_date: 1977-11-23
+          - branch_id: "BR-1010"
+            branch_name: "Lethbridge Branch"
+            fsa_code: "T1J"
+            open_date: 2004-10-04
+          - branch_id: "BR-1011"
+            branch_name: "Medicine Hat Branch"
+            fsa_code: "T1A"
+            open_date: 1976-10-08
+      - district_code: "EDM"
+        district_name: "Edmonton & Northern Alberta"
+        provinces: ["AB"]
+        branches:
           - branch_id: "BR-1005"
             branch_name: "Edmonton Downtown Branch"
             fsa_code: "T5J"
@@ -465,21 +480,16 @@ regions:
             branch_name: "Red Deer Branch"
             fsa_code: "T4N"
             open_date: 1986-09-02
-          - branch_id: "BR-1010"
-            branch_name: "Lethbridge Branch"
-            fsa_code: "T1J"
-            open_date: 2004-10-04
-          - branch_id: "BR-1011"
-            branch_name: "Medicine Hat Branch"
-            fsa_code: "T1A"
-            open_date: 1976-10-08
           - branch_id: "BR-1012"
             branch_name: "Fort McMurray Branch"
             fsa_code: "T9H"
             open_date: 2011-11-12
-      - district_code: "PRA"
-        district_name: "Prairies (SK/MB)"
-        provinces: ["SK", "MB"]
+  - region_code: "SK"
+    region_name: "Saskatchewan"
+    districts:
+      - district_code: "SKD"
+        district_name: "Saskatchewan"
+        provinces: ["SK"]
         branches:
           - branch_id: "BR-1101"
             branch_name: "Regina Downtown Branch"
@@ -493,6 +503,13 @@ regions:
             branch_name: "University Heights Branch"
             fsa_code: "S7N"
             open_date: 2015-01-15
+  - region_code: "MB"
+    region_name: "Manitoba"
+    districts:
+      - district_code: "MBD"
+        district_name: "Manitoba"
+        provinces: ["MB"]
+        branches:
           - branch_id: "BR-1104"
             branch_name: "Winnipeg Exchange Branch"
             fsa_code: "R3C"
@@ -505,12 +522,12 @@ regions:
             branch_name: "Brandon Branch"
             fsa_code: "R7A"
             open_date: 2017-06-22
-  - region_code: "AT"
-    region_name: "Atlantic"
+  - region_code: "NS"
+    region_name: "Nova Scotia"
     districts:
-      - district_code: "NSP"
-        district_name: "Nova Scotia & PEI"
-        provinces: ["NS", "PE"]
+      - district_code: "NSD"
+        district_name: "Nova Scotia"
+        provinces: ["NS"]
         branches:
           - branch_id: "BR-1201"
             branch_name: "Halifax Downtown Branch"
@@ -524,6 +541,13 @@ regions:
             branch_name: "Sydney Branch"
             fsa_code: "B1P"
             open_date: 2005-02-06
+  - region_code: "PE"
+    region_name: "Prince Edward Island"
+    districts:
+      - district_code: "PEI"
+        district_name: "Prince Edward Island"
+        provinces: ["PE"]
+        branches:
           - branch_id: "BR-1204"
             branch_name: "Charlottetown Branch"
             fsa_code: "C1A"
@@ -532,6 +556,9 @@ regions:
             branch_name: "Summerside Branch"
             fsa_code: "C1N"
             open_date: 1996-11-15
+  - region_code: "NB"
+    region_name: "New Brunswick"
+    districts:
       - district_code: "NBK"
         district_name: "New Brunswick"
         provinces: ["NB"]
@@ -552,6 +579,9 @@ regions:
             branch_name: "Bathurst Branch"
             fsa_code: "E2A"
             open_date: 2015-11-28
+  - region_code: "NL"
+    region_name: "Newfoundland and Labrador"
+    districts:
       - district_code: "NFL"
         district_name: "Newfoundland & Labrador"
         provinces: ["NL"]

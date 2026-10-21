@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useNarrative } from '../../data'
-import { REGION_ORDER } from './RegionMultiples'
+import { REGION_ORDER } from '../../data/regions'
 
 function Note({ week, id, href }: { week: string; id: string; href: string }) {
   const narrative = useNarrative(week, id)

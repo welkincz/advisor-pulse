@@ -22,7 +22,8 @@ REFERENCE_DIR = Path(__file__).resolve().parents[2] / "reference"
 ORG_PATH = REFERENCE_DIR / "org.yaml"
 ACTIVITY_TYPES_PATH = REFERENCE_DIR / "activity_types.csv"
 
-MIN_BRANCHES_PER_DISTRICT = 3
+# Prince Edward Island has two branches, and a region is one province, so a district may be small.
+MIN_BRANCHES_PER_DISTRICT = 2
 
 # First letter of a postal code → province (Canada Post). X and Y (territories) are out of scope.
 FSA_PROVINCE: dict[str, Province] = {

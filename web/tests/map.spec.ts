@@ -21,8 +21,8 @@ test('the national map flies to a region, then a district opens its report, by k
   await expect(page.locator('.canada-map .map-province')).toHaveCount(13)
   await expect(page.locator('.map-swatch')).toHaveCount(7)
   // The fixtures cover Ontario and Quebec only: the other regions say so instead of going blank.
-  await expect(page.locator('.map-rows li', { hasText: 'West' })).toContainText('–')
-  await expect(page.locator('.map-label', { hasText: 'Atlantic' })).toContainText('No data')
+  await expect(page.locator('.map-rows li', { hasText: 'British Columbia' })).toContainText('–')
+  await expect(page.locator('.map-label', { hasText: 'Nova Scotia' })).toContainText('No data')
   const ontario = page.getByRole('button', { name: /Ontario/ })
   await expect(ontario).toContainText('%')
   await ontario.focus()

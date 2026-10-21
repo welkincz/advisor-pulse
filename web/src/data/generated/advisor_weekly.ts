@@ -18,7 +18,10 @@ export type CoverageRate13W = number | null;
 export type DistrictCode = string;
 export type IsoWeekId = string;
 export type NoShows = number;
-export type RegionCode = "ON" | "QC" | "WE" | "AT";
+/**
+ * Regions follow the provinces, as a Canadian bank's branch network usually does.
+ */
+export type RegionCode = "ON" | "QC" | "BC" | "AB" | "SK" | "MB" | "NS" | "PE" | "NB" | "NL";
 export type UniqueClientsContacted = number;
 
 /**

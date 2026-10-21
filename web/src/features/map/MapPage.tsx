@@ -4,6 +4,7 @@ import { Delta, Sparkline, WeekPlayer } from '../../components/primitives'
 import { DataNotice, KPI_LABELS, formatKpi, useChildReportHistory, useGeoWeekly, useManifest, useOrgLevel, useWeeklyReportHistory } from '../../data'
 import type { Manifest } from '../../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
+import { REGIONS } from '../../data/regions'
 import { settledWeeks } from '../../data/usual'
 import { DIVERGING, SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
@@ -18,8 +19,6 @@ const SPLIT = DIVERGING.map((name) => `var(--${name})`)
 
 type Colouring = 'usual' | 'value'
 const TREND_WEEKS = 26
-/** The four regions of reference/org.yaml, so a region missing from an export is named, not blank. */
-const REGIONS: readonly [string, string][] = [['ON', 'Ontario'], ['QC', 'Quebec'], ['WE', 'West'], ['AT', 'Atlantic']]
 
 function useLoaded<T>(load: (() => Promise<T>) | null, key: string) {
   const [state, setState] = useState<{ key: string; data?: T; error?: Error } | null>(null)
@@ -122,7 +121,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const settled = useMemo(() => settledWeeks(weeks), [weeks])
   const regionReach = useMemo(() => deviationReach(regionRowsAll.filter((r) => settled.has(r.iso_week_id)), code), [regionRowsAll, code, settled])
   const districtReach = useMemo(() => deviationReach(districtRowsAll.filter((r) => settled.has(r.iso_week_id)), code), [districtRowsAll, code, settled])
-  const regionNames = useMemo(() => new Map([...REGIONS, ...regionRows.map((row): [string, string] => [row.id, row.name])]), [regionRows])
+  const regionNames = useMemo(() => new Map<string, string>([...REGIONS.map(([c, n]): [string, string] => [c, n]), ...regionRows.map((row): [string, string] => [row.id, row.name])]), [regionRows])
   const regionById = new Map(regionRows.map((row) => [row.id, row]))
   const districtById = new Map(districtRows.map((row) => [row.id, row]))
   const sizes = new Map(volume.status === 'ready' ? volume.data.map((row) => [row.node_id, row.activities_completed]) : [])
@@ -294,7 +293,7 @@ export function MapPage() {
   const manifest = useManifest()
   return <main className="map-page">
     <h1>Map</h1>
-    <p className="intro">Where the week happened. Each province takes the colour of the region that serves it; choose a region to fly to its districts, then a district to open its report.</p>
+    <p className="intro">Where the week happened. Each province is a region; choose one to fly to its districts, then a district to open its report.</p>
     {manifest.status === 'loading' && <p aria-busy="true">Loading the latest weekly report…</p>}
     {manifest.status === 'error' && <DataNotice what="this week's report" onRetry={manifest.retry} />}
     {manifest.status === 'ready' && <MapContent manifest={manifest.data} />}

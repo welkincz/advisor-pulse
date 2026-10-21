@@ -175,16 +175,22 @@ advisor-pulse/
 
 ### Org hierarchy
 
-National → Region → District → Branch → Advisor.
+National → Region → District → Branch → Advisor. Regions follow the provinces, as a Canadian bank's branch network usually does (#196): one region per province with branches. A small province is one district.
 
 | Region | Districts |
 |--------|-----------|
 | Ontario (ON) | GTA, Eastern Ontario, Southwestern Ontario, Northern Ontario |
 | Quebec (QC) | Greater Montréal, Québec City & East, Western Quebec |
-| West (WE) | BC Lower Mainland, BC Interior & North, Alberta, Prairies (SK/MB) |
-| Atlantic (AT) | Nova Scotia & PEI, New Brunswick, Newfoundland & Labrador |
+| British Columbia (BC) | BC Lower Mainland, BC Interior & North |
+| Alberta (AB) | Calgary & Southern Alberta, Edmonton & Northern Alberta |
+| Saskatchewan (SK) | Saskatchewan |
+| Manitoba (MB) | Manitoba |
+| Nova Scotia (NS) | Nova Scotia |
+| Prince Edward Island (PE) | Prince Edward Island |
+| New Brunswick (NB) | New Brunswick |
+| Newfoundland and Labrador (NL) | Newfoundland & Labrador |
 
-Scale (default config): 14 districts · ~120 branches · ~900 advisors · ~150k clients · ~15k activities/week · 104 weeks of history (~1.5M activity rows).
+Scale (default config): 10 regions · 17 districts · ~120 branches · ~900 advisors · ~150k clients · ~15k activities/week · 104 weeks of history (~1.5M activity rows).
 Each branch sits in a real FSA (public geography only). Client postal codes use a real FSA in the branch's area plus a random LDU.
 
 ### Activity types
@@ -221,7 +227,7 @@ The generator writes a **defect manifest** (ground truth) per batch. Tests asser
 
 Conventions: `snake_case` from staging on; `_sk` = surrogate key (hash); `_id` = natural key; timestamps are UTC (`TIMESTAMPTZ`; Arrow `timestamp[us, UTC]`; naive source values are read as UTC); dates are `America/Toronto` business dates; `iso_week_id` = `YYYY-Www` (ISO week, Monday start).
 
-Identifier formats (enforced by `src/pulse/contracts/patterns.py`): activity `ACT-` + 12 hex, advisor `ADV-#####`, client `CLI-########`, branch `BR-####`, assignment `ASG-########`, district code three capital letters (e.g. `GTA`), region code `ON`/`QC`/`WE`/`AT`, national node `CA`, rule `DQ###`, narrative fact `F<n>`.
+Identifier formats (enforced by `src/pulse/contracts/patterns.py`): activity `ACT-` + 12 hex, advisor `ADV-#####`, client `CLI-########`, branch `BR-####`, assignment `ASG-########`, district code three capital letters (e.g. `GTA`), region code the province's postal abbreviation (`ON`, `QC`, `BC`, `AB`, `SK`, `MB`, `NS`, `PE`, `NB`, `NL`), national node `CA`, rule `DQ###`, narrative fact `F<n>`.
 
 The contracts in `src/pulse/contracts/` are the executable form of this dictionary; `contracts/schemas/*.json` are generated from them (`make contracts`).
 

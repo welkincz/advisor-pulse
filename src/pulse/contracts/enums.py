@@ -83,10 +83,18 @@ class Province(StrEnum):
 
 
 class RegionCode(StrEnum):
+    """Regions follow the provinces, as a Canadian bank's branch network usually does."""
+
     ONTARIO = "ON"
     QUEBEC = "QC"
-    WEST = "WE"
-    ATLANTIC = "AT"
+    BRITISH_COLUMBIA = "BC"
+    ALBERTA = "AB"
+    SASKATCHEWAN = "SK"
+    MANITOBA = "MB"
+    NOVA_SCOTIA = "NS"
+    PRINCE_EDWARD_ISLAND = "PE"
+    NEW_BRUNSWICK = "NB"
+    NEWFOUNDLAND_AND_LABRADOR = "NL"
 
 
 class OrgLevel(StrEnum):

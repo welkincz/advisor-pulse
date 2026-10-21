@@ -29,7 +29,7 @@ seeds:
         description: District name.
         data_tests: [not_null]
       - name: region_code
-        description: Region code (`ON`, `QC`, `WE`, `AT`).
+        description: Region code, one per province with branches (`ON`, `QC`, `BC`, `AB`, `SK`, `MB`, `NS`, `PE`, `NB`, `NL`).
         data_tests: [not_null]
       - name: region_name
         description: Region name.
