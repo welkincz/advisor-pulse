@@ -346,7 +346,7 @@ export function MapPage() {
   const manifest = useManifest()
   return <main className="map-page">
     <h1>Map</h1>
-    <p className="intro">Where the week happened. Hover an area to see what changed; click to go deeper.</p>
+    <p className="intro">Where the week happened. Hover or focus an area to see what changed; click to go deeper.</p>
     {manifest.status === 'loading' && <p aria-busy="true">Loading the latest weekly report…</p>}
     {manifest.status === 'error' && <DataNotice what="this week's report" onRetry={manifest.retry} />}
     {manifest.status === 'ready' && <MapContent manifest={manifest.data} />}
