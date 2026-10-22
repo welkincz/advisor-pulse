@@ -23,6 +23,17 @@ const LEADER: Record<string, [number, number]> = { NB: [-46, 44], PE: [4, -46], 
 /** Neighbouring prairie labels step apart so their names do not touch. */
 const NUDGE: Record<string, [number, number]> = { SK: [-14, 8], MB: [16, -6] }
 const FLY_MS = 900
+/** The country fills a canvas this wide for its height; a narrower canvas pulls the camera back so no coast is cut. */
+const HOME_ASPECT = 1.3
+const HOME_TARGET = new Vector3(4, -4, 0)
+const HOME_OFFSET = new Vector3(0, -88, 112)
+/** Labels keep this many pixels clear of the canvas edge, or hide; the list beside the map has every value. */
+const LABEL_PAD = 4
+
+/** Where the camera rests over the whole country for a canvas of this shape. */
+function homePosition(aspect: number): Vector3 {
+  return HOME_TARGET.clone().add(HOME_OFFSET.clone().multiplyScalar(Math.max(1, HOME_ASPECT / (aspect || HOME_ASPECT))))
+}
 const MIN_RING_AREA = 0.002
 
 /** Read a colour token (`var(--seq-3)` or a token name) from :root, so the scene follows the theme. */
@@ -103,7 +114,7 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     project: (p: Position) => Point
   } | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
-  const labelEls = useRef(new Map<string, HTMLSpanElement>())
+  const labelEls = useRef(new Map<string, SVGTextElement>())
   const leaderEls = useRef(new Map<string, SVGLineElement>())
   const callbacks = useRef({ onHot, onRegion, onMark, focus })
   callbacks.current = { onHot, onRegion, onMark, focus }
@@ -135,7 +146,7 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     const scene = new Scene()
     const camera = new PerspectiveCamera(32, 1, 1, 1000)
     camera.up.set(0, 0, 1)
-    const home = { target: new Vector3(4, -4, 0), position: new Vector3(4, -92, 112) }
+    const home = { target: HOME_TARGET.clone(), position: homePosition(view.current.width / view.current.height) }
     camera.position.copy(home.position)
 
     // Lights are neutral white (and black for "no glow" below): physical light, not UI colour.
@@ -260,17 +271,26 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       if (s.controls.update()) moving = true
       s.renderer.render(s.scene, s.camera)
       // Labels follow their province's top face on screen, moved directly (no React render).
+      // A label that would cross the canvas edge hides rather than show a clipped fragment.
+      // Widths are read first and styles written after, so the loop forces one layout at most.
       const rect = s.renderer.domElement.getBoundingClientRect()
-      for (const p of s.provinces) {
+      const placed = s.provinces.flatMap((p) => {
         const el = p.region ? labelEls.current.get(p.region) : undefined
-        if (!el || p.region !== p.id) continue
+        return el && p.region === p.id ? [{ p, el, half: el.getBBox().width / 2 }] : []
+      })
+      for (const { p, el, half } of placed) {
         const v = anchor.set(p.centre[0], p.centre[1], p.height + 0.6).project(s.camera)
         const x = ((v.x + 1) / 2) * rect.width
         const y = ((1 - v.y) / 2) * rect.height
-        const [dx, dy] = LEADER[p.region] ?? NUDGE[p.region] ?? [0, 0]
-        el.style.transform = `translate(${x + dx}px, ${y + dy}px)`
-        const line = leaderEls.current.get(p.region)
-        if (line) Object.entries({ x1: x, y1: y, x2: x + dx * 0.78, y2: y + dy * 0.78 }).forEach(([k, n]) => line.setAttribute(k, String(n)))
+        const [dx, dy] = LEADER[p.region!] ?? NUDGE[p.region!] ?? [0, 0]
+        const fits = x + dx - half >= LABEL_PAD && x + dx + half <= rect.width - LABEL_PAD && y + dy >= 0 && y + dy <= rect.height
+        el.setAttribute('transform', `translate(${x + dx} ${y + dy})`)
+        el.style.visibility = fits ? '' : 'hidden'
+        const line = leaderEls.current.get(p.region!)
+        if (line) {
+          Object.entries({ x1: x, y1: y, x2: x + dx * 0.78, y2: y + dy * 0.78 }).forEach(([k, n]) => line.setAttribute(k, String(n)))
+          line.style.visibility = fits ? '' : 'hidden'
+        }
       }
       if (moving) s.frame = requestAnimationFrame(loop)
     }
@@ -336,6 +356,8 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     s.renderer.setSize(width, height)
     s.camera.aspect = width / height
     s.camera.updateProjectionMatrix()
+    s.home.position.copy(homePosition(width / height))
+    if (!callbacks.current.focus && !s.fly) { s.controls.target.copy(s.home.target); s.camera.position.copy(s.home.position) }
     s.invalidate()
   }, [width, height, label, basemap])
 
@@ -411,12 +433,15 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
 
   return <div className="relief" ref={host} style={{ width, height }}>
     <div className="relief-labels" aria-hidden="true">
-      {!focus && <svg className="relief-leaders">{Object.keys(LEADER).filter((id) => regionNames.has(id)).map((id) =>
-        <line key={id} ref={(el) => { if (el) leaderEls.current.set(id, el); else leaderEls.current.delete(id) }} />)}</svg>}
-      {!focus && [...regionNames.keys()].map((id) => <span key={id} ref={(el) => { if (el) labelEls.current.set(id, el); else labelEls.current.delete(id) }}
-        className={`relief-label${id in LEADER ? ' is-small' : ''}${hot === id ? ' is-hot' : ''}`}>
-        <b>{id in LEADER ? id : regionNames.get(id)}</b>{regionValue(id) && <i>{regionValue(id)}</i>}
-      </span>)}
+      {!focus && <svg className="relief-leaders">
+        {Object.keys(LEADER).filter((id) => regionNames.has(id)).map((id) =>
+          <line key={id} ref={(el) => { if (el) leaderEls.current.set(id, el); else leaderEls.current.delete(id) }} />)}
+        {[...regionNames.keys()].map((id) => <text key={id} ref={(el) => { if (el) labelEls.current.set(id, el); else labelEls.current.delete(id) }}
+          className={`relief-label${id in LEADER ? ' is-small' : ''}${hot === id ? ' is-hot' : ''}`}>
+          <tspan className="relief-label-name" x="0" dy="-0.45em">{id in LEADER ? id : regionNames.get(id)}</tspan>
+          {regionValue(id) && <tspan className="relief-label-value" x="0" dy="1.2em">{regionValue(id)}</tspan>}
+        </text>)}
+      </svg>}
     </div>
     {tip && hot && <div className={`map-tooltip${tip.y > height / 2 ? ' is-above' : ''}`} style={{ left: Math.max(0, Math.min(tip.x, width - 340)), top: tip.y }}>{tooltip(hot)}</div>}
   </div>

@@ -34,8 +34,9 @@ export default function KitchenSink() {
 
     <Section id="type" title="Type" lede="Avenir Next. One family; weight and size carry the hierarchy.">
       <div className="ks-type">
-        <p style={{ fontSize: 'var(--text-display)', fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.1, margin: 0 }}>Display 72</p>
-        <p style={{ fontSize: 'var(--text-3xl)', margin: 0 }}>Figure 48 <span className="figure-num">1,284.6</span></p>
+        <p style={{ fontSize: 'var(--text-title-lead)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1, margin: 0 }}>Sentence title 24 to 36</p>
+        <p style={{ fontSize: 'var(--text-title)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1, margin: 0 }}>Page title 24 to 32</p>
+        <p style={{ fontSize: 'var(--text-3xl)', margin: 0 }}>Figure 40 <span className="figure-num">1,284.6</span></p>
         <p style={{ fontSize: 'var(--text-2xl)', margin: 0 }}>Stat 36 <span className="figure-num">11.5</span></p>
         <h2>Section heading 24</h2>
         <p className="intro">Lead 21. Activities per advisor rose in Quebec for the third week running.</p>

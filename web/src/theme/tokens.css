@@ -54,8 +54,10 @@
   --text-lg: 1.3125rem; /* 21 */
   --text-xl: 1.5rem;    /* 24 */
   --text-2xl: 2.25rem;  /* 36 */
-  --text-3xl: 3rem;     /* 48 */
-  --text-display: clamp(3rem, 9vw, 4.5rem); /* 48 to 72 */
+  --text-3xl: 2.5rem;   /* 40: the largest figure an app screen carries */
+  /* Titles are app-scale: a page names itself, it does not shout. */
+  --text-title: clamp(1.5rem, 1.25rem + 1vw, 2rem);         /* 24 to 32: page title (h1) */
+  --text-title-lead: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem); /* 24 to 36: a sentence title, kept to two lines at 390 */
   --leading-tight: 1.1;
   --leading-text: 1.55;
   --measure: 38rem;

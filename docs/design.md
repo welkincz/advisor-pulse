@@ -47,8 +47,9 @@ The scale is the classic one from *The Elements of Typographic Style*:
 
 | Token | Size | Use |
 |---|---|---|
-| `--text-display` | 48 to 72 (fluid) | Page title (`h1`), one per page |
-| `--text-3xl` | 48 | The leading stat (`Stat emphasis`) |
+| `--text-title-lead` | 24 to 36 (fluid) | A sentence title (the overview's headline); two lines at most at 390 px |
+| `--text-title` | 24 to 32 (fluid) | Page title (`h1`), one per page. App-scale: a title names the page, it does not shout |
+| `--text-3xl` | 40 | The leading stat (`Stat emphasis`); no figure is larger |
 | `--text-2xl` | 36 | Other stat values |
 | `--text-xl` | 24 | Section headings (`h2`) |
 | `--text-lg` | 21 | Intro and lead paragraphs |

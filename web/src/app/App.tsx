@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import { DrillPage } from '../features/drill/DrillPage'
 import { Overview } from './Overview'
 import { CommandPalette } from './shell/CommandPalette'
 import { Freshness } from './shell/Freshness'
+import { SiteNav } from './shell/SiteNav'
 import { ThemeToggle } from './shell/ThemeToggle'
 import { useReducedMotion } from './useReducedMotion'
 import './shell/shell.css'
@@ -15,11 +16,6 @@ const CaseStudyPage = lazy(() => import('../features/case-study/CaseStudyPage').
 const QualityPage = lazy(() => import('../features/quality/QualityPage').then((m) => ({ default: m.QualityPage })))
 // Dev-only reference page for the design system; tree-shaken out of production builds.
 const KitchenSink = import.meta.env.DEV ? lazy(() => import('../components/primitives/KitchenSink')) : null
-
-const navigation = [
-  ['/', 'Overview'], ['/map', 'Map'], ['/pipeline', 'Pipeline'],
-  ['/quality', 'Data quality'], ['/case-study', 'Case study'],
-] as const
 
 function Page({ title }: { title: string }) {
   return <main><h1>{title}</h1><p className="intro">There is no page at this address. <Link to="/">Open the weekly overview</Link>, or press / to search.</p></main>
@@ -35,7 +31,7 @@ function Shell() {
         <span className="brand-name">Advisor Pulse</span>
         <span className="brand-for">Maplecrest Bank, fictional</span>
       </Link>
-      <nav className="site-nav" aria-label="Main navigation">{navigation.map(([path, label]) => <NavLink key={path} to={path} end={path === '/'} viewTransition>{label}</NavLink>)}</nav>
+      <SiteNav />
       <div className="site-tools"><Freshness /><CommandPalette /><ThemeToggle /></div>
     </header>
     <div id="main" tabIndex={-1} className="site-main">
