@@ -41,15 +41,23 @@ export function boardRows(history: readonly WeeklyReport[], weeks: readonly stri
 }
 
 /**
+ * The groups and measures the board shows. Below the national level the batch-wide rates do
+ * not exist, so `only` leaves their group out. A measure with no value in any shown week (the
+ * lead KPI before 12 months of history, or an export from before it existed) is left out
+ * rather than drawn as an empty row; while no rows have loaded at all, every measure keeps
+ * its place.
+ */
+export function boardGroups(rows: Map<KpiCode, BoardRow>, only?: readonly KpiCode[]): { title: string; codes: KpiCode[] }[] {
+  const empty = (c: KpiCode) => { const r = rows.get(c); return r === undefined ? rows.size > 0 : r.value === null && r.trend.every((v) => v === null) }
+  return KPI_GROUPS.map((g) => ({ title: g.title, codes: g.codes.filter((c) => (!only || only.includes(c)) && !empty(c)) })).filter((g) => g.codes.length)
+}
+
+/**
  * Every measure for the week, each a row with its 26-week trend. A row is also the switch
  * for the chart above: choosing it plots that measure there.
  */
 export function KpiBoard({ rows, selected, onSelect, only }: { rows: Map<KpiCode, BoardRow>; selected: KpiCode; onSelect: (code: KpiCode) => void; only?: readonly KpiCode[] }) {
-  // Below the national level the batch-wide rates do not exist, so their group is left out.
-  // A measure with no value in any shown week (the lead KPI before 12 months of history) is
-  // left out rather than drawn as an empty row.
-  const empty = (c: KpiCode) => { const r = rows.get(c); return r !== undefined && r.value === null && r.trend.every((v) => v === null) }
-  const groups = KPI_GROUPS.map((g) => ({ ...g, codes: g.codes.filter((c) => (!only || only.includes(c)) && !empty(c)) })).filter((g) => g.codes.length)
+  const groups = boardGroups(rows, only)
   return <div className="board">
     {groups.map((group) => <section key={group.title} className="board-group" aria-labelledby={`board-${group.title}`}>
       <h3 id={`board-${group.title}`}>{group.title}</h3>

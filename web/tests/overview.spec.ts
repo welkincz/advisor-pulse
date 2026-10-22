@@ -200,3 +200,36 @@ test('once the summary has a 12-month value, the overview opens on portfolio con
   await expect(page.locator('#hero-title')).toHaveText('Activities per advisor')
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
 })
+
+test('the first screen holds the title, the lead figure, a chart sized to its question and every measure', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Activities per advisor rose 14\.6% to 11\.5\.$/, { timeout: 30_000 })
+  const chart = page.getByRole('img', { name: /Activities per advisor, national/ })
+  const plot = (await chart.boundingBox())!
+  expect(plot.height).toBeGreaterThanOrEqual(200)
+  expect(plot.height).toBeLessThanOrEqual(260)
+  // The chart takes about two thirds of the width, the figure beside it.
+  const hero = (await page.locator('.hero').boundingBox())!
+  expect(plot.width / hero.width).toBeLessThan(0.75)
+  // The board's heading and its first row, the measure the title is about, start on the first screen.
+  const first = page.locator('[data-kpi]').first()
+  await expect(first).toHaveAttribute('data-kpi', 'ACT_PER_ADV')
+  expect((await page.getByRole('heading', { name: 'Every measure', level: 2 }).boundingBox())!.y).toBeLessThan(900)
+  expect((await first.boundingBox())!.y).toBeLessThan(900 - 48)
+  // The lead figure agrees with the title and is the largest figure on the page.
+  await expect(page.locator('.hero-value')).toHaveText('11.5')
+  const sizes = await page.locator('.figure-num').evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).fontSize)))
+  const lead = await page.locator('.hero-value').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+  expect(Math.max(...sizes)).toBe(lead)
+
+  // A phone is its own composition: the title in two lines at most, the figure, then a shorter chart.
+  await page.setViewportSize({ width: 390, height: 844 })
+  const title = page.getByRole('heading', { level: 1 })
+  const lines = await title.evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)))
+  expect(lines).toBeLessThanOrEqual(2)
+  await expect.poll(async () => (await chart.boundingBox())!.height).toBeLessThanOrEqual(200)
+  expect((await chart.boundingBox())!.height).toBeGreaterThanOrEqual(160)
+  expect((await page.locator('.hero-value').boundingBox())!.y).toBeLessThan((await chart.boundingBox())!.y)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+})
