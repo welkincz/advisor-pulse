@@ -9,8 +9,9 @@ models:
       QUAR_RATE are national only, from int_ingest_weekly. Week-over-week fields compare
       with the previous ISO week of the same node and KPI. rank_in_parent is a dense rank
       among siblings (1 = best, ascending for NO_SHOW_RATE, LATE_RATE and QUAR_RATE).
-      flag is ANOMALY when |z| > 2 against the 13 weeks before (at least 8 non-null),
-      otherwise UP, DOWN or FLAT (|wow_pct| < 1% or no prior value).
+      flag is ANOMALY when |z| > 2 against the 13 weeks before (at least 8 non-null)
+      (for the smooth rolling PRTF_CONTACT_12M: when the week's move is |z| > 2 against
+      the moves of the 13 weeks before and at least half a point); otherwise UP, DOWN or FLAT (|wow_pct| < 1% or no prior value).
     data_tests:
       - expression_is_true:
           arguments:
@@ -222,3 +223,158 @@ unit_tests:
           - {iso_week_id: '2026-W09', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+
+  - name: mart_weekly_report_does_not_flag_a_steady_twelve_month_slide
+    description: >
+      Portfolio contacted (12 months) is a rolling rate, so it moves smoothly: here it
+      slides about 0.05 points a week. W10 dips 0.13 points: |z| ≈ 2.4 against the level of
+      the 9 weeks before, because a slide drifts from its own mean, but a move under half a
+      point, so it stays FLAT; a level rule would call it ANOMALY. W11 drops 1.4 points in
+      a week, far outside its usual weekly move, so ANOMALY. Every other KPI is FLAT.
+    model: mart_weekly_report
+    given:
+      - input: ref('mart_org_weekly')
+        rows:
+          - {iso_week_id: '2026-W01', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8340}
+          - {iso_week_id: '2026-W02', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8335}
+          - {iso_week_id: '2026-W03', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8331}
+          - {iso_week_id: '2026-W04', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8325}
+          - {iso_week_id: '2026-W05', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8321}
+          - {iso_week_id: '2026-W06', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8314}
+          - {iso_week_id: '2026-W07', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8311}
+          - {iso_week_id: '2026-W08', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8305}
+          - {iso_week_id: '2026-W09', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8301}
+          - {iso_week_id: '2026-W10', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8288}
+          - {iso_week_id: '2026-W11', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8150}
+      - input: ref('int_ingest_weekly')
+        rows: []
+      - input: ref('dim_date')
+        format: sql
+        rows: |
+          select
+              strftime(day, '%G-W%V') as iso_week_id,
+              cast(date_trunc('week', day) as date) as week_start
+          from generate_series(date '2025-12-29', date '2026-03-15', interval 1 day) as t(day)
+    expect:
+      rows:
+          - {iso_week_id: '2026-W01', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W01', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W02', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W03', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W04', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W05', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W06', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W07', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W08', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W09', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W10', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: CALLS_OUT, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: APPT_BOOKED, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: ACT_PER_ADV, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: CALL_TO_APPT, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: APPT_CONV, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: COVERAGE_13W, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: AVG_MEET_MIN, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: NO_SHOW_RATE, flag: FLAT}
+          - {iso_week_id: '2026-W11', kpi_code: PRTF_CONTACT_12M, flag: ANOMALY}

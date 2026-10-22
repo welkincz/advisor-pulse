@@ -63,6 +63,14 @@ function Briefing({ manifest }: { manifest: Manifest }) {
     const byWeek = new Map(all.filter((r) => r.kpi_code === code).map((r) => [r.iso_week_id, r]))
     return weeks.map((w) => byWeek.get(w))
   }, [all, code, weeks])
+  // The 12-month measure has no value before a year of history: the chart starts at its first
+  // value (or at the chosen week, if that is earlier) instead of drawing a year of nothing.
+  const start = useMemo(() => {
+    const first = series.findIndex((r) => r?.value != null)
+    return first < 0 ? 0 : Math.min(first, Math.max(0, weeks.indexOf(week)))
+  }, [series, weeks, week])
+  const plotWeeks = weeks.slice(start)
+  const plotted = series.slice(start)
   const current = series[weeks.indexOf(week)]
   const better = code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'
   const multipleWeeks = weeks.slice(Math.max(0, weeks.indexOf(week) - MULTIPLE_WEEKS + 1), weeks.indexOf(week) + 1)
@@ -102,14 +110,14 @@ function Briefing({ manifest }: { manifest: Manifest }) {
       </div>
       <div className="briefing-hero-plot">
       {history.status === 'error' && <DataNotice what="the weekly history" onRetry={history.retry} />}
-      <TrendChart weeks={weeks} values={series.map((r) => r?.value ?? null)} usual={series.map((r) => (r && settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null))}
-        flagged={series.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={WARM_UP_WEEKS}
+      <TrendChart weeks={plotWeeks} values={plotted.map((r) => r?.value ?? null)} usual={plotted.map((r) => (r && settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null))}
+        flagged={plotted.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={Math.max(0, WARM_UP_WEEKS - start)}
         format={(v) => formatKpi(code, v)} height={heroChartHeight(wide, phone)} hint="Click to open this week"
         describe={(i) => {
-          const r = series[i]
+          const r = plotted[i]
           return r ? happened({ code, value: r.value, wow: r.wow_pct, usual: settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null, flag: r.flag === 'ANOMALY', better }) : []
         }}
-        label={`${KPI_LABELS[code]}, national, ${weeks[0]} to ${weeks.at(-1)}; ${flagged} anomaly weeks. Use the arrow keys to choose a week.`} />
+        label={`${KPI_LABELS[code]}, national, ${plotWeeks[0]} to ${plotWeeks.at(-1)}; ${flagged} anomaly weeks. Use the arrow keys to choose a week.`} />
       <p className="hero-legend">
         <span><i className="hero-key-line" aria-hidden="true" />Weekly value</span>
         <span><i className="hero-key-usual" aria-hidden="true" /><Term {...TERMS.usual} /></span>

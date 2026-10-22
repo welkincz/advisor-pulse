@@ -9,8 +9,11 @@
 --                     better for NO_SHOW_RATE, LATE_RATE and QUAR_RATE. peer_count
 --                     counts those nodes. Both are null at national level or for a null value
 --   flag              ANOMALY when the value is more than 2 standard deviations from the
---                     13 weeks before it (with at least 8 of them non-null), else UP or
---                     DOWN when WoW moved 1% or more, else FLAT
+--                     13 weeks before it (with at least 8 of them non-null); for the
+--                     smooth PRTF_CONTACT_12M, when the week's move (wow_delta) is more
+--                     than 2 standard deviations from the moves of the 13 weeks before and
+--                     at least half a point; else UP or DOWN when WoW moved 1% or more,
+--                     else FLAT
 with org as (
     select * from {{ ref('mart_org_weekly') }}
 ),
@@ -143,6 +146,20 @@ compared as (
         round(value - prior_week_value, 4) as wow_delta,
         round(round(value - prior_week_value, 4) / nullif(prior_week_value, 0), 4) as wow_pct
     from windowed
+),
+
+moves as (
+    select
+        *,
+        avg(wow_delta) over before_13w as move_avg,
+        stddev_samp(wow_delta) over before_13w as move_sd,
+        count(wow_delta) over before_13w as move_weeks
+    from compared
+    window before_13w as (
+        partition by level, node_id, kpi_code
+        order by week_start
+        range between interval 91 day preceding and interval 7 day preceding
+    )
 )
 
 select
@@ -164,9 +181,19 @@ select
             and baseline_weeks >= 8
             and baseline_sd > 0
             and abs(value - baseline_avg) / baseline_sd > 2
+            and kpi_code <> 'PRTF_CONTACT_12M'
+            then 'ANOMALY'
+        -- A rolling 12-month rate moves smoothly, so a steady slide sits "2 sd" from the
+        -- weeks before every week. Judge its weekly move against its usual weekly move
+        -- instead, and only a move of half a point or more.
+        when kpi_code = 'PRTF_CONTACT_12M'
+            and move_weeks >= 8
+            and move_sd > 0
+            and abs(wow_delta - move_avg) / move_sd > 2
+            and abs(wow_delta) >= 0.005
             then 'ANOMALY'
         when wow_pct is null or abs(wow_pct) < 0.01 then 'FLAT'
         when wow_pct > 0 then 'UP'
         else 'DOWN'
     end as flag
-from compared
+from moves
