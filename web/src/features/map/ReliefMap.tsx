@@ -10,6 +10,7 @@ import { useReducedMotion } from '../../app/useReducedMotion'
 import { standardEase } from '../../motion/tween'
 import type { MapMark, MapPlace } from './CanadaMap'
 import type { Basemap } from './data'
+import { labelFits } from './labels'
 import { type Point, centroid, lambert, projectedBox } from './projection'
 import './relief.css'
 
@@ -27,8 +28,6 @@ const FLY_MS = 900
 const HOME_ASPECT = 1.3
 const HOME_TARGET = new Vector3(4, -4, 0)
 const HOME_OFFSET = new Vector3(0, -88, 112)
-/** Labels keep this many pixels clear of the canvas edge, or hide; the list beside the map has every value. */
-const LABEL_PAD = 4
 
 /** Where the camera rests over the whole country for a canvas of this shape. */
 function homePosition(aspect: number): Vector3 {
@@ -271,23 +270,29 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       if (s.controls.update()) moving = true
       s.renderer.render(s.scene, s.camera)
       // Labels follow their province's top face on screen, moved directly (no React render).
-      // A label that would cross the canvas edge hides rather than show a clipped fragment.
-      // Widths are read first and styles written after, so the loop forces one layout at most.
+      // A label whose whole box (name and value lines) would cross the canvas edge hides rather
+      // than show a clipped fragment. Positions are written first and boxes read after, so the
+      // loop forces one layout at most.
       const rect = s.renderer.domElement.getBoundingClientRect()
-      const placed = s.provinces.flatMap((p) => {
+      const placed: { el: SVGTextElement; region: string; x: number; y: number; tx: number; ty: number }[] = []
+      for (const p of s.provinces) {
         const el = p.region ? labelEls.current.get(p.region) : undefined
-        return el && p.region === p.id ? [{ p, el, half: el.getBBox().width / 2 }] : []
-      })
-      for (const { p, el, half } of placed) {
+        if (!el || p.region !== p.id) continue
         const v = anchor.set(p.centre[0], p.centre[1], p.height + 0.6).project(s.camera)
         const x = ((v.x + 1) / 2) * rect.width
         const y = ((1 - v.y) / 2) * rect.height
-        const [dx, dy] = LEADER[p.region!] ?? NUDGE[p.region!] ?? [0, 0]
-        const fits = x + dx - half >= LABEL_PAD && x + dx + half <= rect.width - LABEL_PAD && y + dy >= 0 && y + dy <= rect.height
+        const [dx, dy] = LEADER[p.region] ?? NUDGE[p.region] ?? [0, 0]
         el.setAttribute('transform', `translate(${x + dx} ${y + dy})`)
+        placed.push({ el, region: p.region, x, y, tx: x + dx, ty: y + dy })
+      }
+      for (const { el, region, x, y, tx, ty } of placed) {
+        // getBBox is in the text's own space, before its transform: add the translation back.
+        const box = el.getBBox()
+        const fits = labelFits({ x: box.x + tx, y: box.y + ty, width: box.width, height: box.height }, rect)
         el.style.visibility = fits ? '' : 'hidden'
-        const line = leaderEls.current.get(p.region!)
+        const line = leaderEls.current.get(region)
         if (line) {
+          const [dx, dy] = LEADER[region] ?? [0, 0]
           Object.entries({ x1: x, y1: y, x2: x + dx * 0.78, y2: y + dy * 0.78 }).forEach(([k, n]) => line.setAttribute(k, String(n)))
           line.style.visibility = fits ? '' : 'hidden'
         }
@@ -348,18 +353,22 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
     s.invalidate()
   }, [places, projection])
 
+  useEffect(() => { state.current?.renderer.domElement.setAttribute('aria-label', label) }, [label, basemap])
+
+  // A new canvas shape moves the resting point. The camera follows only if it still rests at the
+  // old one: an orbit, a zoom, a focused province or a fly in progress is left alone.
   useEffect(() => {
     const s = state.current
-    if (!s) return
-    s.renderer.domElement.setAttribute('aria-label', label)
-    if (!width || !height) return
+    if (!s || !width || !height) return
     s.renderer.setSize(width, height)
     s.camera.aspect = width / height
     s.camera.updateProjectionMatrix()
-    s.home.position.copy(homePosition(width / height))
-    if (!callbacks.current.focus && !s.fly) { s.controls.target.copy(s.home.target); s.camera.position.copy(s.home.position) }
+    const next = homePosition(width / height)
+    const atHome = !s.fly && s.camera.position.distanceTo(s.home.position) < 0.01 && s.controls.target.distanceTo(s.home.target) < 0.01
+    s.home.position.copy(next)
+    if (atHome) s.camera.position.copy(next)
     s.invalidate()
-  }, [width, height, label, basemap])
+  }, [width, height, basemap])
 
   // Values, colours and the theme: update materials and target heights in place.
   const [scheme, setScheme] = useState(0)
