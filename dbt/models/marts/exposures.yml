@@ -1,0 +1,88 @@
+version: 2
+
+# The site's pages as dbt exposures, so the lineage graph at /lineage/ ends at the report
+# people read. Each page depends on the marts behind the export files it queries
+# (src/pulse/export/web.py writes marts.mart_<name> to <name>.parquet; web/src/data/queries.ts
+# reads them). Synthetic data for Maplecrest Bank (fictional).
+exposures:
+  - name: site_overview
+    label: Overview
+    type: dashboard
+    maturity: high
+    url: https://pulse.charliebuild.com/
+    description: >
+      The weekly report's front page: the lead KPI (portfolio contacted, 12 months), the KPI
+      board, the national trend, region multiples, the week heatmap, the quarter panel and the
+      weekly narrative. Reads weekly_report, org_weekly and org_quarterly.
+    depends_on:
+      - ref('mart_weekly_report')
+      - ref('mart_org_weekly')
+      - ref('mart_org_quarterly')
+    owner:
+      name: Advisor Pulse
+
+  - name: site_map
+    label: Map
+    type: dashboard
+    maturity: high
+    url: https://pulse.charliebuild.com/map
+    description: >
+      Coverage by region, district and forward sortation area for the selected week. Reads
+      geo_weekly for the FSA layer, org_weekly for region and district totals, and
+      weekly_report for the KPI history beside the map.
+    depends_on:
+      - ref('mart_geo_weekly')
+      - ref('mart_org_weekly')
+      - ref('mart_weekly_report')
+    owner:
+      name: Advisor Pulse
+
+  - name: site_drill
+    label: Drill-down
+    type: dashboard
+    maturity: high
+    url: https://pulse.charliebuild.com/r/ON
+    description: >
+      Region, district, branch and advisor pages. Reads weekly_report for each node and its
+      children, org_weekly for node names, org_quarterly for the quarter panel, and
+      advisor_weekly for the branch leaderboard.
+    depends_on:
+      - ref('mart_weekly_report')
+      - ref('mart_org_weekly')
+      - ref('mart_org_quarterly')
+      - ref('mart_advisor_weekly')
+    owner:
+      name: Advisor Pulse
+
+  - name: site_quality
+    label: Data quality
+    type: dashboard
+    maturity: high
+    url: https://pulse.charliebuild.com/quality
+    description: >
+      Data-quality rules by week: rows affected, rates and quarantine counts, beside the
+      weekly run's check results. Reads dq_weekly (the run log comes from the runner, not dbt).
+    depends_on:
+      - ref('mart_dq_weekly')
+    owner:
+      name: Advisor Pulse
+
+  - name: site_pipeline
+    label: Pipeline
+    type: application
+    maturity: medium
+    url: https://pulse.charliebuild.com/pipeline
+    description: >
+      The weekly run's stage DAG with each stage's attempts, rows and checks. The graph is
+      built from dbt's manifest and the run log rather than a mart; it depends on every mart
+      the export stage publishes, since that stage's row counts are what the page reports.
+    depends_on:
+      - ref('mart_weekly_report')
+      - ref('mart_org_weekly')
+      - ref('mart_org_quarterly')
+      - ref('mart_advisor_weekly')
+      - ref('mart_geo_weekly')
+      - ref('mart_dq_weekly')
+      - ref('mart_portfolio_weekly')
+    owner:
+      name: Advisor Pulse

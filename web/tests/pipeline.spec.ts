@@ -112,3 +112,8 @@ test('a station says what its stage does and what happened, by hover and by keyb
   await page.locator('.timeline-row button').first().hover()
   await expect(card).toContainText('of the run’s time')
 })
+
+test('links to the dbt lineage graph as a full page, outside the app router', async ({ page }) => {
+  await page.goto('/pipeline')
+  await expect(page.getByRole('link', { name: 'dbt lineage graph' })).toHaveAttribute('href', '/lineage/')
+})

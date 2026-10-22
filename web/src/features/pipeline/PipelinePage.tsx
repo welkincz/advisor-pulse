@@ -146,7 +146,7 @@ export function PipelinePage() {
 
   return <main className="pipe-page">
     <h1>Pipeline</h1>
-    <p className="intro">{latestWeekly ? runSentence(latestWeekly) : 'The weekly batch from source extracts to the published report.'} Hover or focus a stage for what it does; click for its attempts, rows and checks.</p>
+    <p className="intro">{latestWeekly ? runSentence(latestWeekly) : 'The weekly batch from source extracts to the published report.'} Hover or focus a stage for what it does; click for its attempts, rows and checks. The <a href="/lineage/">dbt lineage graph</a> shows every model, column and test from source to page.</p>
     {(graph.status === 'loading' || runLog.status === 'loading') && <p aria-busy="true">Loading the pipeline…</p>}
     {graph.status === 'error' && <DataNotice what="the pipeline graph" onRetry={graph.retry} />}
     {runLog.status === 'error' && <DataNotice what="the run log" onRetry={runLog.retry} />}

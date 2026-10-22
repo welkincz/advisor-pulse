@@ -127,6 +127,9 @@ jobs:
       - name: dbt build (CI fixtures)
         run: make dbt-build-ci
 
+      - name: Static dbt docs build within budget (CI fixtures)
+        run: DBT_TARGET=ci make dbt-docs-static
+
   web:
     name: web
     needs: changes

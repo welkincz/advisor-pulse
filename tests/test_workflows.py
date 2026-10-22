@@ -268,3 +268,20 @@ def test_recovery_reuses_only_previous_site_and_new_run_log(
     else:
         assert not output.exists()
         assert "recovery skipped" in summary.read_text()
+
+
+def test_deploys_build_the_dbt_docs_before_the_site_and_ship_without_them_on_failure() -> None:
+    builds = (("weekly.yml", "Build weekly site"), ("backfill.yml", "Build backfilled site"))
+    for name, build in builds:
+        steps = load(name)["jobs"]["run"]["steps"]
+        names = [step.get("name") for step in steps]
+        docs = steps[names.index("Build dbt docs lineage")]
+        assert names.index("Build dbt docs lineage") < names.index(build)
+        assert "success" in docs["if"]
+        assert "if ! make dbt-docs-static" in docs["run"]
+        assert "rm -rf web/public/lineage" in docs["run"]
+        assert docs["env"]["PULSE_DATA_DIR"] == "data"
+    ci = {step.get("name"): step for step in load("ci.yml")["jobs"]["dbt"]["steps"]}
+    assert ci["Static dbt docs build within budget (CI fixtures)"]["run"] == (
+        "DBT_TARGET=ci make dbt-docs-static"
+    )

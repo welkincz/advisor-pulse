@@ -86,6 +86,19 @@ jobs:
             rm -rf web/public/recap
           fi
 
+      # Optional: the dbt docs read the warehouse this run just built (fixtures when there is
+      # none). A failed build warns and the site ships without /lineage/.
+      - name: Build dbt docs lineage
+        if: steps.weekly_run.outcome == 'success'
+        env:
+          PULSE_DATA_DIR: data
+        run: |
+          if ! make dbt-docs-static; then
+            echo "::warning::The dbt docs did not build; the site ships without /lineage/."
+            echo "dbt docs: not built this run (the site ships without /lineage/)." >> "$GITHUB_STEP_SUMMARY"
+            rm -rf web/public/lineage
+          fi
+
       - name: Build weekly site
         id: build_site
         run: pnpm -C web build
