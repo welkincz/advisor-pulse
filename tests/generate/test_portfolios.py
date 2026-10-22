@@ -40,7 +40,7 @@ def test_portfolio_history_hands_over_whole_book_and_retains_transit() -> None:
         PortfolioAssignmentReason.OPEN,
         PortfolioAssignmentReason.HANDOVER,
     ]
-    assert events[1].effective_date == START + timedelta(days=15)
+    assert events[1].effective_date == START + timedelta(days=14)  # the TERM date
     assert holder_as_of(portfolios, old.portfolio_id, events[1].effective_date) in {
         "ADV-00002",
         "ADV-00003",
@@ -125,3 +125,20 @@ def test_a_portfolio_opened_mid_history_is_filled_from_its_branch() -> None:
         assert abs(given - size // 3) <= max(3, size // 20)
     # Nobody at ADV-00005's branch to give: no moves, and no error.
     assert not [c for c in moved if c.after.primary_advisor_id == "ADV-00005"]
+
+
+def test_every_portfolio_has_an_employed_holder_on_every_day() -> None:
+    # A leaver's range excludes the TERM date, so the handover must land on it; a holder
+    # who has already left (even for one day) owns a book nobody can work.
+    rows = roster()
+    portfolios = generate_portfolios(rows, seed=19, start_date=START)
+    for offset in range(-1, 60):
+        day = START + timedelta(days=offset)
+        for portfolio in portfolios.master:
+            if portfolio.open_date > day:
+                continue
+            holder = holder_as_of(portfolios, portfolio.portfolio_id, day)
+            assert any(
+                advisor == holder and start <= day and (end is None or day < end)
+                for advisor, _, _, start, end in rows
+            ), (portfolio.portfolio_id, day, holder)

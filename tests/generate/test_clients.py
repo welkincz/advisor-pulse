@@ -105,7 +105,7 @@ def test_roster_date_ranges_control_new_assignment() -> None:
         org(), roster, seed=4, client_count=5000, start_date=START, weeks=8
     )
     left = [c for c in dataset.changes if c.kind == "ADVISOR_LEFT"]
-    assert left and {c.day for c in left} == {switch + timedelta(days=1)}
+    assert left and {c.day for c in left} == {switch}  # the leaver's range ends on switch
     for change in dataset.changes:
         if change.kind in {"NEW", "REASSIGNED"} and change.day >= switch:
             assert change.after.primary_advisor_id == "ADV-00002"
@@ -253,7 +253,7 @@ def test_branch_managers_own_no_clients(generated: Any) -> None:
 
 
 @pytest.mark.unit
-def test_leavers_books_change_holder_the_day_after_term(generated: Any) -> None:
+def test_leavers_books_change_holder_on_the_term_date(generated: Any) -> None:
     ranges, batch = generated
     starts = {(r[0], r[3]) for r in ranges}
     terms = {(r[0], r[4]) for r in ranges if r[4] is not None and (r[0], r[4]) not in starts}
@@ -262,13 +262,14 @@ def test_leavers_books_change_holder_the_day_after_term(generated: Any) -> None:
     assert left
     for change in left:
         assert change.before is not None
-        assert (change.before.primary_advisor_id, change.day - timedelta(days=1)) in terms
+        assert (change.before.primary_advisor_id, change.day) in terms
         assert change.before.portfolio_id == change.after.portfolio_id
-    # TERM_DT is the final day allowed to carry the old mirror ID; handover is next day.
+    # A leaver's range excludes TERM_DT (advisors.assignment_ranges), so from that day on
+    # no client may still name them.
     term_day = dict(terms)
     for change in batch.changes:
         owner = change.after.primary_advisor_id
-        assert owner not in term_day or change.day <= term_day[owner]
+        assert owner not in term_day or change.day < term_day[owner]
     active = [c for c in batch.final() if c.status_code == ClientStatus.ACTIVE]
     assert not {c.primary_advisor_id for c in active} & set(term_day)
 

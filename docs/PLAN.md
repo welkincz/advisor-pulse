@@ -286,7 +286,7 @@ The contracts in `src/pulse/contracts/` are the executable form of this dictiona
 
 **PRTF** (portfolio master): PRTF_ID, BRNCH_ID (transit), OPEN_DT, CLOSE_DT (nullable, ≥ OPEN_DT), LAST_UPD_TS.
 
-**PRTF_ASGN** (portfolio assignment events): PASGN_ID, PRTF_ID, ADVSR_ID, EFF_DT, RSN_CD (`OPEN`, `HANDOVER`, `TRANSFER`, `REBALANCE`), LAST_UPD_TS. An event makes ADVSR_ID the holder from EFF_DT until the portfolio's next event. A handover takes effect the day after the leaver's TERM_DT, so a portfolio is never without a holder.
+**PRTF_ASGN** (portfolio assignment events): PASGN_ID, PRTF_ID, ADVSR_ID, EFF_DT, RSN_CD (`OPEN`, `HANDOVER`, `TRANSFER`, `REBALANCE`), LAST_UPD_TS. An event makes ADVSR_ID the holder from EFF_DT until the portfolio's next event. A handover takes effect on the leaver's TERM_DT, the first day they are no longer on the roster (advisor ranges end on TERM_DT and exclude it, ADR 0001), so a portfolio always has an employed holder.
 
 Physical conventions for both 'Teradata' files:
 - **Text formats:** timestamps are naive UTC text `YYYY-MM-DD HH:MM:SS`; dates are `YYYY-MM-DD`; nulls are empty CSV fields.
