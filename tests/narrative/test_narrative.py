@@ -155,6 +155,17 @@ def test_template_is_grounded(report: list[WeeklyReport], node_id: str) -> None:
     assert "live" not in narrative.headline.lower()
 
 
+def test_the_watchlist_follows_the_fallback_headline(report: list[WeeklyReport]) -> None:
+    # The fixtures hold four weeks, so the 12-month KPI is null and the headline falls back.
+    node = build_facts(report, "ON", WEEK)
+    assert node.headline_kpi is KpiCode.ACT_PER_ADV
+    narrative = template_narrative(node)
+    assert len(narrative.watchlist) == 1
+    (item,) = narrative.watchlist
+    assert node.by_id()[item.fact_ids[0]].kpi_code is KpiCode.ACT_PER_ADV
+    assert any("trails its peers on activities per advisor" in b.text for b in narrative.bullets)
+
+
 def test_template_headline_states_the_headline_fact(report: list[WeeklyReport]) -> None:
     node = build_facts(report, "ON", WEEK)
     lead = node.facts[0]
