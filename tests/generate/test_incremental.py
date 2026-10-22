@@ -101,8 +101,12 @@ def test_the_client_snapshot_comes_from_the_first_week_only(backfill: Path) -> N
     with sqlite3.connect(backfill / "sources/teradata/edw.sqlite") as con:
         newest = con.execute('SELECT max("LAST_UPD_TS") FROM "CLNT"').fetchone()[0]
         assignments = con.execute('SELECT max("EFF_DT") FROM "ADVSR_ASGN"').fetchone()[0]
+        portfolios = con.execute('SELECT count(*) FROM "PRTF"').fetchone()[0]
+        portfolio_events = con.execute('SELECT count(*) FROM "PRTF_ASGN"').fetchone()[0]
+        assert con.execute('SELECT count(*) FROM "CLNT" WHERE PRTF_ID IS NULL').fetchone() == (0,)
     assert newest < first_monday.isoformat()
     assert assignments <= date.fromisocalendar(2026, 15, 7).isoformat()
+    assert portfolios > 0 and portfolio_events >= portfolios
     deltas = sorted((backfill / "sources/teradata").glob("client_*.csv"))
     assert deltas and all(p.name[7:15] >= f"{first_monday:%Y%m%d}" for p in deltas)
 

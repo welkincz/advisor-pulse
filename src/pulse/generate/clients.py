@@ -19,6 +19,7 @@ from typing import Literal
 from pulse.contracts import column_names
 from pulse.contracts.enums import ClientStatus, Role, Segment
 from pulse.contracts.sources import TeradataClient
+from pulse.generate.portfolios import PortfolioBatch, generate_portfolios, holder_as_of
 from pulse.generate.teradata import replace_table, sql_value, write_transaction
 from pulse.reference import OrgReference, fsa_province
 
@@ -32,9 +33,8 @@ POSTAL_LETTERS = "ABCEGHJKLMNPRSTVWXYZ"
 # (advisor_id, branch_id, role, valid_from, valid_to exclusive), as from
 # pulse.generate.advisors.assignment_ranges.
 AdvisorAssignment = tuple[str, str, Role, date, date | None]
-# REASSIGNED is the ~2%/quarter business churn. ADVISOR_LEFT moves a leaver's book on their
-# TERM date and is not counted against that rate.
-ChangeKind = Literal["NEW", "CLOSED", "REASSIGNED", "ADVISOR_LEFT"]
+# REASSIGNED is the ~2%/quarter business churn. Holder changes retain the portfolio ID.
+ChangeKind = Literal["NEW", "CLOSED", "REASSIGNED", "ADVISOR_LEFT", "PORTFOLIO_TRANSFER"]
 
 
 @dataclass(frozen=True)
@@ -77,16 +77,6 @@ def _book_owners(roster: Sequence[AdvisorAssignment], day: date) -> list[Advisor
     ]
 
 
-def _leavers(roster: Sequence[AdvisorAssignment]) -> dict[date, list[tuple[str, str]]]:
-    """(advisor, last branch) by TERM date: a range ends and no range starts that day."""
-    starts = {(a[0], a[3]) for a in roster}
-    out: dict[date, list[tuple[str, str]]] = defaultdict(list)
-    for advisor_id, branch_id, _, _, valid_to in roster:
-        if valid_to is not None and (advisor_id, valid_to) not in starts:
-            out[valid_to].append((advisor_id, branch_id))
-    return {d: sorted(ids) for d, ids in out.items()}
-
-
 def generate_clients(
     org: OrgReference,
     advisors: Sequence[AdvisorAssignment],
@@ -95,6 +85,7 @@ def generate_clients(
     client_count: int = 150_000,
     start_date: date = DEFAULT_START,
     weeks: int = 104,
+    portfolio_batch: PortfolioBatch | None = None,
 ) -> ClientBatch:
     """Return the CLNT snapshot (as of the day before ``start_date``) and every daily change."""
     if not 1 <= client_count < 100_000_000:
@@ -107,6 +98,21 @@ def generate_clients(
         raise ValueError("at least one active advisor (not a branch manager) is required")
 
     rng = random.Random(seed)
+    portfolios = portfolio_batch or generate_portfolios(advisors, seed=seed, start_date=start_date)
+    by_portfolio = {p.portfolio_id: p for p in portfolios.master}
+    portfolio_holders = {
+        p.portfolio_id: holder_as_of(portfolios, p.portfolio_id, snapshot_day)
+        for p in portfolios.master
+    }
+    initial_portfolio = {
+        holder: portfolio_id
+        for portfolio_id, holder in portfolio_holders.items()
+        if holder is not None
+    }
+    holder_events = defaultdict(list)
+    for event in portfolios.assignments:
+        if event.effective_date >= start_date:
+            holder_events[event.effective_date].append(event)
     placements = {p.branch.branch_id: p for p in org.placements()}
     for advisor_id, branch_id, _, valid_from, valid_to in advisors:
         if branch_id not in placements or (valid_to is not None and valid_to <= valid_from):
@@ -117,7 +123,11 @@ def generate_clients(
     }
 
     def make_client(
-        client_id: str, owner: AdvisorAssignment, since: date, updated: date
+        client_id: str,
+        owner: AdvisorAssignment,
+        portfolio_id: str,
+        since: date,
+        updated: date,
     ) -> TeradataClient:
         branch_id = owner[1]
         branch_fsa = placements[branch_id].branch.fsa_code
@@ -134,6 +144,7 @@ def generate_clients(
             PRIM_BRNCH_ID=branch_id,
             STAT_CD=ClientStatus.ACTIVE,
             LAST_UPD_TS=_ts(updated),
+            PRTF_ID=portfolio_id,
         )
 
     current: dict[str, TeradataClient] = {}
@@ -154,17 +165,26 @@ def generate_clients(
         # The row names its owner as of LAST_UPD_TS, so that is no earlier than the
         # owner's current assignment.
         updated = max(updated, owner[3])
-        activate(make_client(f"CLI-{number:08d}", owner, since, updated))
+        activate(
+            make_client(f"CLI-{number:08d}", owner, initial_portfolio[owner[0]], since, updated)
+        )
     snapshot = tuple(current.values())
 
     changes: list[ClientChange] = []
 
-    def move(client_id: str, owner: AdvisorAssignment, day: date, kind: ChangeKind) -> None:
+    def move(
+        client_id: str,
+        owner: AdvisorAssignment,
+        portfolio_id: str,
+        day: date,
+        kind: ChangeKind,
+    ) -> None:
         before = current[client_id]
         after = before.model_copy(
             update={
                 "primary_advisor_id": owner[0],
-                "primary_branch_id": owner[1],
+                "primary_branch_id": by_portfolio[portfolio_id].branch_id,
+                "portfolio_id": portfolio_id,
                 "last_updated_ts": _ts(day),
             }
         )
@@ -176,7 +196,6 @@ def generate_clients(
     def district(branch_id: str) -> str:
         return placements[branch_id].district.district_code
 
-    leavers = _leavers(advisors)
     scheduled: dict[date, list[str]] = defaultdict(list)
     protected: set[str] = set()
     next_number = client_count + 1
@@ -187,14 +206,25 @@ def generate_clients(
         if not owners:
             raise ValueError(f"no active advisor on {day.isoformat()}")
 
-        # A leaver's book moves on the TERM date: same branch first, then district, then any.
-        for leaver, branch in leavers.get(day, []):
-            clients = sorted(book.pop(leaver, set()))
-            same_branch = [o for o in owners if o[1] == branch]
-            same_district = [o for o in owners if district(o[1]) == district(branch)]
-            heirs = same_branch or same_district or owners
-            for client_id in clients:
-                move(client_id, rng.choice(heirs), day, "ADVISOR_LEFT")
+        owner_by_id = {owner[0]: owner for owner in owners}
+        for event in holder_events.get(day, []):
+            successor = owner_by_id[event.advisor_id]
+            previous = portfolio_holders[event.portfolio_id]
+            portfolio_holders[event.portfolio_id] = event.advisor_id
+            if previous is None:
+                continue
+            kind: ChangeKind = (
+                "ADVISOR_LEFT" if event.reason_code == "HANDOVER" else "PORTFOLIO_TRANSFER"
+            )
+            for client_id in sorted(book[previous]):
+                if current[client_id].portfolio_id == event.portfolio_id:
+                    move(client_id, successor, event.portfolio_id, day, kind)
+
+        active_portfolios = [
+            (p.portfolio_id, owner_by_id[holder])
+            for p in portfolios.master
+            if (holder := portfolio_holders[p.portfolio_id]) in owner_by_id
+        ]
 
         if offset % QUARTER_DAYS == 0:
             count = _count_at_rate(len(active_ids), REASSIGN_RATE, rng)
@@ -208,7 +238,8 @@ def generate_clients(
         for _ in range(_count_at_rate(len(active_ids), NEW_DAILY_RATE, rng)):
             if next_number >= 100_000_000:
                 raise ValueError("client ID space exhausted")
-            client = make_client(f"CLI-{next_number:08d}", rng.choice(owners), day, day)
+            portfolio_id, owner = rng.choice(active_portfolios)
+            client = make_client(f"CLI-{next_number:08d}", owner, portfolio_id, day, day)
             next_number += 1
             activate(client)
             new_today.add(client.client_id)
@@ -217,13 +248,14 @@ def generate_clients(
         for client_id in scheduled.pop(day, []):
             before = current[client_id]
             alternatives = [
-                o
-                for o in owners
-                if o[0] != before.primary_advisor_id
-                and district(o[1]) == district(before.primary_branch_id)
+                (p, o)
+                for p, o in active_portfolios
+                if p != before.portfolio_id
+                and district(by_portfolio[p].branch_id) == district(before.primary_branch_id)
             ]
             if alternatives:
-                move(client_id, rng.choice(alternatives), day, "REASSIGNED")
+                portfolio_id, owner = rng.choice(alternatives)
+                move(client_id, owner, portfolio_id, day, "REASSIGNED")
 
         for _ in range(_count_at_rate(len(active_ids), CLOSE_DAILY_RATE, rng)):
             if len(protected | new_today) >= len(active_ids):
