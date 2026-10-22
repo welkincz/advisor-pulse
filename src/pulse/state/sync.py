@@ -271,16 +271,11 @@ class StateSync:
         # so a failed upload of a page of text never costs the warehouse.
         sources = self._mirror(store, ctx.data_dir, SOURCES_DIR)
         pruned = ""
-        if ctx.run_id in self._fresh:
+        fresh = ctx.run_id in self._fresh
+        if fresh:
             # A rebuild regenerates every source. Older files left in R2 would be restored and
             # ingested by the next week; they come from an older generator and break its joins.
-            pruned = f", removed {self._prune(store, ctx.data_dir, SOURCES_DIR)} stale ones"
-            # Its weekly narratives too: week 2 restores R2's, and export re-validates every
-            # one against today's contract. The model cache (narratives/cache/) stays; its
-            # keys are built from the facts, so an entry from an older report is never hit.
-            cache = f"{NARRATIVES_DIR}/cache/"
-            stale = self._prune(store, ctx.data_dir, NARRATIVES_DIR, keep=cache)
-            pruned += f" and {stale} stale narratives"
+            pruned = f", removed {self._prune(store, ctx.data_dir, SOURCES_DIR)} stale sources"
             self._fresh.discard(ctx.run_id)
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
         stat = (ctx.data_dir / WAREHOUSE_FILE).stat()
@@ -297,6 +292,15 @@ class StateSync:
         persisted = f"Persisted {WAREHOUSE_FILE} and {sources} new or changed source files{pruned}"
         try:
             narratives = self._mirror(store, ctx.data_dir, NARRATIVES_DIR)
+            stale = ""
+            if fresh:
+                # A rebuild's weekly narratives too: week 2 restores R2's, and export
+                # re-validates every one against today's contract. The model cache
+                # (narratives/cache/) stays; its keys are built from the facts, so an entry
+                # from an older report is never hit.
+                cache = f"{NARRATIVES_DIR}/cache/"
+                removed = self._prune(store, ctx.data_dir, NARRATIVES_DIR, keep=cache)
+                stale = f", removed {removed} stale ones"
         except Exception as exc:  # any failure here must leave the warehouse kept
             log.warning("Narratives not persisted: %s", exc)
             return StageResult(
@@ -304,7 +308,7 @@ class StateSync:
                 rows_out=sources,
                 message=f"{persisted}; narratives were not persisted ({type(exc).__name__}).",
             )
-        message = f"{persisted}, plus {narratives} narrative files."
+        message = f"{persisted}, plus {narratives} narrative files{stale}."
         return StageResult(rows_out=sources, message=message)
 
     @staticmethod
