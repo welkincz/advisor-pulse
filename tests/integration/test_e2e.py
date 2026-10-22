@@ -48,9 +48,24 @@ def test_backfill_then_weekly_run_passes_every_check(tmp_path: Path) -> None:
         weeks = [*week_range(FIRST, LAST), NEXT]
         finals = {(r.iso_week_id, r.stage): r for r in runs if r.status is not StageStatus.RUNNING}
         for week in weeks:
-            for stage in ("generate", "ingest", "dbt_build"):
+            for stage in ("generate", "ingest"):
                 assert finals[(week, stage)].status is StageStatus.SUCCESS, (week, stage)
+            # At test size a branch has one or two advisors, so a handover often goes to
+            # someone at another branch and DQ025 warns. That is the only warning allowed.
+            dbt = finals[(week, "dbt_build")]
+            if dbt.status is not StageStatus.SUCCESS:
+                assert dbt.status is StageStatus.WARN, (week, dbt.message)
+                assert "1 warned: dq025_portfolio_holder_at_another_branch" in (
+                    dbt.message or ""
+                ), (
+                    week,
+                    dbt.message,
+                )
             assert finals[(week, "checks")].status in {StageStatus.SUCCESS, StageStatus.WARN}
+            if week not in (LAST, NEXT):
+                # Template narration is the plan for backfilled history, not a warning. The
+                # last backfill week and the weekly run try the model and warn without one.
+                assert finals[(week, "narrate")].status is StageStatus.SUCCESS, week
 
             run_id = finals[(week, "checks")].run_id
             results = {c.check_id: c for c in meta.get_check_results(con, run_id)}

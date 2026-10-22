@@ -221,6 +221,7 @@ def test_default_backfill_uses_templates_until_the_final_week(
         assert result.rows_out == 2
         if week != "2026-W10":
             assert "template" in (result.message or "")
+            assert result.status is StageStatus.SUCCESS  # templates are the plan for history
         return 0
 
     monkeypatch.setattr(narrative_stage, "narrate", fake_narrate)

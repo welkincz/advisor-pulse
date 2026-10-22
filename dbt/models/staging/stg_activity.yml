@@ -116,16 +116,11 @@ models:
         description: Length in minutes, from 0 to 480. Null when the source did not record one.
         data_type: integer
       - name: booked_from_activity_id
-        description: For an appointment booked on a call, that call's `activity_id`.
+        description: >
+          For an appointment booked on a call, that call's `activity_id`. The call can be
+          missing from staging when ingest quarantined it, so a small share of bookings point
+          at no row; `assert_booked_from_orphan_rate` warns only when that share is unusual.
         data_type: varchar
-        data_tests:
-          - relationships:
-              arguments:
-                to: ref('stg_activity')
-                field: activity_id
-              config:
-                # The booking call may have been quarantined; keep the appointment.
-                severity: warn
       - name: created_ts
         description: Source-system create time (UTC).
         data_type: timestamp with time zone
