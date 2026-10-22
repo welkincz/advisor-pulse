@@ -391,7 +391,8 @@ def _clients(
                 )
             )
             changed = True
-        for index in _select(available, rates[DefectKind.UNPARSEABLE_VALUE], rng):
+        quarantined = _select(available, rates[DefectKind.UNPARSEABLE_VALUE], rng)
+        for index in quarantined:
             row = rows[index]
             row["BRTH_YR"] = "19S2"
             defects.append(
@@ -412,8 +413,10 @@ def _clients(
             )
             changed = True
         # DQ014: a client that names a portfolio the master does not have. Real IDs stay
-        # below PRT-900000 or start there for transfers, so PRT-8xxxxx never collides.
-        owned = [i for i in range(len(rows)) if rows[i].get("PRTF_ID")]
+        # below PRT-900000 or start there for transfers, so PRT-8xxxxx never collides. A
+        # quarantined row never reaches the portfolio check, so it gets no DQ014.
+        skip = set(quarantined)
+        owned = [i for i, row in enumerate(rows) if row.get("PRTF_ID") and i not in skip]
         for index in _select(owned, rates[DefectKind.UNKNOWN_PORTFOLIO], rng):
             row = rows[index]
             original, unknown = row["PRTF_ID"], f"PRT-8{rng.randrange(100_000):05d}"
