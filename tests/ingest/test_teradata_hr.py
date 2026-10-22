@@ -81,6 +81,62 @@ def test_same_file_rerun_is_no_op(warehouse: duckdb.DuckDBPyConnection, source_d
     assert meta.get_watermark(warehouse, "teradata", "ADVSR").run_id == "run-1"
 
 
+def test_portfolio_tables_load_incrementally_and_repeat_is_empty(
+    warehouse: duckdb.DuckDBPyConnection, source_db: Path
+) -> None:
+    with sqlite3.connect(source_db) as source:
+        source.execute(
+            "CREATE TABLE PRTF (PRTF_ID TEXT, BRNCH_ID TEXT, OPEN_DT TEXT, "
+            "CLOSE_DT TEXT, LAST_UPD_TS TEXT)"
+        )
+        source.execute(
+            "CREATE TABLE PRTF_ASGN (PASGN_ID TEXT, PRTF_ID TEXT, ADVSR_ID TEXT, "
+            "EFF_DT TEXT, RSN_CD TEXT, LAST_UPD_TS TEXT)"
+        )
+        source.execute(
+            "INSERT INTO PRTF VALUES ('PRT-000001', 'BR-0101', '2024-10-07', NULL, "
+            "'2024-10-07 12:00:00')"
+        )
+        source.execute(
+            "INSERT INTO PRTF_ASGN VALUES ('PAS-00000001', 'PRT-000001', "
+            "'ADV-10001', '2024-10-07', 'OPEN', '2024-10-07 12:00:00')"
+        )
+
+    first = load_teradata_hr(warehouse, source_db, run_id="run-1", loaded_at=LOADED_AT)
+    assert first.rows_loaded == 54
+    assert warehouse.execute("SELECT PRTF_ID FROM raw.teradata__prtf").fetchall() == [
+        ("PRT-000001",)
+    ]
+    assert warehouse.execute("SELECT PASGN_ID FROM raw.teradata__prtf_asgn").fetchall() == [
+        ("PAS-00000001",)
+    ]
+    assert meta.get_watermark_value(warehouse, "teradata", "PRTF") == datetime(
+        2024, 10, 7, 12, tzinfo=UTC
+    )
+    assert load_teradata_hr(warehouse, source_db, run_id="run-2", loaded_at=LOADED_AT).skipped
+
+    with sqlite3.connect(source_db) as source:
+        source.execute(
+            "INSERT INTO PRTF_ASGN VALUES ('PAS-00000002', 'PRT-000001', "
+            "'ADV-10002', '2024-10-08', 'HANDOVER', '2024-10-08 12:00:00')"
+        )
+    changed = load_teradata_hr(warehouse, source_db, run_id="run-3", loaded_at=LOADED_AT)
+    assert changed.rows_loaded == 1
+    assert warehouse.execute("SELECT count(*) FROM raw.teradata__prtf_asgn").fetchone() == (2,)
+    assert meta.get_watermark_value(warehouse, "teradata", "PRTF_ASGN") == datetime(
+        2024, 10, 8, 12, tzinfo=UTC
+    )
+
+
+def test_old_edw_without_portfolio_tables_skips_them(
+    warehouse: duckdb.DuckDBPyConnection, source_db: Path
+) -> None:
+    result = load_teradata_hr(warehouse, source_db, run_id="run-1", loaded_at=LOADED_AT)
+    assert result.rows_loaded == 52
+    assert warehouse.execute("SELECT count(*) FROM raw.teradata__prtf").fetchone() == (0,)
+    assert meta.get_watermark(warehouse, "teradata", "PRTF") is None
+
+
 def test_changed_snapshot_loads_only_newer_rows(
     warehouse: duckdb.DuckDBPyConnection, source_db: Path
 ) -> None:

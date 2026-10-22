@@ -1,4 +1,4 @@
-"""Incremental ingest for the three Teradata-style HR tables."""
+"""Incremental ingest for Teradata-style HR and portfolio tables."""
 
 from __future__ import annotations
 
@@ -18,8 +18,20 @@ import xxhash
 from pulse.contracts import Contract, column_names
 from pulse.contracts.enums import LoadStatus
 from pulse.contracts.meta import LoadManifest, Watermark
-from pulse.contracts.raw import RawTeradataAdvisor, RawTeradataAssignment, RawTeradataBranch
-from pulse.contracts.sources import TeradataAdvisor, TeradataAssignment, TeradataBranch
+from pulse.contracts.raw import (
+    RawTeradataAdvisor,
+    RawTeradataAssignment,
+    RawTeradataBranch,
+    RawTeradataPortfolio,
+    RawTeradataPortfolioAssignment,
+)
+from pulse.contracts.sources import (
+    TeradataAdvisor,
+    TeradataAssignment,
+    TeradataBranch,
+    TeradataPortfolio,
+    TeradataPortfolioAssignment,
+)
 from pulse.ingest import meta
 from pulse.warehouse import transaction
 
@@ -49,6 +61,8 @@ _TABLES = (
     _Table("ADVSR", "ADVSR_ID", TeradataAdvisor, RawTeradataAdvisor),
     _Table("ADVSR_ASGN", "ASGN_ID", TeradataAssignment, RawTeradataAssignment),
     _Table("BRNCH", "BRNCH_ID", TeradataBranch, RawTeradataBranch),
+    _Table("PRTF", "PRTF_ID", TeradataPortfolio, RawTeradataPortfolio),
+    _Table("PRTF_ASGN", "PASGN_ID", TeradataPortfolioAssignment, RawTeradataPortfolioAssignment),
 )
 
 
@@ -127,7 +141,12 @@ def load_teradata_hr(
     uri = sqlite_path.resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as source:
         source.row_factory = sqlite3.Row
+        available_tables = {
+            row[0] for row in source.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
         for table in _TABLES:
+            if table.name not in available_tables and table.name in {"PRTF", "PRTF_ASGN"}:
+                continue
             watermark = meta.get_watermark_value(warehouse, "teradata", table.name)
             if watermark is not None:
                 watermark = _utc(watermark)
@@ -214,7 +233,7 @@ def load_teradata_hr(
                 file_path=manifest_path,
                 file_sha256=file_sha,
                 source="teradata",
-                table_name="ADVSR+ADVSR_ASGN+BRNCH",
+                table_name="+".join(table.name for table, _, _ in batches),
                 batch_id=batch_id,
                 row_count=rows_read,
                 rows_loaded=rows_loaded,
