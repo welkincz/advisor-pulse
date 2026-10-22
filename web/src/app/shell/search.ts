@@ -29,7 +29,7 @@ export function destinations(nodes: readonly OrgNode[], measures: Readonly<Recor
     const parent = node.parent_id ? byId.get(node.parent_id)?.node_name : undefined
     return to ? [{ id: `org:${node.node_id}`, label: node.node_name, kind: KIND[node.level], href: to, hint: parent ? `${node.node_id}, in ${parent}` : node.node_id }] : []
   })
-  const kpis = (Object.entries(measures) as [KpiCode, string][]).map(([code, label]) => ({ id: `kpi:${code}`, label, kind: 'Measure' as const, href: code === 'ACT_PER_ADV' ? '/' : `/?kpi=${code}`, hint: 'Plot nationally on the overview' }))
+  const kpis = (Object.entries(measures) as [KpiCode, string][]).map(([code, label]) => ({ id: `kpi:${code}`, label, kind: 'Measure' as const, href: `/?kpi=${code}`, hint: 'Plot nationally on the overview' }))
   return [...PAGES, ...org, ...kpis]
 }
 

@@ -184,3 +184,19 @@ test.describe('on a touch screen', () => {
     await expect(page).toHaveURL(/\/r\/(ON|QC)/)
   })
 })
+
+test('once the summary has a 12-month value, the overview opens on portfolio contacted', async ({ page }) => {
+  // The fixtures span four weeks, so their lead KPI is null and activities leads; a summary
+  // with a value (a report with a year of history behind it) switches the default.
+  const manifest = JSON.parse(readFileSync(resolve(exportsDir, 'manifest.json'), 'utf8'))
+  const summary = manifest.summary.map((row: { kpi_code: string }) =>
+    row.kpi_code === 'PRTF_CONTACT_12M' ? { ...row, value: 0.84, prior_week_value: 0.85, wow_pct: -0.0118 } : row)
+  await page.route('http://127.0.0.1:43719/data/manifest.json', (route) => route.fulfill({ json: { ...manifest, summary } }))
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/')
+  await expect(page.locator('#hero-title')).toHaveText('Portfolio contacted (12 months)')
+  await expect(page.locator('.hero-definition')).toContainText('heard from an advisor at least once in the last 12 months')
+  await page.goto('/?kpi=ACT_PER_ADV')
+  await expect(page.locator('#hero-title')).toHaveText('Activities per advisor')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+})

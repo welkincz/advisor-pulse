@@ -7,9 +7,9 @@ import { LOWER_IS_BETTER } from './kpis'
 
 const SPARK_WEEKS = 26
 
-/** The twelve measures in three plain groups: who was reached, what came of it, how clean the data was. */
+/** The measures in three plain groups: who was reached, what came of it, how clean the data was. The lead KPI comes first. */
 export const KPI_GROUPS: readonly { title: string; codes: readonly KpiCode[] }[] = [
-  { title: 'Reach', codes: ['ACT_PER_ADV', 'CALLS_OUT', 'CLIENTS_CONTACTED', 'COVERAGE_13W'] },
+  { title: 'Reach', codes: ['PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'CLIENTS_CONTACTED', 'COVERAGE_13W'] },
   { title: 'Appointments', codes: ['APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'NO_SHOW_RATE', 'APPT_CONV', 'AVG_MEET_MIN'] },
   { title: 'Data quality', codes: ['LATE_RATE', 'QUAR_RATE'] },
 ]
@@ -46,7 +46,10 @@ export function boardRows(history: readonly WeeklyReport[], weeks: readonly stri
  */
 export function KpiBoard({ rows, selected, onSelect, only }: { rows: Map<KpiCode, BoardRow>; selected: KpiCode; onSelect: (code: KpiCode) => void; only?: readonly KpiCode[] }) {
   // Below the national level the batch-wide rates do not exist, so their group is left out.
-  const groups = KPI_GROUPS.map((g) => ({ ...g, codes: only ? g.codes.filter((c) => only.includes(c)) : g.codes })).filter((g) => g.codes.length)
+  // A measure with no value in any shown week (the lead KPI before 12 months of history) is
+  // left out rather than drawn as an empty row.
+  const empty = (c: KpiCode) => { const r = rows.get(c); return r !== undefined && r.value === null && r.trend.every((v) => v === null) }
+  const groups = KPI_GROUPS.map((g) => ({ ...g, codes: g.codes.filter((c) => (!only || only.includes(c)) && !empty(c)) })).filter((g) => g.codes.length)
   return <div className="board">
     {groups.map((group) => <section key={group.title} className="board-group" aria-labelledby={`board-${group.title}`}>
       <h3 id={`board-${group.title}`}>{group.title}</h3>

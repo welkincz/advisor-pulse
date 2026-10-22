@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TrendChart } from '../components/charts/TrendChart'
 import { Delta, Explain, Section, SeriesCsvButton, Term, WeekStepper } from '../components/primitives'
-import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, formatKpi, formatWow, happened, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, formatWow, happened, leadFor, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
 import type { Manifest } from '../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../data/usual'
@@ -35,10 +35,11 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const latest = manifest.latest_week
   const week = resolveWeek(search.get('week'), weeks)!
   const requested = search.get('kpi') as KpiCode | null
-  const code: KpiCode = requested && KPI_CODES.includes(requested) ? requested : 'ACT_PER_ADV'
+  const lead = defaultLead(manifest.summary)
+  const code: KpiCode = requested && KPI_CODES.includes(requested) ? requested : lead
   const set = (key: 'week' | 'kpi', value: string) => {
     const next = new URLSearchParams(search)
-    if (value === (key === 'week' ? latest : 'ACT_PER_ADV')) next.delete(key)
+    if (value === (key === 'week' ? latest : lead)) next.delete(key)
     else next.set(key, value)
     setSearch(next, { replace: true })
   }
@@ -53,7 +54,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const all = useMemo<WeeklyReport[]>(() => (history.status === 'ready' ? history.data : []), [history])
   const ready = history.status === 'ready'
   const rows = useMemo(() => (ready ? boardRows(all, weeks, week) : week === latest ? summaryRows(manifest) : new Map<KpiCode, BoardRow>()), [ready, all, weeks, week, latest, manifest])
-  const headline = useMemo(() => (ready ? weekHeadline(all, week) : null), [ready, all, week])
+  const headline = useMemo(() => (ready ? weekHeadline(all, week, leadFor(all, week)) : null), [ready, all, week])
   const series = useMemo(() => {
     const byWeek = new Map(all.filter((r) => r.kpi_code === code).map((r) => [r.iso_week_id, r]))
     return weeks.map((w) => byWeek.get(w))

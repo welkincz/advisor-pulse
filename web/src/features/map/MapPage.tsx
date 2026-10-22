@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Delta, Explain, HoverCard, type CardContent, Sparkline, Term, WeekPlayer } from '../../components/primitives'
-import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, formatKpi, happened, useChildReportHistory, useGeoWeekly, useManifest, useOrgLevel, useWeeklyReportHistory } from '../../data'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, happened, useChildReportHistory, useGeoWeekly, useManifest, useOrgLevel, useWeeklyReportHistory } from '../../data'
 import type { Manifest } from '../../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { REGIONS } from '../../data/regions'
@@ -106,7 +106,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const week = resolveWeek(search.get('week'), weeks)!
   const focus = search.get('region') || null
   const requested = search.get('kpi') as KpiCode | null
-  const code: KpiCode = requested && KPI_CODES.includes(requested) ? requested : 'COVERAGE_13W'
+  const lead = defaultLead(manifest.summary)
+  const code: KpiCode = requested && KPI_CODES.includes(requested) ? requested : lead
   // Meeting minutes have no better direction, so they can only be coloured by value.
   const colouring: Colouring = search.get('colour') === 'value' || code === 'AVG_MEET_MIN' ? 'value' : 'usual'
   const reducedMotion = useReducedMotion()
@@ -196,7 +197,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const setQuery = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(search)
     for (const [key, value] of Object.entries(changes)) {
-      const fallback = key === 'week' ? manifest.latest_week : key === 'kpi' ? 'COVERAGE_13W' : key === 'colour' ? 'usual' : key === 'view' ? 'relief' : ''
+      const fallback = key === 'week' ? manifest.latest_week : key === 'kpi' ? lead : key === 'colour' ? 'usual' : key === 'view' ? 'relief' : ''
       if (!value || value === fallback) next.delete(key)
       else next.set(key, value)
     }

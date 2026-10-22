@@ -260,6 +260,7 @@ test('the list shows the comparison the colours show, and each row explains itse
   const ontario = page.locator('.map-rows li', { hasText: 'Ontario' })
   await ontario.locator('button').hover()
   const card = page.getByRole('tooltip')
-  await expect(card).toContainText('Share of advisors’ clients contacted')
+  // The map opens on the lead KPI; the 4-week fixtures have no 12-month window, so activities leads.
+  await expect(card).toContainText('Calls, meetings and reviews the average advisor completed')
   await expect(card).toContainText('Click to fly to its districts.')
 })

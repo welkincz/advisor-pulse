@@ -17,6 +17,7 @@ interface Measure { basis: Basis; value: (row: OrgQuarterly) => number | null }
 const ratio = (num: number, den: number) => (den > 0 ? num / den : null)
 
 export const QUARTER_MEASURES: Partial<Record<KpiCode, Measure>> = {
+  PRTF_CONTACT_12M: { basis: 'rate', value: (r) => r.portfolio_contacted_rate_12m ?? null },
   ACT_PER_ADV: { basis: 'rate', value: (r) => r.activities_per_advisor ?? null },
   CALLS_OUT: { basis: 'weekly', value: (r) => r.calls_out / r.weeks_reported },
   APPT_BOOKED: { basis: 'weekly', value: (r) => r.appointments_booked / r.weeks_reported },
