@@ -505,3 +505,18 @@ def test_restore_downloads_only_what_differs(store: ObjectStore, tmp_path: Path)
     }
     con.close()
     assert "after_persist" not in tables
+
+
+def test_a_corrupt_marker_falls_back_to_downloading(store: ObjectStore, tmp_path: Path) -> None:
+    seed_remote(store, tmp_path)
+    data_dir = tmp_path / "runner"
+    sync = sync_for(store)
+    sync.restore(ctx(data_dir, "backfill-a"))
+    sync.persist(ctx(data_dir, "backfill-a"))
+    sync.release(ctx(data_dir, "backfill-a"))
+    for broken in ('{"etag": "x", "si', "[1, 2]"):
+        (data_dir / "warehouse.r2.json").write_text(broken)
+        result = sync.restore(ctx(data_dir, f"backfill-{len(broken)}"))
+        assert result.status is StageStatus.SUCCESS
+        assert "restored warehouse.duckdb" in (result.message or "")
+        sync.release(ctx(data_dir, f"backfill-{len(broken)}"))

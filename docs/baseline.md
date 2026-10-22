@@ -22,7 +22,7 @@ uv run pulse run --week 2026-W42 --run-type WEEKLY
 **On GitHub Actions** a backfill week took 4–5 minutes, more than half of it in `restore_state` re-downloading the state the runner had just persisted. Two changes made a full rebuild fit (#206):
 
 - Restore downloads only files whose MD5 differs from R2's ETag, and it keeps the local warehouse when it is the one this runner persisted.
-- The backfill workflow has a `budget_minutes` input (default 320 of the job's 360). Before each week it checks whether the next one fits, at the slowest week so far plus a quarter. If not, it stops between weeks with the lock released and dispatches itself from the next week. Only the last run of the chain builds and deploys the site.
+- The backfill workflow has a `budget_minutes` input (default 320 of the job's 360; it counts from the backfill step, so the rest covers setup and deploy). Before each week it checks whether the next one fits, at the slowest week so far plus a quarter. If not, it stops between weeks with the lock released and dispatches itself from the next week. Only the last run of the chain builds and deploys the site.
 
 ## Outcome
 

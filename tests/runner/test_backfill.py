@@ -326,3 +326,23 @@ def test_cli_passes_the_budget_through(monkeypatch: pytest.MonkeyPatch, tmp_path
     assert result.exit_code == 0
     assert seen["budget"] == timedelta(minutes=320)
     assert seen["resume_file"] == tmp_path / "next"
+
+
+def test_a_failed_week_wins_over_the_budget(tmp_path: Path) -> None:
+    resume = tmp_path / "resume.txt"
+
+    def fail(ctx: StageContext) -> StageResult:
+        return StageResult(StageStatus.FAILED, message="boom")
+
+    code = backfill_range(
+        "2026-W08",
+        "2026-W12",
+        data_dir=tmp_path,
+        stages=(Stage("work", "Work", fail),),
+        clock=Clock(),
+        echo=lambda _: None,
+        budget=timedelta(minutes=200),
+        resume_file=resume,
+    )
+    assert code != 0
+    assert not resume.exists()

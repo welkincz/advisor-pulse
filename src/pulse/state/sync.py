@@ -238,7 +238,12 @@ class StateSync:
             or path.with_name(path.name + ".wal").exists()
         ):
             return False
-        seen: dict[str, object] = json.loads(marker.read_text())
+        try:
+            seen = json.loads(marker.read_text())
+        except (OSError, ValueError):  # a runner cancelled mid-write; download instead
+            return False
+        if not isinstance(seen, dict):
+            return False
         stat = path.stat()
         return bool(
             seen.get("size") == stat.st_size
