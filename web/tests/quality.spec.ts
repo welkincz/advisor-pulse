@@ -15,7 +15,7 @@ test('quality page lists all documented rules, recorded trends, and latest run c
   await expect(page.getByRole('heading', { name: 'Data quality', exact: true })).toBeVisible()
   await expect(page.locator('.intro')).toHaveText(/^All 4 run checks passed for 2026-W40\./)
   await expect(page.getByRole('table', { name: 'Data quality rule index' }).getByRole('link', { name: 'DQ033' })).toBeVisible()
-  await expect(page.getByRole('table', { name: 'Data quality rule index' }).locator('tbody tr')).toHaveCount(18)
+  await expect(page.getByRole('table', { name: 'Data quality rule index' }).locator('tbody tr')).toHaveCount(21)
   await expect(page.locator('.check')).toHaveCount(4)
   await expect(page.locator('[data-check="DQ032"] .check-value')).toHaveText('1.56%')
   await expect(page.locator('[data-check="DQ032"] .bullet-bar')).not.toHaveClass(/is-fail/)
