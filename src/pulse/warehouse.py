@@ -22,6 +22,8 @@ from pulse.contracts.raw import (
     RawTeradataAssignment,
     RawTeradataBranch,
     RawTeradataClient,
+    RawTeradataPortfolio,
+    RawTeradataPortfolioAssignment,
 )
 
 SCHEMAS = ("raw", "meta", "quarantine")
@@ -47,6 +49,8 @@ TABLES: tuple[TableSpec, ...] = (
     TableSpec("raw.teradata__advsr", RawTeradataAdvisor),
     TableSpec("raw.teradata__advsr_asgn", RawTeradataAssignment),
     TableSpec("raw.teradata__brnch", RawTeradataBranch),
+    TableSpec("raw.teradata__prtf", RawTeradataPortfolio),
+    TableSpec("raw.teradata__prtf_asgn", RawTeradataPortfolioAssignment),
 )
 
 TABLES_BY_NAME: dict[str, TableSpec] = {t.name: t for t in TABLES}
@@ -102,6 +106,31 @@ def init_warehouse(con: duckdb.DuckDBPyConnection) -> None:
             con.execute(f"CREATE SCHEMA IF NOT EXISTS {_quote(schema)}")
         for spec in TABLES:
             con.execute(create_table_sql(spec))
+            for sql in add_column_sql(con, spec):
+                con.execute(sql)
+
+
+def add_column_sql(con: duckdb.DuckDBPyConnection, spec: TableSpec) -> list[str]:
+    """ALTERs for nullable contract columns an existing table lacks (additive evolution).
+
+    A warehouse restored from an earlier run keeps working when a contract gains an optional
+    column. Anything else (a new required column, a type change) needs a rebuild and fails at
+    insert time, loudly.
+    """
+    schema, table = spec.name.split(".", 1)
+    have = {
+        row[0]
+        for row in con.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = ? AND table_name = ?",
+            [schema, table],
+        ).fetchall()
+    }
+    return [
+        f"ALTER TABLE {qualified(spec.name)} ADD COLUMN {_quote(name)} {sql_type}"
+        for name, sql_type, nullable in duckdb_columns(spec.model)
+        if nullable and name not in have
+    ]
 
 
 @contextmanager

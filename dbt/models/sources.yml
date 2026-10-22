@@ -215,7 +215,7 @@ sources:
       data_type: VARCHAR
     - name: PRIM_ADVSR_ID
       data_type: VARCHAR
-      description: Book owner.
+      description: 'Book owner. Deprecated: the owner is the holder of PRTF_ID.'
     - name: PRIM_BRNCH_ID
       data_type: VARCHAR
     - name: STAT_CD
@@ -223,6 +223,9 @@ sources:
     - name: LAST_UPD_TS
       data_type: TIMESTAMP WITH TIME ZONE
       description: Watermark column.
+    - name: PRTF_ID
+      data_type: VARCHAR
+      description: Portfolio the client belongs to. Optional while the migration runs.
     - name: _batch_id
       data_type: VARCHAR
       description: run_id + source + file hash prefix.
@@ -321,6 +324,69 @@ sources:
       data_type: DATE
     - name: CLOSE_DT
       data_type: DATE
+    - name: LAST_UPD_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Watermark column.
+    - name: _batch_id
+      data_type: VARCHAR
+      description: run_id + source + file hash prefix.
+    - name: _source_file
+      data_type: VARCHAR
+      description: Relative path.
+    - name: _source_row
+      data_type: BIGINT
+      description: Row number in the file.
+    - name: _row_hash
+      data_type: VARCHAR
+      description: xxhash of business columns.
+    - name: _loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
+  - name: teradata__prtf
+    description: Raw portfolio master.
+    loaded_at_field: _loaded_at
+    freshness: *id001
+    columns:
+    - name: PRTF_ID
+      data_type: VARCHAR
+    - name: BRNCH_ID
+      data_type: VARCHAR
+      description: 'Transit: the owning branch.'
+    - name: OPEN_DT
+      data_type: DATE
+    - name: CLOSE_DT
+      data_type: DATE
+    - name: LAST_UPD_TS
+      data_type: TIMESTAMP WITH TIME ZONE
+      description: Watermark column.
+    - name: _batch_id
+      data_type: VARCHAR
+      description: run_id + source + file hash prefix.
+    - name: _source_file
+      data_type: VARCHAR
+      description: Relative path.
+    - name: _source_row
+      data_type: BIGINT
+      description: Row number in the file.
+    - name: _row_hash
+      data_type: VARCHAR
+      description: xxhash of business columns.
+    - name: _loaded_at
+      data_type: TIMESTAMP WITH TIME ZONE
+  - name: teradata__prtf_asgn
+    description: Raw portfolio assignment events.
+    loaded_at_field: _loaded_at
+    freshness: *id001
+    columns:
+    - name: PASGN_ID
+      data_type: VARCHAR
+    - name: PRTF_ID
+      data_type: VARCHAR
+    - name: ADVSR_ID
+      data_type: VARCHAR
+    - name: EFF_DT
+      data_type: DATE
+    - name: RSN_CD
+      data_type: VARCHAR
     - name: LAST_UPD_TS
       data_type: TIMESTAMP WITH TIME ZONE
       description: Watermark column.

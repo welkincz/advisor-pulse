@@ -13,6 +13,8 @@ from pulse.contracts.sources import (
     TeradataAssignment,
     TeradataBranch,
     TeradataClient,
+    TeradataPortfolio,
+    TeradataPortfolioAssignment,
 )
 
 
@@ -59,10 +61,22 @@ class RawTeradataBranch(RawMetadata, TeradataBranch):
     contract_description = "Raw branch master."
 
 
+class RawTeradataPortfolio(RawMetadata, TeradataPortfolio):
+    contract_name = "raw.teradata__prtf"
+    contract_description = "Raw portfolio master."
+
+
+class RawTeradataPortfolioAssignment(RawMetadata, TeradataPortfolioAssignment):
+    contract_name = "raw.teradata__prtf_asgn"
+    contract_description = "Raw portfolio assignment events."
+
+
 RAW_CONTRACTS: tuple[type[Contract], ...] = (
     RawSnowflakeActivity,
     RawTeradataClient,
     RawTeradataAdvisor,
     RawTeradataAssignment,
     RawTeradataBranch,
+    RawTeradataPortfolio,
+    RawTeradataPortfolioAssignment,
 )

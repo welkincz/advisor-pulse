@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "PortfolioAssignmentReason": {
+      "description": "Why a portfolio changed hands (PRTF_ASGN.RSN_CD, PLAN.md \u00a76.2).",
+      "enum": [
+        "OPEN",
+        "HANDOVER",
+        "TRANSFER",
+        "REBALANCE"
+      ],
+      "title": "PortfolioAssignmentReason",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/raw.teradata__prtf_asgn.schema.json",
+  "additionalProperties": false,
+  "description": "Raw portfolio assignment events.",
+  "properties": {
+    "ADVSR_ID": {
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Advsr Id",
+      "type": "string"
+    },
+    "EFF_DT": {
+      "format": "date",
+      "title": "Eff Dt",
+      "type": "string"
+    },
+    "LAST_UPD_TS": {
+      "description": "Watermark column.",
+      "format": "date-time",
+      "title": "Last Upd Ts",
+      "type": "string"
+    },
+    "PASGN_ID": {
+      "pattern": "^PAS-\\d{8}$",
+      "title": "Pasgn Id",
+      "type": "string"
+    },
+    "PRTF_ID": {
+      "pattern": "^PRT-\\d{6}$",
+      "title": "Prtf Id",
+      "type": "string"
+    },
+    "RSN_CD": {
+      "$ref": "#/$defs/PortfolioAssignmentReason"
+    },
+    "_batch_id": {
+      "description": "run_id + source + file hash prefix.",
+      "minLength": 1,
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "_loaded_at": {
+      "format": "date-time",
+      "title": "Loaded At",
+      "type": "string"
+    },
+    "_row_hash": {
+      "description": "xxhash of business columns.",
+      "minLength": 1,
+      "title": "Row Hash",
+      "type": "string"
+    },
+    "_source_file": {
+      "description": "Relative path.",
+      "minLength": 1,
+      "title": "Source File",
+      "type": "string"
+    },
+    "_source_row": {
+      "description": "Row number in the file.",
+      "minimum": 0,
+      "title": "Source Row",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "PASGN_ID",
+    "PRTF_ID",
+    "ADVSR_ID",
+    "EFF_DT",
+    "RSN_CD",
+    "LAST_UPD_TS",
+    "_batch_id",
+    "_source_file",
+    "_source_row",
+    "_row_hash",
+    "_loaded_at"
+  ],
+  "title": "raw.teradata__prtf_asgn",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

@@ -270,6 +270,7 @@ class Client:
             "PRIM_BRNCH_ID": self.branch_id,
             "STAT_CD": self.status,
             "LAST_UPD_TS": self.updated,
+            "PRTF_ID": None,  # portfolios arrive with the generator in #221
         }
 
 

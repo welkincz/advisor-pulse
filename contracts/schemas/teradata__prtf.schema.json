@@ -1,0 +1,52 @@
+{
+  "$id": "https://pulse.charliebuild.com/contracts/teradata__prtf.schema.json",
+  "additionalProperties": false,
+  "description": "Portfolio master (PRTF) in sources/teradata/edw.sqlite: a group of clients managed by one advisor at a time, belonging to one branch (its transit).",
+  "properties": {
+    "BRNCH_ID": {
+      "description": "Transit: the owning branch.",
+      "pattern": "^BR-\\d{4}$",
+      "title": "Brnch Id",
+      "type": "string"
+    },
+    "CLOSE_DT": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Close Dt"
+    },
+    "LAST_UPD_TS": {
+      "description": "Watermark column.",
+      "format": "date-time",
+      "title": "Last Upd Ts",
+      "type": "string"
+    },
+    "OPEN_DT": {
+      "format": "date",
+      "title": "Open Dt",
+      "type": "string"
+    },
+    "PRTF_ID": {
+      "pattern": "^PRT-\\d{6}$",
+      "title": "Prtf Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "PRTF_ID",
+    "BRNCH_ID",
+    "OPEN_DT",
+    "LAST_UPD_TS"
+  ],
+  "title": "teradata__prtf",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

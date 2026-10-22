@@ -262,3 +262,23 @@ def test_rejected_rows_bulk_and_rerun_safe(con: duckdb.DuckDBPyConnection) -> No
     meta.write_rejected_rows(con, [_rejected(0, "b2")])
     assert len(meta.get_rejected_rows(con)) == 6
     assert meta.get_rejected_rows(con, "b1") == rows
+
+
+def test_restored_warehouse_gains_new_optional_columns() -> None:
+    # A warehouse restored from before #220 has CLNT without PRTF_ID; init adds it, keeps rows.
+    con = connect(":memory:")
+    init_warehouse(con)
+    con.execute('ALTER TABLE raw.teradata__clnt DROP COLUMN "PRTF_ID"')
+    con.execute(
+        'INSERT INTO raw.teradata__clnt ("CLNT_ID", "CLNT_SINCE_DT", "BRTH_YR", "SEG_CD", '
+        '"PROV_CD", "PRIM_ADVSR_ID", "PRIM_BRNCH_ID", "STAT_CD", "LAST_UPD_TS", "_batch_id", '
+        '"_source_file", "_source_row", "_row_hash", "_loaded_at") VALUES (\'CLI-00000001\', '
+        "DATE '2020-01-01', 1980, 'MASS', 'ON', 'ADV-00001', 'BR-0101', 'A', "
+        "TIMESTAMPTZ '2026-01-01 00:00:00+00', 'b', 'f', 1, 'h', "
+        "TIMESTAMPTZ '2026-01-01 00:00:00+00')"
+    )
+    init_warehouse(con)
+    assert con.execute('SELECT "CLNT_ID", "PRTF_ID" FROM raw.teradata__clnt').fetchall() == [
+        ("CLI-00000001", None)
+    ]
+    init_warehouse(con)  # and stays idempotent
