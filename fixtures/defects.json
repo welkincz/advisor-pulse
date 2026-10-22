@@ -70,6 +70,21 @@
       "detail": "Postal code variant: lowercase, hyphen."
     },
     {
+      "kind": "UNKNOWN_PORTFOLIO",
+      "iso_week_id": "2026-W37",
+      "source": "teradata",
+      "table_name": "CLNT",
+      "file": "teradata/client_20260909.csv",
+      "row": 2,
+      "natural_key": "CLI-00000010",
+      "column": "PRTF_ID",
+      "raw_value": "PRT-899001",
+      "expected_value": null,
+      "rule_id": "DQ014",
+      "action": "MAP_UNKNOWN",
+      "detail": "PRTF_ID is not in the portfolio master; mapped to Unknown."
+    },
+    {
       "kind": "UNPARSEABLE_VALUE",
       "iso_week_id": "2026-W37",
       "source": "teradata",

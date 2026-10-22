@@ -531,7 +531,26 @@ class _Builder:
         d1.add(_client_text(dirty))
         mover = snap["CLI-00000010"]
         moved = _replace(mover, postal=_postal(self.rng, mover.branch_id), updated=stamp(d1, 2))
-        d1.add(_client_text(moved))
+        # DQ014: this row names a portfolio the master lacks (the master arrives with #223).
+        moved_text = _client_text(moved)
+        moved_text["PRTF_ID"] = "PRT-899001"
+        w.defects.append(
+            _defect(
+                DefectKind.UNKNOWN_PORTFOLIO,
+                iso_week(d1.file_date),
+                "teradata",
+                "CLNT",
+                f"{TERADATA_DIR}/{d1.name}",
+                row=len(d1.rows),
+                natural_key=moved.client_id,
+                column="PRTF_ID",
+                raw_value="PRT-899001",
+                rule_id="DQ014",
+                action=DqAction.MAP_UNKNOWN,
+                detail="PRTF_ID is not in the portfolio master; mapped to Unknown.",
+            )
+        )
+        d1.add(moved_text)
         bad = _client_text(_replace(snap["CLI-00000011"], updated=stamp(d1, 3)))
         bad["BRTH_YR"] = "19S2"
         d1.add(bad, self._dq005(d1, 3, "CLI-00000011", "BRTH_YR", "19S2"))
