@@ -126,16 +126,17 @@ def test_prompt_assigns_only_the_nodes_headline_kpi_to_headline(
     report: list[WeeklyReport],
 ) -> None:
     node = build_facts(report, "GTA", WEEK)
+    # The fixtures span 4 weeks: no 12-month window, so activities per advisor leads.
+    assert HEADLINE_KPI is KpiCode.PRTF_CONTACT_12M
+    assert node.headline_kpi is KpiCode.ACT_PER_ADV
     lead = next(
         f
         for f in node.facts
-        if f.node_id == node.node_id and f.iso_week_id == WEEK and f.kpi_code is HEADLINE_KPI
+        if f.node_id == node.node_id and f.iso_week_id == WEEK and f.kpi_code is node.headline_kpi
     )
     message = user_message(node)
-    assert (
-        f"Headline KPI: {KPI_LABELS[HEADLINE_KPI]} ({HEADLINE_KPI.value}, {lead.fact_id})"
-        in message
-    )
+    label = KPI_LABELS[node.headline_kpi]
+    assert f"Headline KPI: {label} ({node.headline_kpi.value}, {lead.fact_id})" in message
     assert "Other KPIs belong in bullets, never in the headline" in message
 
 
@@ -152,6 +153,17 @@ def test_template_is_grounded(report: list[WeeklyReport], node_id: str) -> None:
     assert {f for b in narrative.bullets for f in b.fact_ids} <= known
     assert {w.node_id for w in narrative.watchlist} <= set(node.children)
     assert "live" not in narrative.headline.lower()
+
+
+def test_the_watchlist_follows_the_fallback_headline(report: list[WeeklyReport]) -> None:
+    # The fixtures hold four weeks, so the 12-month KPI is null and the headline falls back.
+    node = build_facts(report, "ON", WEEK)
+    assert node.headline_kpi is KpiCode.ACT_PER_ADV
+    narrative = template_narrative(node)
+    assert len(narrative.watchlist) == 1
+    (item,) = narrative.watchlist
+    assert node.by_id()[item.fact_ids[0]].kpi_code is KpiCode.ACT_PER_ADV
+    assert any("trails its peers on activities per advisor" in b.text for b in narrative.bullets)
 
 
 def test_template_headline_states_the_headline_fact(report: list[WeeklyReport]) -> None:
@@ -192,7 +204,7 @@ def test_cache_key_covers_prompt_model_and_facts(report: list[WeeklyReport]) -> 
     base = cache_key("claude-opus-5-5", on)
     assert base == cache_key("claude-opus-5-5", build_facts(report, "ON", WEEK))
     assert base != cache_key("claude-sonnet-5-5", on)
-    assert PROMPT_VERSION == "narrative-v2"
+    assert PROMPT_VERSION == "narrative-v3"
     assert base != cache_key("claude-opus-5-5", on, prompt_version="narrative-v1")
     assert base != cache_key("claude-opus-5-5", qc)
 
@@ -308,3 +320,22 @@ def test_live_call_returns_a_grounded_narrative(report: list[WeeklyReport], tmp_
     assert client is not None
     outcome = narrate_node(build_facts(report, "ON", WEEK), client, ResponseCache(tmp_path))
     assert not outcome.narrative.fallback, outcome.reason
+
+
+def test_the_lead_kpi_heads_the_narrative_once_it_has_a_value(
+    report: list[WeeklyReport],
+) -> None:
+    # With 12 months behind the week, portfolio contacted leads; activities moves to a bullet.
+    filled = [
+        r.model_copy(update={"value": 0.83, "prior_week_value": 0.85, "wow_pct": -0.0235})
+        if r.kpi_code is KpiCode.PRTF_CONTACT_12M and r.iso_week_id == WEEK
+        else r
+        for r in report
+    ]
+    node = build_facts(filled, "GTA", WEEK)
+    assert node.headline_kpi is KpiCode.PRTF_CONTACT_12M
+    narrative = template_narrative(node)
+    assert narrative.headline.startswith("GTA: portfolio contacted (12 months) fell 2.4%")
+    assert "83.0%" in narrative.headline
+    assert any(b.text.startswith("Activities per advisor") for b in narrative.bullets)
+    assert "Headline KPI: Portfolio contacted (12 months)" in user_message(node)

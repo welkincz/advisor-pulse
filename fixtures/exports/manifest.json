@@ -30,9 +30,9 @@
     },
     {
       "name": "weekly_report.parquet",
-      "sha256": "2e4ee99decc7ca3d5997fa05c6eba09e7656c24f3e07fa7d82943e13735da7ce",
-      "rows": 488,
-      "bytes": 14204
+      "sha256": "edd5c435baaad66409d625abae87f43f3e0781bd96cbfa46a1eb977411b57ba0",
+      "rows": 536,
+      "bytes": 14387
     },
     {
       "name": "geo_weekly.parquet",
@@ -66,6 +66,13 @@
     }
   ],
   "summary": [
+    {
+      "kpi_code": "PRTF_CONTACT_12M",
+      "value": null,
+      "prior_week_value": null,
+      "wow_pct": null,
+      "flag": "FLAT"
+    },
     {
       "kpi_code": "ACT_PER_ADV",
       "value": 11.54,

@@ -18,10 +18,10 @@ def test_recap_matches_the_overview_for_the_fixture_week() -> None:
     # Same sentence as the Overview's h1 (web/tests/overview.spec.ts).
     assert recap["headline"].startswith("Activities per advisor rose 14.6% to 11.5")
     assert [k["code"] for k in recap["kpis"]] == [
-        "ACT_PER_ADV",
+        "ACT_PER_ADV",  # no 12-month window in the fixtures, so the lead KPI has no card
         "CALLS_OUT",
-        "APPT_BOOKED",
         "SHOW_RATE",
+        "APPT_BOOKED",
     ]
     assert recap["kpis"][0]["text"] == "11.5"
     # Regions best first against their usual week; the fixtures hold Ontario and Quebec.

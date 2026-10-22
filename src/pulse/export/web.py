@@ -15,7 +15,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from pulse.contracts import Contract, arrow_schema, column_names
-from pulse.contracts.enums import OrgLevel, StageStatus
+from pulse.contracts.enums import KpiCode, OrgLevel, StageStatus
 from pulse.contracts.exports import (
     EXPORT_TABLE_CONTRACTS,
     ExportFile,
@@ -185,6 +185,8 @@ def export_web(
         ]
         if not summary:
             raise ValueError(f"No national weekly report summary for {latest}")
+        # The lead KPI first, so a reader of the manifest sees it before the rest.
+        summary.sort(key=lambda kpi: kpi.kpi_code is not KpiCode.PRTF_CONTACT_12M)
 
         _write_json(staging / "run_log.json", run_log)
         _write_json(staging / "pipeline_graph.json", pipeline_graph)

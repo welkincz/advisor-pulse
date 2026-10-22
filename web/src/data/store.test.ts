@@ -50,7 +50,7 @@ describe('PulseData on fixtures/exports', () => {
     const data = fixtureData()
     const weeks = (await data.manifest()).weeks_available
     const rows = await data.weeklyReportHistory('CA', weeks)
-    expect(rows).toHaveLength(weeks.length * 12)
+    expect(rows).toHaveLength(weeks.length * 13)
     expect(rows[0]?.iso_week_id).toBe(weeks[0])
     expect(rows.at(-1)).toMatchObject({ iso_week_id: '2026-W40', node_id: 'CA' })
     expect(rows.find((row) => row.kpi_code === 'LATE_RATE' && row.iso_week_id === '2026-W40')?.flag).toBe('ANOMALY')
