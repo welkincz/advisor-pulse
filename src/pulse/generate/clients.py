@@ -34,7 +34,10 @@ POSTAL_LETTERS = "ABCEGHJKLMNPRSTVWXYZ"
 # pulse.generate.advisors.assignment_ranges.
 AdvisorAssignment = tuple[str, str, Role, date, date | None]
 # REASSIGNED is the ~2%/quarter business churn. Holder changes retain the portfolio ID.
-ChangeKind = Literal["NEW", "CLOSED", "REASSIGNED", "ADVISOR_LEFT", "PORTFOLIO_TRANSFER"]
+# REBALANCED fills a portfolio opened mid-history (a hire or a transfer) from its branch.
+ChangeKind = Literal[
+    "NEW", "CLOSED", "REASSIGNED", "ADVISOR_LEFT", "PORTFOLIO_TRANSFER", "REBALANCED"
+]
 
 
 @dataclass(frozen=True)
@@ -193,6 +196,35 @@ def generate_clients(
         current[client_id] = after
         changes.append(ClientChange(day, kind, before, after))
 
+    def rebalance(
+        portfolio_id: str,
+        holder: AdvisorAssignment,
+        day: date,
+        owners: dict[str, AdvisorAssignment],
+    ) -> None:
+        """Give a newly opened portfolio an even share of its branch's clients.
+
+        Every other portfolio at the same transit hands over 1 / (n + 1) of its active
+        clients, chosen by the seeded generator, so the newcomer starts with a typical book.
+        """
+        transit = by_portfolio[portfolio_id].branch_id
+        donors = sorted(
+            (p, h)
+            for p, h in portfolio_holders.items()
+            if p != portfolio_id
+            and h is not None
+            and h in owners
+            and by_portfolio[p].branch_id == transit
+        )
+        for donor, donor_holder in donors:
+            clients = sorted(
+                c
+                for c in book[donor_holder]
+                if current[c].portfolio_id == donor and c not in protected
+            )
+            for client_id in rng.sample(clients, len(clients) // (len(donors) + 1)):
+                move(client_id, holder, portfolio_id, day, "REBALANCED")
+
     def district(branch_id: str) -> str:
         return placements[branch_id].district.district_code
 
@@ -212,6 +244,7 @@ def generate_clients(
             previous = portfolio_holders[event.portfolio_id]
             portfolio_holders[event.portfolio_id] = event.advisor_id
             if previous is None:
+                rebalance(event.portfolio_id, successor, day, owner_by_id)
                 continue
             kind: ChangeKind = (
                 "ADVISOR_LEFT" if event.reason_code == "HANDOVER" else "PORTFOLIO_TRANSFER"

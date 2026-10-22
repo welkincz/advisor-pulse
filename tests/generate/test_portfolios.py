@@ -28,10 +28,11 @@ def roster():
 
 def test_portfolio_history_hands_over_whole_book_and_retains_transit() -> None:
     portfolios = generate_portfolios(roster(), seed=19, start_date=START)
-    assert len(portfolios.master) == 3
-    assert all(p.branch_id == BRANCH for p in portfolios.master)
+    initial = [p for p in portfolios.master if p.open_date < START]
+    assert len(initial) == 3
+    assert all(p.branch_id == BRANCH for p in initial)
     assert all(p.portfolio_id.startswith("PRT-") for p in portfolios.master)
-    by_owner = {holder_as_of(portfolios, p.portfolio_id, START): p for p in portfolios.master}
+    by_owner = {holder_as_of(portfolios, p.portfolio_id, START): p for p in initial}
     assert set(by_owner) == {"ADV-00001", "ADV-00002", "ADV-00003"}
     old = by_owner["ADV-00001"]
     events = [a for a in portfolios.assignments if a.portfolio_id == old.portfolio_id]
@@ -45,7 +46,7 @@ def test_portfolio_history_hands_over_whole_book_and_retains_transit() -> None:
         "ADV-00003",
     }
     moved = by_owner["ADV-00003"]
-    assert holder_as_of(portfolios, moved.portfolio_id, START + timedelta(days=21)) == ("ADV-00002")
+    assert holder_as_of(portfolios, moved.portfolio_id, START + timedelta(days=21)) == "ADV-00002"
     assert [a.reason_code for a in portfolios.assignments if a.portfolio_id == moved.portfolio_id][
         -1
     ] == PortfolioAssignmentReason.TRANSFER
@@ -80,3 +81,47 @@ def test_last_advisor_departure_has_no_invented_handover_holder() -> None:
     only = (("ADV-00001", BRANCH, Role.ADVISOR, START, START + timedelta(days=7)),)
     with pytest.raises(ValueError, match="no portfolio handover advisor"):
         generate_portfolios(only, seed=19, start_date=START)
+
+
+def test_a_transfer_opens_a_portfolio_at_the_destination() -> None:
+    portfolios = generate_portfolios(roster(), seed=19, start_date=START)
+    opened = [p for p in portfolios.master if p.open_date >= START]
+    assert [(p.portfolio_id, p.branch_id, p.open_date) for p in opened] == [
+        ("PRT-900001", OTHER, START + timedelta(days=21))
+    ]
+    assert holder_as_of(portfolios, "PRT-900001", START + timedelta(days=21)) == "ADV-00003"
+    assert holder_as_of(portfolios, "PRT-900001", START + timedelta(days=20)) is None
+
+
+def test_a_portfolio_opened_mid_history_is_filled_from_its_branch() -> None:
+    hire = START + timedelta(days=7)
+    people = (
+        ("ADV-00001", BRANCH, Role.ADVISOR, START - timedelta(days=30), None),
+        ("ADV-00002", BRANCH, Role.ADVISOR, START - timedelta(days=30), None),
+        ("ADV-00003", BRANCH, Role.ADVISOR, hire, None),  # joins with an empty portfolio
+        ("ADV-00005", OTHER, Role.ADVISOR, hire, None),  # alone at its branch: no donors
+    )
+    portfolios = generate_portfolios(people, seed=19, start_date=START)
+    batch = generate_clients(
+        org(),
+        people,
+        seed=19,
+        client_count=600,
+        start_date=START,
+        weeks=4,
+        portfolio_batch=portfolios,
+    )
+    before = {c.client_id: c for c in batch.snapshot}
+    donors = {
+        a: sum(1 for c in batch.snapshot if c.primary_advisor_id == a and c.status_code == "A")
+        for a in ("ADV-00001", "ADV-00002")
+    }
+    moved = [c for c in batch.changes if c.kind == "REBALANCED"]
+    assert moved and all(c.day == hire for c in moved)
+    assert {c.after.primary_advisor_id for c in moved} == {"ADV-00003"}
+    for advisor, size in donors.items():
+        given = sum(1 for c in moved if before[c.after.client_id].primary_advisor_id == advisor)
+        # 1 / (n + 1) with two donors, less clients closed or protected before the hire
+        assert abs(given - size // 3) <= max(3, size // 20)
+    # Nobody at ADV-00005's branch to give: no moves, and no error.
+    assert not [c for c in moved if c.after.primary_advisor_id == "ADV-00005"]
