@@ -7,7 +7,7 @@ from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
-from pulse.contracts.enums import RunType
+from pulse.contracts.enums import RunType, StageStatus
 from pulse.generate.cli import activity_dir, week_range
 from pulse.runner.command import run_week
 from pulse.runner.stage import Clock, Stage, StageContext, StageResult, SystemClock
@@ -15,13 +15,18 @@ from pulse.state.sync import clear_local
 
 
 def _template_narrate(ctx: StageContext) -> StageResult:
-    """Historical backfill weeks write grounded templates without model calls."""
+    """Historical backfill weeks write grounded templates without model calls.
+
+    Skipping the model is the plan for history, not a problem, so the stage succeeds; a
+    warning here would mark every backfilled week and teach readers to ignore warnings.
+    """
     from pulse.narrative.stage import narrate
 
     result = narrate(ctx, client_factory=lambda: None)
     if result.rows_out is not None:
         return replace(
             result,
+            status=StageStatus.SUCCESS if result.status is StageStatus.WARN else result.status,
             message=(
                 f"Backfill history: wrote {result.rows_out} template narratives; model skipped."
             ),
