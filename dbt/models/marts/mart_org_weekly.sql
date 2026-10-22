@@ -30,6 +30,8 @@ rolled as (
         count(distinct contacted_client_id) as unique_clients_contacted,
         sum(book_size) as book_size,
         sum(clients_covered_13w) as clients_covered_13w,
+        sum(portfolio_clients) as portfolio_clients,
+        sum(portfolio_contacted_12m) as portfolio_contacted_12m,
         sum(meeting_minutes) as meeting_minutes,
         sum(meetings_held) as meetings_held
     from events
@@ -82,6 +84,12 @@ select
     round(leveled.activities_completed / nullif(leveled.active_advisors, 0), 2) as activities_per_advisor,
     round(leveled.appointments_held / nullif(leveled.appointments_held + leveled.no_shows, 0), 4) as show_rate,
     round(leveled.conversions / nullif(leveled.appointments_held, 0), 4) as conversion_rate,
-    round(leveled.booked_from_call / nullif(leveled.calls_out, 0), 4) as call_to_appt_rate
+    round(leveled.booked_from_call / nullif(leveled.calls_out, 0), 4) as call_to_appt_rate,
+    cast(leveled.portfolio_clients as bigint) as portfolio_clients,
+    cast(leveled.portfolio_contacted_12m as bigint) as portfolio_contacted_12m,
+    case when contact_window.is_window_complete then
+        round(leveled.portfolio_contacted_12m / nullif(leveled.portfolio_clients, 0), 4)
+    end as portfolio_contacted_rate_12m
 from leveled
 left join nodes on nodes.level = leveled.level and nodes.node_id = leveled.node_id
+inner join {{ ref('int_contact_window') }} as contact_window using (iso_week_id)

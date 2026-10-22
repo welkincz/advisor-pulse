@@ -1125,6 +1125,9 @@ class Scope:
     book: set[str]
     contacted_13w: set[str]
     active_advisors: int
+    portfolio: set[str] = field(default_factory=set)  # active clients in its portfolios
+    contacted_12m: set[str] = field(default_factory=set)
+    window_complete: bool = False
 
 
 def _parts(s: Scope) -> dict[str, Any]:
@@ -1153,6 +1156,8 @@ def _parts(s: Scope) -> dict[str, Any]:
         "clients": {a["CLIENT_ID"] for a in completed if a["CLIENT_ID"]},
         "book_size": len(s.book),
         "clients_covered_13w": len(s.book & s.contacted_13w),
+        "portfolio_clients": len(s.portfolio),
+        "portfolio_contacted_12m": len(s.portfolio & s.contacted_12m),
         "meeting_minutes": sum(minutes),
         "meetings_held": len(minutes),
     }
@@ -1185,6 +1190,11 @@ def _measures(s: Scope) -> dict[str, Any]:
         "book_size": p["book_size"],
         "clients_covered_13w": p["clients_covered_13w"],
         **_rates(p, s.active_advisors),
+        "portfolio_clients": p["portfolio_clients"],
+        "portfolio_contacted_12m": p["portfolio_contacted_12m"],
+        "portfolio_contacted_rate_12m": _ratio(p["portfolio_contacted_12m"], p["portfolio_clients"])
+        if s.window_complete
+        else None,
     }
 
 
@@ -1264,6 +1274,42 @@ class Marts:
             and start <= local_date(a["ACTIVITY_TS"]) <= end
         }
 
+    def holder(self, portfolio: str, week: str) -> str:
+        """The portfolio's holder on the week-end date (int_portfolio_history)."""
+        holder = "ADV-" + portfolio[5:]
+        for old, new, day in HANDOVERS:
+            if portfolio == portfolio_of(old) and week_end(week) >= day:
+                holder = new
+        return holder
+
+    def transit(self, portfolio: str) -> str:
+        advisor = "ADV-" + portfolio[5:]
+        return (self.world.assignment_on(advisor, SNAPSHOT_DATE) or ADVISORS[advisor]).branch_id
+
+    def portfolio_book(self, week: str) -> dict[str, str]:
+        """Active clients in a known portfolio at week end -> that portfolio (DQ014 excluded)."""
+        return {
+            c.client_id: portfolio
+            for c in self.books[week].values()
+            if c.status == "A" and (portfolio := c.source_row()["PRTF_ID"]) in PORTFOLIOS
+        }
+
+    def contacted_12m(self, week: str) -> set[str]:
+        end = week_end(week)
+        start = end.replace(year=end.year - 1)  # the window is (start, end]
+        return {
+            a["CLIENT_ID"]
+            for a in self.acts
+            if a["CLIENT_ID"]
+            and a["STATUS"] == "COMPLETED"
+            and start < local_date(a["ACTIVITY_TS"]) <= end
+        }
+
+    def window_complete(self, week: str) -> bool:
+        first = min(local_date(a["ACTIVITY_TS"]) for a in self.acts if a["STATUS"] == "COMPLETED")
+        end = week_end(week)
+        return end.replace(year=end.year - 1) >= first
+
     def book(self, week: str, advisors: Iterable[str]) -> set[str]:
         owners = set(advisors)
         return {
@@ -1276,6 +1322,8 @@ class Marts:
         rows = []
         for week in WEEKS:
             contacted = self.contacted_13w(week)
+            portfolios = self.portfolio_book(week)
+            reached, complete = self.contacted_12m(week), self.window_complete(week)
             for advisor_id in self.world.active_advisors(week):
                 branch = self.world.branch_for_week(advisor_id, week) or ""
                 place = org().placement(branch)
@@ -1291,6 +1339,9 @@ class Marts:
                         self.book(week, [advisor_id]),
                         contacted,
                         1,
+                        {c for c, p in portfolios.items() if self.holder(p, week) == advisor_id},
+                        reached,
+                        complete,
                     )
                 )
                 for k in (
@@ -1318,13 +1369,25 @@ class Marts:
         for week in WEEKS:
             contacted = self.contacted_13w(week)
             active = self.world.active_advisors(week)
+            portfolios = self.portfolio_book(week)
+            reached, complete = self.contacted_12m(week), self.window_complete(week)
             for node in self.nodes:
                 advisors = [
                     a for a in active if self.world.branch_for_week(a, week) in node.branches
                 ]
                 acts = [a for a in self.acts if self.credited_branch(a, week) in node.branches]
+                in_node = {c for c, p in portfolios.items() if self.transit(p) in node.branches}
                 m = _measures(
-                    Scope(week, acts, self.book(week, advisors), contacted, len(advisors))
+                    Scope(
+                        week,
+                        acts,
+                        self.book(week, advisors),
+                        contacted,
+                        len(advisors),
+                        in_node,
+                        reached,
+                        complete,
+                    )
                 )
                 rows.append(
                     {

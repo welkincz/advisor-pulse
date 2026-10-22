@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: int_client_contact_12m
+    description: >
+      Client × ISO week for the lead KPI (PLAN.md §7). One row per active client in a known
+      portfolio at week end (unknown portfolios are DQ014's), credited to the portfolio's
+      holder and transit. `contacted_12m` is true when the client's last completed contact
+      by any advisor falls in (week_end − 12 months, week_end]. Whether the week has 12
+      months of history behind it is `int_contact_window`'s question, not this model's.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "last_contact_date is null or last_contact_date <= week_end"
+      - expression_is_true:
+          arguments:
+            expression: "not contacted_12m or last_contact_date is not null"
+    columns:
+      - name: client_id
+        description: Client natural key.
+        data_tests: [not_null]
+      - name: iso_week_id
+        description: Reporting week.
+        data_tests: [not_null]
+      - name: week_end
+        description: Sunday of the week; the as-of day.
+        data_tests: [not_null]
+      - name: portfolio_id
+        description: The client's portfolio at week end.
+        data_tests: [not_null]
+      - name: advisor_id
+        description: The portfolio's holder at week end.
+        data_tests: [not_null]
+      - name: transit_branch_id
+        description: The portfolio's branch, where the client rolls up.
+        data_tests: [not_null]
+      - name: last_contact_date
+        description: Latest completed contact activity on or before week end, by any advisor; null if none.
+      - name: contacted_12m
+        description: Contacted at least once in the trailing 12 months.
+        data_tests: [not_null]
+
+unit_tests:
+  - name: int_client_contact_12m_counts_any_advisor_inside_twelve_months
+    description: >
+      Week ending 2026-10-04. C-1 was called by another advisor 11 months earlier, so it
+      counts. C-2's only contact is 12 months and a day earlier, so it does not. C-3's
+      contact comes after week end, so the week ignores it. C-4 was never contacted, and
+      C-5 is in an unknown portfolio (no transit), so it is not in the KPI at all.
+    model: int_client_contact_12m
+    given:
+      - input: ref('int_client_book_weekly')
+        rows:
+          - {client_id: C-1, iso_week_id: '2026-W40', week_end: '2026-10-04', portfolio_id: PRT-000001, primary_advisor_id: ADV-1, transit_branch_id: BR-1, is_active: true}
+          - {client_id: C-2, iso_week_id: '2026-W40', week_end: '2026-10-04', portfolio_id: PRT-000001, primary_advisor_id: ADV-1, transit_branch_id: BR-1, is_active: true}
+          - {client_id: C-3, iso_week_id: '2026-W40', week_end: '2026-10-04', portfolio_id: PRT-000001, primary_advisor_id: ADV-1, transit_branch_id: BR-1, is_active: true}
+          - {client_id: C-4, iso_week_id: '2026-W40', week_end: '2026-10-04', portfolio_id: PRT-000001, primary_advisor_id: ADV-1, transit_branch_id: BR-1, is_active: true}
+          - {client_id: C-5, iso_week_id: '2026-W40', week_end: '2026-10-04', portfolio_id: PRT-899001, primary_advisor_id: ADV-1, transit_branch_id: null, is_active: true}
+      - input: ref('int_activity_enriched')
+        rows:
+          - {client_id: C-1, activity_date: '2025-11-04', status: COMPLETED, activity_type: CALL_OUT}
+          - {client_id: C-2, activity_date: '2025-10-04', status: COMPLETED, activity_type: CALL_IN}
+          - {client_id: C-3, activity_date: '2026-10-05', status: COMPLETED, activity_type: CALL_OUT}
+          - {client_id: C-4, activity_date: '2026-09-30', status: NO_SHOW, activity_type: APPOINTMENT}
+      - input: ref('dim_activity_type')
+        rows:
+          - {activity_type: CALL_OUT, counts_as_contact: true}
+          - {activity_type: CALL_IN, counts_as_contact: true}
+          - {activity_type: APPOINTMENT, counts_as_contact: true}
+    expect:
+      rows:
+        - {client_id: C-1, last_contact_date: '2025-11-04', contacted_12m: true}
+        - {client_id: C-2, last_contact_date: '2025-10-04', contacted_12m: false}
+        - {client_id: C-3, last_contact_date: null, contacted_12m: false}
+        - {client_id: C-4, last_contact_date: null, contacted_12m: false}

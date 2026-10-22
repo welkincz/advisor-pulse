@@ -165,6 +165,33 @@
       "description": "Null for the national node.",
       "title": "Parent Id"
     },
+    "portfolio_clients": {
+      "description": "PRTF_CONTACT_12M denominator.",
+      "minimum": 0,
+      "title": "Portfolio Clients",
+      "type": "integer"
+    },
+    "portfolio_contacted_12m": {
+      "description": "PRTF_CONTACT_12M numerator.",
+      "minimum": 0,
+      "title": "Portfolio Contacted 12M",
+      "type": "integer"
+    },
+    "portfolio_contacted_rate_12m": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The lead KPI; null before 12 months of history.",
+      "title": "Portfolio Contacted Rate 12M"
+    },
     "show_rate": {
       "anyOf": [
         {
@@ -200,7 +227,9 @@
     "conversions",
     "unique_clients_contacted",
     "book_size",
-    "clients_covered_13w"
+    "clients_covered_13w",
+    "portfolio_clients",
+    "portfolio_contacted_12m"
   ],
   "title": "org_weekly",
   "type": "object",

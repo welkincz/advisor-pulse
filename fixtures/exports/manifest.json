@@ -12,9 +12,9 @@
   "files": [
     {
       "name": "org_weekly.parquet",
-      "sha256": "f57b028758f2f8589a370cce20e9df6d0123e964ce7fb32140701785965c6990",
+      "sha256": "b3eb12e66916c9518c809fac32122384256f190f55fc545b43edafd3026ca1c9",
       "rows": 48,
-      "bytes": 9852
+      "bytes": 10932
     },
     {
       "name": "org_quarterly.parquet",
@@ -24,9 +24,9 @@
     },
     {
       "name": "advisor_weekly.parquet",
-      "sha256": "b459d38c5f56f1c8b33f002d8043f8d0733591e8a397382f3600e4335144cf01",
+      "sha256": "00fd55520c14223f6473f7f2c426bc5e94f3f5314c8d159ab82d032b82d3b4ae",
       "rows": 55,
-      "bytes": 6659
+      "bytes": 7713
     },
     {
       "name": "weekly_report.parquet",

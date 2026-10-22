@@ -55,6 +55,11 @@ class AdvisorWeekly(Contract):
     clients_covered_13w: Count
     coverage_rate_13w: Rate | None = None
     avg_meeting_duration_min: float | None = Field(default=None, ge=0)
+    portfolio_clients: Count = Field(description="PRTF_CONTACT_12M denominator.")
+    portfolio_contacted_12m: Count = Field(description="PRTF_CONTACT_12M numerator.")
+    portfolio_contacted_rate_12m: Rate | None = Field(
+        default=None, description="The lead KPI; null before 12 months of history."
+    )
 
 
 class OrgWeekly(Contract):
@@ -88,6 +93,11 @@ class OrgWeekly(Contract):
     show_rate: Rate | None = None
     conversion_rate: Rate | None = None
     call_to_appt_rate: Rate | None = None
+    portfolio_clients: Count = Field(description="PRTF_CONTACT_12M denominator.")
+    portfolio_contacted_12m: Count = Field(description="PRTF_CONTACT_12M numerator.")
+    portfolio_contacted_rate_12m: Rate | None = Field(
+        default=None, description="The lead KPI; null before 12 months of history."
+    )
 
 
 class OrgQuarterly(Contract):

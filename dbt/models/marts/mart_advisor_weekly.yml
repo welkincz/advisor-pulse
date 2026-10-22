@@ -11,6 +11,12 @@ models:
     data_tests:
       - expression_is_true:
           arguments:
+            expression: "portfolio_contacted_12m <= portfolio_clients"
+      - expression_is_true:
+          arguments:
+            expression: "portfolio_contacted_rate_12m is null or portfolio_contacted_rate_12m between 0 and 1"
+      - expression_is_true:
+          arguments:
             expression: "coverage_rate_13w is null or coverage_rate_13w between 0 and 1"
       - expression_is_true:
           arguments:
@@ -86,4 +92,15 @@ models:
         data_type: double
       - name: avg_meeting_duration_min
         description: "AVG_MEET_MIN = mean duration_min for completed APPOINTMENT + REVIEW in the week. Null when none. 2 decimals."
+        data_type: double
+      - name: portfolio_clients
+        description: "Active clients at week end in the portfolios this grain holds (holder at week end; transit branch for org nodes). The PRTF_CONTACT_12M denominator."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: portfolio_contacted_12m
+        description: "Of those, clients with a completed contact by any advisor in (week_end − 12 months, week_end]. The PRTF_CONTACT_12M numerator."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: portfolio_contacted_rate_12m
+        description: "PRTF_CONTACT_12M, the lead KPI = portfolio_contacted_12m ÷ portfolio_clients, 4 decimals. Null when there are no portfolio clients or the week has less than 12 months of activity history (int_contact_window)."
         data_type: double

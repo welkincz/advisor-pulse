@@ -9,6 +9,8 @@
 --   booked     appointment or review, by CREATED_TS (APPT_BOOKED, CALL_TO_APPT)
 --   advisor    an active advisor: employed at week start and not a branch manager
 --   book       an active client in an active advisor's book at week end (COVERAGE_13W)
+--   portfolio  an active client in a known portfolio at week end (PRTF_CONTACT_12M),
+--              credited to the portfolio's holder at week end and to its transit branch
 -- Every event is credited to the advisor's branch on the date it counts: the activity
 -- date, the scheduled date or the booking date; advisor and book events use week start.
 -- Activity with no advisor history on that date (DQ012) stays at its logged branch.
@@ -60,7 +62,9 @@ completed as (
         case when activity_type.counts_as_contact then activity.client_id end as contacted_client_id,
         0 as active_advisors,
         0 as book_size,
-        0 as clients_covered_13w
+        0 as clients_covered_13w,
+        0 as portfolio_clients,
+        0 as portfolio_contacted_12m
     from activity
     inner join activity_type using (activity_type)
     where activity.status = 'COMPLETED'
@@ -86,7 +90,7 @@ scheduled as (
         case when meetings.status = 'COMPLETED' then 1 else 0 end,
         case when meetings.status = 'NO_SHOW' then 1 else 0 end,
         case when meetings.status = 'COMPLETED' and meetings.outcome in ('PLAN_CREATED', 'PRODUCT_OPENED') then 1 else 0 end,
-        0, 0, cast(null as varchar), 0, 0, 0
+        0, 0, cast(null as varchar), 0, 0, 0, 0, 0
     from meetings
     left join history
         on meetings.is_advisor_matched
@@ -105,7 +109,7 @@ booked as (
         0, 0, 0,
         1,
         case when meetings.booked_from_activity_id is not null then 1 else 0 end,
-        0, 0, 0, 0, 0, cast(null as varchar), 0, 0, 0
+        0, 0, 0, 0, 0, cast(null as varchar), 0, 0, 0, 0, 0
     from meetings
     left join history
         on meetings.is_advisor_matched
@@ -118,7 +122,7 @@ advisor as (
     select
         iso_week_id, advisor_id, branch_id, 'advisor' as event_kind,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, cast(null as varchar),
-        1, 0, 0
+        1, 0, 0, 0, 0
     from roster
 ),
 
@@ -145,12 +149,27 @@ book as (
                     and contacted.activity_date between roster.week_end - 90 and roster.week_end
             ) then 1
             else 0
-        end
+        end,
+        0, 0
     from {{ ref('int_client_book_weekly') }} as client_book
     inner join roster
         on client_book.iso_week_id = roster.iso_week_id
         and client_book.primary_advisor_id = roster.advisor_id
     where client_book.is_active
+),
+
+portfolio as (
+    select
+        iso_week_id,
+        advisor_id,
+        transit_branch_id as branch_id,
+        'portfolio' as event_kind,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, cast(null as varchar),
+        0, 0, 0,
+        1,
+        case when contacted_12m then 1 else 0 end
+    from {{ ref('int_client_contact_12m') }}
+    where iso_week_id in (select iso_week_id from weeks)
 )
 
 select * from completed
@@ -158,3 +177,4 @@ union all select * from scheduled where iso_week_id in (select iso_week_id from 
 union all select * from booked where iso_week_id in (select iso_week_id from weeks)
 union all select * from advisor
 union all select * from book
+union all select * from portfolio

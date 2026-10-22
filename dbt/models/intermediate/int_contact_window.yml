@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: int_contact_window
+    description: >
+      One row per ISO week in `dim_date`: `is_window_complete` is true when the 12-month
+      window ending that Sunday starts on or after the first completed activity in the
+      warehouse. The marts null the lead KPI's rate for weeks where it is false.
+    columns:
+      - name: iso_week_id
+        description: ISO week.
+        data_tests: [unique, not_null]
+      - name: week_end
+        description: Sunday of the week.
+        data_tests: [not_null]
+      - name: is_window_complete
+        description: A full 12 months of activity history lies behind this week.
+        data_tests: [not_null]
+
+unit_tests:
+  - name: int_contact_window_needs_twelve_months_behind_the_week
+    description: >
+      History starts on 2024-10-07. The week ending 2025-10-05 still lacks a day; the week
+      ending 2025-10-12 has its full year behind it.
+    model: int_contact_window
+    given:
+      - input: ref('int_activity_enriched')
+        rows:
+          - {activity_date: '2024-10-07', status: COMPLETED}
+          - {activity_date: '2024-09-30', status: CANCELLED}
+      - input: ref('dim_date')
+        rows:
+          - {iso_week_id: '2025-W40', week_end: '2025-10-05'}
+          - {iso_week_id: '2025-W41', week_end: '2025-10-12'}
+    expect:
+      rows:
+        - {iso_week_id: '2025-W40', is_window_complete: false}
+        - {iso_week_id: '2025-W41', is_window_complete: true}

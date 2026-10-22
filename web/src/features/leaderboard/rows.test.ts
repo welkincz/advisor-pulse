@@ -14,6 +14,7 @@ function advisor(id: string, week: string, held: number, noShows: number): Advis
     iso_week_id: week, advisor_id: id, branch_id: 'BR-0101', district_code: 'GTA', region_code: 'ON',
     activities_completed: 10, calls_out: 5, calls_in: 2, appointments_booked: 3, appointments_held: held, no_shows: noShows,
     conversions: 1, unique_clients_contacted: 4, book_size: 100, clients_covered_13w: 50, coverage_rate_13w: 0.5, avg_meeting_duration_min: 40,
+    portfolio_clients: 100, portfolio_contacted_12m: 80, portfolio_contacted_rate_12m: 0.8,
   }
 }
 
