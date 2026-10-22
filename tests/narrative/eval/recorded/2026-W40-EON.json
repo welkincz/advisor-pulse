@@ -31,14 +31,6 @@
      "F10"
     ],
     "text": "Clients contacted fell 27.0% to 27.0 this week. The show rate reached 100.0% and the no-show rate was 0.0%, both ranking 1 of 2."
-   },
-   {
-    "fact_ids": [
-     "F8",
-     "F16",
-     "F14"
-    ],
-    "text": "13-week coverage was 91.4% for EON, ranking 1 of 2. BR-0202 had 96.3% coverage and BR-0201 had 88.4%."
    }
   ],
   "headline": "EON activities per advisor fell 8.5% this week to 10.3, down from 11.2 the prior week.",
@@ -54,5 +46,6 @@
   ]
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

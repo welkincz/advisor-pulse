@@ -13,25 +13,6 @@
       "title": "Activities Completed",
       "type": "integer"
     },
-    "clients_contacted_13w": {
-      "minimum": 0,
-      "title": "Clients Contacted 13W",
-      "type": "integer"
-    },
-    "coverage_rate_13w": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Coverage Rate 13W"
-    },
     "district_code": {
       "pattern": "^[A-Z]{3}$",
       "title": "District Code",
@@ -80,7 +61,6 @@
     "fsa_code",
     "district_code",
     "active_clients",
-    "clients_contacted_13w",
     "activities_completed",
     "portfolio_clients",
     "portfolio_contacted_12m"

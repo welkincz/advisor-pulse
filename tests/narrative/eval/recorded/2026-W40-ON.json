@@ -32,23 +32,19 @@
    },
    {
     "fact_ids": [
-     "F6",
-     "F8",
-     "F14",
-     "F18"
+     "F6"
     ],
-    "text": "Appointment conversion was 53.3% versus 44.4% the prior week. 13-week coverage rose to 88.7%. EON led on coverage at 91.4% against GTA at 85.9%."
+    "text": "Appointment conversion was 53.3% versus 44.4% the prior week."
    }
   ],
   "headline": "Ontario activities per advisor rose 3.4% this week to 10.4, up from 10.1 the prior week.",
   "watchlist": [
    {
     "fact_ids": [
-     "F16",
-     "F18"
+     "F16"
     ],
     "node_id": "GTA",
-    "reason": "Show rate fell to 78.6% from 87.5% this week and ranks 2 of 2, as does its 13-week coverage at 85.9%."
+    "reason": "Show rate fell to 78.6% from 87.5% this week and ranks 2 of 2."
    },
    {
     "fact_ids": [
@@ -61,5 +57,6 @@
   ]
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

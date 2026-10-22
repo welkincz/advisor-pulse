@@ -1,6 +1,6 @@
 # ADR 0004 — Expand, then contract: adding PRTF_ID before dropping PRIM_ADVSR_ID
 
-- Status: Accepted — expand done (#220 to #225); contract step pending (#226)
+- Status: Accepted — expand done (#220 to #225); contract step done in #226
 - Date: 2026-10-21
 - Issues: #219, #220, #226
 
@@ -41,6 +41,11 @@ loudly. `add_column_sql` compares column names only, not types. A stale type can
 without an error, because DuckDB may cast values to the old type on insert (for example
 VARCHAR to an integer). So a type change needs a planned rebuild, which expand/contract
 calls for anyway.
+
+Status note (#226): the contract step removed the five columns, made `PRTF_ID` required
+and took out the fallback. A dropped column is not removed from a restored warehouse, and
+stored narratives still cite `COVERAGE_13W`, so it rolls out with one more full rebuild
+(`pulse backfill --rebuild`), as this ADR expects for anything that is not additive.
 
 ## Alternatives considered
 

@@ -38,7 +38,8 @@ banded as (
 ),
 
 -- The book owner is the portfolio's holder (PLAN.md §5): take it from the latest book
--- week, so the dimension and the book always agree; PRIM_ADVSR_ID is the fallback.
+-- week, so the dimension and the book always agree. A client in a portfolio the master
+-- lacks (DQ014) has no holder and maps to the Unknown advisor member.
 latest_book as (
     select client_id, primary_advisor_id
     from {{ ref('int_client_book_weekly') }}
@@ -67,7 +68,7 @@ select
     fsa_code,
     province_code,
     postal_valid_flag,
-    coalesce(latest_book.primary_advisor_id, banded.primary_advisor_id) as primary_advisor_id,
+    coalesce(latest_book.primary_advisor_id, 'UNKNOWN') as primary_advisor_id,
     primary_branch_id,
     status_code = 'A' as is_active,
     client_since_date as client_since

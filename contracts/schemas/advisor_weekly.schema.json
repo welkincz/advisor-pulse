@@ -55,11 +55,6 @@
       "default": null,
       "title": "Avg Meeting Duration Min"
     },
-    "book_size": {
-      "minimum": 0,
-      "title": "Book Size",
-      "type": "integer"
-    },
     "branch_id": {
       "description": "As-of branch for the week.",
       "pattern": "^BR-\\d{4}$",
@@ -76,29 +71,10 @@
       "title": "Calls Out",
       "type": "integer"
     },
-    "clients_covered_13w": {
-      "minimum": 0,
-      "title": "Clients Covered 13W",
-      "type": "integer"
-    },
     "conversions": {
       "minimum": 0,
       "title": "Conversions",
       "type": "integer"
-    },
-    "coverage_rate_13w": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Coverage Rate 13W"
     },
     "district_code": {
       "pattern": "^[A-Z]{3}$",
@@ -165,8 +141,6 @@
     "no_shows",
     "conversions",
     "unique_clients_contacted",
-    "book_size",
-    "clients_covered_13w",
     "portfolio_clients",
     "portfolio_contacted_12m"
   ],

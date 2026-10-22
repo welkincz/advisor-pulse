@@ -35,6 +35,19 @@ def holder_as_of(batch: PortfolioBatch, portfolio_id: str, day: date) -> str | N
     return latest.advisor_id if latest else None
 
 
+def holders_on(batch: PortfolioBatch, day: date) -> dict[str, str]:
+    """Every portfolio's holder on ``day`` (the book owner), in one pass over the events."""
+    latest: dict[str, TeradataPortfolioAssignment] = {}
+    for event in batch.assignments:
+        if event.effective_date > day:
+            continue
+        seen = latest.get(event.portfolio_id)
+        key = (event.effective_date, event.portfolio_assignment_id)
+        if seen is None or key > (seen.effective_date, seen.portfolio_assignment_id):
+            latest[event.portfolio_id] = event
+    return {portfolio_id: event.advisor_id for portfolio_id, event in latest.items()}
+
+
 def generate_portfolios(
     advisors: Sequence[AssignmentRow], *, seed: int, start_date: date
 ) -> PortfolioBatch:

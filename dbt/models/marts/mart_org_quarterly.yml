@@ -18,9 +18,6 @@ models:
             expression: "weeks_reported between 1 and weeks_in_quarter"
       - expression_is_true:
           arguments:
-            expression: "clients_covered_13w <= book_size"
-      - expression_is_true:
-          arguments:
             expression: "show_rate is null or show_rate between 0 and 1"
       - expression_is_true:
           arguments:
@@ -124,17 +121,6 @@ models:
         description: Distinct clients contacted at least once in the quarter (not a sum of weekly counts).
         data_type: bigint
         data_tests: [not_null]
-      - name: book_size
-        description: Active book clients, each branch at its own last reported week in the quarter, summed up the hierarchy.
-        data_type: bigint
-        data_tests: [not_null]
-      - name: clients_covered_13w
-        description: Book clients contacted in the 13 weeks to each branch's last reported week, summed up the hierarchy.
-        data_type: bigint
-        data_tests: [not_null]
-      - name: coverage_rate_13w
-        description: clients_covered_13w / book_size at quarter end.
-        data_type: double
       - name: avg_meeting_duration_min
         description: Meeting minutes over meetings held.
         data_type: double
@@ -163,7 +149,7 @@ models:
         data_type: double
 
 unit_tests:
-  - name: mart_org_quarterly_keeps_the_book_of_a_branch_that_missed_the_last_week
+  - name: mart_org_quarterly_keeps_the_portfolios_of_a_branch_that_missed_the_last_week
     description: >
       Two branches in one district. BR-A reports W45 to W47; BR-B reports W45 and W46 only.
       BR-B's stock is its W46 value (not zero), and the district adds BR-A at W47 to BR-B at W46.
@@ -184,15 +170,15 @@ unit_tests:
           - {iso_week_id: '2025-W47', is_window_complete: true}
       - input: ref('int_kpi_events')
         rows:
-          - {iso_week_id: '2025-W45', branch_id: BR-A, activities_completed: 1, book_size: 100, clients_covered_13w: 10}
-          - {iso_week_id: '2025-W46', branch_id: BR-A, activities_completed: 1, book_size: 110, clients_covered_13w: 20}
-          - {iso_week_id: '2025-W47', branch_id: BR-A, activities_completed: 1, book_size: 120, clients_covered_13w: 30}
-          - {iso_week_id: '2025-W45', branch_id: BR-B, activities_completed: 1, book_size: 50, clients_covered_13w: 5}
-          - {iso_week_id: '2025-W46', branch_id: BR-B, activities_completed: 1, book_size: 60, clients_covered_13w: 6}
+          - {iso_week_id: '2025-W45', branch_id: BR-A, activities_completed: 1, portfolio_clients: 100, portfolio_contacted_12m: 10}
+          - {iso_week_id: '2025-W46', branch_id: BR-A, activities_completed: 1, portfolio_clients: 110, portfolio_contacted_12m: 20}
+          - {iso_week_id: '2025-W47', branch_id: BR-A, activities_completed: 1, portfolio_clients: 120, portfolio_contacted_12m: 30}
+          - {iso_week_id: '2025-W45', branch_id: BR-B, activities_completed: 1, portfolio_clients: 50, portfolio_contacted_12m: 5}
+          - {iso_week_id: '2025-W46', branch_id: BR-B, activities_completed: 1, portfolio_clients: 60, portfolio_contacted_12m: 6}
     expect:
       rows:
-        - {level: NATIONAL, node_id: CA, book_size: 180, clients_covered_13w: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
-        - {level: REGION, node_id: 'ON', book_size: 180, clients_covered_13w: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
-        - {level: DISTRICT, node_id: DDD, book_size: 180, clients_covered_13w: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
-        - {level: BRANCH, node_id: BR-A, book_size: 120, clients_covered_13w: 30, activities_completed: 3, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
-        - {level: BRANCH, node_id: BR-B, book_size: 60, clients_covered_13w: 6, activities_completed: 2, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: NATIONAL, node_id: CA, portfolio_clients: 180, portfolio_contacted_12m: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: REGION, node_id: 'ON', portfolio_clients: 180, portfolio_contacted_12m: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: DISTRICT, node_id: DDD, portfolio_clients: 180, portfolio_contacted_12m: 36, activities_completed: 5, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: BRANCH, node_id: BR-A, portfolio_clients: 120, portfolio_contacted_12m: 30, activities_completed: 3, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}
+        - {level: BRANCH, node_id: BR-B, portfolio_clients: 60, portfolio_contacted_12m: 6, activities_completed: 2, last_week: '2025-W47', weeks_reported: 3, weeks_in_quarter: 13, is_complete: false}

@@ -7,7 +7,7 @@
         additive measures are all integer columns except `non_additive` (distinct counts),
         read from the relation when the test compiles, so a new count column is checked
         without editing the test.
-      - DQ023: every column named with `_rate` (show_rate, coverage_rate_13w, ...) is
+      - DQ023: every column named with `_rate` (show_rate, portfolio_contacted_rate_12m, ...) is
         null or within [0, 1].
     `from_sql` replaces the relation's rows (same columns), so a test can feed it altered
     data and prove that a mismatch is caught. -#}

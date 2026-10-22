@@ -35,7 +35,7 @@ import shutil
 import sqlite3
 import statistics
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
@@ -268,7 +268,7 @@ class Client:
     segment: Segment
     postal: str | None
     province: str
-    advisor_id: str
+    advisor_id: str  # the book owner in the fixture world; the source row names only PRTF_ID
     branch_id: str
     status: str
     updated: datetime
@@ -282,7 +282,6 @@ class Client:
             "SEG_CD": self.segment.value,
             "PSTL_CD": self.postal,
             "PROV_CD": self.province,
-            "PRIM_ADVSR_ID": self.advisor_id,
             "PRIM_BRNCH_ID": self.branch_id,
             "STAT_CD": self.status,
             "LAST_UPD_TS": self.updated,
@@ -403,13 +402,32 @@ class World:
             for row, note in zip(delta.rows, delta.notes, strict=True):
                 if note is not None and note.rule_id == "DQ005":
                     continue
-                client = _parse_client(row)
+                client = _parse_client(row, state.get(row["CLNT_ID"]))
                 if client.updated <= ts:
                     state[client.client_id] = client
         return state
 
 
-def _parse_client(row: dict[str, str]) -> Client:
+def holder_of(portfolio: str, day: date) -> str:
+    """The portfolio's holder on ``day`` (int_portfolio_history): its opener, until a handover."""
+    holder = "ADV-" + portfolio[5:]
+    for old, new, handover in HANDOVERS:
+        if portfolio == portfolio_of(old) and day >= handover:
+            holder = new
+    return holder
+
+
+def _parse_client(row: dict[str, str], previous: Client | None) -> Client:
+    """A client from its source row. The owner is the portfolio's holder on the update date;
+    a portfolio the master lacks (DQ014) keeps the owner the world already had."""
+    portfolio = row["PRTF_ID"]
+    updated = datetime.strptime(row["LAST_UPD_TS"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+    if portfolio in PORTFOLIOS:
+        advisor_id = holder_of(portfolio, local_date(updated))
+    elif previous is not None:
+        advisor_id = previous.advisor_id
+    else:
+        raise ValueError(f"{row['CLNT_ID']} names unknown portfolio {portfolio} with no history")
     return Client(
         client_id=row["CLNT_ID"],
         since=date.fromisoformat(row["CLNT_SINCE_DT"]),
@@ -417,11 +435,11 @@ def _parse_client(row: dict[str, str]) -> Client:
         segment=Segment(row["SEG_CD"]),
         postal=row["PSTL_CD"] if row["PSTL_CD"] != "" else None,
         province=row["PROV_CD"],
-        advisor_id=row["PRIM_ADVSR_ID"],
+        advisor_id=advisor_id,
         branch_id=row["PRIM_BRNCH_ID"],
         status=row["STAT_CD"],
-        updated=datetime.strptime(row["LAST_UPD_TS"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC),
-        portfolio_id=row.get("PRTF_ID") or None,
+        updated=updated,
+        portfolio_id=portfolio,
     )
 
 
@@ -633,10 +651,9 @@ class _Builder:
                 f"{TERADATA_DIR}/{delta.name}",
                 row=len(delta.rows),
                 natural_key=client.client_id,
-                column="PRIM_ADVSR_ID",
                 raw_value=client.advisor_id,
                 expected_value=to,
-                detail=f"{why} Book history changes as of week end.",
+                detail=f"{why} The book owner (the portfolio's holder) changes as of week end.",
             )
         )
         delta.add(_client_text(moved))
@@ -1119,12 +1136,10 @@ def finalize_defects(world: World) -> list[Defect]:
 
 @dataclass
 class Scope:
-    """Activities, book and advisors for one advisor or org node in one week."""
+    """Activities, portfolio clients and advisors for one advisor or org node in one week."""
 
     week: str
     acts: list[dict[str, Any]]
-    book: set[str]
-    contacted_13w: set[str]
     active_advisors: int
     portfolio: set[str] = field(default_factory=set)  # active clients in its portfolios
     contacted_12m: set[str] = field(default_factory=set)
@@ -1155,8 +1170,6 @@ def _parts(s: Scope) -> dict[str, Any]:
         "no_shows": sum(a["STATUS"] == "NO_SHOW" for a in scheduled),
         "conversions": sum(a["OUTCOME"] in CONVERTING for a in held),
         "clients": {a["CLIENT_ID"] for a in completed if a["CLIENT_ID"]},
-        "book_size": len(s.book),
-        "clients_covered_13w": len(s.book & s.contacted_13w),
         "portfolio_clients": len(s.portfolio),
         "portfolio_contacted_12m": len(s.portfolio & s.contacted_12m),
         "meeting_minutes": sum(minutes),
@@ -1167,7 +1180,6 @@ def _parts(s: Scope) -> dict[str, Any]:
 def _rates(p: dict[str, Any], advisors: int) -> dict[str, Any]:
     """Every ratio from its summed parts, as mart_org_weekly and mart_org_quarterly do."""
     return {
-        "coverage_rate_13w": _ratio(p["clients_covered_13w"], p["book_size"]),
         "avg_meeting_duration_min": _ratio(p["meeting_minutes"], p["meetings_held"], 2),
         "activities_per_advisor": _ratio(p["activities_completed"], advisors, 2),
         "show_rate": _ratio(p["appointments_held"], p["appointments_held"] + p["no_shows"]),
@@ -1188,8 +1200,6 @@ def _measures(s: Scope) -> dict[str, Any]:
         "active_advisors": s.active_advisors,
         **{k: p[k] for k in _COUNTS},
         "unique_clients_contacted": len(p["clients"]),
-        "book_size": p["book_size"],
-        "clients_covered_13w": p["clients_covered_13w"],
         **_rates(p, s.active_advisors),
         "portfolio_clients": p["portfolio_clients"],
         "portfolio_contacted_12m": p["portfolio_contacted_12m"],
@@ -1264,24 +1274,9 @@ class Marts:
             return str(act["BRANCH_ID"])
         return self.world.branch_for_week(act["ADVISOR_ID"], week) or str(act["BRANCH_ID"])
 
-    def contacted_13w(self, week: str) -> set[str]:
-        end = week_end(week)
-        start = end - timedelta(days=13 * 7 - 1)
-        return {
-            a["CLIENT_ID"]
-            for a in self.acts
-            if a["CLIENT_ID"]
-            and a["STATUS"] == "COMPLETED"
-            and start <= local_date(a["ACTIVITY_TS"]) <= end
-        }
-
     def holder(self, portfolio: str, week: str) -> str:
         """The portfolio's holder on the week-end date (int_portfolio_history)."""
-        holder = "ADV-" + portfolio[5:]
-        for old, new, day in HANDOVERS:
-            if portfolio == portfolio_of(old) and week_end(week) >= day:
-                holder = new
-        return holder
+        return holder_of(portfolio, week_end(week))
 
     def transit(self, portfolio: str) -> str:
         advisor = "ADV-" + portfolio[5:]
@@ -1311,18 +1306,9 @@ class Marts:
         end = week_end(week)
         return end.replace(year=end.year - 1) >= first
 
-    def book(self, week: str, advisors: Iterable[str]) -> set[str]:
-        owners = set(advisors)
-        return {
-            c.client_id
-            for c in self.books[week].values()
-            if c.status == "A" and c.advisor_id in owners
-        }
-
     def advisor_weekly(self) -> list[dict[str, Any]]:
         rows = []
         for week in WEEKS:
-            contacted = self.contacted_13w(week)
             portfolios = self.portfolio_book(week)
             reached, complete = self.contacted_12m(week), self.window_complete(week)
             for advisor_id in self.world.active_advisors(week):
@@ -1337,8 +1323,6 @@ class Marts:
                             if a["ADVISOR_ID"] == advisor_id
                             and a["ACTIVITY_ID"] not in self.unknown
                         ],
-                        self.book(week, [advisor_id]),
-                        contacted,
                         1,
                         {c for c, p in portfolios.items() if self.holder(p, week) == advisor_id},
                         reached,
@@ -1368,7 +1352,6 @@ class Marts:
     def org_weekly(self) -> list[dict[str, Any]]:
         rows = []
         for week in WEEKS:
-            contacted = self.contacted_13w(week)
             active = self.world.active_advisors(week)
             portfolios = self.portfolio_book(week)
             reached, complete = self.contacted_12m(week), self.window_complete(week)
@@ -1382,8 +1365,6 @@ class Marts:
                     Scope(
                         week,
                         acts,
-                        self.book(week, advisors),
-                        contacted,
                         len(advisors),
                         in_node,
                         reached,
@@ -1419,7 +1400,6 @@ class Marts:
                         a for a in active if self.world.branch_for_week(a, week) in node.branches
                     ]
                     acts = [a for a in self.acts if self.credited_branch(a, week) in node.branches]
-                    book = self.book(week, advisors)
                     in_node = {
                         c
                         for c, p in self.portfolio_book(week).items()
@@ -1430,8 +1410,6 @@ class Marts:
                             Scope(
                                 week,
                                 acts,
-                                book,
-                                self.contacted_13w(week),
                                 len(advisors),
                                 in_node,
                                 self.contacted_12m(week),
@@ -1444,11 +1422,6 @@ class Marts:
                 }
                 advisor_weeks = sum(p["active_advisors"] for p in parts)
                 last = parts[-1]
-                summed = {
-                    **total,
-                    "book_size": last["book_size"],
-                    "clients_covered_13w": last["clients_covered_13w"],
-                }
                 rows.append(
                     {
                         "fiscal_quarter_id": quarter,
@@ -1471,9 +1444,7 @@ class Marts:
                         "unique_clients_contacted": len(
                             set().union(*(p["clients"] for p in parts))
                         ),
-                        "book_size": last["book_size"],
-                        "clients_covered_13w": last["clients_covered_13w"],
-                        **_rates(summed, advisor_weeks),
+                        **_rates(total, advisor_weeks),
                         "portfolio_clients": last["portfolio_clients"],
                         "portfolio_contacted_12m": last["portfolio_contacted_12m"],
                         "portfolio_contacted_rate_12m": _ratio(
@@ -1522,7 +1493,6 @@ class Marts:
             KpiCode.SHOW_RATE: lambda r: r["show_rate"],
             KpiCode.APPT_CONV: lambda r: r["conversion_rate"],
             KpiCode.CLIENTS_CONTACTED: lambda r: r["unique_clients_contacted"],
-            KpiCode.COVERAGE_13W: lambda r: r["coverage_rate_13w"],
             KpiCode.AVG_MEET_MIN: lambda r: r["avg_meeting_duration_min"],
             KpiCode.NO_SHOW_RATE: lambda r: (
                 None if r["show_rate"] is None else round(1 - r["show_rate"], 4)
@@ -1597,7 +1567,6 @@ class Marts:
     def geo_weekly(self) -> list[dict[str, Any]]:
         rows = []
         for week in WEEKS:
-            contacted = self.contacted_13w(week)
             portfolios, reached = self.portfolio_book(week), self.contacted_12m(week)
             complete = self.window_complete(week)
             groups: dict[tuple[str, str], set[str]] = defaultdict(set)
@@ -1615,15 +1584,12 @@ class Marts:
                 and iso_week(local_date(a["ACTIVITY_TS"])) == week
             )
             for (fsa, district), clients in sorted(groups.items()):
-                hit = len(clients & contacted)
                 rows.append(
                     {
                         "iso_week_id": week,
                         "fsa_code": fsa,
                         "district_code": district,
                         "active_clients": len(clients),
-                        "clients_contacted_13w": hit,
-                        "coverage_rate_13w": _ratio(hit, len(clients)),
                         "activities_completed": sum(completed[c] for c in clients),
                         "portfolio_clients": len(owned := clients & portfolios.keys()),
                         "portfolio_contacted_12m": len(owned & reached),
@@ -1969,7 +1935,6 @@ def _fmt(kpi: KpiCode, value: float) -> str:
     if kpi in {
         KpiCode.SHOW_RATE,
         KpiCode.APPT_CONV,
-        KpiCode.COVERAGE_13W,
         KpiCode.CALL_TO_APPT,
         KpiCode.NO_SHOW_RATE,
     }:
@@ -2009,7 +1974,7 @@ def narratives(report: list[dict[str, Any]], generated_at: datetime) -> Narrativ
     labels = {
         KpiCode.ACT_PER_ADV: "Activities per advisor",
         KpiCode.SHOW_RATE: "Show rate",
-        KpiCode.COVERAGE_13W: "13-week coverage",
+        KpiCode.APPT_CONV: "Appointment conversion",
         KpiCode.CALLS_OUT: "Outbound calls",
     }
     out = []
@@ -2021,7 +1986,7 @@ def narratives(report: list[dict[str, Any]], generated_at: datetime) -> Narrativ
         fact, facts = book.add, book.facts
         headline_fact = fact(node.node_id, KpiCode.ACT_PER_ADV)
         bullets = []
-        for kpi in (KpiCode.CALLS_OUT, KpiCode.SHOW_RATE, KpiCode.COVERAGE_13W):
+        for kpi in (KpiCode.CALLS_OUT, KpiCode.SHOW_RATE, KpiCode.APPT_CONV):
             f = fact(node.node_id, kpi)
             if f.value is None:
                 continue
@@ -2033,16 +1998,16 @@ def narratives(report: list[dict[str, Any]], generated_at: datetime) -> Narrativ
             bullets.append(NarrativeBullet(text=text, fact_ids=[f.fact_id]))
         watch: list[WatchItem] = []
         if len(children) >= 2:  # a lone child has no peers to trail
-            child_facts = [fact(c.node_id, KpiCode.COVERAGE_13W) for c in children]
+            child_facts = [fact(c.node_id, KpiCode.ACT_PER_ADV) for c in children]
             lowest = min(
                 (f for f in child_facts if f.value is not None), key=lambda f: f.value or 0.0
             )
             name = next(c.name for c in children if c.node_id == lowest.node_id)
-            coverage = _fmt(KpiCode.COVERAGE_13W, lowest.value or 0.0)
+            pace = _fmt(KpiCode.ACT_PER_ADV, lowest.value or 0.0)
             watch.append(
                 WatchItem(
                     node_id=lowest.node_id,
-                    reason=f"Lowest 13-week coverage under {node.name} ({coverage}).",
+                    reason=f"Fewest activities per advisor under {node.name} ({pace}).",
                     fact_ids=[lowest.fact_id],
                 )
             )
@@ -2063,7 +2028,7 @@ def narratives(report: list[dict[str, Any]], generated_at: datetime) -> Narrativ
         if watch and not fallback:
             bullets.append(
                 NarrativeBullet(
-                    text=f"{name} trails its peers on 13-week coverage at {coverage}.",
+                    text=f"{name} trails its peers on activities per advisor at {pace}.",
                     fact_ids=watch[0].fact_ids,
                 )
             )

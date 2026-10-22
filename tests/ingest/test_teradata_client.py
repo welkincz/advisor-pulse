@@ -128,15 +128,22 @@ def test_malformed_csv_record_is_quarantined_without_aborting_later_rows(
         handle.write("CLI-99999999,2026-10-04,1990\n")
         handle.write('CLI-99999997,2026-10-04,1990,MASS,"unclosed\n')
         handle.write(
-            'CLI-99999998,2026-10-04,1990,MASS,"M5V, 1A1",ON,ADV-10001,BR-0101,A,'
-            "2026-10-04 14:00:00,\n"  # PRTF_ID empty (optional until #226)
+            'CLI-99999998,2026-10-04,1990,MASS,"M5V, 1A1",ON,BR-0101,A,'
+            "2026-10-04 14:00:00,PRT-010001\n"
+        )
+        handle.write(  # PRTF_ID empty: required, so the row is quarantined
+            "CLI-99999996,2026-10-04,1990,MASS,M5V 1A1,ON,BR-0101,A,2026-10-04 14:00:00,\n"
         )
     result = _load(warehouse, sources)
     assert result.status is StageStatus.SUCCESS
-    assert result.rows_quarantined >= 4
+    assert result.rows_quarantined >= 5
     assert warehouse.execute(
         "SELECT PSTL_CD FROM raw.teradata__clnt WHERE CLNT_ID = 'CLI-99999998'"
     ).fetchone() == ("M5V, 1A1",)
+    assert any(
+        r.rule_id == "DQ005" and "CLI-99999996" in r.payload
+        for r in meta.get_rejected_rows(warehouse)
+    )
     assert any(
         r.source_file == "teradata/client_20261004.csv"
         and r.rule_id == "DQ005"
@@ -166,6 +173,38 @@ def test_additive_csv_column_records_dq006_warning(
 
     assert any(
         check.check_id == "DQ006" and "EXTRA_NOTE" in (check.message or "")
+        for check in meta.get_check_results(warehouse, "run-1")
+    )
+
+
+def test_extracts_from_before_226_still_load_without_prim_advsr_id(
+    warehouse: duckdb.DuckDBPyConnection, sources: Path
+) -> None:
+    # Source history written before the contract step carries PRIM_ADVSR_ID. Re-read, it is
+    # an extra column: dropped with a DQ006 warning, and every row still loads.
+    with sqlite3.connect(sources / "teradata/edw.sqlite") as db:
+        db.execute('ALTER TABLE CLNT ADD COLUMN "PRIM_ADVSR_ID" VARCHAR')
+        db.execute("UPDATE CLNT SET PRIM_ADVSR_ID = 'ADV-10001'")
+    path = sources / "teradata/client_20261004.csv"
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=[*rows[0], "PRIM_ADVSR_ID"])
+        writer.writeheader()
+        writer.writerows({**row, "PRIM_ADVSR_ID": "ADV-10001"} for row in rows)
+
+    result = _load(warehouse, sources)
+
+    assert all(
+        entry.status is LoadStatus.LOADED
+        for file in ("teradata/edw.sqlite#clnt", "teradata/client_20261004.csv")
+        for entry in meta.get_manifest(warehouse, file)
+    )
+    assert result.rows_out == _raw_count(warehouse) > 0
+    columns = {row[0] for row in warehouse.execute("DESCRIBE raw.teradata__clnt").fetchall()}
+    assert "PRIM_ADVSR_ID" not in columns
+    assert any(
+        check.check_id == "DQ006" and "PRIM_ADVSR_ID" in (check.message or "")
         for check in meta.get_check_results(warehouse, "run-1")
     )
 

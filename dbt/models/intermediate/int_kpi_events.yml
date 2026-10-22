@@ -7,18 +7,15 @@ models:
       the credited branch and its additive parts, so the weekly marts rebuild every ratio
       from summed parts. Event kinds: `completed` (by activity date), `scheduled`
       (appointments and reviews, by SCHEDULED_TS), `booked` (by CREATED_TS), `advisor`
-      (an active advisor at week start, not a branch manager) and `book` (an active book
-      client of an active advisor at week end, with 13-week coverage).
+      (an active advisor at week start, not a branch manager) and `portfolio` (an active
+      client in a known portfolio at week end, credited to the holder and the transit branch).
     data_tests:
-      - expression_is_true:
-          arguments:
-            expression: "clients_covered_13w <= book_size"
       - expression_is_true:
           arguments:
             expression: "portfolio_contacted_12m <= portfolio_clients"
       - expression_is_true:
           arguments:
-            expression: "(event_kind in ('advisor', 'book')) <= (advisor_id is not null)"
+            expression: "(event_kind in ('advisor', 'portfolio')) <= (advisor_id is not null)"
     columns:
       - name: iso_week_id
         description: ISO week the event counts in.
@@ -28,17 +25,17 @@ models:
         description: The advisor; null for activity whose advisor has no history on that date (DQ012).
         data_type: varchar
       - name: branch_id
-        description: Credited branch (activity events) or the advisor's branch at week start (advisor and book events).
+        description: Credited branch (activity events), the advisor's branch at week start (advisor events) or the transit branch (portfolio events).
         data_type: varchar
         data_tests: [not_null]
       - name: event_kind
-        description: completed, scheduled, booked, advisor or book.
+        description: completed, scheduled, booked, advisor or portfolio.
         data_type: varchar
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ['completed', 'scheduled', 'booked', 'advisor', 'book', 'portfolio']
+                values: ['completed', 'scheduled', 'booked', 'advisor', 'portfolio']
       - name: activities_completed
         description: 1 for a completed activity.
       - name: calls_out
@@ -63,10 +60,6 @@ models:
         description: Client of a completed contact activity; counted distinct per grain.
       - name: active_advisors
         description: 1 for an advisor event.
-      - name: book_size
-        description: 1 for a book event.
-      - name: clients_covered_13w
-        description: 1 for a book client with a completed activity in the trailing 13 weeks.
       - name: portfolio_clients
         description: 1 for a portfolio event (an active client in a known portfolio at week end).
       - name: portfolio_contacted_12m

@@ -31,7 +31,6 @@ export type KpiCode =
   | "SHOW_RATE"
   | "APPT_CONV"
   | "CLIENTS_CONTACTED"
-  | "COVERAGE_13W"
   | "AVG_MEET_MIN"
   | "NO_SHOW_RATE"
   | "LATE_RATE"

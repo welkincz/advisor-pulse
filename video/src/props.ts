@@ -27,7 +27,7 @@ export interface RecapProps {
 
 /** Rates print as percentages, averages with one decimal, counts as whole numbers. */
 export function formatLike(code: string, value: number): string {
-  const rates = ['CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE']
+  const rates = ['CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE']
   if (rates.includes(code)) return `${(value * 100).toFixed(1)}%`
   if (code === 'ACT_PER_ADV' || code === 'AVG_MEET_MIN') return value.toFixed(1)
   return Math.round(value).toLocaleString('en-CA')

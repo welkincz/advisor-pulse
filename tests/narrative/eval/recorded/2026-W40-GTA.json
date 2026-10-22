@@ -25,12 +25,9 @@
    },
    {
     "fact_ids": [
-     "F4",
-     "F8",
-     "F18",
-     "F14"
+     "F4"
     ],
-    "text": "GTA's call-to-appointment rate was 32.3%, up 33.6% week over week, and its 13-week coverage was 85.9%, up 10.9%. BR-0102 coverage was 88.1% and BR-0101 was 82.8%."
+    "text": "GTA's call-to-appointment rate was 32.3%, up 33.6% week over week."
    },
    {
     "fact_ids": [
@@ -46,14 +43,14 @@
    {
     "fact_ids": [
      "F11",
-     "F12",
-     "F14"
+     "F12"
     ],
     "node_id": "BR-0101",
-    "reason": "Ranks second of 2 on activities per advisor (8.0, down 23.8%), show rate (50.0%) and 13-week coverage (82.8%)."
+    "reason": "Ranks second of 2 on activities per advisor (8.0, down 23.8%) and show rate (50.0%)."
    }
   ]
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

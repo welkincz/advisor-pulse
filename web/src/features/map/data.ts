@@ -97,25 +97,37 @@ export function drillHref(region: string | null, nodeId: string, week: string, l
 /** Clients whose postal code could not be read are filed under this FSA; it has no shape. */
 export const UNKNOWN_FSA = 'UNK'
 
-export interface FsaCoverage { values: Map<string, number | null>; unknownClients: number }
+/**
+ * What the FSA layer shades: the lead KPI once the week has 12 months of history behind it;
+ * before that it has no value anywhere, so the layer shows activities with the area's clients,
+ * as the rest of the report falls back to activities per advisor.
+ */
+export type FsaMeasure = 'PRTF_CONTACT_12M' | 'CLIENT_ACTIVITIES'
+
+export interface FsaValues { measure: FsaMeasure; values: Map<string, number | null>; unknownClients: number }
 
 /**
- * 13-week coverage per FSA. geo_weekly's grain is week × district × FSA: an FSA can appear
- * under two districts when a few of its clients are served from the next district over.
- * Sum the counts across districts and divide once, so every FSA gets one honest value
- * (taking any one row lets a 3-client row overwrite a 1,355-client one).
+ * One value per FSA. geo_weekly's grain is week × district × FSA: an FSA can appear under
+ * two districts when a few of its clients are served from the next district over. Sum the
+ * counts across districts and divide once, so every FSA gets one honest value (taking any
+ * one row lets a 3-client row overwrite a 1,355-client one).
  */
-export function fsaCoverage(rows: readonly GeoWeekly[]): FsaCoverage {
-  const sums = new Map<string, { active: number; contacted: number }>()
+export function fsaValues(rows: readonly GeoWeekly[]): FsaValues {
+  // The mart leaves the rate null on every row of a week without a full 12-month window.
+  const measure: FsaMeasure = rows.some((row) => row.portfolio_contacted_rate_12m != null) ? 'PRTF_CONTACT_12M' : 'CLIENT_ACTIVITIES'
+  const sums = new Map<string, { clients: number; contacted: number; activities: number }>()
   let unknownClients = 0
   for (const row of rows) {
     if (row.fsa_code === UNKNOWN_FSA) { unknownClients += row.active_clients; continue }
-    const sum = sums.get(row.fsa_code) ?? { active: 0, contacted: 0 }
-    sum.active += row.active_clients
-    sum.contacted += row.clients_contacted_13w
+    const sum = sums.get(row.fsa_code) ?? { clients: 0, contacted: 0, activities: 0 }
+    sum.clients += row.portfolio_clients
+    sum.contacted += row.portfolio_contacted_12m
+    sum.activities += row.activities_completed
     sums.set(row.fsa_code, sum)
   }
-  return { values: new Map([...sums].map(([fsa, s]) => [fsa, s.active > 0 ? s.contacted / s.active : null])), unknownClients }
+  const value = (s: { clients: number; contacted: number; activities: number }) =>
+    measure === 'CLIENT_ACTIVITIES' ? s.activities : s.clients > 0 ? s.contacted / s.clients : null
+  return { measure, values: new Map([...sums].map(([fsa, s]) => [fsa, value(s)])), unknownClients }
 }
 
 /**

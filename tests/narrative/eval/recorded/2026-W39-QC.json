@@ -25,24 +25,23 @@
    },
    {
     "fact_ids": [
-     "F8",
      "F7",
      "F9"
     ],
-    "text": "13-week coverage rose to 85.5% from 70.9%. Clients contacted slipped 3.6% to 27.0, and average meeting length fell 6.3% to 57.0 minutes."
+    "text": "Clients contacted slipped 3.6% to 27.0, and average meeting length fell 6.3% to 57.0 minutes."
    },
    {
     "fact_ids": [
      "F11",
-     "F12",
-     "F14"
+     "F12"
     ],
-    "text": "MTL, the only child node, matches QC on activities per advisor at 10.0, show rate at 42.9% and coverage at 85.5%."
+    "text": "MTL, the only child node, matches QC on activities per advisor at 10.0 and show rate at 42.9%."
    }
   ],
   "headline": "QC activities per advisor rose 2.6% this week to 10.0, up from 9.8 the prior week.",
   "watchlist": []
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

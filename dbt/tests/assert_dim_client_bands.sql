@@ -96,7 +96,7 @@ book_failures as (
     full outer join latest_book as book on dim.client_id = book.client_id
     where dim.client_id is null
         or book.client_id is null
-        or dim.primary_advisor_id is distinct from book.primary_advisor_id
+        or dim.primary_advisor_id is distinct from coalesce(book.primary_advisor_id, 'UNKNOWN')
         or dim.primary_branch_id is distinct from book.primary_branch_id
         or dim.is_active is distinct from book.is_active
 )

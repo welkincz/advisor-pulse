@@ -30,7 +30,7 @@ models:
             expression: "kpi_code not in ('LATE_RATE', 'QUAR_RATE') or level = 'NATIONAL'"
       - expression_is_true:
           arguments:
-            expression: "kpi_code not in ('CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE') or value is null or value between 0 and 1"
+            expression: "kpi_code not in ('CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE') or value is null or value between 0 and 1"
     columns:
       - name: iso_week_id
         description: ISO week, YYYY-Www.
@@ -62,7 +62,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'CLIENTS_CONTACTED', 'COVERAGE_13W', 'AVG_MEET_MIN', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE']
+                values: ['PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'CLIENTS_CONTACTED', 'AVG_MEET_MIN', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE']
       - name: value
         description: "The KPI this week; null when its denominator is 0. NO_SHOW_RATE = 1 − SHOW_RATE."
         data_type: double
@@ -131,7 +131,6 @@ unit_tests:
           - {iso_week_id: '2026-W01', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W01', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -142,7 +141,6 @@ unit_tests:
           - {iso_week_id: '2026-W02', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W02', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -153,7 +151,6 @@ unit_tests:
           - {iso_week_id: '2026-W03', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W03', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -164,7 +161,6 @@ unit_tests:
           - {iso_week_id: '2026-W04', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W04', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -175,7 +171,6 @@ unit_tests:
           - {iso_week_id: '2026-W05', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W05', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -186,7 +181,6 @@ unit_tests:
           - {iso_week_id: '2026-W06', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W06', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -197,7 +191,6 @@ unit_tests:
           - {iso_week_id: '2026-W07', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W07', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -208,7 +201,6 @@ unit_tests:
           - {iso_week_id: '2026-W08', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W08', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -219,7 +211,6 @@ unit_tests:
           - {iso_week_id: '2026-W09', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W09', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -264,7 +255,6 @@ unit_tests:
           - {iso_week_id: '2026-W01', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W01', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W01', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -275,7 +265,6 @@ unit_tests:
           - {iso_week_id: '2026-W02', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W02', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W02', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -286,7 +275,6 @@ unit_tests:
           - {iso_week_id: '2026-W03', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W03', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W03', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -297,7 +285,6 @@ unit_tests:
           - {iso_week_id: '2026-W04', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W04', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W04', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -308,7 +295,6 @@ unit_tests:
           - {iso_week_id: '2026-W05', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W05', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W05', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -319,7 +305,6 @@ unit_tests:
           - {iso_week_id: '2026-W06', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W06', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W06', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -330,7 +315,6 @@ unit_tests:
           - {iso_week_id: '2026-W07', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W07', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W07', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -341,7 +325,6 @@ unit_tests:
           - {iso_week_id: '2026-W08', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W08', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W08', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -352,7 +335,6 @@ unit_tests:
           - {iso_week_id: '2026-W09', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W09', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W09', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -363,7 +345,6 @@ unit_tests:
           - {iso_week_id: '2026-W10', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W10', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W10', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W10', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W10', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W10', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W10', kpi_code: PRTF_CONTACT_12M, flag: FLAT}
@@ -374,7 +355,6 @@ unit_tests:
           - {iso_week_id: '2026-W11', kpi_code: SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W11', kpi_code: APPT_CONV, flag: FLAT}
           - {iso_week_id: '2026-W11', kpi_code: CLIENTS_CONTACTED, flag: FLAT}
-          - {iso_week_id: '2026-W11', kpi_code: COVERAGE_13W, flag: FLAT}
           - {iso_week_id: '2026-W11', kpi_code: AVG_MEET_MIN, flag: FLAT}
           - {iso_week_id: '2026-W11', kpi_code: NO_SHOW_RATE, flag: FLAT}
           - {iso_week_id: '2026-W11', kpi_code: PRTF_CONTACT_12M, flag: ANOMALY}

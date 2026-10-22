@@ -39,5 +39,5 @@ it('leaves out a measure with no value, or none at all, once rows have loaded; t
   expect(codes(new Map([['PRTF_CONTACT_12M', row(null)], ['ACT_PER_ADV', row(16)]]))).toEqual(['ACT_PER_ADV'])
   expect(codes(new Map([['PRTF_CONTACT_12M', row(0.61)], ['ACT_PER_ADV', row(16)]]))).toEqual(['PRTF_CONTACT_12M', 'ACT_PER_ADV'])
   // Nothing loaded yet (an older week before the history arrives): every measure keeps its place.
-  expect(codes(new Map())).toHaveLength(13)
+  expect(codes(new Map())).toHaveLength(12)
 })

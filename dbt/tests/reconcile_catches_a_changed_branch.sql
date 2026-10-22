@@ -1,5 +1,5 @@
 -- Proves reconcile_rollup catches a broken roll-up: one branch's calls_out is raised by 1
--- in the latest week and one district's coverage_rate_13w is set to 1.2. The check must
+-- in the latest week and one district's show_rate is set to 1.2. The check must
 -- then report exactly the branch's district for DQ022 (its region still matches the
 -- unchanged districts) and the altered district for DQ023. Returns a row for anything
 -- missed or unexpected. It tests the macro, not the data, so it runs on the fixtures only
@@ -15,8 +15,8 @@
         case
             when level = 'DISTRICT' and node_id = (select min(node_id) from {{ ref('mart_org_weekly') }} where level = 'DISTRICT')
                 and iso_week_id = (select max(iso_week_id) from {{ ref('mart_org_weekly') }})
-            then 1.2 else coverage_rate_13w
-        end as coverage_rate_13w
+            then 1.2 else show_rate
+        end as show_rate
     )
     from {{ ref('mart_org_weekly') }}
 {% endset %}
@@ -44,7 +44,7 @@ expected as (
     where org.iso_week_id = branch.iso_week_id
         and org.node_id = branch.district_id
     union all
-    select 'DQ023', 'coverage_rate_13w', min(node_id)
+    select 'DQ023', 'show_rate', min(node_id)
     from {{ ref('mart_org_weekly') }}
     where level = 'DISTRICT'
     having count(*) > 0

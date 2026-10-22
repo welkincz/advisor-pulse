@@ -107,12 +107,12 @@
       "file": "teradata/client_20260913.csv",
       "row": 1,
       "natural_key": "CLI-00000028",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10002",
       "expected_value": "ADV-10003",
       "rule_id": null,
       "action": null,
-      "detail": "Book rebalanced inside BR-0101. Book history changes as of week end."
+      "detail": "Book rebalanced inside BR-0101. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "DIRTY_POSTAL_CODE",
@@ -1262,12 +1262,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 0,
       "natural_key": "CLI-00000013",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1277,12 +1277,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 1,
       "natural_key": "CLI-00000027",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1292,12 +1292,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 2,
       "natural_key": "CLI-00000041",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1307,12 +1307,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 3,
       "natural_key": "CLI-00000055",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1322,12 +1322,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 4,
       "natural_key": "CLI-00000069",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1337,12 +1337,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 5,
       "natural_key": "CLI-00000083",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1352,12 +1352,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 6,
       "natural_key": "CLI-00000097",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1367,12 +1367,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 7,
       "natural_key": "CLI-00000111",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1382,12 +1382,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 8,
       "natural_key": "CLI-00000125",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1397,12 +1397,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 9,
       "natural_key": "CLI-00000139",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1412,12 +1412,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 10,
       "natural_key": "CLI-00000153",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1427,12 +1427,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 11,
       "natural_key": "CLI-00000167",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1442,12 +1442,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 12,
       "natural_key": "CLI-00000181",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1457,12 +1457,12 @@
       "file": "teradata/client_20260928.csv",
       "row": 13,
       "natural_key": "CLI-00000195",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10014",
       "expected_value": "ADV-10013",
       "rule_id": null,
       "action": null,
-      "detail": "ADV-10014 terminated 2026-09-28. Book history changes as of week end."
+      "detail": "ADV-10014 terminated 2026-09-28. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "CLIENT_REASSIGNMENT",
@@ -1472,12 +1472,12 @@
       "file": "teradata/client_20261004.csv",
       "row": 1,
       "natural_key": "CLI-00000011",
-      "column": "PRIM_ADVSR_ID",
+      "column": null,
       "raw_value": "ADV-10020",
       "expected_value": "ADV-10019",
       "rule_id": null,
       "action": null,
-      "detail": "Client asked for a French-speaking advisor. Book history changes as of week end."
+      "detail": "Client asked for a French-speaking advisor. The book owner (the portfolio's holder) changes as of week end."
     },
     {
       "kind": "UNPARSEABLE_VALUE",

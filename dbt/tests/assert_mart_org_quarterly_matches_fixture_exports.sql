@@ -28,9 +28,9 @@ where e.node_id is null or a.node_id is null
     or e.no_shows is distinct from a.no_shows
     or e.conversions is distinct from a.conversions
     or e.unique_clients_contacted is distinct from a.unique_clients_contacted
-    or e.book_size is distinct from a.book_size
-    or e.clients_covered_13w is distinct from a.clients_covered_13w
+    or e.portfolio_clients is distinct from a.portfolio_clients
+    or e.portfolio_contacted_12m is distinct from a.portfolio_contacted_12m
+    or not ((e.portfolio_contacted_rate_12m is null and a.portfolio_contacted_rate_12m is null) or abs(e.portfolio_contacted_rate_12m - a.portfolio_contacted_rate_12m) <= 0.000101)
     or not ((e.activities_per_advisor is null and a.activities_per_advisor is null) or abs(e.activities_per_advisor - a.activities_per_advisor) <= 0.0101)
     or not ((e.show_rate is null and a.show_rate is null) or abs(e.show_rate - a.show_rate) <= 0.000101)
     or not ((e.call_to_appt_rate is null and a.call_to_appt_rate is null) or abs(e.call_to_appt_rate - a.call_to_appt_rate) <= 0.000101)
-    or not ((e.coverage_rate_13w is null and a.coverage_rate_13w is null) or abs(e.coverage_rate_13w - a.coverage_rate_13w) <= 0.000101)

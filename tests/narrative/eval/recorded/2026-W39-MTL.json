@@ -30,14 +30,6 @@
      "F16"
     ],
     "text": "Show rate fell 31.4% to 42.9% and no-show rate rose 52.4% to 57.1%. BR-0501 show rate was 33.3% versus 50.0% at BR-0502."
-   },
-   {
-    "fact_ids": [
-     "F8",
-     "F14",
-     "F18"
-    ],
-    "text": "13-week coverage rose to 85.5%; BR-0501 was at 89.3% and BR-0502 at 81.5%."
    }
   ],
   "headline": "MTL activities per advisor rose 2.6% this week to 10.0, up from 9.8 the prior week.",
@@ -52,15 +44,14 @@
    },
    {
     "fact_ids": [
-     "F17",
-     "F18",
-     "F14"
+     "F17"
     ],
     "node_id": "BR-0502",
-    "reason": "Appointment conversion fell to 50.0% from 100.0%, ranking second of two, and 13-week coverage trails BR-0501."
+    "reason": "Appointment conversion fell to 50.0% from 100.0%, ranking second of two."
    }
   ]
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

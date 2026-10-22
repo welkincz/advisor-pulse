@@ -21,24 +21,24 @@
           ]
         },
         {
-          "text": "13-week coverage 88.6%, from 81.6% the week before.",
+          "text": "Appointment conversion 53.3%, from 44.4% the week before.",
           "fact_ids": [
             "F4"
           ]
         },
         {
-          "text": "GTA trails its peers on 13-week coverage at 85.9%.",
+          "text": "Eastern Ontario trails its peers on activities per advisor at 10.2.",
           "fact_ids": [
-            "F5"
+            "F6"
           ]
         }
       ],
       "watchlist": [
         {
-          "node_id": "GTA",
-          "reason": "Lowest 13-week coverage under Ontario (85.9%).",
+          "node_id": "EON",
+          "reason": "Fewest activities per advisor under Ontario (10.2).",
           "fact_ids": [
-            "F5"
+            "F6"
           ]
         }
       ],
@@ -82,37 +82,37 @@
         {
           "fact_id": "F4",
           "node_id": "ON",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "APPT_CONV",
           "iso_week_id": "2026-W40",
-          "value": 0.8865,
-          "prior_week_value": 0.8156,
-          "wow_pct": 0.0869,
-          "trailing_13w_avg": 0.7146,
+          "value": 0.5333,
+          "prior_week_value": 0.4444,
+          "wow_pct": 0.2,
+          "trailing_13w_avg": 0.5569,
           "rank_in_parent": 2,
           "peer_count": 2
         },
         {
           "fact_id": "F5",
           "node_id": "GTA",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.8592,
-          "prior_week_value": 0.7746,
-          "wow_pct": 0.1092,
-          "trailing_13w_avg": 0.6951,
-          "rank_in_parent": 2,
+          "value": 10.6,
+          "prior_week_value": 9.0,
+          "wow_pct": 0.1778,
+          "trailing_13w_avg": 9.8,
+          "rank_in_parent": 1,
           "peer_count": 2
         },
         {
           "fact_id": "F6",
           "node_id": "EON",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.9143,
-          "prior_week_value": 0.8571,
-          "wow_pct": 0.0667,
-          "trailing_13w_avg": 0.7357,
-          "rank_in_parent": 1,
+          "value": 10.25,
+          "prior_week_value": 11.2,
+          "wow_pct": -0.0848,
+          "trailing_13w_avg": 10.5,
+          "rank_in_parent": 2,
           "peer_count": 2
         }
       ],
@@ -139,7 +139,7 @@
           ]
         },
         {
-          "text": "13-week coverage 92.9%, from 85.5% the week before.",
+          "text": "Appointment conversion 58.3%, from 66.7% the week before.",
           "fact_ids": [
             "F4"
           ]
@@ -186,12 +186,12 @@
         {
           "fact_id": "F4",
           "node_id": "QC",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "APPT_CONV",
           "iso_week_id": "2026-W40",
-          "value": 0.9286,
-          "prior_week_value": 0.8545,
-          "wow_pct": 0.0867,
-          "trailing_13w_avg": 0.7458,
+          "value": 0.5833,
+          "prior_week_value": 0.6667,
+          "wow_pct": -0.1251,
+          "trailing_13w_avg": 0.65,
           "rank_in_parent": 1,
           "peer_count": 2
         }
@@ -219,13 +219,13 @@
           ]
         },
         {
-          "text": "13-week coverage 85.9%, from 77.5% the week before.",
+          "text": "Appointment conversion 54.5%, from 57.1% the week before.",
           "fact_ids": [
             "F4"
           ]
         },
         {
-          "text": "King & Bay Branch trails its peers on 13-week coverage at 82.8%.",
+          "text": "King & Bay Branch trails its peers on activities per advisor at 8.",
           "fact_ids": [
             "F5"
           ]
@@ -234,7 +234,7 @@
       "watchlist": [
         {
           "node_id": "BR-0101",
-          "reason": "Lowest 13-week coverage under GTA (82.8%).",
+          "reason": "Fewest activities per advisor under GTA (8).",
           "fact_ids": [
             "F5"
           ]
@@ -280,36 +280,36 @@
         {
           "fact_id": "F4",
           "node_id": "GTA",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "APPT_CONV",
           "iso_week_id": "2026-W40",
-          "value": 0.8592,
-          "prior_week_value": 0.7746,
-          "wow_pct": 0.1092,
-          "trailing_13w_avg": 0.6951,
-          "rank_in_parent": 2,
+          "value": 0.5455,
+          "prior_week_value": 0.5714,
+          "wow_pct": -0.0453,
+          "trailing_13w_avg": 0.5292,
+          "rank_in_parent": 1,
           "peer_count": 2
         },
         {
           "fact_id": "F5",
           "node_id": "BR-0101",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.8276,
-          "prior_week_value": 0.7241,
-          "wow_pct": 0.1429,
-          "trailing_13w_avg": 0.6379,
+          "value": 8.0,
+          "prior_week_value": 10.5,
+          "wow_pct": -0.2381,
+          "trailing_13w_avg": 9.0425,
           "rank_in_parent": 2,
           "peer_count": 2
         },
         {
           "fact_id": "F6",
           "node_id": "BR-0102",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.881,
-          "prior_week_value": 0.8095,
-          "wow_pct": 0.0883,
-          "trailing_13w_avg": 0.7546,
+          "value": 12.33,
+          "prior_week_value": 8.0,
+          "wow_pct": 0.5413,
+          "trailing_13w_avg": 10.54,
           "rank_in_parent": 1,
           "peer_count": 2
         }
@@ -337,24 +337,24 @@
           ]
         },
         {
-          "text": "13-week coverage 91.4%, from 85.7% the week before.",
+          "text": "Appointment conversion 50.0%, from 36.4% the week before.",
           "fact_ids": [
             "F4"
           ]
         },
         {
-          "text": "ByWard Market Branch trails its peers on 13-week coverage at 88.4%.",
+          "text": "Centretown Branch trails its peers on activities per advisor at 8.",
           "fact_ids": [
-            "F5"
+            "F6"
           ]
         }
       ],
       "watchlist": [
         {
-          "node_id": "BR-0201",
-          "reason": "Lowest 13-week coverage under Eastern Ontario (88.4%).",
+          "node_id": "BR-0202",
+          "reason": "Fewest activities per advisor under Eastern Ontario (8).",
           "fact_ids": [
-            "F5"
+            "F6"
           ]
         }
       ],
@@ -398,37 +398,37 @@
         {
           "fact_id": "F4",
           "node_id": "EON",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "APPT_CONV",
           "iso_week_id": "2026-W40",
-          "value": 0.9143,
-          "prior_week_value": 0.8571,
-          "wow_pct": 0.0667,
-          "trailing_13w_avg": 0.7357,
-          "rank_in_parent": 1,
+          "value": 0.5,
+          "prior_week_value": 0.3636,
+          "wow_pct": 0.3751,
+          "trailing_13w_avg": 0.5701,
+          "rank_in_parent": 2,
           "peer_count": 2
         },
         {
           "fact_id": "F5",
           "node_id": "BR-0201",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.8837,
-          "prior_week_value": 0.7907,
-          "wow_pct": 0.1176,
-          "trailing_13w_avg": 0.7049,
-          "rank_in_parent": 2,
+          "value": 11.0,
+          "prior_week_value": 10.67,
+          "wow_pct": 0.0309,
+          "trailing_13w_avg": 10.71,
+          "rank_in_parent": 1,
           "peer_count": 2
         },
         {
           "fact_id": "F6",
           "node_id": "BR-0202",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.963,
-          "prior_week_value": 0.963,
-          "wow_pct": 0.0,
-          "trailing_13w_avg": 0.7871,
-          "rank_in_parent": 1,
+          "value": 8.0,
+          "prior_week_value": 12.0,
+          "wow_pct": -0.3333,
+          "trailing_13w_avg": 10.0,
+          "rank_in_parent": 2,
           "peer_count": 2
         }
       ],
@@ -455,7 +455,7 @@
           ]
         },
         {
-          "text": "13-week coverage 92.9%, from 85.5% the week before.",
+          "text": "Appointment conversion 58.3%, from 66.7% the week before.",
           "fact_ids": [
             "F4"
           ]
@@ -464,7 +464,7 @@
       "watchlist": [
         {
           "node_id": "BR-0501",
-          "reason": "Lowest 13-week coverage under Greater Montréal (89.7%).",
+          "reason": "Fewest activities per advisor under Greater Montréal (10.5).",
           "fact_ids": [
             "F5"
           ]
@@ -510,36 +510,36 @@
         {
           "fact_id": "F4",
           "node_id": "MTL",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "APPT_CONV",
           "iso_week_id": "2026-W40",
-          "value": 0.9286,
-          "prior_week_value": 0.8545,
-          "wow_pct": 0.0867,
-          "trailing_13w_avg": 0.7458,
+          "value": 0.5833,
+          "prior_week_value": 0.6667,
+          "wow_pct": -0.1251,
+          "trailing_13w_avg": 0.65,
           "rank_in_parent": 1,
           "peer_count": 1
         },
         {
           "fact_id": "F5",
           "node_id": "BR-0501",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.8966,
-          "prior_week_value": 0.8929,
-          "wow_pct": 0.0041,
-          "trailing_13w_avg": 0.7777,
+          "value": 10.5,
+          "prior_week_value": 9.0,
+          "wow_pct": 0.1667,
+          "trailing_13w_avg": 10.375,
           "rank_in_parent": 2,
           "peer_count": 2
         },
         {
           "fact_id": "F6",
           "node_id": "BR-0502",
-          "kpi_code": "COVERAGE_13W",
+          "kpi_code": "ACT_PER_ADV",
           "iso_week_id": "2026-W40",
-          "value": 0.963,
-          "prior_week_value": 0.8148,
-          "wow_pct": 0.1819,
-          "trailing_13w_avg": 0.7129,
+          "value": 17.5,
+          "prior_week_value": 11.0,
+          "wow_pct": 0.5909,
+          "trailing_13w_avg": 11.5,
           "rank_in_parent": 1,
           "peer_count": 2
         }

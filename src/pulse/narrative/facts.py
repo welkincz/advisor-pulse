@@ -22,7 +22,6 @@ CHILD_KPIS = (
     KpiCode.ACT_PER_ADV,
     KpiCode.SHOW_RATE,
     KpiCode.APPT_CONV,
-    KpiCode.COVERAGE_13W,
 )
 HISTORY_WEEKS = 13
 NARRATED_LEVELS = (OrgLevel.REGION, OrgLevel.DISTRICT)

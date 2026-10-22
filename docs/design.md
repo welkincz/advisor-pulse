@@ -165,8 +165,9 @@ The map draws all of Canada in Statistics Canada's Lambert conformal conic proje
 Colours bin against every week in view, inside Tukey's fences, so a shade keeps its
 meaning while the week player runs and warm-up weeks do not wash everything out.
 The ranking beside the map is the keyboard path into every area; hovering a row and
-hovering the map highlight each other. The FSA coverage layer appears only when the
-export manifest enables FSA boundaries. Sources are credited under the map.
+hovering the map highlight each other. The FSA layer appears only when the export
+manifest enables FSA boundaries; it shades portfolio contacted (12 months), or activities
+with the area's clients for a week without 12 months of history. Sources are credited under the map.
 
 `WeekPlayer` (primitives) scrubs or plays through the weekly runs over a quiet trend strip.
 It is a native range input, so drag, click and arrow keys all work.

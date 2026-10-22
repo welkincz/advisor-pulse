@@ -26,6 +26,7 @@ from pulse.contracts.patterns import POSTAL_CODE
 from pulse.contracts.sources import SnowflakeActivity
 from pulse.generate.advisors import AdvisorRoster, assignment_ranges
 from pulse.generate.clients import ClientBatch, delta_rows
+from pulse.generate.portfolios import holders_on
 
 DEFAULT_RATES: Mapping[DefectKind, float] = {
     DefectKind.EXACT_DUPLICATE: 0.015,
@@ -499,6 +500,13 @@ def _source_events(
             for day, rows in delta_rows(client_batch).items()
             for index, row in enumerate(rows)
         }
+        holders: dict[date, dict[str, str]] = {}
+
+        def holder(portfolio_id: str, day: date) -> str | None:
+            if day not in holders:
+                holders[day] = holders_on(client_batch.portfolios, day)
+            return holders[day].get(portfolio_id)
+
         for change in client_batch.changes:
             # Holder changes and rebalancing are business events with their own history in
             # PRTF_ASGN; only the book churn below is noted against CLNT.
@@ -510,6 +518,7 @@ def _source_events(
             file, row = locations[(change.day, change.after.client_id)]
             if not (root / file).exists():
                 continue
+            before = change.before
             defects.append(
                 _note(
                     DefectKind.CLIENT_REASSIGNMENT,
@@ -519,10 +528,11 @@ def _source_events(
                     file,
                     row=row,
                     natural_key=change.after.client_id,
-                    column="PRIM_ADVSR_ID",
-                    raw=change.before.primary_advisor_id if change.before else None,
-                    expected=change.after.primary_advisor_id,
-                    detail="Book history changes as of week end.",
+                    raw=holder(before.portfolio_id, change.day - timedelta(days=1))
+                    if before
+                    else None,
+                    expected=holder(change.after.portfolio_id, change.day),
+                    detail="Book owner (the portfolio's holder) changes as of week end.",
                 )
             )
     return defects

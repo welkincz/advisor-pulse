@@ -32,14 +32,6 @@
      "F17"
     ],
     "text": "Appointment conversion rose to 57.1% from 50.0%. BR-0101 reached 75.0% (from 0.0%), while BR-0102 fell to 33.3% from 66.7%."
-   },
-   {
-    "fact_ids": [
-     "F8",
-     "F14",
-     "F18"
-    ],
-    "text": "13-week coverage rose to 77.5% from 67.6%. BR-0102 is at 81.0% and BR-0101 at 72.4%."
    }
   ],
   "headline": "GTA activities per advisor fell 15.1% week over week to 9.0 in 2026-W39, from 10.6.",
@@ -55,15 +47,14 @@
    {
     "fact_ids": [
      "F12",
-     "F16",
-     "F14",
-     "F18"
+     "F16"
     ],
     "node_id": "BR-0101",
-    "reason": "Trails its peer on weekly show rate (80.0% vs 100.0%) and 13-week coverage (72.4% vs 81.0%)."
+    "reason": "Trails its peer on weekly show rate (80.0% vs 100.0%)."
    }
   ]
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

@@ -9,7 +9,7 @@ const SPARK_WEEKS = 26
 
 /** The measures in three plain groups: who was reached, what came of it, how clean the data was. The lead KPI comes first. */
 export const KPI_GROUPS: readonly { title: string; codes: readonly KpiCode[] }[] = [
-  { title: 'Reach', codes: ['PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'CLIENTS_CONTACTED', 'COVERAGE_13W'] },
+  { title: 'Reach', codes: ['PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'CLIENTS_CONTACTED'] },
   { title: 'Appointments', codes: ['APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'NO_SHOW_RATE', 'APPT_CONV', 'AVG_MEET_MIN'] },
   { title: 'Data quality', codes: ['LATE_RATE', 'QUAR_RATE'] },
 ]

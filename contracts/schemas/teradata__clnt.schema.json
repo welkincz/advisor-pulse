@@ -63,12 +63,6 @@
       "title": "Last Upd Ts",
       "type": "string"
     },
-    "PRIM_ADVSR_ID": {
-      "description": "Book owner. Deprecated: the owner is the holder of PRTF_ID.",
-      "pattern": "^ADV-\\d{5}$",
-      "title": "Prim Advsr Id",
-      "type": "string"
-    },
     "PRIM_BRNCH_ID": {
       "pattern": "^BR-\\d{4}$",
       "title": "Prim Brnch Id",
@@ -78,18 +72,10 @@
       "$ref": "#/$defs/Province"
     },
     "PRTF_ID": {
-      "anyOf": [
-        {
-          "pattern": "^PRT-\\d{6}$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Portfolio the client belongs to. Optional while the migration runs.",
-      "title": "Prtf Id"
+      "description": "Portfolio the client belongs to; its holder at week end owns the book.",
+      "pattern": "^PRT-\\d{6}$",
+      "title": "Prtf Id",
+      "type": "string"
     },
     "PSTL_CD": {
       "anyOf": [
@@ -117,10 +103,10 @@
     "BRTH_YR",
     "SEG_CD",
     "PROV_CD",
-    "PRIM_ADVSR_ID",
     "PRIM_BRNCH_ID",
     "STAT_CD",
-    "LAST_UPD_TS"
+    "LAST_UPD_TS",
+    "PRTF_ID"
   ],
   "title": "teradata__clnt",
   "type": "object",

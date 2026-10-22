@@ -100,7 +100,7 @@ def test_facts_are_deterministic_and_cover_node_children_and_history(
     current = [f for f in node.facts if f.iso_week_id == WEEK]
     # The node itself: every KPI it reports this week.
     on_kpis = {f.kpi_code for f in current if f.node_id == "ON"}
-    assert {KpiCode.ACT_PER_ADV, KpiCode.SHOW_RATE, KpiCode.COVERAGE_13W} <= on_kpis
+    assert {KpiCode.ACT_PER_ADV, KpiCode.SHOW_RATE, KpiCode.APPT_CONV} <= on_kpis
     # Its children, with peer rank.
     assert set(node.children) == {"EON", "GTA"}
     assert {f.node_id for f in current} == {"ON", "EON", "GTA"}

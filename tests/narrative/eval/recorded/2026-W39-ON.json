@@ -31,26 +31,16 @@
      "F15"
     ],
     "text": "Among children, EON rose 3.7% to 11.2 activities per advisor, while GTA fell 15.1% to 9.0 and ranked 2 of 2."
-   },
-   {
-    "fact_ids": [
-     "F8",
-     "F14",
-     "F18"
-    ],
-    "text": "13-week coverage rose to 81.6% in ON; EON is at 85.7% and GTA at 77.5%."
    }
   ],
   "headline": "Ontario activities per advisor fell 5.6% this week to 10.1, down from 10.7 the prior week.",
   "watchlist": [
    {
     "fact_ids": [
-     "F15",
-     "F18",
-     "F14"
+     "F15"
     ],
     "node_id": "GTA",
-    "reason": "Activities per advisor fell 15.1% to 9.0, ranking 2 of 2 and below its trailing 13-week average of 9.5; coverage of 77.5% also trails EON."
+    "reason": "Activities per advisor fell 15.1% to 9.0, ranking 2 of 2 and below its trailing 13-week average of 9.5."
    },
    {
     "fact_ids": [
@@ -63,5 +53,6 @@
   ]
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

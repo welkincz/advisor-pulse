@@ -26,19 +26,16 @@
    {
     "fact_ids": [
      "F5",
-     "F10",
-     "F8"
+     "F10"
     ],
-    "text": "Show rate rose to 85.7% from 42.9%, and no-show rate fell to 14.3% from 57.1%. 13-week coverage rose to 92.9% from 85.5%."
+    "text": "Show rate rose to 85.7% from 42.9%, and no-show rate fell to 14.3% from 57.1%."
    },
    {
     "fact_ids": [
      "F15",
-     "F11",
-     "F18",
-     "F14"
+     "F11"
     ],
-    "text": "BR-0502 (Plateau Mont-Royal) leads on activities per advisor at 17.5 versus 10.5 for BR-0501 (Ville-Marie). BR-0502 coverage is 96.3% versus 89.7% for BR-0501."
+    "text": "BR-0502 (Plateau Mont-Royal) leads on activities per advisor at 17.5 versus 10.5 for BR-0501 (Ville-Marie)."
    }
   ],
   "headline": "Activities per advisor rose to 14.0 this week, up 40.0% from 10.0 the prior week.",
@@ -47,11 +44,10 @@
     "fact_ids": [
      "F11",
      "F12",
-     "F14",
      "F13"
     ],
     "node_id": "BR-0501",
-    "reason": "Ranks second of two on activities per advisor (10.5), show rate (71.4%) and 13-week coverage (89.7%). Appointment conversion fell to 80.0% from 100.0%."
+    "reason": "Ranks second of two on activities per advisor (10.5) and show rate (71.4%). Appointment conversion fell to 80.0% from 100.0%."
    },
    {
     "fact_ids": [
@@ -63,5 +59,6 @@
   ]
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

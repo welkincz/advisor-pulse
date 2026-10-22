@@ -8,8 +8,8 @@ function row(id: string, overrides: Partial<OrgQuarterly> = {}): OrgQuarterly {
     quarter_start: '2025-11-01', quarter_end: '2026-01-31', first_week: '2025-W44', last_week: '2026-W05',
     weeks_reported: 13, weeks_in_quarter: 13, is_complete: true, level: 'NATIONAL', node_id: 'CA', node_name: 'Canada', parent_id: null,
     advisor_weeks: 1300, activities_completed: 13000, calls_out: 2600, calls_in: 0, appointments_booked: 260, booked_from_call: 130,
-    appointments_held: 200, no_shows: 20, conversions: 50, unique_clients_contacted: 4000, book_size: 10000, clients_covered_13w: 6000,
-    coverage_rate_13w: 0.6, avg_meeting_duration_min: 30, activities_per_advisor: 10, show_rate: 0.9, conversion_rate: 0.25, call_to_appt_rate: 0.05,
+    appointments_held: 200, no_shows: 20, conversions: 50, unique_clients_contacted: 4000,
+    avg_meeting_duration_min: 30, activities_per_advisor: 10, show_rate: 0.9, conversion_rate: 0.25, call_to_appt_rate: 0.05,
     portfolio_clients: 10000, portfolio_contacted_12m: 8500, portfolio_contacted_rate_12m: 0.85,
     ...overrides,
   }

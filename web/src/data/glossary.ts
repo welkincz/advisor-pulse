@@ -14,7 +14,6 @@ export const KPI_PLAIN: Record<KpiCode, string> = {
   SHOW_RATE: 'Of the meetings due in the week, the share the client attended.',
   APPT_CONV: 'Of the meetings held, the share that ended in a plan or a new product.',
   CLIENTS_CONTACTED: 'Different clients reached at least once in the week.',
-  COVERAGE_13W: 'Share of advisors’ clients contacted at least once in the last 13 weeks.',
   AVG_MEET_MIN: 'How long a completed meeting lasted, on average.',
   NO_SHOW_RATE: 'Of the meetings due in the week, the share the client missed.',
   LATE_RATE: 'Share of the week’s rows that arrived after their week had closed.',
