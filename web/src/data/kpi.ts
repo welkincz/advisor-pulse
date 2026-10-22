@@ -2,6 +2,7 @@ import type { KpiCode } from './generated/manifest'
 
 /** Display names, matching the narrative prompt's KPI_LABELS (src/pulse/narrative/prompt.py). */
 export const KPI_LABELS: Record<KpiCode, string> = {
+  PRTF_CONTACT_12M: 'Portfolio contacted (12 months)',
   ACT_PER_ADV: 'Activities per advisor',
   CALLS_OUT: 'Outbound calls',
   APPT_BOOKED: 'Appointments booked',
@@ -16,7 +17,7 @@ export const KPI_LABELS: Record<KpiCode, string> = {
   QUAR_RATE: 'Quarantine rate',
 }
 
-export const RATES: ReadonlySet<KpiCode> = new Set<KpiCode>(['CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
+export const RATES: ReadonlySet<KpiCode> = new Set<KpiCode>(['PRTF_CONTACT_12M', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
 /** Averages keep one decimal even when whole, so a column of them lines up (16.0, not 16). */
 const AVERAGES = new Set<KpiCode>(['ACT_PER_ADV', 'AVG_MEET_MIN'])
 

@@ -62,6 +62,15 @@ class AssignmentReason(StrEnum):
     TERM = "TERM"
 
 
+class PortfolioAssignmentReason(StrEnum):
+    """Why a portfolio changed hands (PRTF_ASGN.RSN_CD, PLAN.md §6.2)."""
+
+    OPEN = "OPEN"  # a new portfolio's first holder
+    HANDOVER = "HANDOVER"  # the holder left the bank; the whole portfolio moves on
+    TRANSFER = "TRANSFER"  # the holder moved branch; the portfolio stays at its transit
+    REBALANCE = "REBALANCE"  # the branch evened out its advisors' workloads
+
+
 class ClientStatus(StrEnum):
     ACTIVE = "A"
     CLOSED = "C"
@@ -149,6 +158,7 @@ class DqAction(StrEnum):
 class KpiCode(StrEnum):
     """KPI codes from PLAN.md §7."""
 
+    PRTF_CONTACT_12M = "PRTF_CONTACT_12M"
     ACT_PER_ADV = "ACT_PER_ADV"
     CALLS_OUT = "CALLS_OUT"
     APPT_BOOKED = "APPT_BOOKED"

@@ -11,7 +11,7 @@ export type ClntSinceDt = string;
  */
 export type LastUpdTs = string;
 /**
- * Book owner.
+ * Book owner. Deprecated: the owner is the holder of PRTF_ID.
  */
 export type PrimAdvsrId = string;
 export type PrimBrnchId = string;
@@ -19,6 +19,10 @@ export type PrimBrnchId = string;
  * Provinces in scope. Territories are out of scope for the fictional network.
  */
 export type Province = "ON" | "QC" | "BC" | "AB" | "SK" | "MB" | "NS" | "PE" | "NB" | "NL";
+/**
+ * Portfolio the client belongs to. Optional while the migration runs.
+ */
+export type PrtfId = string | null;
 /**
  * Raw postal code; normalized in staging.
  */
@@ -37,6 +41,7 @@ export interface Teradata_Clnt {
   PRIM_ADVSR_ID: PrimAdvsrId;
   PRIM_BRNCH_ID: PrimBrnchId;
   PROV_CD: Province;
+  PRTF_ID?: PrtfId;
   PSTL_CD?: PstlCd;
   SEG_CD: Segment;
   STAT_CD: ClientStatus;

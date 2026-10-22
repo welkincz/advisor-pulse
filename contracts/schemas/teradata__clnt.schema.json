@@ -64,7 +64,7 @@
       "type": "string"
     },
     "PRIM_ADVSR_ID": {
-      "description": "Book owner.",
+      "description": "Book owner. Deprecated: the owner is the holder of PRTF_ID.",
       "pattern": "^ADV-\\d{5}$",
       "title": "Prim Advsr Id",
       "type": "string"
@@ -76,6 +76,20 @@
     },
     "PROV_CD": {
       "$ref": "#/$defs/Province"
+    },
+    "PRTF_ID": {
+      "anyOf": [
+        {
+          "pattern": "^PRT-\\d{6}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Portfolio the client belongs to. Optional while the migration runs.",
+      "title": "Prtf Id"
     },
     "PSTL_CD": {
       "anyOf": [

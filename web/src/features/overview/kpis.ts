@@ -7,6 +7,7 @@ export const KPI_CODES: readonly KpiCode[] = [
 ]
 
 export const KPI_DEFINITIONS: Record<KpiCode, string> = {
+  PRTF_CONTACT_12M: 'Active portfolio clients with at least one completed contact by any advisor in the trailing 12 months divided by active portfolio clients at week end.',
   ACT_PER_ADV: 'Completed activities divided by active advisors in the week. Active advisors exclude terminated advisors and branch managers.',
   CALLS_OUT: 'Completed outbound calls in the week.',
   APPT_BOOKED: 'Appointments created in the week.',
@@ -22,7 +23,7 @@ export const KPI_DEFINITIONS: Record<KpiCode, string> = {
 }
 
 export const RATE_CODES = new Set<KpiCode>([
-  'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE',
+  'PRTF_CONTACT_12M', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE',
 ])
 
 export const LOWER_IS_BETTER = new Set<KpiCode>(['NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])

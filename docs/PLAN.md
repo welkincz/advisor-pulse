@@ -175,7 +175,7 @@ advisor-pulse/
 
 ### Org hierarchy
 
-National → Region → District → Branch → Advisor. Regions follow the provinces, as a Canadian bank's branch network usually does (#196): one region per province with branches. A small province is one district.
+National → Region → District → Branch → Advisor → **Portfolio**. Regions follow the provinces, as a Canadian bank's branch network usually does (#196): one region per province with branches. A small province is one district.
 
 | Region | Districts |
 |--------|-----------|
@@ -189,6 +189,12 @@ National → Region → District → Branch → Advisor. Regions follow the prov
 | Prince Edward Island (PE) | Prince Edward Island |
 | New Brunswick (NB) | New Brunswick |
 | Newfoundland and Labrador (NL) | Newfoundland & Labrador |
+
+### Portfolios and the lead KPI (#219)
+
+Every active client belongs to one **portfolio**: a group of clients that one advisor manages. A portfolio belongs to one branch (its *transit*) and is held by exactly one advisor at a time. When the holder leaves the bank, the whole portfolio is handed over to an advisor at the same transit. When the holder moves branch, the portfolio stays and is reassigned. Book-owning advisors usually hold one portfolio, and a few hold two after absorbing a leaver's. Branch managers hold none.
+
+The report leads with **portfolio contacted (12 months)**: of the clients in a portfolio, the share who heard from an advisor at least once in the last twelve months. An advisor whose portfolio holds 100 clients, 90 of them contacted in the last year, scores 90%. Any advisor's contact counts, so a handed-over portfolio keeps the credit for its previous holder's calls. Activities per advisor stays as the secondary KPI. Terms are neutral on purpose (§1 of AGENTS.md).
 
 Scale (default config): 10 regions · 17 districts · ~120 branches · ~900 advisors · ~150k clients · ~15k activities/week · 104 weeks of history (~1.5M activity rows).
 Each branch sits in a real FSA (public geography only). Client postal codes use a real FSA in the branch's area plus a random LDU.
@@ -217,7 +223,9 @@ Product lines (generic): `DEPOSITS`, `LENDING`, `MORTGAGE`, `INVESTING`, `INSURA
 | Postal codes `m5v3l9`, `M5V-3L9`, `M5V 3L9 `, `90210`, null | 8% | client | Normalize; invalid → FSA `UNK` |
 | Late-arriving activity (1–3 weeks late) | 4% | activity | Accepted, `is_late_arriving = true`; affected weeks rebuilt |
 | Advisor transfers / promotions / terms | ~1.5% of advisors per month | assignment | SCD2; activity credited to the as-of branch |
-| Client re-assignment to new advisor | 2% / quarter | client | Book history as-of week end |
+| Client re-assignment to another portfolio | 2% / quarter | client | Book history as-of week end |
+| Portfolio handover / transfer | follows advisor terms and transfers | portfolio assignment | SCD2; the holder as of week end owns the book |
+| Unknown `PRTF_ID` on a client | 0.3% of client deltas | client | Kept; mapped to the Unknown portfolio; DQ014 warning |
 
 The generator writes a **defect manifest** (ground truth) per batch. Tests assert that the pipeline catches exactly what was injected.
 
@@ -227,7 +235,7 @@ The generator writes a **defect manifest** (ground truth) per batch. Tests asser
 
 Conventions: `snake_case` from staging on; `_sk` = surrogate key (hash); `_id` = natural key; timestamps are UTC (`TIMESTAMPTZ`; Arrow `timestamp[us, UTC]`; naive source values are read as UTC); dates are `America/Toronto` business dates; `iso_week_id` = `YYYY-Www` (ISO week, Monday start).
 
-Identifier formats (enforced by `src/pulse/contracts/patterns.py`): activity `ACT-` + 12 hex, advisor `ADV-#####`, client `CLI-########`, branch `BR-####`, assignment `ASG-########`, district code three capital letters (e.g. `GTA`), region code the province's postal abbreviation (`ON`, `QC`, `BC`, `AB`, `SK`, `MB`, `NS`, `PE`, `NB`, `NL`), national node `CA`, rule `DQ###`, narrative fact `F<n>`.
+Identifier formats (enforced by `src/pulse/contracts/patterns.py`): activity `ACT-` + 12 hex, advisor `ADV-#####`, client `CLI-########`, branch `BR-####`, assignment `ASG-########`, portfolio `PRT-######`, portfolio assignment `PAS-########`, district code three capital letters (e.g. `GTA`), region code the province's postal abbreviation (`ON`, `QC`, `BC`, `AB`, `SK`, `MB`, `NS`, `PE`, `NB`, `NL`), national node `CA`, rule `DQ###`, narrative fact `F<n>`.
 
 The contracts in `src/pulse/contracts/` are the executable form of this dictionary; `contracts/schemas/*.json` are generated from them (`make contracts`).
 
@@ -264,10 +272,11 @@ The contracts in `src/pulse/contracts/` are the executable form of this dictiona
 | SEG_CD | VARCHAR | `MASS`, `MAFF` (mass affluent), `AFFL`, `SMBS` (small business) |
 | PSTL_CD | VARCHAR | Postal code (dirty) |
 | PROV_CD | CHAR(2) | Province |
-| PRIM_ADVSR_ID | VARCHAR | Primary advisor (book ownership) |
+| PRIM_ADVSR_ID | VARCHAR | Primary advisor. **Deprecated**: book ownership comes from the portfolio's holder; dropped in #226 |
 | PRIM_BRNCH_ID | VARCHAR | Home branch |
 | STAT_CD | CHAR(1) | `A` active, `C` closed |
 | LAST_UPD_TS | TIMESTAMP | **Watermark column** |
+| PRTF_ID | VARCHAR | Portfolio the client belongs to (`PRT-######`). Optional until #226 makes it required; files written before portfolios have no such column |
 
 **ADVSR** (advisor master): ADVSR_ID, ADVSR_NM (Faker), ROLE_CD (`ASSOC`, `ADVSR`, `SNR_ADVSR`, `BR_MGR`), HIRE_DT, TERM_DT (nullable), LAST_UPD_TS.
 
@@ -275,10 +284,15 @@ The contracts in `src/pulse/contracts/` are the executable form of this dictiona
 
 **BRNCH** (branch): BRNCH_ID, BRNCH_NM, DIST_CD, FSA_CD, OPEN_DT, CLOSE_DT (nullable), LAST_UPD_TS.
 
+**PRTF** (portfolio master): PRTF_ID, BRNCH_ID (transit), OPEN_DT, CLOSE_DT (nullable, ≥ OPEN_DT), LAST_UPD_TS.
+
+**PRTF_ASGN** (portfolio assignment events): PASGN_ID, PRTF_ID, ADVSR_ID, EFF_DT, RSN_CD (`OPEN`, `HANDOVER`, `TRANSFER`, `REBALANCE`), LAST_UPD_TS. An event makes ADVSR_ID the holder from EFF_DT until the portfolio's next event. A handover takes effect the day after the leaver's TERM_DT, so a portfolio is never without a holder.
+
 Physical conventions for both 'Teradata' files:
 - **Text formats:** timestamps are naive UTC text `YYYY-MM-DD HH:MM:SS`; dates are `YYYY-MM-DD`; nulls are empty CSV fields.
 - **CLNT:** the table in `edw.sqlite` is the initial snapshot and is never rewritten. Every later client change (new, closed, re-assigned, moved) arrives only in a delta, with a `LAST_UPD_TS` strictly after the snapshot's.
 - **HR tables:** ADVSR, ADVSR_ASGN and BRNCH hold their current state and are loaded incrementally on `LAST_UPD_TS`.
+- **Portfolio tables:** PRTF and PRTF_ASGN behave like the HR tables (current state in `edw.sqlite`, loaded incrementally on `LAST_UPD_TS`).
 
 ### 6.3 Reference — `reference/org.yaml`
 
@@ -287,7 +301,8 @@ regions[`region_code`, `region_name`] → districts[`district_code`, `district_n
 
 ### 6.4 Raw layer (DuckDB schema `raw`)
 
-Tables `raw.snowflake__activity`, `raw.teradata__clnt`, `raw.teradata__advsr`, `raw.teradata__advsr_asgn`, `raw.teradata__brnch`.
+Tables `raw.snowflake__activity`, `raw.teradata__clnt`, `raw.teradata__advsr`, `raw.teradata__advsr_asgn`, `raw.teradata__brnch`, `raw.teradata__prtf`, `raw.teradata__prtf_asgn`.
+A contract that gains a nullable column is applied to an existing warehouse by `init_warehouse` (`ALTER TABLE … ADD COLUMN`). Any other change needs a rebuild.
 These hold source columns as-is, plus:
 
 | Column | Type | Description |
@@ -319,13 +334,17 @@ These hold source columns as-is, plus:
 | stg_advisor | advisor_id | Rename; latest version |
 | stg_advisor_assignment | assignment_id | Rename; ordered events |
 | stg_branch | branch_id | Rename; join org.yaml codes |
+| stg_portfolio | portfolio_id | Rename; latest version (#223) |
+| stg_portfolio_assignment | portfolio_assignment_id | Rename; ordered events (#223) |
 
 ### 6.7 Intermediate (`int_*`)
 
 | Model | Grain | Purpose |
 |-------|-------|---------|
 | int_advisor_history | advisor_id × valid_from | SCD2 ranges from assignment events: `valid_from`, `valid_to` (exclusive, `9999-12-31` open), `branch_id`, `role_code`, `change_reason` |
-| int_client_book_weekly | client_id × iso_week_id | Primary advisor as-of week end; active flag |
+| int_portfolio_history | portfolio_id × valid_from | SCD2 holder ranges from PRTF_ASGN: `advisor_id`, `valid_from`, `valid_to` (exclusive), `change_reason`; DQ024 (#223) |
+| int_client_book_weekly | client_id × iso_week_id | Client's portfolio as of week end, then that portfolio's holder as of week end; transit branch; active flag (#223 switches from PRIM_ADVSR_ID) |
+| int_client_contact_12m | client_id × iso_week_id | Last completed contact activity by any advisor on or before week end; `contacted_12m` = that date > week end − 12 months (#223) |
 | int_activity_enriched | activity_id | Activity joined to as-of advisor history (branch at time of activity) |
 
 ### 6.8 Marts (star schema; dbt contracts enforced)
@@ -385,6 +404,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 
 | KPI | Code | Formula | Notes |
 |-----|------|---------|-------|
+| **Portfolio contacted (12 months)** — lead KPI | `PRTF_CONTACT_12M` | active clients in the node's portfolios at week end with ≥1 completed contact activity (`counts_as_contact`) by **any** advisor whose Toronto activity date is in `(week_end − 12 months, week_end]` ÷ active clients in those portfolios at week end | A portfolio is credited to its holder as of week end and to its transit branch. Null for weeks with less than 12 months of activity history, never a partial window. Higher is better |
 | Activities per advisor | `ACT_PER_ADV` | completed activities ÷ active advisors in week | Active = SCD2 range overlaps week, not terminated, role ≠ `BR_MGR` |
 | Outbound calls | `CALLS_OUT` | count `CALL_OUT` completed | |
 | Appointments booked | `APPT_BOOKED` | appointments with `created_ts` in week | |
@@ -392,7 +412,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 | Show rate | `SHOW_RATE` | held ÷ (held + no-show), for appointments scheduled in week | Cancelled excluded |
 | Appointment conversion | `APPT_CONV` | held appointments with outcome ∈ {`PLAN_CREATED`, `PRODUCT_OPENED`} ÷ held appointments | |
 | Unique clients contacted | `CLIENTS_CONTACTED` | distinct clients with ≥1 completed contact activity in week | |
-| Client coverage (13w) | `COVERAGE_13W` | distinct active book clients contacted in trailing 13 weeks ÷ active book clients at week end | Book = client's primary advisor as of week end |
+| Client coverage (13w) | `COVERAGE_13W` | distinct active book clients contacted in trailing 13 weeks ÷ active book clients at week end | **Deprecated** by `PRTF_CONTACT_12M`; removed in #226 |
 | Avg meeting duration | `AVG_MEET_MIN` | mean `duration_min` for completed `APPOINTMENT` + `REVIEW` | |
 | No-show rate | `NO_SHOW_RATE` | 1 − show rate | |
 | Late-arriving rate (DQ) | `LATE_RATE` | late rows ÷ rows loaded in batch | Operational KPI |
@@ -414,10 +434,13 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 | DQ011 | staging | Postal code fails regex after normalization | `fsa_code = 'UNK'`; WARN if > 10% |
 | DQ012 | staging | `advisor_id` not in advisor master | Map to Unknown member; WARN if > 0.5%, FAIL if > 2% |
 | DQ013 | staging | `client_id` not in client master | Keep with null `client_sk`; WARN if > 1% |
+| DQ014 | staging | Client `PRTF_ID` not in portfolio master | Keep the client under the Unknown portfolio; WARN if > 0.5%, FAIL if > 2% |
 | DQ020 | intermediate | SCD2 ranges overlap / gap / > 1 current row | dbt test, **error** |
 | DQ021 | marts | PK unique / not null / FK relationships | dbt test, **error** |
 | DQ022 | marts | Child roll-up sums equal parent (every level, every additive measure) | Singular test, **error** |
 | DQ023 | marts | Ratios within [0, 1] | dbt test, **error** |
+| DQ024 | intermediate | Portfolio holder ranges overlap / gap / > 1 current row | dbt test, **error** |
+| DQ025 | marts | Portfolio's holder at week end works at another branch than the portfolio's transit | WARN (a reassignment that did not arrive) |
 | DQ030 | run | Freshness: max `activity_date` ≥ week end − 2 days | FAIL |
 | DQ031 | run | Volume: weekly completed activities, divided by the business-calendar factor (holidays, February; `pulse.business_calendar`), vs the trailing 8 adjusted weeks | WARN beyond 3σ **and** 5%; beyond ±50% FAIL |
 | DQ032 | run | Quarantine rate ≤ 2% of batch | FAIL (circuit breaker) |

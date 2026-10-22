@@ -13,6 +13,8 @@ from pulse.contracts.sources import (
     TeradataAssignment,
     TeradataBranch,
     TeradataClient,
+    TeradataPortfolio,
+    TeradataPortfolioAssignment,
 )
 
 
@@ -40,11 +42,16 @@ def _accept(model: type[Contract], row: dict[str, Any], **changes: Any) -> None:
         (
             TeradataClient,
             "CLNT_ID CLNT_SINCE_DT BRTH_YR SEG_CD PSTL_CD PROV_CD PRIM_ADVSR_ID PRIM_BRNCH_ID "
-            "STAT_CD LAST_UPD_TS",
+            "STAT_CD LAST_UPD_TS PRTF_ID",
         ),
         (TeradataAdvisor, "ADVSR_ID ADVSR_NM ROLE_CD HIRE_DT TERM_DT LAST_UPD_TS"),
         (TeradataAssignment, "ASGN_ID ADVSR_ID BRNCH_ID ROLE_CD EFF_DT RSN_CD LAST_UPD_TS"),
         (TeradataBranch, "BRNCH_ID BRNCH_NM DIST_CD FSA_CD OPEN_DT CLOSE_DT LAST_UPD_TS"),
+        (TeradataPortfolio, "PRTF_ID BRNCH_ID OPEN_DT CLOSE_DT LAST_UPD_TS"),
+        (
+            TeradataPortfolioAssignment,
+            "PASGN_ID PRTF_ID ADVSR_ID EFF_DT RSN_CD LAST_UPD_TS",
+        ),
     ],
 )
 def test_columns_match_dictionary(model: type[Contract], expected: str) -> None:
@@ -217,3 +224,39 @@ def test_client_postal_code_is_not_validated_at_source(
 ) -> None:
     # Dirty postal codes are normalized in staging (DQ011), not quarantined.
     _accept(TeradataClient, client_row, PSTL_CD=postal)
+
+
+# ── Portfolios (PLAN.md §6.2, #220) ──────────────────────────────────────────
+
+PORTFOLIO = {
+    "PRTF_ID": "PRT-000101",
+    "BRNCH_ID": "BR-0101",
+    "OPEN_DT": "2019-04-01",
+    "CLOSE_DT": None,
+    "LAST_UPD_TS": "2026-10-12T06:00:00Z",
+}
+PORTFOLIO_ASSIGNMENT = {
+    "PASGN_ID": "PAS-00000001",
+    "PRTF_ID": "PRT-000101",
+    "ADVSR_ID": "ADV-00141",
+    "EFF_DT": "2024-02-19",
+    "RSN_CD": "HANDOVER",
+    "LAST_UPD_TS": "2026-10-12T06:00:00Z",
+}
+
+
+def test_portfolio_rows() -> None:
+    _accept(TeradataPortfolio, PORTFOLIO)
+    _accept(TeradataPortfolio, PORTFOLIO, CLOSE_DT="2026-01-31")
+    _reject(TeradataPortfolio, PORTFOLIO, CLOSE_DT="2019-03-31")
+    _reject(TeradataPortfolio, PORTFOLIO, PRTF_ID="PRT-101")
+    _accept(TeradataPortfolioAssignment, PORTFOLIO_ASSIGNMENT)
+    _reject(TeradataPortfolioAssignment, PORTFOLIO_ASSIGNMENT, RSN_CD="RETIRE")
+    _reject(TeradataPortfolioAssignment, PORTFOLIO_ASSIGNMENT, ADVSR_ID=None)
+
+
+def test_client_portfolio_is_optional_until_226(client_row: dict[str, Any]) -> None:
+    # Files written before portfolios existed have no PRTF_ID column at all.
+    assert TeradataClient.model_validate(client_row).portfolio_id is None
+    assert TeradataClient.model_validate({**client_row, "PRTF_ID": "PRT-000101"}).portfolio_id
+    _reject(TeradataClient, client_row, PRTF_ID="P-1")

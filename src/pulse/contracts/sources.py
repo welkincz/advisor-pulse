@@ -21,6 +21,7 @@ from pulse.contracts.enums import (
     Channel,
     ClientStatus,
     Outcome,
+    PortfolioAssignmentReason,
     ProductLine,
     Province,
     Role,
@@ -117,11 +118,19 @@ class TeradataClient(Contract):
     )
     province_code: Province = Field(alias="PROV_CD")
     primary_advisor_id: str = Field(
-        alias="PRIM_ADVSR_ID", pattern=patterns.ADVISOR_ID, description="Book owner."
+        alias="PRIM_ADVSR_ID",
+        pattern=patterns.ADVISOR_ID,
+        description="Book owner. Deprecated: the owner is the holder of PRTF_ID.",
     )
     primary_branch_id: str = Field(alias="PRIM_BRNCH_ID", pattern=patterns.BRANCH_ID)
     status_code: ClientStatus = Field(alias="STAT_CD")
     last_updated_ts: datetime = Field(alias="LAST_UPD_TS", description="Watermark column.")
+    portfolio_id: str | None = Field(
+        default=None,
+        alias="PRTF_ID",
+        pattern=patterns.PORTFOLIO_ID,
+        description="Portfolio the client belongs to. Optional while the migration runs.",
+    )
 
 
 class TeradataAdvisor(Contract):
@@ -171,10 +180,49 @@ class TeradataBranch(Contract):
     last_updated_ts: datetime = Field(alias="LAST_UPD_TS", description="Watermark column.")
 
 
+class TeradataPortfolio(Contract):
+    contract_name = "teradata__prtf"
+    contract_description = (
+        "Portfolio master (PRTF) in sources/teradata/edw.sqlite: a group of clients managed "
+        "by one advisor at a time, belonging to one branch (its transit)."
+    )
+
+    portfolio_id: str = Field(alias="PRTF_ID", pattern=patterns.PORTFOLIO_ID)
+    branch_id: str = Field(
+        alias="BRNCH_ID", pattern=patterns.BRANCH_ID, description="Transit: the owning branch."
+    )
+    open_date: date = Field(alias="OPEN_DT")
+    close_date: date | None = Field(default=None, alias="CLOSE_DT")
+    last_updated_ts: datetime = Field(alias="LAST_UPD_TS", description="Watermark column.")
+
+    @model_validator(mode="after")
+    def _close_after_open(self) -> TeradataPortfolio:
+        if self.close_date is not None and self.close_date < self.open_date:
+            raise ValueError("CLOSE_DT is before OPEN_DT")
+        return self
+
+
+class TeradataPortfolioAssignment(Contract):
+    contract_name = "teradata__prtf_asgn"
+    contract_description = (
+        "Portfolio assignment events (PRTF_ASGN) in sources/teradata/edw.sqlite: who holds "
+        "each portfolio from EFF_DT on; the input to SCD2 portfolio history."
+    )
+
+    portfolio_assignment_id: str = Field(alias="PASGN_ID", pattern=patterns.PORTFOLIO_ASSIGNMENT_ID)
+    portfolio_id: str = Field(alias="PRTF_ID", pattern=patterns.PORTFOLIO_ID)
+    advisor_id: str = Field(alias="ADVSR_ID", pattern=patterns.ADVISOR_ID)
+    effective_date: date = Field(alias="EFF_DT")
+    reason_code: PortfolioAssignmentReason = Field(alias="RSN_CD")
+    last_updated_ts: datetime = Field(alias="LAST_UPD_TS", description="Watermark column.")
+
+
 SOURCE_CONTRACTS: tuple[type[Contract], ...] = (
     SnowflakeActivity,
     TeradataClient,
     TeradataAdvisor,
     TeradataAssignment,
     TeradataBranch,
+    TeradataPortfolio,
+    TeradataPortfolioAssignment,
 )

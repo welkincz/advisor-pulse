@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "PortfolioAssignmentReason": {
+      "description": "Why a portfolio changed hands (PRTF_ASGN.RSN_CD, PLAN.md \u00a76.2).",
+      "enum": [
+        "OPEN",
+        "HANDOVER",
+        "TRANSFER",
+        "REBALANCE"
+      ],
+      "title": "PortfolioAssignmentReason",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/teradata__prtf_asgn.schema.json",
+  "additionalProperties": false,
+  "description": "Portfolio assignment events (PRTF_ASGN) in sources/teradata/edw.sqlite: who holds each portfolio from EFF_DT on; the input to SCD2 portfolio history.",
+  "properties": {
+    "ADVSR_ID": {
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Advsr Id",
+      "type": "string"
+    },
+    "EFF_DT": {
+      "format": "date",
+      "title": "Eff Dt",
+      "type": "string"
+    },
+    "LAST_UPD_TS": {
+      "description": "Watermark column.",
+      "format": "date-time",
+      "title": "Last Upd Ts",
+      "type": "string"
+    },
+    "PASGN_ID": {
+      "pattern": "^PAS-\\d{8}$",
+      "title": "Pasgn Id",
+      "type": "string"
+    },
+    "PRTF_ID": {
+      "pattern": "^PRT-\\d{6}$",
+      "title": "Prtf Id",
+      "type": "string"
+    },
+    "RSN_CD": {
+      "$ref": "#/$defs/PortfolioAssignmentReason"
+    }
+  },
+  "required": [
+    "PASGN_ID",
+    "PRTF_ID",
+    "ADVSR_ID",
+    "EFF_DT",
+    "RSN_CD",
+    "LAST_UPD_TS"
+  ],
+  "title": "teradata__prtf_asgn",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

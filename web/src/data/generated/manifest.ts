@@ -24,6 +24,7 @@ export type ReportFlag = "UP" | "DOWN" | "FLAT" | "ANOMALY";
  * KPI codes from PLAN.md §7.
  */
 export type KpiCode =
+  | "PRTF_CONTACT_12M"
   | "ACT_PER_ADV"
   | "CALLS_OUT"
   | "APPT_BOOKED"

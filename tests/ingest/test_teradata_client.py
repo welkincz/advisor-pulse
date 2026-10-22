@@ -129,7 +129,7 @@ def test_malformed_csv_record_is_quarantined_without_aborting_later_rows(
         handle.write('CLI-99999997,2026-10-04,1990,MASS,"unclosed\n')
         handle.write(
             'CLI-99999998,2026-10-04,1990,MASS,"M5V, 1A1",ON,ADV-10001,BR-0101,A,'
-            "2026-10-04 14:00:00\n"
+            "2026-10-04 14:00:00,\n"  # PRTF_ID empty (optional until #226)
         )
     result = _load(warehouse, sources)
     assert result.status is StageStatus.SUCCESS

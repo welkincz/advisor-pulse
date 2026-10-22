@@ -11,7 +11,14 @@ from pulse.contracts import duckdb_columns
 from pulse.contracts.enums import CheckSeverity, CheckStatus, LoadStatus, RunType, StageStatus
 from pulse.contracts.meta import CheckResult, LoadManifest, RejectedRow, RunLogRow, Watermark
 from pulse.ingest import meta
-from pulse.warehouse import TABLES, connect, init_warehouse, transaction, warehouse_path
+from pulse.warehouse import (
+    TABLES,
+    add_column_sql,
+    connect,
+    init_warehouse,
+    transaction,
+    warehouse_path,
+)
 
 T0 = datetime(2026, 10, 12, 6, 0, tzinfo=UTC)
 SHA_A = "a" * 64
@@ -262,3 +269,32 @@ def test_rejected_rows_bulk_and_rerun_safe(con: duckdb.DuckDBPyConnection) -> No
     meta.write_rejected_rows(con, [_rejected(0, "b2")])
     assert len(meta.get_rejected_rows(con)) == 6
     assert meta.get_rejected_rows(con, "b1") == rows
+
+
+def test_restored_warehouse_gains_new_optional_columns() -> None:
+    # A warehouse restored from before #220 has CLNT without PRTF_ID; init adds it, keeps rows.
+    con = connect(":memory:")
+    init_warehouse(con)
+    con.execute('ALTER TABLE raw.teradata__clnt DROP COLUMN "PRTF_ID"')
+    con.execute(
+        'INSERT INTO raw.teradata__clnt ("CLNT_ID", "CLNT_SINCE_DT", "BRTH_YR", "SEG_CD", '
+        '"PROV_CD", "PRIM_ADVSR_ID", "PRIM_BRNCH_ID", "STAT_CD", "LAST_UPD_TS", "_batch_id", '
+        '"_source_file", "_source_row", "_row_hash", "_loaded_at") VALUES (\'CLI-00000001\', '
+        "DATE '2020-01-01', 1980, 'MASS', 'ON', 'ADV-00001', 'BR-0101', 'A', "
+        "TIMESTAMPTZ '2026-01-01 00:00:00+00', 'b', 'f', 1, 'h', "
+        "TIMESTAMPTZ '2026-01-01 00:00:00+00')"
+    )
+    init_warehouse(con)
+    assert con.execute('SELECT "CLNT_ID", "PRTF_ID" FROM raw.teradata__clnt').fetchall() == [
+        ("CLI-00000001", None)
+    ]
+    init_warehouse(con)  # and stays idempotent
+
+
+def test_new_required_columns_are_not_added_silently() -> None:
+    # Only nullable columns evolve in place; a required one needs a rebuild and fails loudly.
+    con = connect(":memory:")
+    init_warehouse(con)
+    con.execute('ALTER TABLE raw.teradata__clnt DROP COLUMN "STAT_CD"')
+    spec = next(t for t in TABLES if t.name == "raw.teradata__clnt")
+    assert add_column_sql(con, spec) == []

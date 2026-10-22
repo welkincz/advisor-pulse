@@ -17,6 +17,7 @@ DEFAULT_MODEL = "claude-opus-5-5"
 MAX_TOKENS = 1500
 
 KPI_LABELS: dict[KpiCode, str] = {
+    KpiCode.PRTF_CONTACT_12M: "Portfolio contacted (12 months)",
     KpiCode.ACT_PER_ADV: "Activities per advisor",
     KpiCode.CALLS_OUT: "Outbound calls",
     KpiCode.APPT_BOOKED: "Appointments booked",

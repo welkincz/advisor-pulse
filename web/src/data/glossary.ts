@@ -6,6 +6,7 @@ import { RATES, formatKpi } from './kpi'
  * The formal definitions (PLAN.md §7) stay in features/overview/kpis.ts.
  */
 export const KPI_PLAIN: Record<KpiCode, string> = {
+  PRTF_CONTACT_12M: 'Of the clients in advisors’ portfolios, the share who heard from an advisor at least once in the last 12 months.',
   ACT_PER_ADV: 'Calls, meetings and reviews the average advisor completed in the week.',
   CALLS_OUT: 'Outbound calls advisors completed in the week.',
   APPT_BOOKED: 'New appointments booked in the week, from any source.',
