@@ -92,6 +92,8 @@ from pulse.contracts.sources import (
     TeradataAssignment,
     TeradataBranch,
     TeradataClient,
+    TeradataPortfolio,
+    TeradataPortfolioAssignment,
 )
 from pulse.fiscal import quarter_bounds, week_fiscal_quarter_id, week_sunday, weeks_in_quarter
 from pulse.reference import org
@@ -211,6 +213,18 @@ ROSTER = (
 )
 ADVISORS = {a.advisor_id: a for a in ROSTER}
 
+
+def portfolio_of(advisor_id: str) -> str:
+    """Each book-owning advisor opens one portfolio: ADV-10014 holds PRT-010014."""
+    return "PRT-0" + advisor_id[4:]
+
+
+# Branch managers own no book. The leaver's portfolio is handed over on the TERM date, the
+# same day its clients move in the 2026-09-28 delta; the two in-window transfers keep their
+# portfolios at the old transit, which DQ025 reports.
+PORTFOLIOS = {portfolio_of(a.advisor_id) for a in ROSTER if a.role is not _R.BRANCH_MANAGER}
+HANDOVERS = (("ADV-10014", "ADV-10013", date(2026, 9, 28)),)
+
 # (advisor, branch, role, effective, reason) after the HIRE events. The last four fall in the
 # fixture window; the first two give SCD2 some older history.
 _AR = AssignmentReason
@@ -257,6 +271,7 @@ class Client:
     branch_id: str
     status: str
     updated: datetime
+    portfolio_id: str | None = None  # default: the advisor's own portfolio
 
     def source_row(self) -> dict[str, Any]:
         return {
@@ -270,7 +285,7 @@ class Client:
             "PRIM_BRNCH_ID": self.branch_id,
             "STAT_CD": self.status,
             "LAST_UPD_TS": self.updated,
-            "PRTF_ID": None,  # portfolios arrive with the generator in #221
+            "PRTF_ID": self.portfolio_id or portfolio_of(self.advisor_id),
         }
 
 
@@ -405,6 +420,7 @@ def _parse_client(row: dict[str, str]) -> Client:
         branch_id=row["PRIM_BRNCH_ID"],
         status=row["STAT_CD"],
         updated=datetime.strptime(row["LAST_UPD_TS"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC),
+        portfolio_id=row.get("PRTF_ID") or None,
     )
 
 
@@ -530,10 +546,14 @@ class _Builder:
         self._postal_defect(dirty, "lowercase, hyphen", d1)
         d1.add(_client_text(dirty))
         mover = snap["CLI-00000010"]
-        moved = _replace(mover, postal=_postal(self.rng, mover.branch_id), updated=stamp(d1, 2))
-        # DQ014: this row names a portfolio the master lacks (the master arrives with #223).
+        # DQ014: the mover's row names a portfolio the master lacks.
+        moved = _replace(
+            mover,
+            postal=_postal(self.rng, mover.branch_id),
+            updated=stamp(d1, 2),
+            portfolio_id="PRT-899001",
+        )
         moved_text = _client_text(moved)
-        moved_text["PRTF_ID"] = "PRT-899001"
         w.defects.append(
             _defect(
                 DefectKind.UNKNOWN_PORTFOLIO,
@@ -567,7 +587,9 @@ class _Builder:
         # d4: the terminated advisor's active book moves to a colleague on the TERM date.
         book = [c for c in w.snapshot if c.advisor_id == "ADV-10014" and c.status == "A"]
         for c in book:
-            self._reassign(d4, c, "ADV-10013", "ADV-10014 terminated 2026-09-28.")
+            self._reassign(
+                d4, c, "ADV-10013", "ADV-10014 terminated 2026-09-28.", portfolio_of("ADV-10014")
+            )
 
         # d5: one new client, one reassignment, one malformed date.
         d5.add(_client_text(new_client(203, "ADV-10017", d5, "H3A 1B9")))
@@ -595,9 +617,12 @@ class _Builder:
         self.world.defects.append(d)
         return d
 
-    def _reassign(self, delta: ClientDelta, client: Client, to: str, why: str) -> None:
+    def _reassign(
+        self, delta: ClientDelta, client: Client, to: str, why: str, portfolio: str | None = None
+    ) -> None:
+        """Move a client to ``to``: into their portfolio, or with ``portfolio`` on a handover."""
         stamp = at(delta.file_date, 9, len(delta.rows))
-        moved = _replace(client, advisor_id=to, updated=stamp)
+        moved = _replace(client, advisor_id=to, updated=stamp, portfolio_id=portfolio)
         self.world.defects.append(
             _defect(
                 DefectKind.CLIENT_REASSIGNMENT,
@@ -1526,6 +1551,7 @@ class Marts:
             ("DQ010", "Duplicate or re-sent row", DqAction.DEDUPE),
             ("DQ011", "Invalid postal code", DqAction.NORMALIZE),
             ("DQ012", "Unknown advisor_id", DqAction.MAP_UNKNOWN),
+            ("DQ014", "Unknown portfolio", DqAction.MAP_UNKNOWN),
         )
         rows = []
         for week in WEEKS:
@@ -1539,6 +1565,9 @@ class Marts:
                     affected, total = s["client_quarantined"], s["client_rows"]
                 elif rule_id == "DQ011":
                     affected = sum(normalize_postal(c.postal) is None for c in active)
+                    total = len(active)
+                elif rule_id == "DQ014":
+                    affected = sum(c.source_row()["PRTF_ID"] not in PORTFOLIOS for c in active)
                     total = len(active)
                 else:
                     affected, total = counts[rule_id], s["activity_rows"]
@@ -2056,6 +2085,44 @@ def write_sources(world: World, root: Path) -> None:
                     "LAST_UPD_TS": e.entered,
                 }
                 for e in world.assignments
+            ],
+        ),
+        "PRTF": (
+            TeradataPortfolio,
+            [
+                {
+                    "PRTF_ID": portfolio_of(a.advisor_id),
+                    "BRNCH_ID": (world.assignment_on(a.advisor_id, SNAPSHOT_DATE) or a).branch_id,
+                    "OPEN_DT": a.hire_date,
+                    "CLOSE_DT": None,
+                    "LAST_UPD_TS": at(date(2026, 1, 5), 9),
+                }
+                for a in ROSTER
+                if portfolio_of(a.advisor_id) in PORTFOLIOS
+            ],
+        ),
+        "PRTF_ASGN": (
+            TeradataPortfolioAssignment,
+            [
+                {
+                    "PASGN_ID": f"PAS-{i:08d}",
+                    "PRTF_ID": portfolio,
+                    "ADVSR_ID": advisor,
+                    "EFF_DT": day,
+                    "RSN_CD": reason,
+                    "LAST_UPD_TS": _entered(day),
+                }
+                for i, (day, portfolio, advisor, reason) in enumerate(
+                    sorted(
+                        [
+                            (a.hire_date, portfolio_of(a.advisor_id), a.advisor_id, "OPEN")
+                            for a in ROSTER
+                            if portfolio_of(a.advisor_id) in PORTFOLIOS
+                        ]
+                        + [(day, portfolio_of(old), new, "HANDOVER") for old, new, day in HANDOVERS]
+                    ),
+                    start=1,
+                )
             ],
         ),
         "BRNCH": (

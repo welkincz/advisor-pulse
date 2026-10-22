@@ -31,9 +31,28 @@ def warehouse() -> Iterator[duckdb.DuckDBPyConnection]:
 
 @pytest.fixture
 def source_db(tmp_path: Path) -> Path:
+    """The fixture EDW as it was before portfolios: the three HR tables only."""
     path = tmp_path / "edw.sqlite"
     shutil.copyfile(FIXTURE, path)
+    with sqlite3.connect(path) as source:
+        source.execute("DROP TABLE PRTF")
+        source.execute("DROP TABLE PRTF_ASGN")
     return path
+
+
+def test_the_fixture_edw_loads_its_portfolios(
+    warehouse: duckdb.DuckDBPyConnection, tmp_path: Path
+) -> None:
+    path = tmp_path / "edw.sqlite"
+    shutil.copyfile(FIXTURE, path)
+    result = load_teradata_hr(warehouse, path, run_id="run-1", loaded_at=LOADED_AT)
+    portfolios = warehouse.execute("SELECT count(*) FROM raw.teradata__prtf").fetchone()
+    events = warehouse.execute(
+        "SELECT count(*) FILTER (WHERE RSN_CD = 'HANDOVER'), count(*) FROM raw.teradata__prtf_asgn"
+    ).fetchone()
+    assert portfolios == (14,)  # 20 advisors, 6 of them branch managers
+    assert events == (1, 15)
+    assert result.rows_loaded == 52 + 14 + 15
 
 
 def _counts(con: duckdb.DuckDBPyConnection) -> dict[str, int]:

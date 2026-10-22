@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: stg_portfolio_assignment
+    description: >
+      One row per portfolio assignment event (PRTF_ASGN): the advisor named holds the
+      portfolio from `effective_date` until its next event. A repeated id keeps the latest
+      `last_updated_ts`.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(portfolio_assignment_id, '^PAS-[0-9]{8}$')"
+    columns:
+      - name: portfolio_assignment_id
+        description: Natural key, `PAS-` plus 8 digits.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: portfolio_id
+        description: Portfolio that changes hands.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_portfolio')
+                field: portfolio_id
+      - name: advisor_id
+        description: Holder from `effective_date` on.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_advisor')
+                field: advisor_id
+      - name: effective_date
+        description: First day this advisor holds the portfolio.
+        data_type: date
+        data_tests: [not_null]
+      - name: reason_code
+        description: Why it changed hands (`OPEN`, `HANDOVER`, `TRANSFER`, `REBALANCE`).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [OPEN, HANDOVER, TRANSFER, REBALANCE]
+      - name: last_updated_ts
+        description: Watermark column of the version kept.
+        data_type: timestamp with time zone

@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: stg_portfolio
+    description: >
+      One row per portfolio (PRTF), the latest version. A portfolio is a group of clients
+      managed by one advisor at a time and belongs to one branch, its transit (PLAN.md §5,
+      §6.2). Holders come from `stg_portfolio_assignment`.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "regexp_full_match(portfolio_id, '^PRT-[0-9]{6}$')"
+      - expression_is_true:
+          arguments:
+            expression: "close_date is null or close_date >= open_date"
+    columns:
+      - name: portfolio_id
+        description: Natural key, `PRT-` plus 6 digits.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: branch_id
+        description: Transit, the branch the portfolio belongs to.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_branch')
+                field: branch_id
+      - name: open_date
+        description: Day the portfolio opened.
+        data_type: date
+        data_tests: [not_null]
+      - name: close_date
+        description: Day it closed; null while open.
+        data_type: date
+      - name: last_updated_ts
+        description: Watermark column of the version kept.
+        data_type: timestamp with time zone

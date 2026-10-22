@@ -7,7 +7,7 @@ models:
       dq_weekly.parquet. DQ001–DQ004 and DQ010, DQ012 count activity rows in the week's
       extract (rows_in_batch = activity rows read, quarantined included); DQ005 counts CLNT
       rows; DQ011 counts active book clients at week end whose postal code does not
-      normalize. Quarantine counts come from quarantine.rejected_rows via int_ingest_weekly.
+      normalize, and DQ014 those whose portfolio is not in the master. Quarantine counts come from quarantine.rejected_rows via int_ingest_weekly.
     data_tests:
       - expression_is_true:
           arguments:
@@ -24,13 +24,13 @@ models:
         data_type: varchar
         data_tests: [not_null, iso_week_id_format]
       - name: rule_id
-        description: Rule from PLAN.md §8 (DQ001–DQ005, DQ010–DQ012).
+        description: Rule from PLAN.md §8 (DQ001–DQ005, DQ010–DQ012, DQ014).
         data_type: varchar
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ['DQ001', 'DQ002', 'DQ003', 'DQ004', 'DQ005', 'DQ010', 'DQ011', 'DQ012']
+                values: ['DQ001', 'DQ002', 'DQ003', 'DQ004', 'DQ005', 'DQ010', 'DQ011', 'DQ012', 'DQ014']
       - name: rule_name
         description: Short name of the rule.
         data_type: varchar
