@@ -49,11 +49,29 @@ for (const [path, heading] of routes) {
 test('navigation works by keyboard at 375 px', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/')
-  // Skip link, brand, Overview, Map.
-  for (let i = 0; i < 4; i++) await page.keyboard.press('Tab')
+  // Skip link, brand, then the Menu button: on a phone the links fold behind it.
+  for (let i = 0; i < 3; i++) await page.keyboard.press('Tab')
+  const menu = page.getByRole('button', { name: /Menu/ })
+  await expect(menu).toBeFocused()
+  await expect(menu).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('link', { name: 'Case study', exact: true })).toBeHidden()
+  await page.keyboard.press('Enter')
+  await expect(menu).toHaveAttribute('aria-expanded', 'true')
+  // Every link fits the screen, unclipped.
+  const caseStudy = await page.getByRole('link', { name: 'Case study', exact: true }).boundingBox()
+  expect(caseStudy!.x + caseStudy!.width).toBeLessThanOrEqual(375)
+  // Escape folds it and returns focus to the button.
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveAttribute('aria-expanded', 'false')
+  await expect(menu).toBeFocused()
+  await page.keyboard.press('Enter')
+  // Overview, Map.
+  for (let i = 0; i < 2; i++) await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: 'Map', exact: true })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Map', exact: true })).toBeVisible()
+  await expect(menu).toHaveAttribute('aria-expanded', 'false')
+  await expect(menu).toContainText('Map')
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
 })
 

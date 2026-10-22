@@ -20,7 +20,7 @@ main { flex: 1; padding: clamp(var(--space-8), 5vw, var(--space-16)) 0; }
 
 /* The kicker above a page title says where you are; sentence case, never tracked capitals. */
 .eyebrow { color: var(--signal); font-size: var(--text-sm); font-weight: 600; margin: 0; }
-h1 { max-width: 16ch; font-size: var(--text-display); font-weight: 600; letter-spacing: -0.03em; line-height: var(--leading-tight); margin: var(--space-2) 0 var(--space-4); }
+h1 { max-width: 24ch; font-size: var(--text-title); font-weight: 600; letter-spacing: -0.02em; line-height: var(--leading-tight); margin: var(--space-2) 0 var(--space-4); }
 h2 { font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; margin: 0 0 var(--space-3); }
 h3 { font-size: var(--text-md); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
 p { max-width: var(--measure); }
