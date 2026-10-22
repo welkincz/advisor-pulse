@@ -24,7 +24,7 @@ export const KPI_PLAIN: Record<KpiCode, string> = {
 /** Terms the charts use, each with the question a reader is likely to ask about it. */
 export const TERMS = {
   usual: { title: 'Usual', text: 'The average of the last 13 weeks, this one included. It shows what a normal week looks like for this area.' },
-  anomaly: { title: 'Anomaly', text: 'A week more than two standard deviations from the 13 weeks before it: rare enough to check.' },
+  anomaly: { title: 'Anomaly', text: 'A week more than two standard deviations from the 13 weeks before it: rare enough to check. Portfolio contacted moves slowly, so for it the week’s change is what has to be unusual, and half a point or more.' },
   wow: { title: 'WoW', text: 'Week over week: the change from the week before.' },
   national: { title: 'National line', text: 'The dashed line is Canada as a whole, so you can see whether a region is just following the country.' },
   toDate: { title: 'Quarter to date', text: 'Hatched columns are quarters still running. Counts are shown as a weekly average so a part quarter compares fairly with a full one.' },
