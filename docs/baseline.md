@@ -35,7 +35,7 @@ uv run pulse run --week 2026-W42 --run-type WEEKLY
 | DQ032 load integrity | 106 | 106 PASS |
 | DQ031 volume | 106 | 82 PASS, 24 WARN, 0 FAIL |
 
-Every run finishes as WARN, never SUCCESS. Three things cause that, and each one is expected:
+Every run finished as WARN, never SUCCESS. Three things caused that, and each one was expected. Since #251 the first two no longer warn: the booked-from check warns only above 2% of at least 500 bookings, and template narration in backfilled history records SUCCESS.
 
 | Stage | Status | Why |
 |---|---|---|
