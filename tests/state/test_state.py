@@ -214,6 +214,33 @@ def test_a_failed_narrative_upload_still_keeps_the_warehouse(
     assert sync.release(c).status is StageStatus.SUCCESS
 
 
+def test_a_failed_narrative_prune_still_keeps_the_warehouse(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rebuild's narrative prune is best effort, like the narrative upload."""
+    seed_remote(store, tmp_path)
+    store.put("narratives/2026-W39.json", b"N")
+    sync = sync_for(store)
+    c = ctx(tmp_path / "rebuild")
+    assert sync.restore(c, skip_remote=True).status is StageStatus.SUCCESS
+    con = connect(c.data_dir / WAREHOUSE_FILE)
+    init_warehouse(con)
+    con.close()
+    delete = store.delete
+
+    def flaky(key: str) -> None:
+        if key.startswith("narratives/"):
+            raise RetryableError("R2 timed out")
+        delete(key)
+
+    monkeypatch.setattr(store, "delete", flaky)
+    result = sync.persist(c)
+    assert result.status is StageStatus.WARN
+    assert "narratives were not persisted (RetryableError)" in (result.message or "")
+    assert store.exists(WAREHOUSE_FILE)  # the checked warehouse still went up
+    assert sync.release(c).status is StageStatus.SUCCESS
+
+
 # ── Lock ────────────────────────────────────────────────────────────────────
 
 
@@ -296,6 +323,7 @@ def test_rebuild_persist_removes_stale_sources(store: ObjectStore, tmp_path: Pat
     """Week 2 of a rebuild restores R2's sources, so older files must be gone by then."""
     seed_remote(store, tmp_path)
     store.put("narratives/2026-W39.json", b"N")
+    store.put("narratives/cache/abc.json", b"C")
     sync = sync_for(store)
     c = ctx(tmp_path / "rebuild")
     assert sync.restore(c, skip_remote=True).status is StageStatus.SUCCESS
@@ -307,22 +335,29 @@ def test_rebuild_persist_removes_stale_sources(store: ObjectStore, tmp_path: Pat
     fresh.write_bytes(b"new")
     result = sync.persist(c)
     assert result.status is StageStatus.SUCCESS
-    assert "removed 1 stale ones" in (result.message or "")
+    assert "removed 1 stale sources" in (result.message or "")
+    assert "narrative files, removed 1 stale ones" in (result.message or "")
     assert set(store.etags("sources/")) == {"sources/teradata/client_20261001.csv"}
     assert store.get("sources/teradata/client_20261001.csv")[0] == b"new"  # type: ignore[index]
-    assert store.exists("narratives/2026-W39.json")  # the model cache stays
+    # Week 2 would restore an older run's narrative and export would re-validate it against
+    # today's contract (a retired KPI code fails the whole export); the model cache stays.
+    assert not store.exists("narratives/2026-W39.json")
+    assert store.exists("narratives/cache/abc.json")
     assert sync.release(c).status is StageStatus.SUCCESS
 
 
 def test_ordinary_persist_never_removes_sources(store: ObjectStore, tmp_path: Path) -> None:
     seed_remote(store, tmp_path)
+    store.put("narratives/2026-W39.json", b"N")
     sync = sync_for(store)
     c = ctx(tmp_path / "run")
     assert sync.restore(c).status is StageStatus.SUCCESS
     (c.data_dir / "sources" / "snowflake" / "activity" / "a.csv").unlink()
+    (c.data_dir / "narratives" / "2026-W39.json").unlink()
     result = sync.persist(c)
     assert "stale" not in (result.message or "")
     assert store.exists("sources/snowflake/activity/a.csv")
+    assert store.exists("narratives/2026-W39.json")
     assert sync.release(c).status is StageStatus.SUCCESS
 
 
