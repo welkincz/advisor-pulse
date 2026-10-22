@@ -58,7 +58,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 # Backlog data file: long prose strings by design.
-"scripts/backlog.py" = ["E501"]
+"docs/archive/planning/backlog.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

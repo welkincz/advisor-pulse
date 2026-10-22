@@ -111,7 +111,7 @@ I planned the project as a set of contracts and a backlog of small issues. Each 
 - **Wave 0** came first: contracts and deterministic fixtures. Every later lane could then work in parallel against fixtures instead of waiting for upstream code.
 - **The agents:** Claude Code, Codex and Cursor took issues by label, worked one branch per issue, and opened small pull requests.
 - **Review:** Claude reviewed every pull request against a checklist covering contracts, idempotency, failure paths and tests. I approved anything that changed a contract or the plan.
-- **The result so far:** 71 pull requests merged across 82 issues.
+- **The record:** every change went through an issue and a pull request; the full history is on [GitHub](https://github.com/welkincz/advisor-pulse/pulls?q=is%3Apr+is%3Amerged).
 
 The process made one thing very clear: the contracts and fixtures did most of the coordination work.
 
