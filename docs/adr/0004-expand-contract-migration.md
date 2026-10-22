@@ -35,8 +35,12 @@ Migrate in two phases.
   `book_size`, `clients_covered_13w` and `coverage_rate_13w`, and make `PRTF_ID` required.
 
 To survive the Monday restore, `init_warehouse` adds any **nullable** contract column an
-existing table lacks (`ALTER TABLE … ADD COLUMN`). It never adds a required column or
-changes a type: those fail loudly at insert time and need a rebuild.
+existing table lacks (`ALTER TABLE … ADD COLUMN`). That is the whole guarantee: missing
+nullable columns are added, and a new required column is never added, so the insert fails
+loudly. `add_column_sql` compares column names only, not types. A stale type can survive
+without an error, because DuckDB may cast values to the old type on insert (for example
+VARCHAR to an integer). So a type change needs a planned rebuild, which expand/contract
+calls for anyway.
 
 ## Alternatives considered
 
@@ -59,8 +63,9 @@ changes a type: those fail loudly at insert time and need a rebuild.
   comment that the fallback goes with #226, and the contract marks `PRIM_ADVSR_ID` deprecated.
 - The contract step is a breaking change by design: it needs the owner's OK
   (AGENTS.md §2.7) and comes after the rebuild, not before.
-- Schema evolution in place is limited to additive, nullable columns. Anything else is a
-  rebuild, which the pipeline already supports because every model is rebuilt from source.
+- Schema evolution in place is limited to additive, nullable columns. Anything else,
+  including a type change, needs a planned rebuild, which the pipeline already supports
+  because every model is rebuilt from source.
 
 ## Code and tests
 

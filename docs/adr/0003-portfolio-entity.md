@@ -34,8 +34,11 @@ Model the portfolio as its own source entity, with the holder kept as assignment
   `int_client_book_weekly`. The portfolio's KPI is credited to that holder and to the
   transit branch, never to the holder's own branch.
 - **Fallback:** a null `PRTF_ID` (rows from before portfolios) or one the master lacks
-  falls back to `PRIM_ADVSR_ID`. Unknown IDs are counted by **DQ014** (warn above 0.5% of
-  the active book) and kept out of the lead KPI, which only counts known portfolios.
+  falls back to `PRIM_ADVSR_ID`. Unknown IDs are counted by **DQ014** and kept out of the
+  lead KPI, which only counts known portfolios. PLAN.md §8 sets two thresholds on the share
+  of the active book: WARN above 0.5% and FAIL above 2%. The WARN step is enforced by
+  `dq014_unknown_portfolio_rate` (severity warn). The FAIL step is enforced by
+  `dq014_unknown_portfolio_rate_fail` (severity error), which a separate PR adds.
 - **DQ024** (error) checks the holder ranges: no range before the portfolio opened, no
   overlap or gap, and every holder an employed, non-manager advisor when the range starts.
   **DQ025** (warn) flags a portfolio whose holder works at another branch than its transit
