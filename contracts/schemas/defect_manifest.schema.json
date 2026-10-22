@@ -154,7 +154,8 @@
         "ADVISOR_TRANSFER",
         "ADVISOR_PROMOTION",
         "ADVISOR_TERM",
-        "CLIENT_REASSIGNMENT"
+        "CLIENT_REASSIGNMENT",
+        "UNKNOWN_PORTFOLIO"
       ],
       "title": "DefectKind",
       "type": "string"

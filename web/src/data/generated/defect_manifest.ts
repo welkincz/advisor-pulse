@@ -33,7 +33,8 @@ export type DefectKind =
   | "ADVISOR_TRANSFER"
   | "ADVISOR_PROMOTION"
   | "ADVISOR_TERM"
-  | "CLIENT_REASSIGNMENT";
+  | "CLIENT_REASSIGNMENT"
+  | "UNKNOWN_PORTFOLIO";
 /**
  * ACTIVITY_ID, CLNT_ID or ASGN_ID of the row, when it has one.
  */

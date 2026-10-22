@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import re
 import shutil
 import sqlite3
 from datetime import UTC, date, datetime, timedelta
@@ -15,7 +16,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from pulse.contracts.defects import DefectKind, DefectManifest
-from pulse.contracts.enums import AssignmentReason, Role
+from pulse.contracts.enums import AssignmentReason, DqAction, Role
 from pulse.contracts.sources import TeradataAssignment
 from pulse.generate.advisors import (
     AdvisorRoster,
@@ -448,3 +449,36 @@ def test_late_rows_never_predate_the_history_start(tmp_path: Path) -> None:
         history_start=monday - timedelta(weeks=3),
     )
     assert [d for d in open_start.defects if d.kind is DefectKind.LATE_ARRIVING]
+
+
+def test_unknown_portfolio_is_injected_and_recorded(tmp_path: Path) -> None:
+    # DQ014: a CLNT delta row naming a portfolio the master lacks (#230).
+    sources = _sources(tmp_path)
+    path = sources / "teradata/client_20260913.csv"
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        fields, rows = reader.fieldnames, list(reader)
+    assert fields is not None and rows
+    for row in rows:
+        row["PRTF_ID"] = "PRT-000001"
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+
+    manifest = inject_dirt(
+        sources,
+        tmp_path / "defects",
+        iso_week_id=WEEK,
+        seed=8,
+        rates=_rates(UNKNOWN_PORTFOLIO=1.0),
+    )
+    found = [d for d in manifest.defects if d.kind is DefectKind.UNKNOWN_PORTFOLIO]
+    assert len(found) == len(rows)
+    assert {(d.rule_id, d.action, d.expected_value) for d in found} == {
+        ("DQ014", DqAction.MAP_UNKNOWN, "PRT-000001")
+    }
+    with path.open(newline="", encoding="utf-8") as handle:
+        written = [r["PRTF_ID"] for r in csv.DictReader(handle)]
+    assert [d.raw_value for d in sorted(found, key=lambda d: d.row or 0)] == written
+    assert all(re.fullmatch(r"PRT-8\d{5}", value) for value in written)

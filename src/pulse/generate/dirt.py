@@ -38,6 +38,7 @@ DEFAULT_RATES: Mapping[DefectKind, float] = {
     DefectKind.UNKNOWN_ADVISOR: 0.003,
     DefectKind.DIRTY_POSTAL_CODE: 0.08,
     DefectKind.LATE_ARRIVING: 0.04,
+    DefectKind.UNKNOWN_PORTFOLIO: 0.003,
 }
 
 POSTAL_VARIANTS = (
@@ -308,7 +309,14 @@ def _clients(
 ) -> list[Defect]:
     defects: list[Defect] = []
     rate = rates[DefectKind.DIRTY_POSTAL_CODE]
-    if not rate and not rates[DefectKind.UNPARSEABLE_VALUE]:
+    if not any(
+        rates[k]
+        for k in (
+            DefectKind.DIRTY_POSTAL_CODE,
+            DefectKind.UNPARSEABLE_VALUE,
+            DefectKind.UNKNOWN_PORTFOLIO,
+        )
+    ):
         return defects
     db = root / "teradata/edw.sqlite"
     if include_snapshot and db.exists() and rate:
@@ -400,6 +408,31 @@ def _clients(
                     rule="DQ005",
                     action=DqAction.QUARANTINE,
                     detail="BRTH_YR does not parse.",
+                )
+            )
+            changed = True
+        # DQ014: a client that names a portfolio the master does not have. Real IDs stay
+        # below PRT-900000 or start there for transfers, so PRT-8xxxxx never collides.
+        owned = [i for i in range(len(rows)) if rows[i].get("PRTF_ID")]
+        for index in _select(owned, rates[DefectKind.UNKNOWN_PORTFOLIO], rng):
+            row = rows[index]
+            original, unknown = row["PRTF_ID"], f"PRT-8{rng.randrange(100_000):05d}"
+            row["PRTF_ID"] = unknown
+            defects.append(
+                _note(
+                    DefectKind.UNKNOWN_PORTFOLIO,
+                    week,
+                    "teradata",
+                    "CLNT",
+                    path.relative_to(root).as_posix(),
+                    row=index,
+                    natural_key=row["CLNT_ID"],
+                    column="PRTF_ID",
+                    raw=unknown,
+                    expected=original,
+                    rule="DQ014",
+                    action=DqAction.MAP_UNKNOWN,
+                    detail="PRTF_ID is not in the portfolio master; mapped to Unknown.",
                 )
             )
             changed = True
