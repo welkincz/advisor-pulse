@@ -19,6 +19,22 @@ Advisor Pulse is a weekly batch BI pipeline for **Maplecrest Bank**, a fictional
 
 There is no chart engine: lines, the heatmap and the map are hand-written SVG, and bars (funnel, bullets, the pipeline timeline) are plain HTML and CSS. Every chart reads its colours from design tokens, has a table of the same numbers, works by keyboard, and turns its motion off under reduced motion. CI holds each route to a 350 KiB JavaScript budget (`web/tests/bundle-budget.mjs`).
 
+## What it demonstrates
+
+Each skill an analytics or data engineer is asked about, and where it lives in the code.
+
+| Skill | Where |
+|---|---|
+| Incremental, idempotent loads: watermarks, file hashes, one transaction per batch | [`src/pulse/ingest/`](src/pulse/ingest/), [`meta.py`](src/pulse/ingest/meta.py) |
+| Data contracts as the single source of truth: schemas, dbt sources and TypeScript types generated from them | [`src/pulse/contracts/`](src/pulse/contracts/), [`codegen.py`](src/pulse/contracts/codegen.py) |
+| Dimensional modelling: staging → intermediate → marts, a star schema with enforced contracts | [`dbt/models/`](dbt/models/) |
+| SCD Type 2 from events, and point-in-time attribution | [`int_advisor_history.sql`](dbt/models/intermediate/int_advisor_history.sql), [`int_client_book_weekly.sql`](dbt/models/intermediate/int_client_book_weekly.sql) |
+| Ratios rolled up from numerators and denominators, reconciled at every level | [`reconcile_org_weekly.sql`](dbt/tests/reconcile_org_weekly.sql), [`mart_org_quarterly.sql`](dbt/models/marts/mart_org_quarterly.sql) |
+| Data quality proven against ground truth: injected defects vs quarantined rows | [`dirt.py`](src/pulse/generate/dirt.py), [`checks.py`](src/pulse/quality/checks.py) |
+| Orchestration and failure handling: a DAG with retries, run log, alerts, state and a lock in object storage | [`src/pulse/runner/`](src/pulse/runner/), [`src/pulse/state/`](src/pulse/state/) |
+| Grounded LLM output: facts in, every number validated, template fallback | [`src/pulse/narrative/`](src/pulse/narrative/), [`validate.py`](src/pulse/narrative/validate.py) |
+| CI/CD: `dbt build` on fixtures, bundle budgets, a self-continuing backfill | [`.github/workflows/`](.github/workflows/) |
+
 ## Read more
 
 - [Case study](docs/case-study.md): the problem, key decisions and tradeoffs, data quality, and what would change at real scale. It is also on the site at [/case-study](https://pulse.charliebuild.com/case-study).
