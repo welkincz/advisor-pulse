@@ -3,7 +3,7 @@ import { TrendChart } from '../../components/charts/TrendChart'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useReducedMotion } from '../../app/useReducedMotion'
 import { Breadcrumb, Delta, Explain, Section, SeriesCsvButton, Stat, StatGroup, Term, WeekStepper } from '../../components/primitives'
-import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, formatKpi, happened, useAdvisorWeekly, useChildReportHistory, useManifest, useNodeNames, useWeeklyReportHistory } from '../../data'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, happened, useAdvisorWeekly, useChildReportHistory, useManifest, useNodeNames, useWeeklyReportHistory } from '../../data'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../../data/usual'
 import { AnimatedKpiValue } from '../../motion/AnimatedKpiValue'
@@ -184,7 +184,7 @@ function AdvisorKpis({ weeks, branchId, advisorId, code, setKpi }: { weeks: read
   </>
 }
 
-function Drill({ path, weeks, latest }: { path: DrillPath; weeks: readonly string[]; latest: string }) {
+function Drill({ path, weeks, latest, lead }: { path: DrillPath; weeks: readonly string[]; latest: string; lead: KpiCode }) {
   const [search, setSearch] = useSearchParams()
   const navigate = useNavigate()
   const reducedMotion = useReducedMotion()
@@ -195,15 +195,15 @@ function Drill({ path, weeks, latest }: { path: DrillPath; weeks: readonly strin
   const nameMap = names.status === 'ready' ? names.data : new Map<string, string>()
   const name = nameMap.get(path.nodeId) ?? path.nodeId
   const requested = search.get('kpi') as KpiCode | null
-  const code: KpiCode = requested && ORG_KPIS.includes(requested) ? requested : 'ACT_PER_ADV'
+  const code: KpiCode = requested && ORG_KPIS.includes(requested) ? requested : lead
   const parentName = path.orgIds.length > 1 ? nameMap.get(path.orgIds.at(-2)!) ?? path.orgIds.at(-2)! : 'Canada'
   const set = (key: 'week' | 'kpi', value: string) => {
     const next = new URLSearchParams(search)
-    if (value === (key === 'week' ? latest : 'ACT_PER_ADV')) next.delete(key)
+    if (value === (key === 'week' ? latest : lead)) next.delete(key)
     else next.set(key, value)
     setSearch(next)
   }
-  const childQuery = code === 'ACT_PER_ADV' || path.childSegment === 'a' ? query : `${query ? `${query}&` : '?'}kpi=${code}`
+  const childQuery = code === lead || path.childSegment === 'a' ? query : `${query ? `${query}&` : '?'}kpi=${code}`
   const childHref = (id: string) => `${path.hrefs.at(-1)}/${path.childSegment}/${encodeURIComponent(id)}${childQuery}`
   const onChildClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => navigateWithTransition(event, href, navigate, reducedMotion)
 
@@ -232,6 +232,6 @@ export function DrillPage() {
   return <main className="drill">
     {manifest.status === 'loading' && <><h1>{path.nodeId}</h1><p aria-busy="true">Loading the latest weekly report…</p></>}
     {manifest.status === 'error' && <><h1>{path.nodeId}</h1><DataNotice what="this week's report" onRetry={manifest.retry} /></>}
-    {manifest.status === 'ready' && <Drill path={path} weeks={manifest.data.weeks_available} latest={manifest.data.latest_week} />}
+    {manifest.status === 'ready' && <Drill path={path} weeks={manifest.data.weeks_available} latest={manifest.data.latest_week} lead={defaultLead(manifest.data.summary)} />}
   </main>
 }

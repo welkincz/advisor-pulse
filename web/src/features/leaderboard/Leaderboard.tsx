@@ -83,7 +83,9 @@ function Board({ title, codes, result, toRows, weeks, parentName, childHref, onC
   childHref?: (id: string) => string
   onChildClick?: ChildClick
 }) {
-  const [code, setCode] = useState<KpiCode>(codes[0]!)
+  // The first measure with a value leads (the lead KPI once 12 months lie behind the week).
+  const [chosen, setCode] = useState<KpiCode | null>(null)
+  const code = chosen ?? (result.status === 'ready' ? codes.find((c) => toRows(c).some((r) => r.value !== null)) : undefined) ?? codes[0]!
   const week = weeks.at(-1)
   const rows = result.status === 'ready' ? toRows(code) : []
   const direction = LOWER_IS_BETTER.has(code) ? 'lowest' : 'highest'

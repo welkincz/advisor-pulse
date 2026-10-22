@@ -2,7 +2,7 @@ import type { KpiCode } from '../../data/generated/weekly_report'
 
 /** The business definitions in PLAN.md §7, with operational rates kept separate. */
 export const KPI_CODES: readonly KpiCode[] = [
-  'ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV',
+  'PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV',
   'CLIENTS_CONTACTED', 'COVERAGE_13W', 'AVG_MEET_MIN', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE',
 ]
 
