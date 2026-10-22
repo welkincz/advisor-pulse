@@ -44,6 +44,7 @@ def test_registry_covers_every_planned_contract() -> None:
         "weekly_report",
         "geo_weekly",
         "dq_weekly",
+        "portfolio_weekly",
         "manifest",
         "run_log",
         "pipeline_graph",

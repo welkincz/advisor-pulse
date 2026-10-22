@@ -18,9 +18,9 @@
     },
     {
       "name": "org_quarterly.parquet",
-      "sha256": "ef893feee79386044f04ecbe6b18e5840c6f97ebf95cc85f7f9143004d209654",
+      "sha256": "9c2a21d3a6c78b59ee672b090fd9ae2cac840276cc985bd293d105e6ec31b033",
       "rows": 12,
-      "bytes": 11455
+      "bytes": 12464
     },
     {
       "name": "advisor_weekly.parquet",
@@ -36,15 +36,21 @@
     },
     {
       "name": "geo_weekly.parquet",
-      "sha256": "0b6f8b1a5966294910104808053cab059774879f70f06ac77cdefde9b06f49fd",
+      "sha256": "8e7efc33e70e1b64d66c2f4c2e8293e7b3ffb007471ac00850637d6a697e8f91",
       "rows": 48,
-      "bytes": 3122
+      "bytes": 4216
     },
     {
       "name": "dq_weekly.parquet",
       "sha256": "2076f4e77f61cf02b436b0a8d2fb8a4af83fb2d7cc1757b56299a2cf404a6adb",
       "rows": 36,
       "bytes": 2957
+    },
+    {
+      "name": "portfolio_weekly.parquet",
+      "sha256": "c37f1e685debe5422e067ebca14196822c722f0abb599e157b84a85f752b619a",
+      "rows": 56,
+      "bytes": 3586
     },
     {
       "name": "pipeline_graph.json",

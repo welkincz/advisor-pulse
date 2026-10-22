@@ -374,7 +374,9 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
 **mart_org_quarterly** (node × fiscal quarter, every level): `fiscal_quarter_id`, `fiscal_year`, `fiscal_quarter`, `quarter_start`, `quarter_end`, `first_week`, `last_week`, `weeks_reported`, `weeks_in_quarter`, `is_complete`, `level`, `node_id`, `node_name`, `parent_id`, `advisor_weeks`, the flow counts of mart_org_weekly plus `booked_from_call`, `unique_clients_contacted`, `book_size`, `clients_covered_13w` and the six ratios. Flows are summed over the quarter's weeks; distinct clients are counted over the quarter (not added up); book size and 13-week coverage are taken at each branch's own last reported week and summed up the hierarchy (a branch that misses the final week keeps its book), where the 13-week window is the quarter itself; ratios are rebuilt from summed parts, and activities per advisor is activities over advisor-weeks (the average weekly rate). A quarter in progress has `is_complete = false` and reads as "to date".
 
-**mart_geo_weekly** (FSA × district × week; an FSA served from two districts has a row in each, and clients with an unreadable postal code sit under `UNK`, so consumers sum across districts for one value per FSA): `iso_week_id`, `fsa_code`, `district_code`, `active_clients`, `clients_contacted_13w`, `coverage_rate_13w`, `activities_completed`.
+**mart_geo_weekly** (FSA × district × week; an FSA served from two districts has a row in each, and clients with an unreadable postal code sit under `UNK`, so consumers sum across districts for one value per FSA): `iso_week_id`, `fsa_code`, `district_code`, `active_clients`, `clients_contacted_13w`, `coverage_rate_13w`, `activities_completed`, `portfolio_clients`, `portfolio_contacted_12m`, `portfolio_contacted_rate_12m`.
+
+**mart_portfolio_weekly** (portfolio × week, under the holder at week end and the transit): `iso_week_id`, `portfolio_id`, `advisor_id`, `branch_id` (transit), `district_code`, `region_code`, `holder_branch_id` (where the holder works that day; DQ025 warns when it differs), `clients`, `contacted_12m`, `contacted_rate_12m`. The advisor, org and quarterly marts carry the same three portfolio columns; quarterly takes them as a stock at each branch's last reported week. Every rate is null for a week without 12 months of activity history behind it (`int_contact_window`).
 
 **mart_dq_weekly** (rule × week): `iso_week_id`, `rule_id`, `rule_name`, `action`, `rows_affected`, `rows_in_batch`, `rate`.
 
@@ -388,6 +390,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 | weekly_report.parquet | mart_weekly_report |
 | org_quarterly.parquet | mart_org_quarterly (every fiscal quarter in the history) |
 | geo_weekly.parquet | mart_geo_weekly (last 13 weeks) |
+| portfolio_weekly.parquet | mart_portfolio_weekly (last 26 weeks) |
 | dq_weekly.parquet | mart_dq_weekly |
 | run_log.json | Last 12 runs: stage timeline and check results |
 | pipeline_graph.json | Nodes, edges and grid positions for the pipeline diagram (from runner DAG + dbt manifest) |

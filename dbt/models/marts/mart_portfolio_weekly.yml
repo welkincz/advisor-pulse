@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: mart_portfolio_weekly
+    description: >
+      Portfolio × ISO week (PLAN.md §6.8), exported as portfolio_weekly.parquet (last 26
+      weeks): the active clients in each portfolio at week end, how many were contacted by
+      any advisor in the trailing 12 months, and the rate (PRTF_CONTACT_12M, null before a
+      full 12-month window). Shown under the holder at week end and the transit branch.
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "contacted_12m <= clients"
+      - expression_is_true:
+          arguments:
+            expression: "contacted_rate_12m is null or contacted_rate_12m between 0 and 1"
+      - expression_is_true:
+          name: dq025_portfolio_holder_at_another_branch
+          arguments:
+            expression: "holder_branch_id is null or holder_branch_id = branch_id"
+          config:
+            severity: warn
+    columns:
+      - name: iso_week_id
+        description: ISO week, YYYY-Www.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: portfolio_id
+        description: Portfolio natural key.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: advisor_id
+        description: The portfolio's holder at week end.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: branch_id
+        description: Transit, the portfolio's branch; the KPI rolls up from here.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: district_code
+        description: District of the transit.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: region_code
+        description: Region of the transit.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: holder_branch_id
+        description: "Branch the holder works at on week end. DQ025 (warn): differs from branch_id when a reassignment did not arrive."
+        data_type: varchar
+      - name: clients
+        description: Active clients in the portfolio at week end.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: contacted_12m
+        description: Of those, clients with a completed contact by any advisor in the trailing 12 months.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: contacted_rate_12m
+        description: "PRTF_CONTACT_12M for the portfolio, 4 decimals; null before 12 months of history."
+        data_type: double

@@ -12,6 +12,9 @@ models:
     data_tests:
       - expression_is_true:
           arguments:
+            expression: "portfolio_contacted_12m <= portfolio_clients"
+      - expression_is_true:
+          arguments:
             expression: "weeks_reported between 1 and weeks_in_quarter"
       - expression_is_true:
           arguments:
@@ -147,6 +150,17 @@ models:
       - name: call_to_appt_rate
         description: Booked from a call over outbound calls.
         data_type: double
+      - name: portfolio_clients
+        description: "Active portfolio clients at week end, by transit; for the quarter, taken at each branch's own last reported week (a stock). The PRTF_CONTACT_12M denominator."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: portfolio_contacted_12m
+        description: "Of those, clients contacted by any advisor in the trailing 12 months. The PRTF_CONTACT_12M numerator."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: portfolio_contacted_rate_12m
+        description: "PRTF_CONTACT_12M = portfolio_contacted_12m ÷ portfolio_clients, 4 decimals; null before a full 12-month window."
+        data_type: double
 
 unit_tests:
   - name: mart_org_quarterly_keeps_the_book_of_a_branch_that_missed_the_last_week
@@ -165,6 +179,9 @@ unit_tests:
         rows:
           - {branch_id: BR-A, branch_name: A Branch, district_code: DDD, district_name: D District, region_code: 'ON', region_name: Ontario}
           - {branch_id: BR-B, branch_name: B Branch, district_code: DDD, district_name: D District, region_code: 'ON', region_name: Ontario}
+      - input: ref('int_contact_window')
+        rows:
+          - {iso_week_id: '2025-W47', is_window_complete: true}
       - input: ref('int_kpi_events')
         rows:
           - {iso_week_id: '2025-W45', branch_id: BR-A, activities_completed: 1, book_size: 100, clients_covered_13w: 10}

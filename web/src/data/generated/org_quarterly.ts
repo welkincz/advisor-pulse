@@ -35,6 +35,18 @@ export type NoShows = number;
 export type NodeId = string;
 export type NodeName = string;
 export type ParentId = string | null;
+/**
+ * PRTF_CONTACT_12M denominator.
+ */
+export type PortfolioClients = number;
+/**
+ * PRTF_CONTACT_12M numerator.
+ */
+export type PortfolioContacted12M = number;
+/**
+ * The lead KPI; null before 12 months of history.
+ */
+export type PortfolioContactedRate12M = number | null;
 export type QuarterEnd = string;
 export type QuarterStart = string;
 export type ShowRate = number | null;
@@ -72,6 +84,9 @@ export interface OrgQuarterly {
   node_id: NodeId;
   node_name: NodeName;
   parent_id?: ParentId;
+  portfolio_clients: PortfolioClients;
+  portfolio_contacted_12m: PortfolioContacted12M;
+  portfolio_contacted_rate_12m?: PortfolioContactedRate12M;
   quarter_end: QuarterEnd;
   quarter_start: QuarterStart;
   show_rate?: ShowRate;

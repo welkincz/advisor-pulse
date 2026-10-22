@@ -143,6 +143,11 @@ class OrgQuarterly(Contract):
     show_rate: Rate | None = None
     conversion_rate: Rate | None = None
     call_to_appt_rate: Rate | None = None
+    portfolio_clients: Count = Field(description="PRTF_CONTACT_12M denominator.")
+    portfolio_contacted_12m: Count = Field(description="PRTF_CONTACT_12M numerator.")
+    portfolio_contacted_rate_12m: Rate | None = Field(
+        default=None, description="The lead KPI; null before 12 months of history."
+    )
 
 
 class WeeklyReport(Contract):
@@ -179,6 +184,36 @@ class GeoWeekly(Contract):
     clients_contacted_13w: Count
     coverage_rate_13w: Rate | None = None
     activities_completed: Count
+    portfolio_clients: Count = Field(description="PRTF_CONTACT_12M denominator.")
+    portfolio_contacted_12m: Count = Field(description="PRTF_CONTACT_12M numerator.")
+    portfolio_contacted_rate_12m: Rate | None = Field(
+        default=None, description="The lead KPI; null before 12 months of history."
+    )
+
+
+class PortfolioWeekly(Contract):
+    contract_name = "portfolio_weekly"
+    contract_description = (
+        "mart_portfolio_weekly: one row per portfolio and ISO week (last 26 weeks), under the "
+        "holder at week end and the transit branch; the lead KPI per portfolio."
+    )
+
+    iso_week_id: IsoWeek
+    portfolio_id: str = Field(pattern=patterns.PORTFOLIO_ID)
+    advisor_id: str = Field(pattern=patterns.ADVISOR_ID, description="Holder at week end.")
+    branch_id: str = Field(pattern=patterns.BRANCH_ID, description="Transit.")
+    district_code: str = Field(pattern=patterns.DISTRICT_CODE)
+    region_code: RegionCode
+    holder_branch_id: str | None = Field(
+        default=None,
+        pattern=patterns.BRANCH_ID,
+        description="Where the holder works at week end; differs from branch_id under DQ025.",
+    )
+    clients: Count
+    contacted_12m: Count
+    contacted_rate_12m: Rate | None = Field(
+        default=None, description="PRTF_CONTACT_12M; null before 12 months of history."
+    )
 
 
 class DqWeekly(Contract):
@@ -201,6 +236,7 @@ EXPORT_TABLE_CONTRACTS: tuple[type[Contract], ...] = (
     WeeklyReport,
     GeoWeekly,
     DqWeekly,
+    PortfolioWeekly,
 )
 
 # ── Documents (JSON) ─────────────────────────────────────────────────────────

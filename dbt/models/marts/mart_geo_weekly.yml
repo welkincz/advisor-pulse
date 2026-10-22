@@ -11,6 +11,9 @@ models:
     data_tests:
       - expression_is_true:
           arguments:
+            expression: "portfolio_contacted_12m <= portfolio_clients"
+      - expression_is_true:
+          arguments:
             expression: "clients_contacted_13w <= active_clients"
       - expression_is_true:
           arguments:
@@ -51,3 +54,14 @@ models:
         description: Completed activities this week for these clients, by any advisor.
         data_type: bigint
         data_tests: [not_null]
+      - name: portfolio_clients
+        description: "Active portfolio clients at week end, by transit; for the quarter, taken at each branch's own last reported week (a stock). The PRTF_CONTACT_12M denominator."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: portfolio_contacted_12m
+        description: "Of those, clients contacted by any advisor in the trailing 12 months. The PRTF_CONTACT_12M numerator."
+        data_type: bigint
+        data_tests: [not_null]
+      - name: portfolio_contacted_rate_12m
+        description: "PRTF_CONTACT_12M = portfolio_contacted_12m ÷ portfolio_clients, 4 decimals; null before a full 12-month window."
+        data_type: double

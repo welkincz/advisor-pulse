@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "RegionCode": {
+      "description": "Regions follow the provinces, as a Canadian bank's branch network usually does.",
+      "enum": [
+        "ON",
+        "QC",
+        "BC",
+        "AB",
+        "SK",
+        "MB",
+        "NS",
+        "PE",
+        "NB",
+        "NL"
+      ],
+      "title": "RegionCode",
+      "type": "string"
+    }
+  },
+  "$id": "https://pulse.charliebuild.com/contracts/portfolio_weekly.schema.json",
+  "additionalProperties": false,
+  "description": "mart_portfolio_weekly: one row per portfolio and ISO week (last 26 weeks), under the holder at week end and the transit branch; the lead KPI per portfolio.",
+  "properties": {
+    "advisor_id": {
+      "description": "Holder at week end.",
+      "pattern": "^ADV-\\d{5}$",
+      "title": "Advisor Id",
+      "type": "string"
+    },
+    "branch_id": {
+      "description": "Transit.",
+      "pattern": "^BR-\\d{4}$",
+      "title": "Branch Id",
+      "type": "string"
+    },
+    "clients": {
+      "minimum": 0,
+      "title": "Clients",
+      "type": "integer"
+    },
+    "contacted_12m": {
+      "minimum": 0,
+      "title": "Contacted 12M",
+      "type": "integer"
+    },
+    "contacted_rate_12m": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "PRTF_CONTACT_12M; null before 12 months of history.",
+      "title": "Contacted Rate 12M"
+    },
+    "district_code": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "District Code",
+      "type": "string"
+    },
+    "holder_branch_id": {
+      "anyOf": [
+        {
+          "pattern": "^BR-\\d{4}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where the holder works at week end; differs from branch_id under DQ025.",
+      "title": "Holder Branch Id"
+    },
+    "iso_week_id": {
+      "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+      "title": "Iso Week Id",
+      "type": "string"
+    },
+    "portfolio_id": {
+      "pattern": "^PRT-\\d{6}$",
+      "title": "Portfolio Id",
+      "type": "string"
+    },
+    "region_code": {
+      "$ref": "#/$defs/RegionCode"
+    }
+  },
+  "required": [
+    "iso_week_id",
+    "portfolio_id",
+    "advisor_id",
+    "branch_id",
+    "district_code",
+    "region_code",
+    "clients",
+    "contacted_12m"
+  ],
+  "title": "portfolio_weekly",
+  "type": "object",
+  "x-contract-kind": "table",
+  "x-schema-version": "1.0.0"
+}

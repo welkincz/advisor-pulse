@@ -78,6 +78,7 @@ from pulse.contracts.exports import (
     OrgQuarterly,
     OrgWeekly,
     PipelineGraph,
+    PortfolioWeekly,
     RunCheck,
     RunLogExport,
     RunSummary,
@@ -1419,8 +1420,23 @@ class Marts:
                     ]
                     acts = [a for a in self.acts if self.credited_branch(a, week) in node.branches]
                     book = self.book(week, advisors)
+                    in_node = {
+                        c
+                        for c, p in self.portfolio_book(week).items()
+                        if self.transit(p) in node.branches
+                    }
                     parts.append(
-                        _parts(Scope(week, acts, book, self.contacted_13w(week), len(advisors)))
+                        _parts(
+                            Scope(
+                                week,
+                                acts,
+                                book,
+                                self.contacted_13w(week),
+                                len(advisors),
+                                in_node,
+                                self.contacted_12m(week),
+                            )
+                        )
                     )
                 total = {
                     k: sum(p[k] for p in parts)
@@ -1458,6 +1474,13 @@ class Marts:
                         "book_size": last["book_size"],
                         "clients_covered_13w": last["clients_covered_13w"],
                         **_rates(summed, advisor_weeks),
+                        "portfolio_clients": last["portfolio_clients"],
+                        "portfolio_contacted_12m": last["portfolio_contacted_12m"],
+                        "portfolio_contacted_rate_12m": _ratio(
+                            last["portfolio_contacted_12m"], last["portfolio_clients"]
+                        )
+                        if self.window_complete(weeks[-1])
+                        else None,
                     }
                 )
         return rows
@@ -1574,6 +1597,8 @@ class Marts:
         rows = []
         for week in WEEKS:
             contacted = self.contacted_13w(week)
+            portfolios, reached = self.portfolio_book(week), self.contacted_12m(week)
+            complete = self.window_complete(week)
             groups: dict[tuple[str, str], set[str]] = defaultdict(set)
             for c in self.books[week].values():
                 if c.status != "A":
@@ -1599,6 +1624,43 @@ class Marts:
                         "clients_contacted_13w": hit,
                         "coverage_rate_13w": _ratio(hit, len(clients)),
                         "activities_completed": sum(completed[c] for c in clients),
+                        "portfolio_clients": len(owned := clients & portfolios.keys()),
+                        "portfolio_contacted_12m": len(owned & reached),
+                        "portfolio_contacted_rate_12m": _ratio(len(owned & reached), len(owned))
+                        if complete
+                        else None,
+                    }
+                )
+        return rows
+
+    def portfolio_weekly(self) -> list[dict[str, Any]]:
+        """Portfolio x week, as mart_portfolio_weekly: holder at week end, transit, the KPI."""
+        rows = []
+        for week in WEEKS:
+            reached, complete = self.contacted_12m(week), self.window_complete(week)
+            members: dict[str, set[str]] = defaultdict(set)
+            for client, portfolio in self.portfolio_book(week).items():
+                members[portfolio].add(client)
+            for portfolio, clients in sorted(members.items()):
+                holder, transit = self.holder(portfolio, week), self.transit(portfolio)
+                place = org().placement(transit)
+                hit = len(clients & reached)
+                rows.append(
+                    {
+                        "iso_week_id": week,
+                        "portfolio_id": portfolio,
+                        "advisor_id": holder,
+                        "branch_id": transit,
+                        "district_code": place.district.district_code,
+                        "region_code": place.region.region_code.value,
+                        "holder_branch_id": (
+                            a.branch_id
+                            if (a := self.world.assignment_on(holder, week_end(week)))
+                            else None
+                        ),
+                        "clients": len(clients),
+                        "contacted_12m": hit,
+                        "contacted_rate_12m": _ratio(hit, len(clients)) if complete else None,
                     }
                 )
         return rows
@@ -2220,6 +2282,7 @@ def write_exports(world: World, root: Path) -> None:
         ("weekly_report.parquet", WeeklyReport, report),
         ("geo_weekly.parquet", GeoWeekly, marts.geo_weekly()),
         ("dq_weekly.parquet", DqWeekly, marts.dq_weekly()),
+        ("portfolio_weekly.parquet", PortfolioWeekly, marts.portfolio_weekly()),
     ]
     files: list[ExportFile] = []
     for name, model, rows in tables:
