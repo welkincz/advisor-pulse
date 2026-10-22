@@ -460,6 +460,8 @@ def _source_events(
             for index, row in enumerate(rows)
         }
         for change in client_batch.changes:
+            # Holder changes and rebalancing are business events with their own history in
+            # PRTF_ASGN; only the book churn below is noted against CLNT.
             if change.kind not in ("REASSIGNED", "ADVISOR_LEFT"):
                 continue
             calendar = change.day.isocalendar()
