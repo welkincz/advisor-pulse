@@ -59,9 +59,8 @@ def test_activity_uses_advisor_branch_as_of_each_date() -> None:
         books, active = pools[row.activity_ts.date()]
         assert row.client_id in active
         owned += row.client_id in books.get(row.advisor_id, ())
-    # Seeded 80-advisor roster: 743/1018 linked acts are in the owner's book.
-    # Transfers can leave an advisor without a portfolio; #230 calibrates breadth.
-    assert owned / len(linked) >= 0.72
+    # A transfer or a hire opens a portfolio that its branch fills: nobody is left bookless.
+    assert owned / len(linked) >= 0.9
 
 
 @pytest.mark.slow
@@ -182,3 +181,31 @@ def test_seed_week_determinism_and_parquet_schema(tmp_path: Path) -> None:
     latest = write_activity(first[:1], tmp_path, extract_date=date(2026, 9, 14))
     assert len(latest) == 1
     assert sorted(latest[0].parent.glob("part-*.parquet")) == list(latest)
+
+
+@pytest.mark.slow
+def test_default_scale_twelve_month_portfolio_contacted_spreads() -> None:
+    # #230: calibrated contact breadth. After 57 weeks at full scale the 12-month
+    # contacted rate sits in 80-88% nationally and spreads widely across advisors.
+    weeks = 57
+    roster = generate_advisors(org(), seed=7, advisor_count=900, weeks=weeks)
+    ranges = assignment_ranges(roster)
+    batch = generate_clients(org(), ranges, seed=7, client_count=150_000, weeks=weeks)
+    last: dict[str, date] = {}
+    start = date(2024, 10, 7)
+    for offset in range(weeks):
+        monday = start + timedelta(weeks=offset)
+        week = f"{monday.isocalendar().year}-W{monday.isocalendar().week:02d}"
+        for row in generate_activity(org(), ranges, iso_week_id=week, seed=7, client_batch=batch):
+            if row.client_id and row.status is ActivityStatus.COMPLETED:
+                day = row.activity_ts.date()
+                last[row.client_id] = max(day, last.get(row.client_id, day))
+    sunday = start + timedelta(weeks=weeks - 1, days=6)
+    books, _ = client_pools_by_day(batch, [sunday])[sunday]
+    cutoff = sunday.replace(year=sunday.year - 1)
+    hit = {a: sum(last.get(c, cutoff) > cutoff for c in ids) for a, ids in books.items()}
+    national = sum(hit.values()) / sum(len(ids) for ids in books.values())
+    rates = sorted(hit[a] / len(ids) for a, ids in books.items() if len(ids) >= 20)
+    assert 0.80 <= national <= 0.88
+    assert rates[len(rates) // 20] < 0.75  # the bottom 5% is clearly behind
+    assert rates[-len(rates) // 20] > 0.95  # and the top 5% reaches almost everyone

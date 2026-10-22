@@ -28,10 +28,11 @@ def roster():
 
 def test_portfolio_history_hands_over_whole_book_and_retains_transit() -> None:
     portfolios = generate_portfolios(roster(), seed=19, start_date=START)
-    assert len(portfolios.master) == 3
-    assert all(p.branch_id == BRANCH for p in portfolios.master)
+    initial = [p for p in portfolios.master if p.open_date < START]
+    assert len(initial) == 3
+    assert all(p.branch_id == BRANCH for p in initial)
     assert all(p.portfolio_id.startswith("PRT-") for p in portfolios.master)
-    by_owner = {holder_as_of(portfolios, p.portfolio_id, START): p for p in portfolios.master}
+    by_owner = {holder_as_of(portfolios, p.portfolio_id, START): p for p in initial}
     assert set(by_owner) == {"ADV-00001", "ADV-00002", "ADV-00003"}
     old = by_owner["ADV-00001"]
     events = [a for a in portfolios.assignments if a.portfolio_id == old.portfolio_id]
@@ -45,7 +46,7 @@ def test_portfolio_history_hands_over_whole_book_and_retains_transit() -> None:
         "ADV-00003",
     }
     moved = by_owner["ADV-00003"]
-    assert holder_as_of(portfolios, moved.portfolio_id, START + timedelta(days=21)) == ("ADV-00002")
+    assert holder_as_of(portfolios, moved.portfolio_id, START + timedelta(days=21)) == "ADV-00002"
     assert [a.reason_code for a in portfolios.assignments if a.portfolio_id == moved.portfolio_id][
         -1
     ] == PortfolioAssignmentReason.TRANSFER
@@ -80,3 +81,13 @@ def test_last_advisor_departure_has_no_invented_handover_holder() -> None:
     only = (("ADV-00001", BRANCH, Role.ADVISOR, START, START + timedelta(days=7)),)
     with pytest.raises(ValueError, match="no portfolio handover advisor"):
         generate_portfolios(only, seed=19, start_date=START)
+
+
+def test_a_transfer_opens_a_portfolio_at_the_destination() -> None:
+    portfolios = generate_portfolios(roster(), seed=19, start_date=START)
+    opened = [p for p in portfolios.master if p.open_date >= START]
+    assert [(p.portfolio_id, p.branch_id, p.open_date) for p in opened] == [
+        ("PRT-900001", OTHER, START + timedelta(days=21))
+    ]
+    assert holder_as_of(portfolios, "PRT-900001", START + timedelta(days=21)) == "ADV-00003"
+    assert holder_as_of(portfolios, "PRT-900001", START + timedelta(days=20)) is None

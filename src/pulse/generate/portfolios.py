@@ -13,6 +13,9 @@ from pulse.contracts.enums import PortfolioAssignmentReason, Role
 from pulse.contracts.sources import TeradataPortfolio, TeradataPortfolioAssignment
 from pulse.generate.advisors import AssignmentRow
 
+# Portfolios opened when an advisor transfers are numbered from here (PRT-900001 on).
+TRANSFER_RANGE = 900_000
+
 
 @dataclass(frozen=True)
 class PortfolioBatch:
@@ -61,45 +64,53 @@ def generate_portfolios(
 
     by_portfolio = {p.portfolio_id: p for p in master}
     current = {portfolio_id: owner for _, portfolio_id, owner, _ in pending}
-    changes: list[tuple[date, str, PortfolioAssignmentReason]] = []
+    # (day, advisor, reason, destination branch for a transfer)
+    changes: list[tuple[date, str, PortfolioAssignmentReason, str | None]] = []
     for owner, ranges in by_advisor.items():
         for prior, later in itertools.pairwise(ranges):
             if later[1] != prior[1]:
-                changes.append((later[3], owner, PortfolioAssignmentReason.TRANSFER))
+                changes.append((later[3], owner, PortfolioAssignmentReason.TRANSFER, later[1]))
         last = ranges[-1]
         if last[4] is not None:
-            changes.append((last[4] + timedelta(days=1), owner, PortfolioAssignmentReason.HANDOVER))
+            changes.append(
+                (last[4] + timedelta(days=1), owner, PortfolioAssignmentReason.HANDOVER, None)
+            )
 
-    for day, outgoing, reason in sorted(changes):
+    def on_roster(advisor: str, day: date, branch: str | None = None) -> bool:
+        return any(
+            (branch is None or b == branch) and start <= day and (end is None or day < end)
+            for _, b, _, start, end in by_advisor[advisor]
+        )
+
+    opened_on_transfer = 0
+    for day, outgoing, reason, destination in sorted(changes, key=lambda c: c[:3]):
         for portfolio_id, holder in sorted(current.items()):
             if holder != outgoing:
                 continue
             transit = by_portfolio[portfolio_id].branch_id
-            candidates = sorted(
-                advisor
-                for advisor, ranges in by_advisor.items()
-                if advisor != outgoing
-                and any(
-                    branch == transit and start <= day and (end is None or day < end)
-                    for _, branch, _, start, end in ranges
-                )
-            )
-            if not candidates:
-                candidates = sorted(
-                    advisor
-                    for advisor, ranges in by_advisor.items()
-                    if advisor != outgoing
-                    and any(
-                        start <= day and (end is None or day < end)
-                        for _, _, _, start, end in ranges
-                    )
-                )
+            others = sorted(a for a in by_advisor if a != outgoing)
+            candidates = [a for a in others if on_roster(a, day, transit)] or [
+                a for a in others if on_roster(a, day)
+            ]
             if not candidates:
                 raise ValueError(f"no portfolio handover advisor at {transit} on {day}")
             digest = hashlib.sha256(f"{seed}|{portfolio_id}|{day}".encode()).digest()
             successor = candidates[int.from_bytes(digest[:8], "big") % len(candidates)]
             current[portfolio_id] = successor
             pending.append((day, portfolio_id, successor, reason))
+        if destination is not None:
+            # The mover leaves their portfolio at its transit and opens one at the new branch;
+            # client generation fills it from that branch's other portfolios. These IDs have
+            # their own range, so a longer horizon (more hires) never renumbers them.
+            opened_on_transfer += 1
+            portfolio_id = f"PRT-{TRANSFER_RANGE + opened_on_transfer:06d}"
+            portfolio = TeradataPortfolio(
+                PRTF_ID=portfolio_id, BRNCH_ID=destination, OPEN_DT=day, LAST_UPD_TS=_ts(day)
+            )
+            master.append(portfolio)
+            by_portfolio[portfolio_id] = portfolio
+            current[portfolio_id] = outgoing
+            pending.append((day, portfolio_id, outgoing, PortfolioAssignmentReason.OPEN))
 
     assignments = tuple(
         TeradataPortfolioAssignment(

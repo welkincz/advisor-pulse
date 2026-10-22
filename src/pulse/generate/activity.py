@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+import itertools
+import math
 import random
 import re
 import tempfile
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
+from functools import cache
 from pathlib import Path
+from statistics import NormalDist
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -31,6 +35,11 @@ from pulse.generate.clients import ClientBatch
 from pulse.reference import OrgReference
 
 STORY_START = date(2026, 8, 10)
+# A few advisors' portfolios slip from here on, so the 12-month contacted rate has a story.
+DRIFT_START = date(2025, 11, 1)
+DRIFT_DAYS = 270
+DRIFT_SHARE = 0.12
+_STANDARD_NORMAL = NormalDist()
 
 
 def _week_start(iso_week_id: str) -> date:
@@ -51,6 +60,29 @@ def _id(seed: int, week: str, advisor: str, sequence: int) -> str:
 def _profile(advisor: str) -> float:
     value = int.from_bytes(hashlib.sha256(advisor.encode()).digest()[:2], "big") / 65535
     return 0.8 + 0.4 * value
+
+
+def _unit(*parts: object) -> float:
+    """A seeded number in [0, 1), stable across weeks and processes."""
+    digest = hashlib.sha256("|".join(map(str, parts)).encode()).digest()
+    return int.from_bytes(digest[:8], "big") / 2**64
+
+
+@cache
+def _propensity(seed: int, client: str) -> float:
+    """How readily a client is contacted: lognormal, so some are called often, some rarely."""
+    u = min(max(_unit(seed, "propensity", client), 1e-12), 1 - 1e-12)
+    return math.exp(_STANDARD_NORMAL.inv_cdf(u))
+
+
+def _concentration(seed: int, advisor: str, day: date) -> float:
+    """How strongly an advisor favours the same clients: 0 spreads calls across the whole
+    book, higher keeps returning to a few. Calibrated so the 12-month contacted rate spans
+    roughly 55–97% per advisor; a seeded few drift upward (their coverage slips)."""
+    alpha: float = 0.35 + 1.5 * _unit(seed, "reach", advisor) ** 1.2
+    if _unit(seed, "drift", advisor) < DRIFT_SHARE:
+        alpha += 0.8 * min(1.0, max(0.0, (day - DRIFT_START).days / DRIFT_DAYS))
+    return alpha
 
 
 def _count(rng: random.Random, factor: float) -> int:
@@ -86,6 +118,7 @@ def generate_activity(
     for offset in range(5):
         day = monday + timedelta(days=offset)
         books, active_clients = pools[day]
+        weights: dict[str, list[float]] = {}
         weekday = WEEKDAY_WEIGHTS[offset]
         seasonal = seasonal_factor(day)
         holiday = holiday_factor(day)
@@ -114,9 +147,17 @@ def generate_activity(
                 client = None
                 if kind != ActivityType.CALL_OUT or rng.random() >= 0.1:
                     own_book = books.get(advisor, ())
-                    client = rng.choice(
-                        own_book if own_book and rng.random() < 0.95 else active_clients
-                    )
+                    if own_book and rng.random() < 0.95:
+                        if advisor not in weights:
+                            alpha = _concentration(seed, advisor, day)
+                            weights[advisor] = list(
+                                itertools.accumulate(
+                                    _propensity(seed, c) ** alpha for c in own_book
+                                )
+                            )
+                        client = rng.choices(own_book, cum_weights=weights[advisor])[0]
+                    else:
+                        client = rng.choice(active_clients)
                 sequence += 1
                 activity_id = _id(seed, iso_week_id, advisor, sequence)
                 duration = rng.randrange(5, 46)
