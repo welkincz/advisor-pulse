@@ -44,7 +44,7 @@ describe('map geography and bins', () => {
 
   it('rolls an FSA served from two districts into one value, and keeps unknown postal codes off the map', () => {
     const row = (fsa_code: string, district_code: string, active_clients: number, clients_contacted_13w: number) =>
-      ({ iso_week_id: '2026-W42', fsa_code, district_code, active_clients, clients_contacted_13w, coverage_rate_13w: clients_contacted_13w / active_clients, activities_completed: 0 })
+      ({ iso_week_id: '2026-W42', fsa_code, district_code, active_clients, clients_contacted_13w, coverage_rate_13w: clients_contacted_13w / active_clients, activities_completed: 0, portfolio_clients: 0, portfolio_contacted_12m: 0 })
     const { values, unknownClients } = fsaCoverage([row('V2Y', 'BCL', 1355, 790), row('V2Y', 'PRA', 3, 2), row('UNK', 'BCL', 350, 225), row('UNK', 'GTA', 605, 398), row('V6E', 'BCL', 0, 0)])
     expect(values.get('V2Y')).toBeCloseTo(792 / 1358)
     expect(values.has('UNK')).toBe(false)

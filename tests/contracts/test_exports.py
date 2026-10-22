@@ -47,7 +47,7 @@ PORTFOLIO = "portfolio_clients portfolio_contacted_12m portfolio_contacted_rate_
         (
             GeoWeekly,
             "iso_week_id fsa_code district_code active_clients clients_contacted_13w "
-            "coverage_rate_13w activities_completed",
+            f"coverage_rate_13w activities_completed {PORTFOLIO}",
         ),
         (
             DqWeekly,
@@ -108,6 +108,8 @@ def test_geo_allows_unknown_fsa() -> None:
         "active_clients": 3,
         "clients_contacted_13w": 1,
         "activities_completed": 2,
+        "portfolio_clients": 3,
+        "portfolio_contacted_12m": 2,
     }
     GeoWeekly.model_validate(row)
     with pytest.raises(ValidationError):

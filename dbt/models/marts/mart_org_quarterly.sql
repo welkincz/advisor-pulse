@@ -101,7 +101,9 @@ stocks as (
         events.branch_id,
         grouping(events.region_code, events.district_code, events.branch_id) as grouping_id,
         sum(events.book_size) as book_size,
-        sum(events.clients_covered_13w) as clients_covered_13w
+        sum(events.clients_covered_13w) as clients_covered_13w,
+        sum(events.portfolio_clients) as portfolio_clients,
+        sum(events.portfolio_contacted_12m) as portfolio_contacted_12m
     from events
     inner join branch_last
         on branch_last.fiscal_quarter_id = events.fiscal_quarter_id
@@ -131,6 +133,8 @@ leveled as (
         flows.*,
         stocks.book_size,
         stocks.clients_covered_13w,
+        stocks.portfolio_clients,
+        stocks.portfolio_contacted_12m,
         case flows.grouping_id when 7 then 'NATIONAL' when 3 then 'REGION' when 1 then 'DISTRICT' else 'BRANCH' end as level,
         case flows.grouping_id
             when 7 then 'CA' when 3 then flows.region_code when 1 then flows.district_code else flows.branch_id
@@ -176,9 +180,17 @@ select
     round(leveled.activities_completed / nullif(leveled.advisor_weeks, 0), 2) as activities_per_advisor,
     round(leveled.appointments_held / nullif(leveled.appointments_held + leveled.no_shows, 0), 4) as show_rate,
     round(leveled.conversions / nullif(leveled.appointments_held, 0), 4) as conversion_rate,
-    round(leveled.booked_from_call / nullif(leveled.calls_out, 0), 4) as call_to_appt_rate
+    round(leveled.booked_from_call / nullif(leveled.calls_out, 0), 4) as call_to_appt_rate,
+    cast(coalesce(leveled.portfolio_clients, 0) as bigint) as portfolio_clients,
+    cast(coalesce(leveled.portfolio_contacted_12m, 0) as bigint) as portfolio_contacted_12m,
+    -- A stock, like book_size: the rate at the quarter's last week, once it has a full year.
+    case when contact_window.is_window_complete then
+        round(leveled.portfolio_contacted_12m / nullif(leveled.portfolio_clients, 0), 4)
+    end as portfolio_contacted_rate_12m
 from leveled
 inner join quarters on quarters.fiscal_quarter_id = leveled.fiscal_quarter_id
 inner join reported on reported.fiscal_quarter_id = leveled.fiscal_quarter_id
+inner join {{ ref('int_contact_window') }} as contact_window
+    on contact_window.iso_week_id = reported.last_week
 inner join weeks_per_quarter on weeks_per_quarter.fiscal_quarter_id = leveled.fiscal_quarter_id
 left join nodes on nodes.level = leveled.level and nodes.node_id = leveled.node_id

@@ -43,6 +43,7 @@ _ORDER = {
     "weekly_report": "iso_week_id, level, node_id, kpi_code",
     "geo_weekly": "iso_week_id, fsa_code, district_code",
     "dq_weekly": "iso_week_id, rule_id",
+    "portfolio_weekly": "iso_week_id, portfolio_id",
 }
 
 
@@ -152,7 +153,9 @@ def export_web(
         for model in EXPORT_TABLE_CONTRACTS:
             if model is OrgWeekly:
                 continue
-            window = {"advisor_weekly": 26, "geo_weekly": 13}.get(model.contract_name)
+            window = {"advisor_weekly": 26, "geo_weekly": 13, "portfolio_weekly": 26}.get(
+                model.contract_name
+            )
             first = latest_monday - timedelta(weeks=window - 1) if window else None
             first_week = (
                 f"{first.isocalendar().year}-W{first.isocalendar().week:02d}" if first else None
