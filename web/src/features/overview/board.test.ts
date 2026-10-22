@@ -3,7 +3,7 @@ import { expect, it, vi } from 'vitest'
 import type { OrgWeekly } from '../../data/generated/org_weekly'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { funnelFor } from './Funnel'
-import { boardRows } from './KpiBoard'
+import { type BoardRow, boardGroups, boardRows } from './KpiBoard'
 
 // theme/tokens (reached through the primitives index) reads matchMedia at module load; jsdom has none.
 vi.hoisted(() => {
@@ -28,4 +28,16 @@ it('builds the funnel only with an org row, and hides usual levels before the wa
   expect(settled.steps.map((s) => s.usual)).toEqual([0.5, 0.5, 0.5])
   expect(funnelFor(org, rates, 'W2', false)!.steps.map((s) => s.usual)).toEqual([null, null, null])
   expect(funnelFor(org, [], 'W2')!.steps.map((s) => s.value)).toEqual([null, null, null])
+})
+
+it('leaves out a measure with no value, or none at all, once rows have loaded; the lead KPI comes first when it has one', () => {
+  const row = (value: number | null): BoardRow => ({ value, wow: null, flag: false, trend: [value] })
+  const codes = (rows: Map<KpiCode, BoardRow>) => boardGroups(rows).flatMap((g) => g.codes)
+  // An export from before the lead KPI existed has no row for it: activities per advisor leads the board.
+  expect(codes(new Map([['ACT_PER_ADV', row(16)], ['CALLS_OUT', row(7000)]]))).toEqual(['ACT_PER_ADV', 'CALLS_OUT'])
+  // A first year of history has the row, but no value in any week.
+  expect(codes(new Map([['PRTF_CONTACT_12M', row(null)], ['ACT_PER_ADV', row(16)]]))).toEqual(['ACT_PER_ADV'])
+  expect(codes(new Map([['PRTF_CONTACT_12M', row(0.61)], ['ACT_PER_ADV', row(16)]]))).toEqual(['PRTF_CONTACT_12M', 'ACT_PER_ADV'])
+  // Nothing loaded yet (an older week before the history arrives): every measure keeps its place.
+  expect(codes(new Map())).toHaveLength(13)
 })

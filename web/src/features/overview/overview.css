@@ -1,12 +1,14 @@
 /* The national briefing. Tokens only; rules in docs/design.md. */
 
 /* Head: the week, then the week said in one sentence. The sentence is the page title. */
-.briefing-head { display: grid; gap: var(--space-3); padding-bottom: var(--space-8); }
+.briefing-head { display: grid; gap: var(--space-3); padding-bottom: var(--space-6); }
 .briefing-when { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-6); color: var(--muted); font-size: var(--text-sm); }
 .briefing-when p { margin: 0; }
 .briefing-week { margin-right: var(--space-2); color: var(--signal); font-weight: 600; }
-.briefing-headline { max-width: 24ch; margin: var(--space-2) 0 0; font-size: clamp(2rem, 4.6vw, 3.4rem); font-weight: 600; letter-spacing: -0.028em; line-height: 1.07; text-wrap: balance; }
-.briefing-support { max-width: 52ch; margin: 0; color: var(--muted); font-size: var(--text-lg); line-height: 1.45; text-wrap: pretty; }
+.briefing-headline { max-width: 40ch; margin: var(--space-1) 0 0; font-size: clamp(1.625rem, 1.3rem + 0.8vw, 2rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; text-wrap: balance; }
+/* The narrowest phones keep the longest title (portfolio contacted, held steady) to two lines. */
+@media (max-width: 24rem) { .briefing-headline { font-size: var(--text-xl); } }
+.briefing-support { max-width: 64ch; margin: 0; color: var(--muted); font-size: var(--text-md); line-height: 1.5; text-wrap: pretty; }
 
 /* Hero: one measure across every weekly run, under a heavy ink rule. */
 .hero { border-top: 2px solid var(--ink); padding: var(--space-4) 0 var(--space-12); }
@@ -21,6 +23,38 @@
 .hero-key-usual { width: 1.25rem; height: 8px; border-radius: 4px; background: var(--field); }
 .hero-key-flag { width: 9px; height: 9px; border: 2px solid var(--signal); border-radius: 50%; }
 .hero-hint { margin-left: auto; }
+
+/* The overview's first screen (scoped to .briefing: the drill page shares the hero classes).
+   The title sentence, the measure it is about with its figure and trend, then every measure.
+   The lead figure is the largest figure on the page; the chart is sized to its question. */
+.briefing .hero { padding-bottom: var(--space-8); }
+.briefing .hero-value { font-size: var(--text-2xl); }
+.briefing .hero-legend { margin-top: var(--space-2); }
+@media (min-width: 64rem) {
+  /* The figure and its definition beside the chart, the chart two thirds of the width. */
+  .briefing .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 0 var(--space-8); align-items: start; }
+  .briefing .briefing-hero-head { flex-direction: column; flex-wrap: nowrap; align-items: start; justify-content: start; gap: var(--space-4); margin: 0; padding-top: var(--space-2); }
+  .briefing .hero-now { flex-wrap: wrap; }
+}
+@media (max-width: 40rem) {
+  /* A phone: title, figure, chart. The definition is one tap away on the measure's name. */
+  .briefing .hero-definition { display: none; }
+  .briefing .briefing-hero-head { margin-bottom: var(--space-2); }
+}
+.briefing-hero-plot { min-width: 0; }
+
+/* Every measure, right under the chart: the heading and its hint on one row, then the board. */
+.measures { padding: var(--space-6) 0 var(--space-12); border-top: 1px solid var(--rule); }
+.measures-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-6); margin-bottom: var(--space-4); }
+.measures-head h2 { margin: 0; }
+.briefing .board { gap: var(--space-6); }
+.briefing .board-row { padding-block: var(--space-2); }
+
+/* The week in depth: a heavy ink rule opens it, as one opens the hero. */
+.briefing-depth { border-top: 2px solid var(--ink); }
+.briefing-depth > .section:first-child { border-top: 0; }
+/* On the overview the quarter's figure is a sibling of the board's, not a second lead. */
+.briefing .quarters-value { font-size: var(--text-xl); }
 
 /* Board: three groups of rows. A row is a toggle; the chosen one carries the signal rule. */
 .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space-8) var(--space-6); align-items: start; }

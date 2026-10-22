@@ -5,7 +5,12 @@ import { KPI_CODES } from './kpis'
 /** A week at least this far back makes "the lowest since" worth saying. */
 const NOTABLE_GAP = 8
 
-export interface Headline { lead: string; support: string }
+/**
+ * `lead` is the whole sentence. The overview splits it: `title` (how the lead KPI moved) is the
+ * page title, short enough for two lines on a phone, and `record` ("The lowest since …", or '')
+ * opens the line under it.
+ */
+export interface Headline { lead: string; title: string; record: string; support: string }
 
 function moved(code: KpiCode, row: WeeklyReport): string {
   const pct = row.wow_pct
@@ -38,9 +43,11 @@ export function extremeSince(series: readonly WeeklyReport[], week: string): str
 export function weekHeadline(history: readonly WeeklyReport[], week: string, lead: KpiCode = 'ACT_PER_ADV'): Headline | null {
   const series = history.filter((row) => row.kpi_code === lead).sort((a, b) => a.iso_week_id.localeCompare(b.iso_week_id))
   const row = series.find((item) => item.iso_week_id === week)
-  if (!row) return null
+  if (!row || row.value == null) return null
   const since = extremeSince(series, week)
-  const leadText = `${KPI_LABELS[lead]} ${moved(lead, row)}${since ? `, ${since}` : ''}.`
+  const movedText = `${KPI_LABELS[lead]} ${moved(lead, row)}`
+  const leadText = `${movedText}${since ? `, ${since}` : ''}.`
+  const record = since ? `${since[0]!.toUpperCase()}${since.slice(1)}.` : ''
 
   const others = history
     .filter((item) => item.iso_week_id === week && item.kpi_code !== lead && item.flag === 'ANOMALY' && item.wow_pct != null)
@@ -50,5 +57,5 @@ export function weekHeadline(history: readonly WeeklyReport[], week: string, lea
   const support = top
     ? `${KPI_LABELS[top.kpi_code]} ${moved(top.kpi_code, top)}, outside its usual range${others.length > 1 ? `, one of ${others.length} measures flagged this week` : ''}.`
     : 'Every other measure stayed within its usual range.'
-  return { lead: leadText, support }
+  return { lead: leadText, title: `${movedText}.`, record, support }
 }

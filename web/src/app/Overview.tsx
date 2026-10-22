@@ -16,6 +16,7 @@ import { WeekRecap, useRecap } from '../features/overview/WeekRecap'
 import { WhatMoved } from '../features/overview/WhatMoved'
 import { RunStatusBanner } from '../features/overview/RunStatusBanner'
 import { WeekHeatmap } from '../features/overview/WeekHeatmap'
+import { heroChartHeight, useMedia } from '../features/overview/useMedia'
 import { weekSpan } from '../features/overview/week'
 import { QuarterPanel } from '../features/quarters/QuarterPanel'
 import '../features/overview/overview.css'
@@ -35,7 +36,13 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const latest = manifest.latest_week
   const week = resolveWeek(search.get('week'), weeks)!
   const requested = search.get('kpi') as KpiCode | null
-  const lead = defaultLead(manifest.summary)
+  const history = useWeeklyReportHistory('CA', weeks)
+  const all = useMemo<WeeklyReport[]>(() => (history.status === 'ready' ? history.data : []), [history])
+  const ready = history.status === 'ready'
+  // The chart opens on the measure the title sentence is about: for the latest week the
+  // summary's lead, for an earlier one that week's lead once the history has loaded (activities
+  // per advisor in a week without 12 months of history behind it).
+  const lead = ready && week !== latest ? leadFor(all, week) : defaultLead(manifest.summary)
   const code: KpiCode = requested && KPI_CODES.includes(requested) ? requested : lead
   const set = (key: 'week' | 'kpi', value: string) => {
     const next = new URLSearchParams(search)
@@ -44,17 +51,14 @@ function Briefing({ manifest }: { manifest: Manifest }) {
     setSearch(next, { replace: true })
   }
 
-  const history = useWeeklyReportHistory('CA', weeks)
   const regions = useChildReportHistory('CA', weeks)
   const org = useOrgWeekly('CA', [week])
   const heatRegions = useLevelKpiHistory('REGION', code)
   const heatDistricts = useLevelKpiHistory('DISTRICT', code)
 
   const settled = useMemo(() => settledWeeks(weeks), [weeks])
-  const all = useMemo<WeeklyReport[]>(() => (history.status === 'ready' ? history.data : []), [history])
-  const ready = history.status === 'ready'
   const rows = useMemo(() => (ready ? boardRows(all, weeks, week) : week === latest ? summaryRows(manifest) : new Map<KpiCode, BoardRow>()), [ready, all, weeks, week, latest, manifest])
-  const headline = useMemo(() => (ready ? weekHeadline(all, week, leadFor(all, week)) : null), [ready, all, week])
+  const headline = useMemo(() => (ready ? weekHeadline(all, week, lead) ?? weekHeadline(all, week, leadFor(all, week)) : null), [ready, all, week, lead])
   const series = useMemo(() => {
     const byWeek = new Map(all.filter((r) => r.kpi_code === code).map((r) => [r.iso_week_id, r]))
     return weeks.map((w) => byWeek.get(w))
@@ -66,6 +70,8 @@ function Briefing({ manifest }: { manifest: Manifest }) {
   const drill = (id: string) => `/r/${encodeURIComponent(id)}${week === latest ? '' : `?week=${encodeURIComponent(week)}`}`
   const flagged = series.filter((r) => r?.flag === 'ANOMALY').length
   const recap = useRecap()
+  const wide = useMedia('(min-width: 64rem)')
+  const phone = useMedia('(max-width: 40rem)')
 
   return <>
     <header className="briefing-head">
@@ -73,14 +79,14 @@ function Briefing({ manifest }: { manifest: Manifest }) {
         <p><span className="briefing-week">Week {week.slice(6)}</span> {weekSpan(week)}</p>
         <WeekStepper weeks={weeks} week={week} latest={latest} onWeek={(w) => set('week', w)} />
       </div>
-      <h1 className="briefing-headline">{headline?.lead ?? `The weekly report for ${week}`}</h1>
-      <p className="briefing-support">{headline?.support ?? (history.status === 'loading' ? 'Reading two years of weekly runs…' : 'Maplecrest Bank (fictional), national figures.')}</p>
+      <h1 className="briefing-headline">{headline?.title ?? `The weekly report for ${week}`}</h1>
+      <p className="briefing-support">{headline ? [headline.record, headline.support].filter(Boolean).join(' ') : history.status === 'loading' ? 'Reading two years of weekly runs…' : 'Maplecrest Bank (fictional), national figures.'}</p>
     </header>
 
     <RunStatusBanner manifest={manifest} />
 
     <section className="hero" aria-labelledby="hero-title">
-      <div className="hero-head">
+      <div className="hero-head briefing-hero-head">
         <div>
           <h2 id="hero-title" className="hero-title">
             <Explain card={{ title: KPI_LABELS[code], what: KPI_PLAIN[code], answer: { q: 'How is it counted?', a: KPI_DEFINITIONS[code] } }}>
@@ -94,15 +100,22 @@ function Briefing({ manifest }: { manifest: Manifest }) {
           <Delta value={current?.wow_pct ?? rows.get(code)?.wow} better={better} />
         </p>
       </div>
+      <div className="briefing-hero-plot">
       {history.status === 'error' && <DataNotice what="the weekly history" onRetry={history.retry} />}
       <TrendChart weeks={weeks} values={series.map((r) => r?.value ?? null)} usual={series.map((r) => (r && settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null))}
         flagged={series.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={WARM_UP_WEEKS}
-        format={(v) => formatKpi(code, v)} height={300} hint="Click to open this week"
+        format={(v) => formatKpi(code, v)} height={heroChartHeight(wide, phone)} hint="Click to open this week"
         describe={(i) => {
           const r = series[i]
           return r ? happened({ code, value: r.value, wow: r.wow_pct, usual: settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null, flag: r.flag === 'ANOMALY', better }) : []
         }}
         label={`${KPI_LABELS[code]}, national, ${weeks[0]} to ${weeks.at(-1)}; ${flagged} anomaly weeks. Use the arrow keys to choose a week.`} />
+      <p className="hero-legend">
+        <span><i className="hero-key-line" aria-hidden="true" />Weekly value</span>
+        <span><i className="hero-key-usual" aria-hidden="true" /><Term {...TERMS.usual} /></span>
+        <span><i className="hero-key-flag" aria-hidden="true" /><Term {...TERMS.anomaly} /></span>
+        <SeriesCsvButton rows={series} filename={`advisor-pulse_CA_${code}.csv`} />
+      </p>
       <details className="figure-table hero-table">
         <summary>Show the numbers</summary>
         <div className="hero-table-scroll" tabIndex={0} role="region" aria-label={`${KPI_LABELS[code]} by week`}>
@@ -114,17 +127,20 @@ function Briefing({ manifest }: { manifest: Manifest }) {
             </tr>)}</tbody></table>
         </div>
       </details>
-      <p className="hero-legend">
-        <span><i className="hero-key-line" aria-hidden="true" />Weekly value</span>
-        <span><i className="hero-key-usual" aria-hidden="true" /><Term {...TERMS.usual} /></span>
-        <span><i className="hero-key-flag" aria-hidden="true" /><Term {...TERMS.anomaly} /></span>
-        <SeriesCsvButton rows={series} filename={`advisor-pulse_CA_${code}.csv`} />
-      </p>
+      </div>
     </section>
 
-    <Section id="measures" title="Every measure" lede="Hover or focus a measure for what it means; click to plot it.">
+    {/* The next answer sits right under the chart, on the first screen: every measure, the lead KPI first. */}
+    <section className="measures" aria-labelledby="measures-title">
+      <header className="measures-head">
+        <h2 id="measures-title">Every measure</h2>
+        <p className="section-lede">Hover or focus a measure for what it means; click to plot it.</p>
+      </header>
       <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} />
-    </Section>
+    </section>
+
+    {/* The week in depth, for the measure plotted above. */}
+    <div className="briefing-depth">
 
     {recap?.week === week && <Section id="recap" title="The week in 20 seconds" lede="A short video the weekly run renders from the same numbers.">
       <WeekRecap recap={recap} />
@@ -156,6 +172,8 @@ function Briefing({ manifest }: { manifest: Manifest }) {
       {heatRegions.status === 'error' && <DataNotice what="the week-by-week view" onRetry={heatRegions.retry} />}
     </Section>}
 
+
+    </div>
 
     <p className="briefing-more"><Link to="/map">See the week on the map</Link></p>
   </>
