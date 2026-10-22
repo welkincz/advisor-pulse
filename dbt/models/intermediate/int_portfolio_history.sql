@@ -31,4 +31,6 @@ select
     ) as valid_to,
     one_per_day.portfolio_assignment_id
 from one_per_day
+-- An event for a portfolio missing from the master drops here; the relationships test on
+-- stg_portfolio_assignment reports it.
 inner join {{ ref('stg_portfolio') }} as portfolio using (portfolio_id)
