@@ -42,9 +42,9 @@
     },
     {
       "name": "dq_weekly.parquet",
-      "sha256": "18038c280a2b2120768d3d67d9000b3f385a630345cd6317fbb4f501ea4c8f9a",
-      "rows": 32,
-      "bytes": 2905
+      "sha256": "2076f4e77f61cf02b436b0a8d2fb8a4af83fb2d7cc1757b56299a2cf404a6adb",
+      "rows": 36,
+      "bytes": 2957
     },
     {
       "name": "pipeline_graph.json",

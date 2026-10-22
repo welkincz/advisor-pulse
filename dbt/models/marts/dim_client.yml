@@ -91,7 +91,7 @@ models:
         data_type: boolean
         data_tests: [not_null]
       - name: primary_advisor_id
-        description: Primary advisor on the latest client version.
+        description: Book owner in the latest book week, the holder of the client's portfolio (PLAN.md §5); the latest version's PRIM_ADVSR_ID when the client is not in that week's book.
         data_type: varchar
         data_tests:
           - not_null

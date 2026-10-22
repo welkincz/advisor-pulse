@@ -35,6 +35,14 @@ banded as (
         year(as_of.as_of_date) - client.birth_year as age_years
     from client
     cross join as_of
+),
+
+-- The book owner is the portfolio's holder (PLAN.md §5): take it from the latest book
+-- week, so the dimension and the book always agree; PRIM_ADVSR_ID is the fallback.
+latest_book as (
+    select client_id, primary_advisor_id
+    from {{ ref('int_client_book_weekly') }}
+    where week_end = (select max(week_end) from {{ ref('int_client_book_weekly') }})
 )
 
 select
@@ -59,8 +67,9 @@ select
     fsa_code,
     province_code,
     postal_valid_flag,
-    primary_advisor_id,
+    coalesce(latest_book.primary_advisor_id, banded.primary_advisor_id) as primary_advisor_id,
     primary_branch_id,
     status_code = 'A' as is_active,
     client_since_date as client_since
 from banded
+left join latest_book using (client_id)

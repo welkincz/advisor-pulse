@@ -1,6 +1,7 @@
 -- Data-quality rule × ISO week (PLAN.md §6.8, §8), exported as dq_weekly.parquet. Ingest
--- and staging rules count rows in that week's batch; DQ011 counts the active client book
--- at week end, since a bad postal code matters for as long as the client is in the book.
+-- and staging rules count rows in that week's batch; DQ011 and DQ014 count the active
+-- client book at week end, since a bad postal code or an unknown portfolio matters for as
+-- long as the client is in the book.
 with batches as (
     select * from {{ ref('int_ingest_weekly') }}
 ),
@@ -14,13 +15,15 @@ rules (rule_id, rule_name, action) as (
         ('DQ005', 'Unparseable value', 'QUARANTINE'),
         ('DQ010', 'Duplicate or re-sent row', 'DEDUPE'),
         ('DQ011', 'Invalid postal code', 'NORMALIZE'),
-        ('DQ012', 'Unknown advisor_id', 'MAP_UNKNOWN')
+        ('DQ012', 'Unknown advisor_id', 'MAP_UNKNOWN'),
+        ('DQ014', 'Unknown portfolio', 'MAP_UNKNOWN')
 ),
 
 book as (
     select
         iso_week_id,
         count(*) filter (where fsa_code = 'UNK') as invalid_postal,
+        count(*) filter (where is_unknown_portfolio) as unknown_portfolio,
         count(*) as active_clients
     from {{ ref('int_client_book_weekly') }}
     where is_active
@@ -42,10 +45,12 @@ counted as (
             when 'DQ010' then batches.dedupe_rows
             when 'DQ011' then coalesce(book.invalid_postal, 0)
             when 'DQ012' then batches.unknown_advisor_rows
+            when 'DQ014' then coalesce(book.unknown_portfolio, 0)
         end as rows_affected,
         case rules.rule_id
             when 'DQ005' then batches.client_rows
             when 'DQ011' then coalesce(book.active_clients, 0)
+            when 'DQ014' then coalesce(book.active_clients, 0)
             else batches.activity_rows
         end as rows_in_batch
     from batches

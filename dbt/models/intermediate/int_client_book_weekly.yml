@@ -3,8 +3,10 @@ version: 2
 models:
   - name: int_client_book_weekly
     description: >
-      Client × ISO week (PLAN.md §6.7). `primary_advisor_id` is the client's primary
-      advisor on the version in force at `week_end` 23:59 America/Toronto, and
+      Client × ISO week (PLAN.md §6.7). `primary_advisor_id` is the book owner: the holder,
+      on `week_end`, of the portfolio named by the version in force at `week_end` 23:59
+      America/Toronto (falling back to PRIM_ADVSR_ID when the portfolio is null or
+      unknown, DQ014), and
       `is_active` is true when that version's status is `A`. A closure at or before
       that cut-off drops the client for that week and every later week (PLAN.md §7,
       active book at week end). The coverage denominator is `where is_active`.
@@ -61,6 +63,13 @@ models:
               arguments:
                 to: ref('stg_branch')
                 field: branch_id
+      - name: portfolio_id
+        description: Portfolio on the client version in force at week end, as written (null on rows from before portfolios).
+      - name: transit_branch_id
+        description: The portfolio's branch; null when the portfolio is null or unknown.
+      - name: is_unknown_portfolio
+        description: True when the version names a portfolio the master lacks (DQ014); the book falls back to PRIM_ADVSR_ID.
+        data_tests: [not_null]
       - name: fsa_code
         description: >
           FSA of the postal code on the week-end version, or `UNK` when it does not

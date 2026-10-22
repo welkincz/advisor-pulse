@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: int_portfolio_history
+    description: >
+      SCD2 portfolio holder ranges from `stg_portfolio_assignment` (PLAN.md §6.7). One row
+      per event; `valid_to` is exclusive, the next event's date, or `9999-12-31` while
+      open. DQ024 (error): ranges never overlap or leave a gap, the first range starts on
+      the portfolio's open date, and a holder is employed and not a branch manager on the
+      day a range starts (`tests/assert_portfolio_history_dq024.sql`).
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "valid_to > valid_from"
+    columns:
+      - name: portfolio_id
+        description: Portfolio natural key.
+        data_tests: [not_null]
+      - name: transit_branch_id
+        description: The portfolio's branch, for every range.
+        data_tests: [not_null]
+      - name: advisor_id
+        description: Holder during this range.
+        data_tests: [not_null]
+      - name: change_reason
+        description: Event that opened the range.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [OPEN, HANDOVER, TRANSFER, REBALANCE]
+      - name: valid_from
+        description: First day of the range (inclusive).
+        data_tests: [not_null]
+      - name: valid_to
+        description: Day after the range ends (exclusive); `9999-12-31` while open.
+        data_tests: [not_null]
+      - name: portfolio_assignment_id
+        description: The event that opened the range.
+        data_tests: [unique, not_null]
