@@ -287,3 +287,16 @@ def test_default_scale_runs_in_under_30_seconds() -> None:
     batch = _clients_module().generate_clients(org(), ranges, seed=1)
     assert time.perf_counter() - t0 < 30
     assert len(batch.snapshot) == 150_000
+
+
+@pytest.mark.unit
+def test_every_active_clients_portfolio_has_a_holder_every_day(generated: Any) -> None:
+    # Books are keyed by the portfolio holder (books.client_pools_by_day), so a client whose
+    # portfolio has no assignment yet on a day would have no book to sit in.
+    from pulse.generate.books import client_pools_by_day
+
+    _, batch = generated
+    for week in range(52):
+        days = [START + timedelta(weeks=week, days=d) for d in range(7)]
+        pools = client_pools_by_day(batch, days)
+        assert set(pools) == set(days)
