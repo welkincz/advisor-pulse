@@ -28,6 +28,9 @@ from pulse.warehouse import WAREHOUSE_FILE
 
 log = logging.getLogger(__name__)
 
+# What persist last uploaded: lets the next restore on the same runner skip the download.
+WAREHOUSE_MARKER = "warehouse.r2.json"
+
 SOURCES_DIR = "sources"
 NARRATIVES_DIR = "narratives"
 # Every run_id in the persisted warehouse. A fresh runner starts with an empty local
@@ -95,7 +98,7 @@ def backfill_rebuild(ctx: StageContext, weeks: Sequence[str]) -> StageResult:
 
 def clear_local(data_dir: Path) -> None:
     """Cold start begins from nothing so the rebuild is deterministic."""
-    for name in (WAREHOUSE_FILE, f"{WAREHOUSE_FILE}.wal"):
+    for name in (WAREHOUSE_FILE, f"{WAREHOUSE_FILE}.wal", WAREHOUSE_MARKER):
         (data_dir / name).unlink(missing_ok=True)
     for name in (SOURCES_DIR, "defects", "narratives", "exports", "dbt-target"):
         shutil.rmtree(data_dir / name, ignore_errors=True)
@@ -197,21 +200,55 @@ class StateSync:
                 ),
             )
 
-        sources = sorted(store.etags(f"{SOURCES_DIR}/"))
-        for key in sources:
-            store.download(key, ctx.data_dir / key)
-        narratives = sorted(store.etags(f"{NARRATIVES_DIR}/"))
-        for key in narratives:
-            store.download(key, ctx.data_dir / key)
-        # A WAL left by the local file would be replayed onto the restored one.
-        (ctx.data_dir / f"{WAREHOUSE_FILE}.wal").unlink(missing_ok=True)
-        store.download(WAREHOUSE_FILE, ctx.data_dir / WAREHOUSE_FILE)
+        # Only what differs is downloaded: a fresh runner fetches everything, while the next
+        # week of a backfill on the same runner already holds what it persisted (#206).
+        sources = store.etags(f"{SOURCES_DIR}/")
+        fetched = sum(
+            store.download_if_changed(key, ctx.data_dir / key, etag)
+            for key, etag in sorted(sources.items())
+        )
+        narratives = store.etags(f"{NARRATIVES_DIR}/")
+        for key, etag in sorted(narratives.items()):
+            fetched += store.download_if_changed(key, ctx.data_dir / key, etag)
+        warehouse = "kept the local" if self._warehouse_is_current(store, ctx.data_dir) else ""
+        if not warehouse:
+            # A WAL left by the local file would be replayed onto the restored one.
+            (ctx.data_dir / f"{WAREHOUSE_FILE}.wal").unlink(missing_ok=True)
+            store.download(WAREHOUSE_FILE, ctx.data_dir / WAREHOUSE_FILE)
+            warehouse = "restored"
         return StageResult(
             rows_out=len(sources),
             message=(
-                f"Restored {WAREHOUSE_FILE}, {len(sources)} source files and "
-                f"{len(narratives)} narrative files from R2.{note}"
+                f"State matches R2: {warehouse} {WAREHOUSE_FILE}, {len(sources)} source files and "
+                f"{len(narratives)} narrative files ({fetched} downloaded).{note}"
             ),
+        )
+
+    @staticmethod
+    def _warehouse_is_current(store: ObjectStore, data_dir: Path) -> bool:
+        """True when the local warehouse is the one this runner last persisted, unchanged since.
+
+        Its upload is multipart, so the ETag is not an MD5; persist records the ETag with the
+        file's size and mtime instead. A WAL means writes after persist, so it never counts.
+        """
+        path, marker = data_dir / WAREHOUSE_FILE, data_dir / WAREHOUSE_MARKER
+        if (
+            not path.is_file()
+            or not marker.is_file()
+            or path.with_name(path.name + ".wal").exists()
+        ):
+            return False
+        try:
+            seen = json.loads(marker.read_text())
+        except (OSError, ValueError):  # a runner cancelled mid-write; download instead
+            return False
+        if not isinstance(seen, dict):
+            return False
+        stat = path.stat()
+        return bool(
+            seen.get("size") == stat.st_size
+            and seen.get("mtime_ns") == stat.st_mtime_ns
+            and seen.get("etag") == store.etag(WAREHOUSE_FILE)
         )
 
     def persist(self, ctx: StageContext) -> StageResult:
@@ -240,6 +277,16 @@ class StateSync:
             pruned = f", removed {self._prune(store, ctx.data_dir, SOURCES_DIR)} stale ones"
             self._fresh.discard(ctx.run_id)
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
+        stat = (ctx.data_dir / WAREHOUSE_FILE).stat()
+        (ctx.data_dir / WAREHOUSE_MARKER).write_text(
+            json.dumps(
+                {
+                    "etag": store.etag(WAREHOUSE_FILE),
+                    "size": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                }
+            )
+        )
         store.put(RUNS_KEY, json.dumps(_run_ids(ctx.data_dir / WAREHOUSE_FILE)).encode())
         persisted = f"Persisted {WAREHOUSE_FILE} and {sources} new or changed source files{pruned}"
         try:

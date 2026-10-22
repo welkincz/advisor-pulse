@@ -177,6 +177,23 @@ class ObjectStore:
         self.put(key, path.read_bytes())
         return True
 
+    def etag(self, key: str) -> str | None:
+        """The object's ETag without quotes, or None when it does not exist."""
+        try:
+            head = self._call("head_object", Key=self._key(key))
+        except ClientError as exc:
+            if _code(exc) in {"NoSuchKey", "404", "NotFound"}:
+                return None
+            raise
+        return str(head["ETag"]).strip('"')
+
+    def download_if_changed(self, key: str, path: Path, remote_etag: str) -> bool:
+        """Download unless the local file's MD5 is the (single-part) ETag. True if downloaded."""
+        if path.is_file() and remote_etag == _md5(path):
+            return False
+        self.download(key, path)
+        return True
+
     def download(self, key: str, path: Path) -> None:
         """Download beside ``path``, then rename into place: a failure never leaves half a file."""
         path.parent.mkdir(parents=True, exist_ok=True)

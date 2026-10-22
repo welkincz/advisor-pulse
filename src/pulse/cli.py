@@ -116,13 +116,33 @@ def backfill(
     from_week: FromOption,
     to_week: ToOption,
     rebuild: Annotated[bool, typer.Option("--rebuild", help="Start from empty state.")] = False,
+    budget_minutes: Annotated[
+        int | None,
+        typer.Option(
+            "--budget-minutes",
+            min=1,
+            help="Stop cleanly between weeks before this much time is used; resume with --from.",
+        ),
+    ] = None,
+    resume_file: Annotated[
+        Path | None,
+        typer.Option("--resume-file", help="Write the week to resume from here when stopping."),
+    ] = None,
 ) -> None:
     """Run the weekly pipeline for every week in a range."""
+    from datetime import timedelta
+
     from pulse.runner.backfill import backfill_range
 
     try:
         code = backfill_range(
-            from_week, to_week, data_dir=data_dir(), rebuild=rebuild, echo=typer.echo
+            from_week,
+            to_week,
+            data_dir=data_dir(),
+            rebuild=rebuild,
+            echo=typer.echo,
+            budget=timedelta(minutes=budget_minutes) if budget_minutes else None,
+            resume_file=resume_file,
         )
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
