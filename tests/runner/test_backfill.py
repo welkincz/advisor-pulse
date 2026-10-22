@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -165,7 +165,7 @@ def test_cli_backfill_calls_runner_and_propagates_failure(
 
     seen: list[tuple[str, str, bool]] = []
 
-    def fake(first: str, last: str, *, data_dir: Path, rebuild: bool, echo: object) -> int:
+    def fake(first: str, last: str, *, data_dir: Path, rebuild: bool, **_: object) -> int:
         seen.append((first, last, rebuild))
         return 1
 
@@ -232,3 +232,97 @@ def test_default_backfill_uses_templates_until_the_final_week(
         ("2026-W09", None),
         ("2026-W10", "model"),
     ]
+
+
+class TickingClock:
+    """Each week's single stage advances the clock by that week's minutes."""
+
+    def __init__(self, minutes: list[int]) -> None:
+        self.at = datetime(2026, 4, 20, tzinfo=UTC)
+        self.minutes = minutes
+
+    def now(self) -> datetime:
+        return self.at
+
+    def sleep(self, seconds: float) -> None:
+        pass
+
+
+def _ticking_stages(clock: TickingClock, seen: list[str]) -> tuple[Stage, ...]:
+    def work(ctx: StageContext) -> StageResult:
+        seen.append(ctx.iso_week_id)
+        clock.at += timedelta(minutes=clock.minutes[len(seen) - 1])
+        return StageResult()
+
+    return (Stage("work", "Work", work),)
+
+
+def test_budget_stops_between_weeks_and_names_where_to_resume(tmp_path: Path) -> None:
+    clock, seen, lines = TickingClock([50, 60, 55, 70, 40]), [], []
+    resume = tmp_path / "resume.txt"
+    code = backfill_range(
+        "2026-W08",
+        "2026-W12",
+        data_dir=tmp_path,
+        stages=_ticking_stages(clock, seen),
+        clock=clock,
+        echo=lines.append,
+        budget=timedelta(minutes=200),
+        resume_file=resume,
+    )
+    # 165 min used after three weeks; the next week is budgeted at 60 × 1.25 = 75 > 35 left.
+    assert code == 0
+    assert seen == ["2026-W08", "2026-W09", "2026-W10"]
+    assert resume.read_text() == "2026-W11\n"
+    assert lines[-1] == (
+        "Time budget reached after 3 weeks (165 min of 200 min). "
+        "Resume with --from 2026-W11 --to 2026-W12."
+    )
+
+
+def test_budget_that_fits_runs_everything_and_leaves_no_resume_file(tmp_path: Path) -> None:
+    clock, seen = TickingClock([10, 10, 10]), []
+    resume = tmp_path / "resume.txt"
+    resume.write_text("2026-W01\n")  # left over from an earlier stopped run
+    code = backfill_range(
+        "2026-W08",
+        "2026-W10",
+        data_dir=tmp_path,
+        stages=_ticking_stages(clock, seen),
+        clock=clock,
+        echo=lambda _: None,
+        budget=timedelta(minutes=200),
+        resume_file=resume,
+    )
+    assert code == 0
+    assert seen == ["2026-W08", "2026-W09", "2026-W10"]
+    assert not resume.exists()
+
+
+def test_cli_passes_the_budget_through(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import pulse.runner.backfill as module
+
+    seen: dict[str, object] = {}
+
+    def fake(first: str, last: str, **kwargs: object) -> int:
+        seen.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(module, "backfill_range", fake)
+    result = CliRunner().invoke(
+        app,
+        [
+            "backfill",
+            "--from",
+            "2026-W08",
+            "--to",
+            "2026-W15",
+            "--budget-minutes",
+            "320",
+            "--resume-file",
+            str(tmp_path / "next"),
+        ],
+    )
+    assert result.exit_code == 0
+    assert seen["budget"] == timedelta(minutes=320)
+    assert seen["resume_file"] == tmp_path / "next"

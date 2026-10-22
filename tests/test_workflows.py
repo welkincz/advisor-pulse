@@ -55,6 +55,21 @@ def test_weekly_has_schedule_and_backfill_has_typed_dispatch_inputs() -> None:
     assert inputs["from"]["required"] == "true"
     assert inputs["to"]["required"] == "true"
     assert inputs["rebuild"]["type"] == "boolean"
+    assert inputs["budget_minutes"]["default"] == "320"
+
+
+def test_backfill_that_stops_on_its_budget_continues_without_deploying() -> None:
+    steps = {step.get("name"): step for step in load("backfill.yml")["jobs"]["run"]["steps"]}
+    run = steps["Backfill selected weeks"]["run"]
+    assert '--budget-minutes "$BUDGET_MINUTES"' in run
+    assert 'echo "next=' in run
+    assert steps["Build backfilled site"]["if"] == "steps.backfill_run.outputs.next == ''"
+    cont = steps["Continue in a new run"]
+    assert cont["if"] == (
+        "steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next != ''"
+    )
+    assert "gh workflow run backfill.yml" in cont["run"]
+    assert "-f rebuild=false" in cont["run"]
 
 
 def test_summary_steps_handle_success_and_missing_log(tmp_path: Path) -> None:
@@ -99,10 +114,13 @@ def test_summary_steps_handle_success_and_missing_log(tmp_path: Path) -> None:
 )
 def test_workflows_call_the_shared_pages_action(name: str, run_id: str) -> None:
     workflow = load(name)
-    assert workflow["permissions"]["actions"] == "read"
+    chained = name == "backfill.yml"  # dispatches its own continuation (#206)
+    assert workflow["permissions"]["actions"] == ("write" if chained else "read")
     steps = workflow["jobs"]["run"]["steps"]
     deploy = next(step for step in steps if step.get("uses") == "./.github/actions/pages-deploy")
-    assert deploy["if"] == "always()"
+    assert deploy["if"] == (
+        "always() && steps.backfill_run.outputs.next == ''" if chained else "always()"
+    )
     assert deploy["with"]["run-outcome"] == f"${{{{ steps.{run_id}.outcome }}}}"
     assert deploy["with"]["build-outcome"] == "${{ steps.build_site.outcome }}"
     assert deploy["with"]["cloudflare-api-token"] == "${{ secrets.CLOUDFLARE_API_TOKEN }}"

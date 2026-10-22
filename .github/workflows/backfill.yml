@@ -16,10 +16,15 @@ on:
         required: true
         default: false
         type: boolean
+      budget_minutes:
+        description: Stop cleanly between weeks after this many minutes and continue in a new run
+        required: false
+        default: '320'
+        type: string
 
 permissions:
   contents: read
-  actions: read
+  actions: write  # a run that hits its time budget dispatches the next one
 
 concurrency:
   group: weekly
@@ -75,6 +80,7 @@ jobs:
           FROM_WEEK: ${{ inputs.from }}
           TO_WEEK: ${{ inputs.to }}
           REBUILD: ${{ inputs.rebuild }}
+          BUDGET_MINUTES: ${{ inputs.budget_minutes || '320' }}
           PULSE_DATA_DIR: data
           PULSE_NARRATIVE_BACKEND: claude-code
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -83,16 +89,35 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
         run: |
-          args=(--from "$FROM_WEEK" --to "$TO_WEEK")
+          args=(--from "$FROM_WEEK" --to "$TO_WEEK" --budget-minutes "$BUDGET_MINUTES")
+          args+=(--resume-file "$RUNNER_TEMP/resume_week")
           if [[ "$REBUILD" == "true" ]]; then args+=(--rebuild); fi
           uv run pulse backfill "${args[@]}"
+          if [[ -s "$RUNNER_TEMP/resume_week" ]]; then
+            echo "next=$(cat "$RUNNER_TEMP/resume_week")" >> "$GITHUB_OUTPUT"
+          fi
 
+      # A run that stopped on its budget leaves the site alone: the last run of the chain deploys,
+      # so the public site never shows a half-rebuilt history.
       - name: Build backfilled site
         id: build_site
+        if: steps.backfill_run.outputs.next == ''
         run: pnpm -C web build
 
+      - name: Continue in a new run
+        if: steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT_WEEK: ${{ steps.backfill_run.outputs.next }}
+          TO_WEEK: ${{ inputs.to }}
+          BUDGET_MINUTES: ${{ inputs.budget_minutes || '320' }}
+        run: |
+          gh workflow run backfill.yml --ref "$GITHUB_REF_NAME" \
+            -f from="$NEXT_WEEK" -f to="$TO_WEEK" -f rebuild=false -f budget_minutes="$BUDGET_MINUTES"
+          echo "Stopped on the time budget; continuing from $NEXT_WEEK in a new run." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Deploy to Cloudflare Pages
-        if: always()
+        if: always() && steps.backfill_run.outputs.next == ''
         uses: ./.github/actions/pages-deploy
         with:
           run-outcome: ${{ steps.backfill_run.outcome }}

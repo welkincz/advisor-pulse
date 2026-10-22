@@ -467,3 +467,41 @@ def test_server_errors_are_retryable() -> None:
     store = ObjectStore(Unavailable(), BUCKET)  # type: ignore[arg-type]
     with pytest.raises(RetryableError):
         store.get("lock.json")
+
+
+# ── Incremental restore (#206) ──────────────────────────────────────────────
+
+
+def test_restore_downloads_only_what_differs(store: ObjectStore, tmp_path: Path) -> None:
+    seed_remote(store, tmp_path)
+    data_dir = tmp_path / "runner"
+    sync = sync_for(store)
+
+    first = sync.restore(ctx(data_dir, "backfill-a"))
+    assert "restored warehouse.duckdb, 2 source files and 0 narrative files (2 downloaded)" in (
+        first.message or ""
+    )
+    assert sync.persist(ctx(data_dir, "backfill-a")).status is StageStatus.SUCCESS
+    sync.release(ctx(data_dir, "backfill-a"))
+
+    # The next week on the same runner: nothing changed, so nothing is fetched.
+    second = sync.restore(ctx(data_dir, "backfill-b"))
+    assert "kept the local warehouse.duckdb" in (second.message or "")
+    assert "(0 downloaded)" in (second.message or "")
+
+    # A source edited remotely, and a local warehouse touched after persist, are fetched again.
+    sync.release(ctx(data_dir, "backfill-b"))
+    store.put("sources/teradata/client_20261001.csv", b"C2")
+    con = connect(data_dir / WAREHOUSE_FILE)
+    con.execute("CREATE TABLE meta.after_persist (x INTEGER)")
+    con.close()
+    third = sync.restore(ctx(data_dir, "backfill-c"))
+    assert "restored warehouse.duckdb" in (third.message or "")
+    assert "(1 downloaded)" in (third.message or "")
+    assert (data_dir / "sources/teradata/client_20261001.csv").read_bytes() == b"C2"
+    con = connect(data_dir / WAREHOUSE_FILE, read_only=True)
+    tables = {
+        r[0] for r in con.execute("SELECT table_name FROM information_schema.tables").fetchall()
+    }
+    con.close()
+    assert "after_persist" not in tables
