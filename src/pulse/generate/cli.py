@@ -33,6 +33,8 @@ from pulse.contracts.sources import (
     TeradataAssignment,
     TeradataBranch,
     TeradataClient,
+    TeradataPortfolio,
+    TeradataPortfolioAssignment,
 )
 from pulse.generate.activity import generate_activity, write_activity
 from pulse.generate.advisors import (
@@ -49,6 +51,7 @@ from pulse.generate.clients import (
     write_delta,
 )
 from pulse.generate.dirt import inject_dirt
+from pulse.generate.portfolios import PortfolioBatch, generate_portfolios
 from pulse.generate.teradata import replace_table, write_transaction
 from pulse.reference import org
 
@@ -72,6 +75,7 @@ class World:
 
     roster: AdvisorRoster
     clients: ClientBatch
+    portfolios: PortfolioBatch
 
 
 @dataclass(frozen=True)
@@ -115,10 +119,16 @@ def horizon_weeks(iso_week_id: str) -> int:
 def build_world(seed: int, sizes: Sizes, through: str) -> World:
     weeks = horizon_weeks(through)
     roster = generate_advisors(org(), seed=seed, advisor_count=sizes.advisors, weeks=weeks)
+    portfolios = generate_portfolios(assignment_ranges(roster), seed=seed, start_date=DEFAULT_START)
     clients = generate_clients(
-        org(), assignment_ranges(roster), seed=seed, client_count=sizes.clients, weeks=weeks
+        org(),
+        assignment_ranges(roster),
+        seed=seed,
+        client_count=sizes.clients,
+        weeks=weeks,
+        portfolio_batch=portfolios,
     )
-    return World(roster, clients)
+    return World(roster, clients, portfolios)
 
 
 def roster_as_of(roster: AdvisorRoster, as_of: date) -> AdvisorRoster:
@@ -175,6 +185,20 @@ def generate_week(
         replace_table(con, "ADVSR", TeradataAdvisor, hr.advisors, "ADVSR_ID")
         replace_table(con, "ADVSR_ASGN", TeradataAssignment, hr.assignments, "ASGN_ID")
         replace_table(con, "BRNCH", TeradataBranch, hr.branches, "BRNCH_ID")
+        replace_table(
+            con,
+            "PRTF",
+            TeradataPortfolio,
+            tuple(p for p in world.portfolios.master if p.open_date <= sunday),
+            "PRTF_ID",
+        )
+        replace_table(
+            con,
+            "PRTF_ASGN",
+            TeradataPortfolioAssignment,
+            tuple(a for a in world.portfolios.assignments if a.effective_date <= sunday),
+            "PASGN_ID",
+        )
         if first_week:
             snapshot = clients_as_of(world.clients, monday - timedelta(days=1))
             replace_table(con, "CLNT", TeradataClient, snapshot, "CLNT_ID")
