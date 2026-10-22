@@ -17,6 +17,7 @@ with org as (
 
 kpis (kpi_code, lower_is_better) as (
     values
+        ('PRTF_CONTACT_12M', false),
         ('ACT_PER_ADV', false),
         ('CALLS_OUT', false),
         ('APPT_BOOKED', false),
@@ -40,6 +41,7 @@ org_values as (
         org.parent_id,
         kpis.kpi_code,
         cast(case kpis.kpi_code
+            when 'PRTF_CONTACT_12M' then org.portfolio_contacted_rate_12m
             when 'ACT_PER_ADV' then org.activities_per_advisor
             when 'CALLS_OUT' then org.calls_out
             when 'APPT_BOOKED' then org.appointments_booked

@@ -19,7 +19,16 @@ from pulse.narrative.prompt import KPI_LABELS, LOWER_IS_BETTER, RATE_KPIS
 
 RECAP_VERSION = 1
 # The four measures the video counts up, in the order the site's board lists them.
-HEADLINE_KPIS = (KpiCode.ACT_PER_ADV, KpiCode.CALLS_OUT, KpiCode.APPT_BOOKED, KpiCode.SHOW_RATE)
+# Four cards, the lead KPI first. A week without a full 12-month window has no value for it,
+# so the next measure in line fills the fourth card instead.
+HEADLINE_KPIS = (
+    KpiCode.PRTF_CONTACT_12M,
+    KpiCode.ACT_PER_ADV,
+    KpiCode.CALLS_OUT,
+    KpiCode.SHOW_RATE,
+    KpiCode.APPT_BOOKED,
+)
+CARDS = 4
 # The measure regions are ranked on, as in the Overview's "What moved".
 RANKED_KPI = KpiCode.ACT_PER_ADV
 AVERAGES = frozenset({KpiCode.ACT_PER_ADV, KpiCode.AVG_MEET_MIN})
@@ -106,10 +115,12 @@ def build_recap(export_dir: Path, week: str | None = None) -> dict[str, Any]:
     national = {r[3]: r for r in rows if r[0] == "NATIONAL"}
     regions = [r for r in rows if r[0] == "REGION"]
 
-    kpis = []
+    kpis: list[dict[str, Any]] = []
     for code in HEADLINE_KPIS:
         row = national.get(code.value)
         value = row[4] if row else None
+        if (value is None and code is KpiCode.PRTF_CONTACT_12M) or len(kpis) == CARDS:
+            continue
         kpis.append(
             {
                 "code": code.value,
@@ -159,7 +170,7 @@ def build_recap(export_dir: Path, week: str | None = None) -> dict[str, Any]:
         found = next((n["headline"] for n in notes if n["node_id"] == furthest["id"]), None)
         summary = found and _region_name(found, furthest["id"], furthest["name"])
 
-    lead_code = HEADLINE_KPIS[0]
+    lead_code = KpiCode(str(kpis[0]["code"]))  # the lead KPI, or the fallback when it has no value
     series = duckdb.execute(
         "select iso_week_id, value, wow_pct from read_parquet(?) "
         "where level = 'NATIONAL' and kpi_code = ? order by iso_week_id",

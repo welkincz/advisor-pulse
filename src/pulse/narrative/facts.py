@@ -2,7 +2,8 @@
 
 Order is fixed so the same report always yields the same facts, and so the same cache key:
 the node's KPIs this week, then each child's core KPIs, then the node's 13-week history of
-the headline KPI.
+the headline KPI. The headline is the lead KPI, portfolio contacted (12 months); a week
+without a full 12-month window has no value for it, so activities per advisor leads instead.
 """
 
 from __future__ import annotations
@@ -14,8 +15,15 @@ from datetime import date, timedelta
 from pulse.contracts.enums import KpiCode, OrgLevel
 from pulse.contracts.exports import NarrativeFact, WeeklyReport
 
-HEADLINE_KPI = KpiCode.ACT_PER_ADV
-CHILD_KPIS = (KpiCode.ACT_PER_ADV, KpiCode.SHOW_RATE, KpiCode.APPT_CONV, KpiCode.COVERAGE_13W)
+HEADLINE_KPI = KpiCode.PRTF_CONTACT_12M
+FALLBACK_HEADLINE_KPI = KpiCode.ACT_PER_ADV
+CHILD_KPIS = (
+    KpiCode.PRTF_CONTACT_12M,
+    KpiCode.ACT_PER_ADV,
+    KpiCode.SHOW_RATE,
+    KpiCode.APPT_CONV,
+    KpiCode.COVERAGE_13W,
+)
 HISTORY_WEEKS = 13
 NARRATED_LEVELS = (OrgLevel.REGION, OrgLevel.DISTRICT)
 DIGITS = 4
@@ -29,6 +37,7 @@ class NodeFacts:
     iso_week_id: str
     children: dict[str, str]  # child node_id -> name
     facts: tuple[NarrativeFact, ...]
+    headline_kpi: KpiCode = HEADLINE_KPI
 
     def by_id(self) -> dict[str, NarrativeFact]:
         return {f.fact_id: f for f in self.facts}
@@ -90,9 +99,13 @@ def build_facts(report: Sequence[WeeklyReport], node_id: str, week: str) -> Node
     for child in sorted(children):
         for kpi in CHILD_KPIS:
             add(rows.get((week, child, kpi)))
+    lead = rows.get((week, node_id, HEADLINE_KPI))
+    headline = (
+        HEADLINE_KPI if lead is not None and lead.value is not None else FALLBACK_HEADLINE_KPI
+    )
     for past in weeks_back(week, HISTORY_WEEKS - 1):
-        add(rows.get((past, node_id, HEADLINE_KPI)))
+        add(rows.get((past, node_id, headline)))
 
     if not facts:
         raise ValueError(f"{node_id} has no non-null KPI values for {week}")
-    return NodeFacts(node_id, node.node_name, node.level, week, children, tuple(facts))
+    return NodeFacts(node_id, node.node_name, node.level, week, children, tuple(facts), headline)

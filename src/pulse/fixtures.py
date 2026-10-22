@@ -1514,6 +1514,7 @@ class Marts:
 
     def weekly_report(self, org_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         value_of: dict[KpiCode, Callable[[dict[str, Any]], float | None]] = {
+            KpiCode.PRTF_CONTACT_12M: lambda r: r["portfolio_contacted_rate_12m"],
             KpiCode.ACT_PER_ADV: lambda r: r["activities_per_advisor"],
             KpiCode.CALLS_OUT: lambda r: r["calls_out"],
             KpiCode.APPT_BOOKED: lambda r: r["appointments_booked"],

@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from pulse.contracts.enums import KpiCode
 from pulse.contracts.exports import NarrativeBullet, NarrativeFact, NodeNarrative, WatchItem
-from pulse.narrative.facts import HEADLINE_KPI, NodeFacts
+from pulse.narrative.facts import NodeFacts
 from pulse.narrative.prompt import KPI_LABELS, LOWER_IS_BETTER, PROMPT_VERSION, fmt
 
-BULLET_KPIS = (KpiCode.CALLS_OUT, KpiCode.SHOW_RATE, KpiCode.COVERAGE_13W, KpiCode.APPT_CONV)
-WATCH_KPI = KpiCode.COVERAGE_13W
+BULLET_KPIS = (KpiCode.ACT_PER_ADV, KpiCode.CALLS_OUT, KpiCode.SHOW_RATE, KpiCode.APPT_CONV)
+WATCH_KPI = KpiCode.PRTF_CONTACT_12M
 FLAT = 0.01  # |wow_pct| below 1% reads as "held"
 
 
@@ -34,12 +34,14 @@ def _move(fact: NarrativeFact) -> str:
 
 def template_narrative(node: NodeFacts) -> NodeNarrative:
     first = node.facts[0]
-    lead = _current(node, node.node_id, HEADLINE_KPI) or first
+    lead = _current(node, node.node_id, node.headline_kpi) or first
     label = KPI_LABELS[lead.kpi_code]
     headline = f"{node.node_name}: {label[0].lower()}{label[1:]} {_move(lead)}."
 
     bullets: list[NarrativeBullet] = []
     for kpi in BULLET_KPIS:
+        if kpi is lead.kpi_code:
+            continue
         fact = _current(node, node.node_id, kpi)
         if fact is None or fact.value is None:
             continue

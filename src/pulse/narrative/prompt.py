@@ -10,9 +10,9 @@ import json
 from typing import Any
 
 from pulse.contracts.enums import KpiCode
-from pulse.narrative.facts import HEADLINE_KPI, NodeFacts
+from pulse.narrative.facts import NodeFacts
 
-PROMPT_VERSION = "narrative-v2"
+PROMPT_VERSION = "narrative-v3"
 DEFAULT_MODEL = "claude-opus-5-5"
 MAX_TOKENS = 1500
 
@@ -33,6 +33,7 @@ KPI_LABELS: dict[KpiCode, str] = {
 }
 RATE_KPIS = frozenset(
     {
+        KpiCode.PRTF_CONTACT_12M,
         KpiCode.CALL_TO_APPT,
         KpiCode.SHOW_RATE,
         KpiCode.APPT_CONV,
@@ -112,14 +113,15 @@ def user_message(node: NodeFacts) -> str:
             for fact in node.facts
             if fact.node_id == node.node_id
             and fact.iso_week_id == node.iso_week_id
-            and fact.kpi_code is HEADLINE_KPI
+            and fact.kpi_code is node.headline_kpi
         ),
         None,
     )
+    lead = node.headline_kpi
     focus = (
-        f"Headline KPI: {KPI_LABELS[HEADLINE_KPI]} ({HEADLINE_KPI.value}, {headline.fact_id})."
+        f"Headline KPI: {KPI_LABELS[lead]} ({lead.value}, {headline.fact_id})."
         if headline is not None
-        else f"Headline KPI: {HEADLINE_KPI.value} unavailable; use a neutral headline."
+        else f"Headline KPI: {lead.value} unavailable; use a neutral headline."
     )
     return (
         f"Node: {node.node_id} ({node.node_name}), level {node.level.value}, "
