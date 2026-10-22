@@ -5,9 +5,8 @@
 .briefing-when { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-6); color: var(--muted); font-size: var(--text-sm); }
 .briefing-when p { margin: 0; }
 .briefing-week { margin-right: var(--space-2); color: var(--signal); font-weight: 600; }
-.briefing-headline { max-width: 40ch; margin: var(--space-1) 0 0; font-size: clamp(1.625rem, 1.3rem + 0.8vw, 2rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; text-wrap: balance; }
-/* The narrowest phones keep the longest title (portfolio contacted, held steady) to two lines. */
-@media (max-width: 24rem) { .briefing-headline { font-size: var(--text-xl); } }
+/* Size comes from the base h1 (--text-title, 24 to 32), like every page title. */
+.briefing-headline { max-width: 40ch; margin: var(--space-1) 0 0; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; text-wrap: balance; }
 .briefing-support { max-width: 64ch; margin: 0; color: var(--muted); font-size: var(--text-md); line-height: 1.5; text-wrap: pretty; }
 
 /* Hero: one measure across every weekly run, under a heavy ink rule. */
