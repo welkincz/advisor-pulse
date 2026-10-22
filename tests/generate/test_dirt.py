@@ -425,3 +425,26 @@ def test_upstream_event_rates_cannot_hide_existing_events(tmp_path: Path) -> Non
             seed=7,
             rates={**_rates(), DefectKind.ADVISOR_TRANSFER: 0.5},
         )
+
+
+def test_late_rows_never_predate_the_history_start(tmp_path: Path) -> None:
+    # #233: the first extracts' late rows used to land in the weeks before history began.
+    monday = date.fromisocalendar(2026, 37, 1)
+    clamped = inject_dirt(
+        _sources(tmp_path / "a"),
+        tmp_path / "clamped",
+        iso_week_id=WEEK,
+        seed=8,
+        rates=_rates(LATE_ARRIVING=1.0),
+        history_start=monday,
+    )
+    assert not [d for d in clamped.defects if d.kind is DefectKind.LATE_ARRIVING]
+    open_start = inject_dirt(
+        _sources(tmp_path / "b"),
+        tmp_path / "open",
+        iso_week_id=WEEK,
+        seed=8,
+        rates=_rates(LATE_ARRIVING=1.0),
+        history_start=monday - timedelta(weeks=3),
+    )
+    assert [d for d in open_start.defects if d.kind is DefectKind.LATE_ARRIVING]

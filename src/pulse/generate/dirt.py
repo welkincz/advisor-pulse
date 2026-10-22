@@ -101,6 +101,7 @@ def _activity(
     rates: Mapping[DefectKind, float],
     rng: random.Random,
     advisor_roster: AdvisorRoster | None,
+    history_start: date | None = None,
 ) -> list[Defect]:
     year, number = map(int, week.split("-W"))
     sunday = date.fromisocalendar(year, number, 7)
@@ -159,6 +160,9 @@ def _activity(
                         shifted = (
                             (row["ACTIVITY_TS"] - timedelta(weeks=weeks)).astimezone(toronto).date()
                         )
+                        # A late row never lands before the history it belongs to (#233).
+                        if history_start is not None and shifted < history_start:
+                            continue
                         if advisor_roster is None or any(
                             start <= shifted and (end is None or shifted < end)
                             for start, end in by_advisor.get(row["ADVISOR_ID"], ())
@@ -496,6 +500,7 @@ def inject_dirt(
     include_client_snapshot: bool = False,
     client_batch: ClientBatch | None = None,
     advisor_roster: AdvisorRoster | None = None,
+    history_start: date | None = None,
 ) -> DefectManifest:
     """Mutate clean extracts in place and write a contract-validated weekly manifest.
 
@@ -521,7 +526,7 @@ def inject_dirt(
         return existing
     rng_seed = int.from_bytes(hashlib.sha256(f"{seed}|{iso_week_id}".encode()).digest()[:8], "big")
     rng = random.Random(rng_seed)
-    defects = _activity(sources_root, iso_week_id, configured, rng, advisor_roster)
+    defects = _activity(sources_root, iso_week_id, configured, rng, advisor_roster, history_start)
     defects += _clients(sources_root, iso_week_id, configured, rng, include_client_snapshot)
     defects += _source_events(sources_root, iso_week_id, client_batch, advisor_roster)
     defects.sort(key=lambda d: (d.file, -1 if d.row is None else d.row, d.kind.value))

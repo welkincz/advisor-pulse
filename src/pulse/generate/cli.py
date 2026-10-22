@@ -223,6 +223,7 @@ def generate_week(
         include_client_snapshot=first_week,
         client_batch=world.clients,
         advisor_roster=world.roster,
+        history_start=DEFAULT_START,
     )
     merge_defects(data_dir)
     return manifest
