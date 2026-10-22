@@ -275,6 +275,12 @@ class StateSync:
             # A rebuild regenerates every source. Older files left in R2 would be restored and
             # ingested by the next week; they come from an older generator and break its joins.
             pruned = f", removed {self._prune(store, ctx.data_dir, SOURCES_DIR)} stale ones"
+            # Its weekly narratives too: week 2 restores R2's, and export re-validates every
+            # one against today's contract. The model cache (narratives/cache/) stays; its
+            # keys are built from the facts, so an entry from an older report is never hit.
+            cache = f"{NARRATIVES_DIR}/cache/"
+            stale = self._prune(store, ctx.data_dir, NARRATIVES_DIR, keep=cache)
+            pruned += f" and {stale} stale narratives"
             self._fresh.discard(ctx.run_id)
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
         stat = (ctx.data_dir / WAREHOUSE_FILE).stat()
@@ -314,9 +320,16 @@ class StateSync:
         return uploaded
 
     @staticmethod
-    def _prune(store: ObjectStore, data_dir: Path, name: str) -> int:
-        """Delete remote files under ``name`` that ``data_dir/name`` lacks; return how many."""
-        stale = [key for key in sorted(store.etags(f"{name}/")) if not (data_dir / key).is_file()]
+    def _prune(store: ObjectStore, data_dir: Path, name: str, keep: str | None = None) -> int:
+        """Delete remote files under ``name`` that ``data_dir/name`` lacks; return how many.
+
+        Keys under the ``keep`` prefix are left alone.
+        """
+        stale = [
+            key
+            for key in sorted(store.etags(f"{name}/"))
+            if not (data_dir / key).is_file() and not (keep and key.startswith(keep))
+        ]
         for key in stale:
             store.delete(key)
         return len(stale)
