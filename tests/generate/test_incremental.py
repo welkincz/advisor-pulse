@@ -164,3 +164,21 @@ def test_cli_backfill_writes_each_week(tmp_path: Path, monkeypatch: pytest.Monke
     assert json.loads((tmp_path / "defects.json").read_text())["iso_weeks"] == WEEKS[:2]
     again = CliRunner().invoke(app, args)
     assert "2026-W09: already generated" in again.output
+
+
+def test_the_first_weeks_have_no_activity_before_the_history_start(tmp_path: Path) -> None:
+    from zoneinfo import ZoneInfo
+
+    from pulse.generate.advisors import DEFAULT_START
+
+    first = DEFAULT_START.isocalendar()
+    weeks = week_range(f"{first.year}-W{first.week:02d}", f"{first.year}-W{first.week + 1:02d}")
+    generate_weeks(tmp_path, weeks, seed=SEED, sizes=SIZES, echo=quiet)
+    toronto = ZoneInfo("America/Toronto")
+    earliest = min(
+        ts.astimezone(toronto).date()
+        for p in (tmp_path / "sources/snowflake/activity").rglob("*.parquet")
+        for ts in pq.read_table(p, columns=["ACTIVITY_TS"]).column("ACTIVITY_TS").to_pylist()
+        if ts is not None
+    )
+    assert earliest >= DEFAULT_START
