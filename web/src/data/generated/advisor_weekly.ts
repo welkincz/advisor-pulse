@@ -19,6 +19,18 @@ export type DistrictCode = string;
 export type IsoWeekId = string;
 export type NoShows = number;
 /**
+ * PRTF_CONTACT_12M denominator.
+ */
+export type PortfolioClients = number;
+/**
+ * PRTF_CONTACT_12M numerator.
+ */
+export type PortfolioContacted12M = number;
+/**
+ * The lead KPI; null before 12 months of history.
+ */
+export type PortfolioContactedRate12M = number | null;
+/**
  * Regions follow the provinces, as a Canadian bank's branch network usually does.
  */
 export type RegionCode = "ON" | "QC" | "BC" | "AB" | "SK" | "MB" | "NS" | "PE" | "NB" | "NL";
@@ -43,6 +55,9 @@ export interface AdvisorWeekly {
   district_code: DistrictCode;
   iso_week_id: IsoWeekId;
   no_shows: NoShows;
+  portfolio_clients: PortfolioClients;
+  portfolio_contacted_12m: PortfolioContacted12M;
+  portfolio_contacted_rate_12m?: PortfolioContactedRate12M;
   region_code: RegionCode;
   unique_clients_contacted: UniqueClientsContacted;
 }

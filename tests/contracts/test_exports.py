@@ -24,6 +24,7 @@ MEASURES = (
     "conversions unique_clients_contacted book_size clients_covered_13w coverage_rate_13w "
     "avg_meeting_duration_min"
 )
+PORTFOLIO = "portfolio_clients portfolio_contacted_12m portfolio_contacted_rate_12m"
 
 
 @pytest.mark.parametrize(
@@ -31,12 +32,12 @@ MEASURES = (
     [
         (
             AdvisorWeekly,
-            f"iso_week_id advisor_id branch_id district_code region_code {MEASURES}",
+            f"iso_week_id advisor_id branch_id district_code region_code {MEASURES} {PORTFOLIO}",
         ),
         (
             OrgWeekly,
             f"iso_week_id level node_id node_name parent_id active_advisors {MEASURES} "
-            "activities_per_advisor show_rate conversion_rate call_to_appt_rate",
+            f"activities_per_advisor show_rate conversion_rate call_to_appt_rate {PORTFOLIO}",
         ),
         (
             WeeklyReport,
@@ -71,6 +72,7 @@ def _org(**changes: Any) -> dict[str, Any]:
     for col in MEASURES.split():
         row.setdefault(col, 10)
     row["coverage_rate_13w"] = 0.4
+    row.update(portfolio_clients=10, portfolio_contacted_12m=8)
     return {**row, **changes}
 
 

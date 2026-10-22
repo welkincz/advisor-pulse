@@ -26,6 +26,8 @@ parts as (
         count(distinct contacted_client_id) as unique_clients_contacted,
         sum(book_size) as book_size,
         sum(clients_covered_13w) as clients_covered_13w,
+        sum(portfolio_clients) as portfolio_clients,
+        sum(portfolio_contacted_12m) as portfolio_contacted_12m,
         sum(meeting_minutes) as meeting_minutes,
         sum(meetings_held) as meetings_held
     from events
@@ -50,7 +52,13 @@ select
     cast(parts.book_size as bigint) as book_size,
     cast(parts.clients_covered_13w as bigint) as clients_covered_13w,
     round(parts.clients_covered_13w / nullif(parts.book_size, 0), 4) as coverage_rate_13w,
-    round(parts.meeting_minutes / nullif(parts.meetings_held, 0), 2) as avg_meeting_duration_min
+    round(parts.meeting_minutes / nullif(parts.meetings_held, 0), 2) as avg_meeting_duration_min,
+    cast(parts.portfolio_clients as bigint) as portfolio_clients,
+    cast(parts.portfolio_contacted_12m as bigint) as portfolio_contacted_12m,
+    case when contact_window.is_window_complete then
+        round(parts.portfolio_contacted_12m / nullif(parts.portfolio_clients, 0), 4)
+    end as portfolio_contacted_rate_12m
 from roster
 inner join parts using (iso_week_id, advisor_id)
+inner join {{ ref('int_contact_window') }} as contact_window using (iso_week_id)
 inner join {{ ref('dim_org') }} as org on org.branch_id = roster.branch_id

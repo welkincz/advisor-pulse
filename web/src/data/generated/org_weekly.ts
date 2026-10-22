@@ -26,6 +26,18 @@ export type NodeName = string;
  * Null for the national node.
  */
 export type ParentId = string | null;
+/**
+ * PRTF_CONTACT_12M denominator.
+ */
+export type PortfolioClients = number;
+/**
+ * PRTF_CONTACT_12M numerator.
+ */
+export type PortfolioContacted12M = number;
+/**
+ * The lead KPI; null before 12 months of history.
+ */
+export type PortfolioContactedRate12M = number | null;
 export type ShowRate = number | null;
 export type UniqueClientsContacted = number;
 
@@ -53,6 +65,9 @@ export interface OrgWeekly {
   node_id: NodeId;
   node_name: NodeName;
   parent_id?: ParentId;
+  portfolio_clients: PortfolioClients;
+  portfolio_contacted_12m: PortfolioContacted12M;
+  portfolio_contacted_rate_12m?: PortfolioContactedRate12M;
   show_rate?: ShowRate;
   unique_clients_contacted: UniqueClientsContacted;
 }
