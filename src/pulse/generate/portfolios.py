@@ -72,9 +72,11 @@ def generate_portfolios(
                 changes.append((later[3], owner, PortfolioAssignmentReason.TRANSFER, later[1]))
         last = ranges[-1]
         if last[4] is not None:
-            changes.append(
-                (last[4] + timedelta(days=1), owner, PortfolioAssignmentReason.HANDOVER, None)
-            )
+            # A range ends on the TERM date and excludes it (advisors.assignment_ranges), so
+            # the leaver no longer holds anything that day: the handover is dated the TERM
+            # date itself. A day later left one day with a departed holder, which surfaced
+            # whenever a TERM date fell on a week end.
+            changes.append((last[4], owner, PortfolioAssignmentReason.HANDOVER, None))
 
     def on_roster(advisor: str, day: date, branch: str | None = None) -> bool:
         return any(
