@@ -15,7 +15,8 @@ export interface CheckReading {
 
 /** What the run did around its checks. A rerun skips ingest, so the batch checks see no rows. */
 export interface RunContext {
-  ingestSkipped?: boolean
+  /** Ingest skipped because every file was a duplicate (SKIPPED_DUPLICATE), not for another reason. */
+  alreadyLoaded?: boolean
 }
 
 export const INGEST_SKIPPED = "Ingest skipped: this week's files were already loaded, so nothing new was checked."
@@ -37,8 +38,9 @@ export function readCheck(check: RunCheck, context: RunContext = {}): CheckReadi
   const observed = check.observed
   const base = { id: check.check_id, title, detail: check.message ?? check.expected ?? '' }
   if (observed == null) return { ...base, value: '–', bullet: null }
-  // With ingest skipped there was no batch: "0 of 0" would read as a measurement.
-  if (context.ingestSkipped && (check.check_id === 'DQ032' || check.check_id === 'DQ033')) {
+  // A rerun of a loaded week has no batch: "0 of 0" would read as a measurement. Any other skip
+  // keeps the runner's reading, since the sentence says why ingest did not run.
+  if (context.alreadyLoaded &&(check.check_id === 'DQ032' || check.check_id === 'DQ033')) {
     return { ...base, value: 'No new rows', detail: INGEST_SKIPPED_SHORT, bullet: null }
   }
 
@@ -90,8 +92,23 @@ export function latestStages(run: RunSummary): StageAttempt[] {
   return [...out.values()]
 }
 
-/** Whether the run's latest ingest attempt was skipped (a rerun of a week already loaded). */
-export const ingestSkipped = (run: RunSummary) => latestStages(run).find((s) => s.stage === 'ingest')?.status === 'SKIPPED'
+/**
+ * How the run's latest ingest attempt was skipped, if it was. Ingest also skips when no source files
+ * exist, an upstream stage failed, or the run halted; only SKIPPED_DUPLICATE means already loaded.
+ */
+export function ingestSkip(run: RunSummary): { alreadyLoaded: boolean; message: string } | null {
+  const ingest = latestStages(run).find((s) => s.stage === 'ingest')
+  if (ingest?.status !== 'SKIPPED') return null
+  const message = ingest.message ?? ''
+  return { alreadyLoaded: message.includes('SKIPPED_DUPLICATE'), message }
+}
+
+/** A skip message short enough for a sentence: no local paths, no run-on detail. */
+function condense(message: string): string {
+  const trimmed = message.replace(/\s+under\s+\S+/g, '').replace(/\.$/, '').trim()
+  const short = trimmed.charAt(0).toLowerCase() + trimmed.slice(1)
+  return short.length > 90 ? `${short.slice(0, 89).trimEnd()}…` : short
+}
 
 /** "the dbt build warned on 1 test", "narration warned (1 of 5 narratives fell back to the template)". */
 function stagePhrase(stage: StageAttempt): string {
@@ -121,7 +138,9 @@ export function qualitySentence(run: RunSummary): string {
       ? `All ${total} run checks passed for ${run.iso_week_id}${troubled ? `, but ${troubled}` : ''}.`
       : `${passed} of ${total} run checks passed for ${run.iso_week_id}${failed.length ? `; ${failed.join(' and ').toLowerCase()} failed` : ''}${warned.length ? `; ${warned.join(' and ').toLowerCase()} warned` : ''}.${troubled ? ` Outside the checks, ${troubled}.` : ''}`
   const ingest = stages.find((s) => s.stage === 'ingest')
-  if (ingest?.status === 'SKIPPED') return `${head} ${INGEST_SKIPPED}`
+  const skip = ingestSkip(run)
+  if (skip?.alreadyLoaded) return `${head} ${INGEST_SKIPPED}`
+  if (skip) return `${head} Ingest was skipped${skip.message ? ` (${condense(skip.message)})` : ''}, so no new rows were loaded.`
   if (!ingest?.rows_in || ingest.rows_quarantined == null) return head
   const caught = run.checks.find((c) => c.check_id === 'DQ033')?.status === 'PASS'
   return `${head} ${ingest.rows_quarantined.toLocaleString('en-CA')} of ${ingest.rows_in.toLocaleString('en-CA')} rows were quarantined (${pct(ingest.rows_quarantined / ingest.rows_in)})${caught ? ', each one a defect the generator injected on purpose' : ''}.`

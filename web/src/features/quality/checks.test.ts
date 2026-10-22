@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { RunCheck, RunSummary } from '../../data/generated/run_log'
-import { INGEST_SKIPPED, INGEST_SKIPPED_SHORT, ingestSkipped, qualitySentence, readCheck } from './checks'
+import { INGEST_SKIPPED, INGEST_SKIPPED_SHORT, ingestSkip, qualitySentence, readCheck } from './checks'
 
 const check = (check_id: string, observed: number | null, expected: string, message: string, status: RunCheck['status'] = 'PASS') =>
   ({ check_id, observed, expected, message, status, severity: 'WARN' }) as RunCheck
@@ -21,7 +21,7 @@ it('reads each run check into a value and, where it has a limit, a bullet', () =
 })
 
 it('says the batch checks saw nothing new when ingest was skipped, instead of 0 of 0', () => {
-  const skipped = { ingestSkipped: true }
+  const skipped = { alreadyLoaded: true }
   expect(readCheck(check('DQ032', 0, '<= 2.0%', '0 of 0 batch rows quarantined'), skipped)).toMatchObject({ value: 'No new rows', detail: INGEST_SKIPPED_SHORT, bullet: null })
   expect(readCheck(check('DQ033', 0, '0 exact injected quarantines', 'Missing 0; unexpected 0'), skipped)).toMatchObject({ value: 'No new rows', bullet: null })
   // Freshness and volume read the warehouse, not the batch, so they still have a reading.
@@ -55,8 +55,22 @@ it('names the stage that warned when every check passed, so the sentence agrees 
     stage('checks', 'SUCCESS'),
     stage('export', 'RUNNING'),
   ], 'WARN')
-  expect(ingestSkipped(r)).toBe(true)
+  expect(ingestSkip(r)).toMatchObject({ alreadyLoaded: true })
   expect(qualitySentence(r)).toBe(`All 4 run checks passed for 2026-W42, but the dbt build warned on 1 test. ${INGEST_SKIPPED}`)
+})
+
+it('claims already loaded only for a duplicate skip; any other skip says why and keeps the readings', () => {
+  const skippedBy = (message: string) => run(passing, [stage('ingest', 'SKIPPED', { rows_in: 0, rows_quarantined: 0, message })])
+  expect(ingestSkip(skippedBy('activity: SKIPPED_DUPLICATE: 106 files; hr: SKIPPED_DUPLICATE'))).toEqual({ alreadyLoaded: true, message: expect.any(String) })
+
+  const absent = skippedBy('No source files under /tmp/pulse/data/sources')
+  expect(ingestSkip(absent)).toMatchObject({ alreadyLoaded: false })
+  expect(qualitySentence(absent)).toBe('All 4 run checks passed for 2026-W42. Ingest was skipped (no source files), so no new rows were loaded.')
+  expect(qualitySentence(skippedBy('Upstream stage generate failed.'))).toBe('All 4 run checks passed for 2026-W42. Ingest was skipped (upstream stage generate failed), so no new rows were loaded.')
+  expect(qualitySentence(skippedBy('Run stopped at restore_state: lock held'))).toContain('Ingest was skipped (run stopped at restore_state: lock held)')
+  expect(qualitySentence(absent)).not.toContain('already loaded')
+  // Without a duplicate skip the page reads the checks as the runner reported them.
+  expect(readCheck(check('DQ033', 0, '0 exact injected quarantines', 'Missing 0; unexpected 0'), { alreadyLoaded: false })).toMatchObject({ value: '0 of 0' })
 })
 
 it('names a stage by its message when it is short, and says when one failed', () => {

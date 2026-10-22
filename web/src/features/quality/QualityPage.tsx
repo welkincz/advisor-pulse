@@ -6,7 +6,7 @@ import { TrendChart } from '../../components/charts/TrendChart'
 import { Section, Sparkline } from '../../components/primitives'
 import { DataNotice, useDqWeekly, useRunLog } from '../../data'
 import type { DqAction, DqWeekly } from '../../data/generated/dq_weekly'
-import { ingestSkipped, qualitySentence, readCheck } from './checks'
+import { ingestSkip, qualitySentence, readCheck } from './checks'
 import { QualityMark } from './QualityMark'
 import { RULES, RULES_URL } from './rules'
 import './quality.css'
@@ -48,7 +48,7 @@ export function QualityPage() {
   const selected = requested && rules.has(requested) ? requested : measured[0]?.id ?? 'DQ001'
   const lastWeek = weeks.at(-1)
   const latestRun = runLog.status === 'ready' ? runLog.data.runs.find((r) => r.run_type === 'WEEKLY') ?? runLog.data.runs[0] : undefined
-  const skipped = latestRun ? ingestSkipped(latestRun) : false
+  const alreadyLoaded = latestRun ? ingestSkip(latestRun)?.alreadyLoaded ?? false : false
 
   const stacks = useMemo(() => HANDLING.map((group) => ({
     key: group.key, label: group.label, color: group.color,
@@ -72,7 +72,7 @@ export function QualityPage() {
       {(runLog.status === 'empty' || (runLog.status === 'ready' && !latestRun)) && <p>No run is recorded.</p>}
       {latestRun && (latestRun.checks.length ? <ul className="checks">
         {latestRun.checks.map((check) => {
-          const reading = readCheck(check, { ingestSkipped: skipped })
+          const reading = readCheck(check, { alreadyLoaded })
           const status = check.status === 'PASS' ? 'SUCCESS' : check.status === 'FAIL' ? 'FAILED' : 'WARN'
           const unit = reading.bullet?.unit
           const format = (v: number) => (unit === '%' ? percent(v, v < 0.01 ? 2 : 0) : `${v} d`)
