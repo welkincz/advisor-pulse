@@ -10,7 +10,7 @@ export interface MapPlace { id: string; name: string; region: string; geometry: 
 /** What changes with the week: circle size (activity volume), colour and value label. */
 /** `empty`: no value this week at all (a dashed ring). A value with no comparison yet is `fill: null`. */
 export interface MapMark { size: number; fill: string | null; label: string; empty: boolean }
-/** An FSA in the optional coverage layer. Pass a stable array; colours come from `overlayFill`. */
+/** An FSA in the optional FSA layer. Pass a stable array; colours come from `overlayFill`. */
 export interface MapArea { id: string; name: string; geometry: Geometry }
 
 type Camera = { k: number; x: number; y: number }
@@ -142,7 +142,7 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
       project,
     }
   }, [basemap, places, width, height])
-  // Kept apart from the basemap so the coverage layer never moves the camera.
+  // Kept apart from the basemap so the FSA layer never moves the camera.
   const overlayPaths = useMemo(() => (geometry && overlay ? overlay.map((area) => ({ ...area, d: pathData(area.geometry, geometry.project) })) : []), [geometry, overlay])
 
   // Fly to the focused region, or back out to the whole country.

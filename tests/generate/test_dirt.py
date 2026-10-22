@@ -26,6 +26,7 @@ from pulse.generate.advisors import (
 )
 from pulse.generate.clients import generate_clients, write_clients
 from pulse.generate.dirt import inject_dirt
+from pulse.generate.portfolios import holders_on
 from pulse.reference import org
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures/sources"
@@ -398,7 +399,8 @@ def test_upstream_assignment_and_book_changes_are_recorded_at_source_keys(tmp_pa
         with (sources / defect.file).open(newline="", encoding="utf-8") as handle:
             row = list(csv.DictReader(handle))[defect.row]
         assert row["CLNT_ID"] == defect.natural_key
-        assert row["PRIM_ADVSR_ID"] == defect.expected_value
+        day = datetime.strptime(Path(defect.file).stem.removeprefix("client_"), "%Y%m%d").date()
+        assert holders_on(batch.portfolios, day)[row["PRTF_ID"]] == defect.expected_value
 
 
 @pytest.mark.parametrize("rate", [-0.1, 1.1, float("nan")])

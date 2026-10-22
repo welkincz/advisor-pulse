@@ -52,6 +52,12 @@ class ClientChange:
 class ClientBatch:
     snapshot: tuple[TeradataClient, ...]
     changes: tuple[ClientChange, ...]
+    # The portfolios the clients name: a client's book owner is its portfolio's holder.
+    portfolios: PortfolioBatch
+
+    def owner(self, client: TeradataClient, day: date) -> str | None:
+        """The client's book owner on ``day``: the holder of its portfolio."""
+        return holder_as_of(self.portfolios, client.portfolio_id, day)
 
     def final(self) -> tuple[TeradataClient, ...]:
         """Snapshot with every change applied, in CLNT_ID order."""
@@ -143,7 +149,6 @@ def generate_clients(
             SEG_CD=rng.choices(list(Segment), weights=[60, 25, 10, 5])[0],
             PSTL_CD=postal,
             PROV_CD=fsa_province(fsa),
-            PRIM_ADVSR_ID=owner[0],
             PRIM_BRNCH_ID=branch_id,
             STAT_CD=ClientStatus.ACTIVE,
             LAST_UPD_TS=_ts(updated),
@@ -151,13 +156,13 @@ def generate_clients(
         )
 
     current: dict[str, TeradataClient] = {}
-    book: dict[str, set[str]] = defaultdict(set)  # advisor_id -> active client ids
+    book: dict[str, set[str]] = defaultdict(set)  # portfolio_id -> active client ids
     active_ids: list[str] = []
     active_position: dict[str, int] = {}
 
     def activate(client: TeradataClient) -> None:
         current[client.client_id] = client
-        book[client.primary_advisor_id].add(client.client_id)
+        book[client.portfolio_id].add(client.client_id)
         active_position[client.client_id] = len(active_ids)
         active_ids.append(client.client_id)
 
@@ -175,33 +180,21 @@ def generate_clients(
 
     changes: list[ClientChange] = []
 
-    def move(
-        client_id: str,
-        owner: AdvisorAssignment,
-        portfolio_id: str,
-        day: date,
-        kind: ChangeKind,
-    ) -> None:
+    def move(client_id: str, portfolio_id: str, day: date, kind: ChangeKind) -> None:
         before = current[client_id]
         after = before.model_copy(
             update={
-                "primary_advisor_id": owner[0],
                 "primary_branch_id": by_portfolio[portfolio_id].branch_id,
                 "portfolio_id": portfolio_id,
                 "last_updated_ts": _ts(day),
             }
         )
-        book[before.primary_advisor_id].discard(client_id)
-        book[owner[0]].add(client_id)
+        book[before.portfolio_id].discard(client_id)
+        book[portfolio_id].add(client_id)
         current[client_id] = after
         changes.append(ClientChange(day, kind, before, after))
 
-    def rebalance(
-        portfolio_id: str,
-        holder: AdvisorAssignment,
-        day: date,
-        owners: dict[str, AdvisorAssignment],
-    ) -> None:
+    def rebalance(portfolio_id: str, day: date, owners: dict[str, AdvisorAssignment]) -> None:
         """Give a newly opened portfolio an even share of its branch's clients.
 
         Every other portfolio at the same transit hands over 1 / (n + 1) of its active
@@ -216,14 +209,10 @@ def generate_clients(
             and h in owners
             and by_portfolio[p].branch_id == transit
         )
-        for donor, donor_holder in donors:
-            clients = sorted(
-                c
-                for c in book[donor_holder]
-                if current[c].portfolio_id == donor and c not in protected
-            )
+        for donor, _ in donors:
+            clients = sorted(c for c in book[donor] if c not in protected)
             for client_id in rng.sample(clients, len(clients) // (len(donors) + 1)):
-                move(client_id, holder, portfolio_id, day, "REBALANCED")
+                move(client_id, portfolio_id, day, "REBALANCED")
 
     def district(branch_id: str) -> str:
         return placements[branch_id].district.district_code
@@ -240,18 +229,20 @@ def generate_clients(
 
         owner_by_id = {owner[0]: owner for owner in owners}
         for event in holder_events.get(day, []):
-            successor = owner_by_id[event.advisor_id]
+            if event.advisor_id not in owner_by_id:
+                raise ValueError(f"{event.advisor_id} cannot hold a portfolio on {day}")
             previous = portfolio_holders[event.portfolio_id]
             portfolio_holders[event.portfolio_id] = event.advisor_id
             if previous is None:
-                rebalance(event.portfolio_id, successor, day, owner_by_id)
+                rebalance(event.portfolio_id, day, owner_by_id)
                 continue
+            # The clients stay in the portfolio; their rows are touched on the day so the
+            # delta shows the handover, as the Teradata extract does.
             kind: ChangeKind = (
                 "ADVISOR_LEFT" if event.reason_code == "HANDOVER" else "PORTFOLIO_TRANSFER"
             )
-            for client_id in sorted(book[previous]):
-                if current[client_id].portfolio_id == event.portfolio_id:
-                    move(client_id, successor, event.portfolio_id, day, kind)
+            for client_id in sorted(book[event.portfolio_id]):
+                move(client_id, event.portfolio_id, day, kind)
 
         active_portfolios = [
             (p.portfolio_id, owner_by_id[holder])
@@ -287,8 +278,8 @@ def generate_clients(
                 and district(by_portfolio[p].branch_id) == district(before.primary_branch_id)
             ]
             if alternatives:
-                portfolio_id, owner = rng.choice(alternatives)
-                move(client_id, owner, portfolio_id, day, "REASSIGNED")
+                portfolio_id, _ = rng.choice(alternatives)
+                move(client_id, portfolio_id, day, "REASSIGNED")
 
         for _ in range(_count_at_rate(len(active_ids), CLOSE_DAILY_RATE, rng)):
             if len(protected | new_today) >= len(active_ids):
@@ -301,7 +292,7 @@ def generate_clients(
                 update={"status_code": ClientStatus.CLOSED, "last_updated_ts": _ts(day)}
             )
             current[client_id] = after
-            book[before.primary_advisor_id].discard(client_id)
+            book[before.portfolio_id].discard(client_id)
             changes.append(ClientChange(day, "CLOSED", before, after))
             index = active_position.pop(client_id)
             last = active_ids.pop()
@@ -309,7 +300,7 @@ def generate_clients(
                 active_ids[index] = last
                 active_position[last] = index
 
-    return ClientBatch(snapshot=snapshot, changes=tuple(changes))
+    return ClientBatch(snapshot=snapshot, changes=tuple(changes), portfolios=portfolios)
 
 
 def delta_rows(batch: ClientBatch) -> dict[date, list[TeradataClient]]:

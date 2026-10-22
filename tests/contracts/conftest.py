@@ -36,10 +36,10 @@ def client_row() -> dict[str, Any]:
         "SEG_CD": "MAFF",
         "PSTL_CD": "m5v3l9",
         "PROV_CD": "ON",
-        "PRIM_ADVSR_ID": "ADV-00123",
         "PRIM_BRNCH_ID": "BR-0412",
         "STAT_CD": "A",
         "LAST_UPD_TS": "2026-10-11T22:00:00Z",
+        "PRTF_ID": "PRT-000123",
     }
 
 

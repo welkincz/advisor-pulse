@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fsaCoverage, standoutSentence, basemap, bin, boundaryFeatures, drillHref, extent, fenced, historyExtent } from './data'
+import { fsaValues, standoutSentence, basemap, bin, boundaryFeatures, drillHref, extent, fenced, historyExtent } from './data'
 
 const geo = resolve(import.meta.dirname, '../../../public/geo')
 
@@ -42,14 +42,23 @@ describe('map geography and bins', () => {
     expect(bin(0.9, range)).toBe(6)
   })
 
+  const geoRow = (fsa_code: string, district_code: string, clients: number, contacted: number, activities: number, complete = true) =>
+    ({ iso_week_id: '2026-W42', fsa_code, district_code, active_clients: clients, activities_completed: activities, portfolio_clients: clients, portfolio_contacted_12m: contacted, portfolio_contacted_rate_12m: complete && clients ? contacted / clients : null })
+
   it('rolls an FSA served from two districts into one value, and keeps unknown postal codes off the map', () => {
-    const row = (fsa_code: string, district_code: string, active_clients: number, clients_contacted_13w: number) =>
-      ({ iso_week_id: '2026-W42', fsa_code, district_code, active_clients, clients_contacted_13w, coverage_rate_13w: clients_contacted_13w / active_clients, activities_completed: 0, portfolio_clients: 0, portfolio_contacted_12m: 0 })
-    const { values, unknownClients } = fsaCoverage([row('V2Y', 'BCL', 1355, 790), row('V2Y', 'PRA', 3, 2), row('UNK', 'BCL', 350, 225), row('UNK', 'GTA', 605, 398), row('V6E', 'BCL', 0, 0)])
+    const { measure, values, unknownClients } = fsaValues([geoRow('V2Y', 'BCL', 1355, 790, 40), geoRow('V2Y', 'PRA', 3, 2, 1), geoRow('UNK', 'BCL', 350, 225, 9), geoRow('UNK', 'GTA', 605, 398, 12), geoRow('V6E', 'BCL', 0, 0, 0)])
+    expect(measure).toBe('PRTF_CONTACT_12M')
     expect(values.get('V2Y')).toBeCloseTo(792 / 1358)
     expect(values.has('UNK')).toBe(false)
     expect(values.get('V6E')).toBeNull()
     expect(unknownClients).toBe(955)
+  })
+
+  it('shows activities with the area’s clients until the lead KPI has 12 months of history', () => {
+    const { measure, values } = fsaValues([geoRow('V2Y', 'BCL', 1355, 790, 40, false), geoRow('V2Y', 'PRA', 3, 2, 1, false), geoRow('V6E', 'BCL', 0, 0, 0, false)])
+    expect(measure).toBe('CLIENT_ACTIVITIES')
+    expect(values.get('V2Y')).toBe(41)
+    expect(values.get('V6E')).toBe(0)
   })
 
   it('names the area furthest from its usual week, in the KPI direction', () => {

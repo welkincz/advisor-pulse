@@ -21,8 +21,7 @@ from pulse.contracts.exports import (
 
 MEASURES = (
     "activities_completed calls_out calls_in appointments_booked appointments_held no_shows "
-    "conversions unique_clients_contacted book_size clients_covered_13w coverage_rate_13w "
-    "avg_meeting_duration_min"
+    "conversions unique_clients_contacted avg_meeting_duration_min"
 )
 PORTFOLIO = "portfolio_clients portfolio_contacted_12m portfolio_contacted_rate_12m"
 
@@ -46,8 +45,7 @@ PORTFOLIO = "portfolio_clients portfolio_contacted_12m portfolio_contacted_rate_
         ),
         (
             GeoWeekly,
-            "iso_week_id fsa_code district_code active_clients clients_contacted_13w "
-            f"coverage_rate_13w activities_completed {PORTFOLIO}",
+            f"iso_week_id fsa_code district_code active_clients activities_completed {PORTFOLIO}",
         ),
         (
             DqWeekly,
@@ -71,7 +69,6 @@ def _org(**changes: Any) -> dict[str, Any]:
     }
     for col in MEASURES.split():
         row.setdefault(col, 10)
-    row["coverage_rate_13w"] = 0.4
     row.update(portfolio_clients=10, portfolio_contacted_12m=8)
     return {**row, **changes}
 
@@ -79,7 +76,7 @@ def _org(**changes: Any) -> dict[str, Any]:
 def test_rates_are_fractions() -> None:
     OrgWeekly.model_validate(_org())
     OrgWeekly.model_validate(_org(show_rate=None))
-    for bad in [{"show_rate": 1.2}, {"coverage_rate_13w": -0.1}, {"calls_out": -1}]:
+    for bad in [{"show_rate": 1.2}, {"portfolio_contacted_rate_12m": -0.1}, {"calls_out": -1}]:
         with pytest.raises(ValidationError):
             OrgWeekly.model_validate(_org(**bad))
 
@@ -106,7 +103,6 @@ def test_geo_allows_unknown_fsa() -> None:
         "fsa_code": "UNK",
         "district_code": "GTA",
         "active_clients": 3,
-        "clients_contacted_13w": 1,
         "activities_completed": 2,
         "portfolio_clients": 3,
         "portfolio_contacted_12m": 2,

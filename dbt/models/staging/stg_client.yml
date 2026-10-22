@@ -66,15 +66,6 @@ models:
           - accepted_values:
               arguments:
                 values: ["ON", "QC", "BC", "AB", "SK", "MB", "NS", "PE", "NB", "NL"]
-      - name: primary_advisor_id
-        description: Advisor who owns the client's book on this version of the row.
-        data_type: varchar
-        data_tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('stg_advisor')
-                field: advisor_id
       - name: primary_branch_id
         description: Home branch on this version of the row.
         data_type: varchar

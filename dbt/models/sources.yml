@@ -213,9 +213,6 @@ sources:
       description: Raw postal code; normalized in staging.
     - name: PROV_CD
       data_type: VARCHAR
-    - name: PRIM_ADVSR_ID
-      data_type: VARCHAR
-      description: 'Book owner. Deprecated: the owner is the holder of PRTF_ID.'
     - name: PRIM_BRNCH_ID
       data_type: VARCHAR
     - name: STAT_CD
@@ -225,7 +222,7 @@ sources:
       description: Watermark column.
     - name: PRTF_ID
       data_type: VARCHAR
-      description: Portfolio the client belongs to. Optional while the migration runs.
+      description: Portfolio the client belongs to; its holder at week end owns the book.
     - name: _batch_id
       data_type: VARCHAR
       description: run_id + source + file hash prefix.

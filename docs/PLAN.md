@@ -205,7 +205,7 @@ Each branch sits in a real FSA (public geography only). Client postal codes use 
 | `CALL_OUT` | Outbound call | Can book an appointment |
 | `CALL_IN` | Inbound call | |
 | `APPOINTMENT` | Scheduled client appointment | Status: booked → completed / no_show / cancelled |
-| `REVIEW` | Annual / portfolio review meeting | Counts toward coverage |
+| `REVIEW` | Annual / portfolio review meeting | Counts as a contact |
 
 Outcomes: `NONE`, `FOLLOW_UP`, `PLAN_CREATED`, `PRODUCT_OPENED`, `REFERRAL`.
 Product lines (generic): `DEPOSITS`, `LENDING`, `MORTGAGE`, `INVESTING`, `INSURANCE`.
@@ -271,11 +271,10 @@ The contracts in `src/pulse/contracts/` are the executable form of this dictiona
 | SEG_CD | VARCHAR | `MASS`, `MAFF` (mass affluent), `AFFL`, `SMBS` (small business) |
 | PSTL_CD | VARCHAR | Postal code (dirty) |
 | PROV_CD | CHAR(2) | Province |
-| PRIM_ADVSR_ID | VARCHAR | Primary advisor. **Deprecated**: book ownership comes from the portfolio's holder; dropped in #226 |
 | PRIM_BRNCH_ID | VARCHAR | Home branch |
 | STAT_CD | CHAR(1) | `A` active, `C` closed |
 | LAST_UPD_TS | TIMESTAMP | **Watermark column** |
-| PRTF_ID | VARCHAR | Portfolio the client belongs to (`PRT-######`). Optional until #226 makes it required; files written before portfolios have no such column |
+| PRTF_ID | VARCHAR | Portfolio the client belongs to (`PRT-######`), required. The book owner is the portfolio's holder as of week end (there is no client-level advisor column since #226); older extracts that still carry `PRIM_ADVSR_ID` load with that column dropped and a DQ006 warning |
 
 **ADVSR** (advisor master): ADVSR_ID, ADVSR_NM (Faker), ROLE_CD (`ASSOC`, `ADVSR`, `SNR_ADVSR`, `BR_MGR`), HIRE_DT, TERM_DT (nullable), LAST_UPD_TS.
 
@@ -342,7 +341,7 @@ These hold source columns as-is, plus:
 |-------|-------|---------|
 | int_advisor_history | advisor_id × valid_from | SCD2 ranges from assignment events: `valid_from`, `valid_to` (exclusive, `9999-12-31` open), `branch_id`, `role_code`, `change_reason` |
 | int_portfolio_history | portfolio_id × valid_from | SCD2 holder ranges from PRTF_ASGN: `advisor_id`, `valid_from`, `valid_to` (exclusive), `change_reason`; DQ024 (#223) |
-| int_client_book_weekly | client_id × iso_week_id | Client's portfolio as of week end, then that portfolio's holder as of week end; transit branch; active flag (#223 switches from PRIM_ADVSR_ID) |
+| int_client_book_weekly | client_id × iso_week_id | Client's portfolio as of week end, then that portfolio's holder as of week end (the book owner; null for an unknown portfolio, DQ014); transit branch; active flag |
 | int_client_contact_12m | client_id × iso_week_id | Last completed contact activity by any advisor on or before week end; `contacted_12m` = that date > week end − 12 months (#223) |
 | int_activity_enriched | activity_id | Activity joined to as-of advisor history (branch at time of activity) |
 
@@ -365,15 +364,15 @@ These hold source columns as-is, plus:
 **fct_activity** (grain: one activity): `activity_id` PK, `activity_date` FK, `iso_week_id`, `advisor_sk` FK, `advisor_id`, `branch_sk` FK (as-of branch), `client_sk` FK (nullable), `fsa_code` FK, `activity_type` FK, `channel`, `status`, `outcome`, `product_line`, `duration_min`, `is_completed`, `is_appointment`, `is_conversion`, `is_late_arriving`, `booked_from_activity_id`, `_batch_id`.
 Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
-**mart_advisor_weekly** (advisor × week): `iso_week_id`, `advisor_id`, `branch_id`, `district_code`, `region_code`, `activities_completed`, `calls_out`, `calls_in`, `appointments_booked`, `appointments_held`, `no_shows`, `conversions`, `unique_clients_contacted`, `book_size`, `clients_covered_13w`, `coverage_rate_13w`, `avg_meeting_duration_min`.
+**mart_advisor_weekly** (advisor × week): `iso_week_id`, `advisor_id`, `branch_id`, `district_code`, `region_code`, `activities_completed`, `calls_out`, `calls_in`, `appointments_booked`, `appointments_held`, `no_shows`, `conversions`, `unique_clients_contacted`, `avg_meeting_duration_min`, `portfolio_clients`, `portfolio_contacted_12m`, `portfolio_contacted_rate_12m`.
 
 **mart_org_weekly** (node × week, all levels via `GROUPING SETS`): `iso_week_id`, `level` (`NATIONAL`, `REGION`, `DISTRICT`, `BRANCH`), `node_id` (`CA` for national), `node_name`, `parent_id` (null for national), `active_advisors`, the same measures as advisor weekly, plus `activities_per_advisor`, `show_rate`, `conversion_rate`, `call_to_appt_rate`.
 
 **mart_weekly_report** (long format, Tableau- and LLM-friendly): `iso_week_id`, `level`, `node_id`, `node_name`, `parent_id`, `kpi_code`, `value`, `prior_week_value`, `wow_delta`, `wow_pct`, `trailing_13w_avg`, `rank_in_parent`, `peer_count`, `flag` (`UP`, `DOWN`, `FLAT`, `ANOMALY`).
 
-**mart_org_quarterly** (node × fiscal quarter, every level): `fiscal_quarter_id`, `fiscal_year`, `fiscal_quarter`, `quarter_start`, `quarter_end`, `first_week`, `last_week`, `weeks_reported`, `weeks_in_quarter`, `is_complete`, `level`, `node_id`, `node_name`, `parent_id`, `advisor_weeks`, the flow counts of mart_org_weekly plus `booked_from_call`, `unique_clients_contacted`, `book_size`, `clients_covered_13w` and the six ratios. Flows are summed over the quarter's weeks; distinct clients are counted over the quarter (not added up); book size and 13-week coverage are taken at each branch's own last reported week and summed up the hierarchy (a branch that misses the final week keeps its book), where the 13-week window is the quarter itself; ratios are rebuilt from summed parts, and activities per advisor is activities over advisor-weeks (the average weekly rate). A quarter in progress has `is_complete = false` and reads as "to date".
+**mart_org_quarterly** (node × fiscal quarter, every level): `fiscal_quarter_id`, `fiscal_year`, `fiscal_quarter`, `quarter_start`, `quarter_end`, `first_week`, `last_week`, `weeks_reported`, `weeks_in_quarter`, `is_complete`, `level`, `node_id`, `node_name`, `parent_id`, `advisor_weeks`, the flow counts of mart_org_weekly plus `booked_from_call`, `unique_clients_contacted`, the ratios and the three portfolio columns. Flows are summed over the quarter's weeks; distinct clients are counted over the quarter (not added up); portfolio clients and those contacted in 12 months are stocks, taken at each branch's own last reported week and summed up the hierarchy (a branch that misses the final week keeps its portfolios); ratios are rebuilt from summed parts, and activities per advisor is activities over advisor-weeks (the average weekly rate). A quarter in progress has `is_complete = false` and reads as "to date".
 
-**mart_geo_weekly** (FSA × district × week; an FSA served from two districts has a row in each, and clients with an unreadable postal code sit under `UNK`, so consumers sum across districts for one value per FSA): `iso_week_id`, `fsa_code`, `district_code`, `active_clients`, `clients_contacted_13w`, `coverage_rate_13w`, `activities_completed`, `portfolio_clients`, `portfolio_contacted_12m`, `portfolio_contacted_rate_12m`.
+**mart_geo_weekly** (FSA × district × week; an FSA served from two districts has a row in each, and clients with an unreadable postal code sit under `UNK`, so consumers sum across districts for one value per FSA): `iso_week_id`, `fsa_code`, `district_code`, `active_clients`, `activities_completed`, `portfolio_clients`, `portfolio_contacted_12m`, `portfolio_contacted_rate_12m`. The map's FSA layer shades portfolio contacted (12 months); a week without 12 months of history shows activities with the area's clients instead.
 
 **mart_portfolio_weekly** (portfolio × week, under the holder at week end and the transit): `iso_week_id`, `portfolio_id`, `advisor_id`, `branch_id` (transit), `district_code`, `region_code`, `holder_branch_id` (where the holder works that day; DQ025 warns when it differs), `clients`, `contacted_12m`, `contacted_rate_12m`. The advisor, org and quarterly marts carry the same three portfolio columns; quarterly takes them as a stock at each branch's last reported week. Every rate is null for a week without 12 months of activity history behind it (`int_contact_window`).
 
@@ -414,7 +413,6 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 | Show rate | `SHOW_RATE` | held ÷ (held + no-show), for appointments scheduled in week | Cancelled excluded |
 | Appointment conversion | `APPT_CONV` | held appointments with outcome ∈ {`PLAN_CREATED`, `PRODUCT_OPENED`} ÷ held appointments | |
 | Unique clients contacted | `CLIENTS_CONTACTED` | distinct clients with ≥1 completed contact activity in week | |
-| Client coverage (13w) | `COVERAGE_13W` | distinct active book clients contacted in trailing 13 weeks ÷ active book clients at week end | **Deprecated** by `PRTF_CONTACT_12M`; removed in #226 |
 | Avg meeting duration | `AVG_MEET_MIN` | mean `duration_min` for completed `APPOINTMENT` + `REVIEW` | |
 | No-show rate | `NO_SHOW_RATE` | 1 − show rate | |
 | Late-arriving rate (DQ) | `LATE_RATE` | late rows ÷ rows loaded in batch | Operational KPI |

@@ -22,7 +22,7 @@ models:
             expression: "regexp_full_match(client_id, '^CLI-[0-9]{8}$')"
       - expression_is_true:
           arguments:
-            expression: "regexp_full_match(primary_advisor_id, '^ADV-[0-9]{5}$')"
+            expression: "primary_advisor_id = 'UNKNOWN' or regexp_full_match(primary_advisor_id, '^ADV-[0-9]{5}$')"
       - expression_is_true:
           arguments:
             expression: "regexp_full_match(primary_branch_id, '^BR-[0-9]{4}$')"
@@ -91,7 +91,7 @@ models:
         data_type: boolean
         data_tests: [not_null]
       - name: primary_advisor_id
-        description: Book owner in the latest book week, the holder of the client's portfolio (PLAN.md §5); the latest version's PRIM_ADVSR_ID when the client is not in that week's book.
+        description: Book owner in the latest book week, the holder of the client's portfolio (PLAN.md §5); `UNKNOWN` (the Unknown advisor member) when the portfolio is not in the master (DQ014).
         data_type: varchar
         data_tests:
           - not_null

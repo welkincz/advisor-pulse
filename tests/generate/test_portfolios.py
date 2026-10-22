@@ -5,8 +5,9 @@ from datetime import date, timedelta
 import pytest
 
 from pulse.contracts.enums import PortfolioAssignmentReason, Role
+from pulse.contracts.sources import TeradataClient
 from pulse.generate.clients import generate_clients
-from pulse.generate.portfolios import generate_portfolios, holder_as_of
+from pulse.generate.portfolios import generate_portfolios, holder_as_of, holders_on
 from pulse.reference import org
 
 START = date(2024, 10, 7)
@@ -64,10 +65,9 @@ def test_clients_retain_portfolio_on_handover_and_change_it_on_reassignment() ->
         portfolio_batch=portfolios,
     )
     assert all(client.portfolio_id for client in batch.snapshot)
+    assert batch.portfolios == portfolios
     for change in batch.changes:
-        assert change.after.primary_advisor_id == holder_as_of(
-            portfolios, change.after.portfolio_id, change.day
-        )
+        assert holder_as_of(portfolios, change.after.portfolio_id, change.day) is not None
     handed = [c for c in batch.changes if c.kind == "ADVISOR_LEFT"]
     assert handed
     assert all(c.before and c.before.portfolio_id == c.after.portfolio_id for c in handed)
@@ -112,19 +112,23 @@ def test_a_portfolio_opened_mid_history_is_filled_from_its_branch() -> None:
         portfolio_batch=portfolios,
     )
     before = {c.client_id: c for c in batch.snapshot}
+
+    def owner(client: TeradataClient) -> str | None:
+        return batch.owner(client, START - timedelta(days=1))
+
     donors = {
-        a: sum(1 for c in batch.snapshot if c.primary_advisor_id == a and c.status_code == "A")
+        a: sum(1 for c in batch.snapshot if owner(c) == a and c.status_code == "A")
         for a in ("ADV-00001", "ADV-00002")
     }
     moved = [c for c in batch.changes if c.kind == "REBALANCED"]
     assert moved and all(c.day == hire for c in moved)
-    assert {c.after.primary_advisor_id for c in moved} == {"ADV-00003"}
+    assert {batch.owner(c.after, hire) for c in moved} == {"ADV-00003"}
     for advisor, size in donors.items():
-        given = sum(1 for c in moved if before[c.after.client_id].primary_advisor_id == advisor)
+        given = sum(1 for c in moved if owner(before[c.after.client_id]) == advisor)
         # 1 / (n + 1) with two donors, less clients closed or protected before the hire
         assert abs(given - size // 3) <= max(3, size // 20)
     # Nobody at ADV-00005's branch to give: no moves, and no error.
-    assert not [c for c in moved if c.after.primary_advisor_id == "ADV-00005"]
+    assert not [c for c in moved if batch.owner(c.after, hire) == "ADV-00005"]
 
 
 def test_every_portfolio_has_an_employed_holder_on_every_day() -> None:
@@ -142,3 +146,15 @@ def test_every_portfolio_has_an_employed_holder_on_every_day() -> None:
                 advisor == holder and start <= day and (end is None or day < end)
                 for advisor, _, _, start, end in rows
             ), (portfolio.portfolio_id, day, holder)
+
+
+def test_holders_on_matches_holder_as_of_every_day() -> None:
+    portfolios = generate_portfolios(roster(), seed=19, start_date=START)
+    for offset in range(-1, 30):
+        day = START + timedelta(days=offset)
+        expected = {
+            p.portfolio_id: holder
+            for p in portfolios.master
+            if (holder := holder_as_of(portfolios, p.portfolio_id, day)) is not None
+        }
+        assert holders_on(portfolios, day) == expected

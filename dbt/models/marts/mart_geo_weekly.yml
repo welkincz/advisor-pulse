@@ -14,12 +14,6 @@ models:
             expression: "portfolio_contacted_12m <= portfolio_clients"
       - expression_is_true:
           arguments:
-            expression: "clients_contacted_13w <= active_clients"
-      - expression_is_true:
-          arguments:
-            expression: "coverage_rate_13w between 0 and 1"
-      - expression_is_true:
-          arguments:
             expression: "regexp_full_match(fsa_code, '^([ABCEGHJ-NPRSTVXY][0-9][ABCEGHJ-NPRSTV-Z]|UNK)$')"
     columns:
       - name: iso_week_id
@@ -40,16 +34,9 @@ models:
                 to: ref('dim_org')
                 field: district_code
       - name: active_clients
-        description: Active book clients at week end in this FSA and district (COVERAGE_13W denominator).
+        description: Active clients at week end in this FSA and district, in any portfolio (DQ014 included).
         data_type: bigint
         data_tests: [not_null]
-      - name: clients_contacted_13w
-        description: "Of those, clients with a completed activity by anyone from week_end − 90 days to week_end."
-        data_type: bigint
-        data_tests: [not_null]
-      - name: coverage_rate_13w
-        description: "clients_contacted_13w ÷ active_clients, 4 decimals."
-        data_type: double
       - name: activities_completed
         description: Completed activities this week for these clients, by any advisor.
         data_type: bigint

@@ -344,8 +344,8 @@ ADDITIVE = [
     "appointments_held",
     "no_shows",
     "conversions",
-    "book_size",
-    "clients_covered_13w",
+    "portfolio_clients",
+    "portfolio_contacted_12m",
 ]
 
 
@@ -381,11 +381,17 @@ def test_advisor_rows_sum_to_branch_except_unknown_advisor() -> None:
             if a["iso_week_id"] == b["iso_week_id"] and a["branch_id"] == b["node_id"]
         ]
         assert len(mine) == b["active_advisors"]
-        assert sum(a["book_size"] for a in mine) == b["book_size"]
         gaps[(b["iso_week_id"], b["node_id"])] = b["activities_completed"] - sum(
             a["activities_completed"] for a in mine
         )
     assert {k: v for k, v in gaps.items() if v} == {("2026-W39", "BR-0501"): 1}
+    # Portfolio clients sit under the holder here and under the transit branch in org_weekly,
+    # which differ for a mover (DQ025), so they reconcile nationally rather than per branch.
+    national = {b["iso_week_id"]: 0 for b in branches}
+    for b in branches:
+        national[b["iso_week_id"]] += b["portfolio_clients"]
+    for week, total in national.items():
+        assert sum(a["portfolio_clients"] for a in advisors if a["iso_week_id"] == week) == total
 
 
 def test_weekly_report_first_week_has_no_prior() -> None:

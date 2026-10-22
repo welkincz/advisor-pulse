@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 test('overview shows all contracted KPIs, and choosing one plots it with its definition', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/')
-  await expect(page.locator('[data-kpi]')).toHaveCount(12)
+  await expect(page.locator('[data-kpi]')).toHaveCount(11)
   await expect(page.locator('[data-kpi="ACT_PER_ADV"]')).toContainText('11.5')
   // The sentence needs DuckDB-WASM from the CDN, which can take a while on a CI runner.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Activities per advisor rose 14\.6% to 11\.5/, { timeout: 30_000 })
@@ -76,7 +76,7 @@ test('the hero chart reads every fixture week and moves the report week by keybo
   await expect(page.locator('.trend-tip')).toContainText('2026-W39')
   await expect(page.locator('.trend-tip')).toHaveAttribute('aria-live', 'polite')
   await expect(page.locator('.stepper-week')).toHaveValue('2026-W39')
-  await expect(page.locator('[data-kpi]')).toHaveCount(12)
+  await expect(page.locator('[data-kpi]')).toHaveCount(11)
   await page.getByRole('button', { name: 'Next week' }).click()
   await expect(page).not.toHaveURL(/week=/)
   await expect(page.getByRole('button', { name: 'Next week' })).toBeDisabled()
@@ -126,7 +126,7 @@ test('a failed newest run shows a banner above the previous week\'s KPIs', async
   const banner = page.locator('.run-status-banner')
   await expect(banner).toContainText('The last weekly run failed.')
   await expect(banner).toContainText('still shows the 2026-W40 report')
-  await expect(page.locator('[data-kpi]')).toHaveCount(12)
+  await expect(page.locator('[data-kpi]')).toHaveCount(11)
   await banner.getByRole('link', { name: 'See which stage failed' }).focus()
   await expect(banner.getByRole('link')).toBeFocused()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
@@ -134,7 +134,7 @@ test('a failed newest run shows a banner above the previous week\'s KPIs', async
 
 test('a warn newest run shows no failure banner', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('[data-kpi]')).toHaveCount(12)
+  await expect(page.locator('[data-kpi]')).toHaveCount(11)
   await expect(page.locator('.run-status-banner')).toHaveCount(0)
 })
 

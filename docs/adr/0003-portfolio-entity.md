@@ -1,6 +1,6 @@
 # ADR 0003 — Portfolio as its own entity; the book owner is its holder at week end
 
-- Status: Accepted
+- Status: Accepted; the `PRIM_ADVSR_ID` fallback was removed in #226 (see Consequences)
 - Date: 2026-10-21
 - Issues: #219, #220, #223
 
@@ -63,7 +63,8 @@ Model the portfolio as its own source entity, with the holder kept as assignment
   latest book week.
 - The fallback depends on `PRIM_ADVSR_ID`, which is deprecated. It goes away with the
   contract step (#226, ADR 0004); after that an unknown portfolio maps to the Unknown member
-  only.
+  only. Done in #226: such a client has no owner in `int_client_book_weekly` and
+  `dim_client.primary_advisor_id` is `UNKNOWN`.
 - DQ025 warns in the fixtures by design: two in-window movers keep their portfolios at the
   old transit.
 

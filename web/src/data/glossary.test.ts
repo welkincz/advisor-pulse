@@ -20,7 +20,7 @@ describe('happened', () => {
   })
 
   it('states a small gap without calling it better or worse, so it never contradicts the colours', () => {
-    expect(happened({ code: 'COVERAGE_13W', value: 0.642, usual: 0.648, flag: true, better: 'higher' })).toEqual([
+    expect(happened({ code: 'SHOW_RATE', value: 0.642, usual: 0.648, flag: true, better: 'higher' })).toEqual([
       '0.9% below usual (64.8%).',
       'Flagged as an anomaly: further from the 13 weeks before than this area normally moves.',
     ])

@@ -25,7 +25,7 @@ def test_active_books_follow_new_reassigned_and_closed_clients() -> None:
             if change.day <= day:
                 state[change.after.client_id] = change.after
         expected = {
-            client.client_id: client.primary_advisor_id
+            client.client_id: batch.owner(client, day)
             for client in state.values()
             if client.status_code is ClientStatus.ACTIVE and client.client_since_date <= day
         }

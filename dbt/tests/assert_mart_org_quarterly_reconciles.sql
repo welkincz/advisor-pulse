@@ -31,15 +31,15 @@ stock_mismatch as (
     inner join {{ ref('mart_org_weekly') }} as w
         on w.iso_week_id = weekly.own_last_week and w.level = q.level and w.node_id = q.node_id
     where q.level = 'BRANCH'
-        and (q.book_size <> w.book_size or q.clients_covered_13w <> w.clients_covered_13w)
+        and (q.portfolio_clients <> w.portfolio_clients or q.portfolio_contacted_12m <> w.portfolio_contacted_12m)
 ),
 
 children as (
     select
         fiscal_quarter_id, parent_id,
         sum(activities_completed) as activities_completed,
-        sum(book_size) as book_size,
-        sum(clients_covered_13w) as clients_covered_13w
+        sum(portfolio_clients) as portfolio_clients,
+        sum(portfolio_contacted_12m) as portfolio_contacted_12m
     from {{ ref('mart_org_quarterly') }}
     where level <> 'NATIONAL'
     group by 1, 2
@@ -51,8 +51,8 @@ rollup_mismatch as (
     inner join {{ ref('mart_org_quarterly') }} as p
         on p.fiscal_quarter_id = c.fiscal_quarter_id and p.node_id = c.parent_id
     where p.activities_completed <> c.activities_completed
-        or p.book_size <> c.book_size
-        or p.clients_covered_13w <> c.clients_covered_13w
+        or p.portfolio_clients <> c.portfolio_clients
+        or p.portfolio_contacted_12m <> c.portfolio_contacted_12m
 )
 
 select * from flow_mismatch

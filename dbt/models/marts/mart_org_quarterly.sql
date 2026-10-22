@@ -4,9 +4,9 @@
 -- One GROUPING SETS pass over int_kpi_events, like mart_org_weekly:
 --   flows (activities, calls, appointments) are summed over the quarter's weeks;
 --   distinct clients are counted over the whole quarter, not added up week by week;
---   stocks (book size, 13-week coverage) are taken at each branch's own last reported week
---     in the quarter, then summed up the hierarchy, so a branch that misses the final week
---     keeps its book; a 13-week window is the quarter itself;
+--   stocks (the lead KPI's portfolio clients and those contacted in 12 months) are taken at
+--     each branch's own last reported week in the quarter, then summed up the hierarchy, so
+--     a branch that misses the final week keeps its portfolios;
 --   ratios are rebuilt from summed parts. Activities per advisor is activities over
 --     advisor-weeks: the average weekly rate across the quarter.
 with week_quarter as (
@@ -100,8 +100,6 @@ stocks as (
         events.district_code,
         events.branch_id,
         grouping(events.region_code, events.district_code, events.branch_id) as grouping_id,
-        sum(events.book_size) as book_size,
-        sum(events.clients_covered_13w) as clients_covered_13w,
         sum(events.portfolio_clients) as portfolio_clients,
         sum(events.portfolio_contacted_12m) as portfolio_contacted_12m
     from events
@@ -131,8 +129,6 @@ nodes as (
 leveled as (
     select
         flows.*,
-        stocks.book_size,
-        stocks.clients_covered_13w,
         stocks.portfolio_clients,
         stocks.portfolio_contacted_12m,
         case flows.grouping_id when 7 then 'NATIONAL' when 3 then 'REGION' when 1 then 'DISTRICT' else 'BRANCH' end as level,
@@ -173,9 +169,6 @@ select
     cast(leveled.no_shows as bigint) as no_shows,
     cast(leveled.conversions as bigint) as conversions,
     cast(leveled.unique_clients_contacted as bigint) as unique_clients_contacted,
-    cast(coalesce(leveled.book_size, 0) as bigint) as book_size,
-    cast(coalesce(leveled.clients_covered_13w, 0) as bigint) as clients_covered_13w,
-    round(leveled.clients_covered_13w / nullif(leveled.book_size, 0), 4) as coverage_rate_13w,
     round(leveled.meeting_minutes / nullif(leveled.meetings_held, 0), 2) as avg_meeting_duration_min,
     round(leveled.activities_completed / nullif(leveled.advisor_weeks, 0), 2) as activities_per_advisor,
     round(leveled.appointments_held / nullif(leveled.appointments_held + leveled.no_shows, 0), 4) as show_rate,
@@ -183,7 +176,7 @@ select
     round(leveled.booked_from_call / nullif(leveled.calls_out, 0), 4) as call_to_appt_rate,
     cast(coalesce(leveled.portfolio_clients, 0) as bigint) as portfolio_clients,
     cast(coalesce(leveled.portfolio_contacted_12m, 0) as bigint) as portfolio_contacted_12m,
-    -- A stock, like book_size: the rate at the quarter's last week, once it has a full year.
+    -- A stock: the rate at the quarter's last week, once it has a full year.
     case when contact_window.is_window_complete then
         round(leveled.portfolio_contacted_12m / nullif(leveled.portfolio_clients, 0), 4)
     end as portfolio_contacted_rate_12m

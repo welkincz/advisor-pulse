@@ -28,7 +28,6 @@ kpis (kpi_code, lower_is_better) as (
         ('SHOW_RATE', false),
         ('APPT_CONV', false),
         ('CLIENTS_CONTACTED', false),
-        ('COVERAGE_13W', false),
         ('AVG_MEET_MIN', false),
         ('NO_SHOW_RATE', true),
         ('LATE_RATE', true),
@@ -52,7 +51,6 @@ org_values as (
             when 'SHOW_RATE' then org.show_rate
             when 'APPT_CONV' then org.conversion_rate
             when 'CLIENTS_CONTACTED' then org.unique_clients_contacted
-            when 'COVERAGE_13W' then org.coverage_rate_13w
             when 'AVG_MEET_MIN' then org.avg_meeting_duration_min
             when 'NO_SHOW_RATE' then round(1 - org.show_rate, 4)
         end as double) as value

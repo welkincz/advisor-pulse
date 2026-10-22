@@ -15,12 +15,6 @@ models:
       - expression_is_true:
           arguments:
             expression: "portfolio_contacted_rate_12m is null or portfolio_contacted_rate_12m between 0 and 1"
-      - expression_is_true:
-          arguments:
-            expression: "coverage_rate_13w is null or coverage_rate_13w between 0 and 1"
-      - expression_is_true:
-          arguments:
-            expression: "clients_covered_13w <= book_size"
     columns:
       - name: iso_week_id
         description: ISO week, YYYY-Www.
@@ -79,17 +73,6 @@ models:
         description: "CLIENTS_CONTACTED: distinct clients with at least one completed contact activity in the week. Counted at this grain, never summed from finer grains."
         data_type: bigint
         data_tests: [not_null]
-      - name: book_size
-        description: "Active book clients at week end: clients whose primary advisor as of Sunday 23:59 Toronto is an active advisor here (denominator of COVERAGE_13W)."
-        data_type: bigint
-        data_tests: [not_null]
-      - name: clients_covered_13w
-        description: "Active book clients with a completed activity (by anyone) in the trailing 13 weeks ending week end (numerator of COVERAGE_13W)."
-        data_type: bigint
-        data_tests: [not_null]
-      - name: coverage_rate_13w
-        description: "COVERAGE_13W = distinct active book clients contacted in trailing 13 weeks ÷ active book clients at week end. Null when the book is empty. 4 decimals."
-        data_type: double
       - name: avg_meeting_duration_min
         description: "AVG_MEET_MIN = mean duration_min for completed APPOINTMENT + REVIEW in the week. Null when none. 2 decimals."
         data_type: double

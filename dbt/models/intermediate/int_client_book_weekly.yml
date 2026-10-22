@@ -5,11 +5,9 @@ models:
     description: >
       Client × ISO week (PLAN.md §6.7). `primary_advisor_id` is the book owner: the holder,
       on `week_end`, of the portfolio named by the version in force at `week_end` 23:59
-      America/Toronto (falling back to PRIM_ADVSR_ID when the portfolio is null or
-      unknown, DQ014), and
-      `is_active` is true when that version's status is `A`. A closure at or before
-      that cut-off drops the client for that week and every later week (PLAN.md §7,
-      active book at week end). The coverage denominator is `where is_active`.
+      America/Toronto; null when the master lacks that portfolio (DQ014). `is_active` is
+      true when that version's status is `A`. A closure at or before that cut-off drops
+      the client for that week and every later week (PLAN.md §7, active book at week end).
       Reassignments are read from every loaded CLNT version, not from `stg_client`.
     data_tests:
       - expression_is_true:
@@ -17,13 +15,13 @@ models:
             expression: "isodow(week_end) = 7"
       - expression_is_true:
           arguments:
-            expression: "primary_advisor_id <> 'UNKNOWN'"
+            expression: "is_unknown_portfolio or primary_advisor_id <> 'UNKNOWN'"
       - expression_is_true:
           arguments:
             expression: "regexp_full_match(client_id, '^CLI-[0-9]{8}$')"
       - expression_is_true:
           arguments:
-            expression: "regexp_full_match(primary_advisor_id, '^ADV-[0-9]{5}$')"
+            expression: "is_unknown_portfolio or regexp_full_match(primary_advisor_id, '^ADV-[0-9]{5}$')"
       - expression_is_true:
           arguments:
             expression: "regexp_full_match(primary_branch_id, '^BR-[0-9]{4}$')"
@@ -48,9 +46,13 @@ models:
         description: Sunday of `iso_week_id`. The book is as of 23:59 America/Toronto on this date.
         data_tests: [not_null]
       - name: primary_advisor_id
-        description: Primary advisor on the client version in force at week end.
+        description: >
+          Book owner: the holder of the client's portfolio on `week_end`. Null when the
+          portfolio is unknown (DQ014), the only case without a holder.
         data_tests:
-          - not_null
+          - not_null:
+              config:
+                where: "not is_unknown_portfolio"
           - relationships:
               arguments:
                 to: ref('dim_advisor')
@@ -64,11 +66,12 @@ models:
                 to: ref('stg_branch')
                 field: branch_id
       - name: portfolio_id
-        description: Portfolio on the client version in force at week end, as written (null on rows from before portfolios).
+        description: Portfolio on the client version in force at week end, as written.
+        data_tests: [not_null]
       - name: transit_branch_id
-        description: The portfolio's branch; null when the portfolio is null or unknown.
+        description: The portfolio's branch; null when the portfolio is unknown (DQ014).
       - name: is_unknown_portfolio
-        description: True when the version names a portfolio the master lacks (DQ014); the book falls back to PRIM_ADVSR_ID.
+        description: True when the version names a portfolio the master lacks (DQ014); such a client has no book owner.
         data_tests: [not_null]
       - name: fsa_code
         description: >
@@ -78,5 +81,5 @@ models:
       - name: is_active
         description: >
           True when the week-end version is status `A`. Closed clients stay in the
-          history with this flag false; they are not part of the coverage book.
+          history with this flag false; they are not part of the active book.
         data_tests: [not_null]

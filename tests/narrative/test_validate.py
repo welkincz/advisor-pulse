@@ -85,8 +85,9 @@ def test_wrong_sign_on_percentage_points(on: NodeFacts) -> None:
 
 def test_uncited_claim_is_caught(on: NodeFacts) -> None:
     calls = fact(on, "ON", KpiCode.CALLS_OUT)
-    gta = fact(on, "GTA", KpiCode.COVERAGE_13W)  # 85.9%
-    text = "GTA trails its peers on 13-week coverage at 85.9%."
+    gta = fact(on, "GTA", KpiCode.APPT_CONV)
+    assert gta.value is not None
+    text = f"GTA trails its peers on appointment conversion at {gta.value:.1%}."
     problems = validate(narrative(on, "x", (text, [calls.fact_id])))
     assert [p.kind for p in problems] == ["uncited"]
     assert f"matches {gta.fact_id}, which is not cited" in str(problems[0])
@@ -111,9 +112,9 @@ def test_ids_weeks_and_window_wording_are_not_claims(on: NodeFacts) -> None:
 
 
 def test_rank_and_peer_count_are_grounded(on: NodeFacts) -> None:
-    gta = fact(on, "GTA", KpiCode.COVERAGE_13W)
+    gta = fact(on, "GTA", KpiCode.APPT_CONV)
     assert gta.rank_in_parent is not None and gta.peer_count is not None
-    text = f"GTA ranks {gta.rank_in_parent} of {gta.peer_count} on 13-week coverage."
+    text = f"GTA ranks {gta.rank_in_parent} of {gta.peer_count} on appointment conversion."
     assert kinds(narrative(on, "x", (text, [gta.fact_id]))) == []
 
 

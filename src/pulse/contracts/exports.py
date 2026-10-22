@@ -51,9 +51,6 @@ class AdvisorWeekly(Contract):
     no_shows: Count
     conversions: Count
     unique_clients_contacted: Count
-    book_size: Count
-    clients_covered_13w: Count
-    coverage_rate_13w: Rate | None = None
     avg_meeting_duration_min: float | None = Field(default=None, ge=0)
     portfolio_clients: Count = Field(description="PRTF_CONTACT_12M denominator.")
     portfolio_contacted_12m: Count = Field(description="PRTF_CONTACT_12M numerator.")
@@ -85,9 +82,6 @@ class OrgWeekly(Contract):
     no_shows: Count
     conversions: Count
     unique_clients_contacted: Count
-    book_size: Count
-    clients_covered_13w: Count
-    coverage_rate_13w: Rate | None = None
     avg_meeting_duration_min: float | None = Field(default=None, ge=0)
     activities_per_advisor: float | None = Field(default=None, ge=0)
     show_rate: Rate | None = None
@@ -135,9 +129,6 @@ class OrgQuarterly(Contract):
     no_shows: Count
     conversions: Count
     unique_clients_contacted: Count
-    book_size: Count
-    clients_covered_13w: Count
-    coverage_rate_13w: Rate | None = None
     avg_meeting_duration_min: float | None = Field(default=None, ge=0)
     activities_per_advisor: float | None = Field(default=None, ge=0)
     show_rate: Rate | None = None
@@ -181,8 +172,6 @@ class GeoWeekly(Contract):
     fsa_code: str = Field(pattern=patterns.FSA_OR_UNKNOWN)
     district_code: str = Field(pattern=patterns.DISTRICT_CODE)
     active_clients: Count
-    clients_contacted_13w: Count
-    coverage_rate_13w: Rate | None = None
     activities_completed: Count
     portfolio_clients: Count = Field(description="PRTF_CONTACT_12M denominator.")
     portfolio_contacted_12m: Count = Field(description="PRTF_CONTACT_12M numerator.")

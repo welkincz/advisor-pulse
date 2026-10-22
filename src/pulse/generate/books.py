@@ -8,12 +8,16 @@ from datetime import date
 
 from pulse.contracts.enums import ClientStatus
 from pulse.generate.clients import ClientBatch
+from pulse.generate.portfolios import holders_on
 
 ClientPools = tuple[dict[str, tuple[str, ...]], tuple[str, ...]]
 
 
 def client_pools_by_day(batch: ClientBatch, days: Sequence[date]) -> dict[date, ClientPools]:
-    """Return advisor books and all active IDs for one weekly run (at most seven days)."""
+    """Return advisor books and all active IDs for one weekly run (at most seven days).
+
+    An advisor's book is the active clients of the portfolios they hold that day.
+    """
     requested = sorted(set(days))
     if len(requested) > 7:
         raise ValueError("client pools are limited to seven days per call")
@@ -26,10 +30,11 @@ def client_pools_by_day(batch: ClientBatch, days: Sequence[date]) -> dict[date, 
             client = changes[cursor].after
             state[client.client_id] = client
             cursor += 1
+        holders = holders_on(batch.portfolios, day)
         books: dict[str, list[str]] = defaultdict(list)
         for client in state.values():
             if client.status_code is ClientStatus.ACTIVE and client.client_since_date <= day:
-                books[client.primary_advisor_id].append(client.client_id)
+                books[holders[client.portfolio_id]].append(client.client_id)
         frozen_books = {owner: tuple(sorted(ids)) for owner, ids in books.items()}
         active = tuple(sorted(client_id for ids in frozen_books.values() for client_id in ids))
         if not active:

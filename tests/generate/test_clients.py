@@ -88,7 +88,7 @@ def test_quarterly_reassignments_and_changed_rows_only(dataset: Any) -> None:
             assert change.after.status_code == "C"
         else:
             assert change.before is not None
-            assert change.before.primary_advisor_id != change.after.primary_advisor_id
+            assert change.before.portfolio_id != change.after.portfolio_id
     assert all(change.day >= START for change in changes)
     assert all(change.day < START + timedelta(weeks=104) for change in changes)
 
@@ -108,9 +108,10 @@ def test_roster_date_ranges_control_new_assignment() -> None:
     assert left and {c.day for c in left} == {switch}  # the leaver's range ends on switch
     for change in dataset.changes:
         if change.kind in {"NEW", "REASSIGNED"} and change.day >= switch:
-            assert change.after.primary_advisor_id == "ADV-00002"
+            assert dataset.owner(change.after, change.day) == "ADV-00002"
     active = [c for c in dataset.final() if c.status_code == ClientStatus.ACTIVE]
-    assert {c.primary_advisor_id for c in active} == {"ADV-00002"}
+    last_day = START + timedelta(weeks=8, days=-1)
+    assert {dataset.owner(c, last_day) for c in active} == {"ADV-00002"}
 
 
 @pytest.mark.unit
@@ -206,8 +207,8 @@ def test_incremental_load_on_last_upd_ts_rebuilds_the_final_state(
             state[r["CLNT_ID"]] = r
         watermark = max(_parse_ts(r["LAST_UPD_TS"]) for r in rows)
 
-    expected = {c.client_id: (c.primary_advisor_id, c.status_code.value) for c in dataset.final()}
-    assert {k: (v["PRIM_ADVSR_ID"], v["STAT_CD"]) for k, v in state.items()} == expected
+    expected = {c.client_id: (c.portfolio_id, c.status_code.value) for c in dataset.final()}
+    assert {k: (v["PRTF_ID"], v["STAT_CD"]) for k, v in state.items()} == expected
 
 
 @pytest.mark.unit
@@ -247,8 +248,8 @@ def test_branch_managers_own_no_clients(generated: Any) -> None:
     ranges, batch = generated
     managers = {r[0] for r in ranges if r[2] == Role.BRANCH_MANAGER}
     assert managers
-    owners = {c.primary_advisor_id for c in batch.snapshot}
-    owners |= {ch.after.primary_advisor_id for ch in batch.changes}
+    owners = {batch.owner(c, START - timedelta(days=1)) for c in batch.snapshot}
+    owners |= {batch.owner(ch.after, ch.day) for ch in batch.changes}
     assert not owners & managers
 
 
@@ -262,16 +263,19 @@ def test_leavers_books_change_holder_on_the_term_date(generated: Any) -> None:
     assert left
     for change in left:
         assert change.before is not None
-        assert (change.before.primary_advisor_id, change.day) in terms
+        assert (batch.owner(change.before, change.day - timedelta(days=1)), change.day) in terms
         assert change.before.portfolio_id == change.after.portfolio_id
     # A leaver's range excludes TERM_DT (advisors.assignment_ranges), so from that day on
-    # no client may still name them.
+    # no client's portfolio may still be held by them.
     term_day = dict(terms)
     for change in batch.changes:
-        owner = change.after.primary_advisor_id
+        owner = batch.owner(change.after, change.day)
         assert owner not in term_day or change.day < term_day[owner]
     active = [c for c in batch.final() if c.status_code == ClientStatus.ACTIVE]
-    assert not {c.primary_advisor_id for c in active} & set(term_day)
+    last_day = START + timedelta(weeks=52, days=-1)
+    assert not {batch.owner(c, last_day) for c in active} & {
+        advisor for advisor, day in term_day.items() if day <= last_day
+    }
 
 
 @pytest.mark.slow

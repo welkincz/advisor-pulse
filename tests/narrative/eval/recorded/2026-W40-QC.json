@@ -34,16 +34,15 @@
    },
    {
     "fact_ids": [
-     "F8",
-     "F9",
-     "F14"
+     "F9"
     ],
-    "text": "13-week coverage rose to 92.9% from 85.5%, and average meeting length dipped to 55.0 minutes from 57.0. MTL's coverage matches at 92.9%."
+    "text": "Average meeting length dipped to 55.0 minutes from 57.0."
    }
   ],
   "headline": "Quebec activities per advisor rose 40.0% this week to 14.0, up from 10.0 the prior week.",
   "watchlist": []
  },
  "model": "claude-sonnet-5-5",
+ "note": "13-week coverage was retired from the contract: its facts and the claims citing them were removed from this recording; everything else is the model's answer.",
  "source": "model"
 }

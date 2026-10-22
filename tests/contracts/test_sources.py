@@ -41,8 +41,8 @@ def _accept(model: type[Contract], row: dict[str, Any], **changes: Any) -> None:
         ),
         (
             TeradataClient,
-            "CLNT_ID CLNT_SINCE_DT BRTH_YR SEG_CD PSTL_CD PROV_CD PRIM_ADVSR_ID PRIM_BRNCH_ID "
-            "STAT_CD LAST_UPD_TS PRTF_ID",
+            "CLNT_ID CLNT_SINCE_DT BRTH_YR SEG_CD PSTL_CD PROV_CD PRIM_BRNCH_ID STAT_CD "
+            "LAST_UPD_TS PRTF_ID",
         ),
         (TeradataAdvisor, "ADVSR_ID ADVSR_NM ROLE_CD HIRE_DT TERM_DT LAST_UPD_TS"),
         (TeradataAssignment, "ASGN_ID ADVSR_ID BRNCH_ID ROLE_CD EFF_DT RSN_CD LAST_UPD_TS"),
@@ -255,8 +255,11 @@ def test_portfolio_rows() -> None:
     _reject(TeradataPortfolioAssignment, PORTFOLIO_ASSIGNMENT, ADVSR_ID=None)
 
 
-def test_client_portfolio_is_optional_until_226(client_row: dict[str, Any]) -> None:
-    # Files written before portfolios existed have no PRTF_ID column at all.
-    assert TeradataClient.model_validate(client_row).portfolio_id is None
-    assert TeradataClient.model_validate({**client_row, "PRTF_ID": "PRT-000101"}).portfolio_id
+def test_client_portfolio_is_required(client_row: dict[str, Any]) -> None:
+    # The book owner is the portfolio's holder, so a client without one has no owner.
+    assert TeradataClient.model_validate(client_row).portfolio_id == "PRT-000123"
+    _reject(TeradataClient, client_row, PRTF_ID=None)
     _reject(TeradataClient, client_row, PRTF_ID="P-1")
+    without = {k: v for k, v in client_row.items() if k != "PRTF_ID"}
+    with pytest.raises(ValidationError):
+        TeradataClient.model_validate(without)

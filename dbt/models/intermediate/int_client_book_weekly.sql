@@ -1,15 +1,13 @@
 -- Client × ISO week book (PLAN.md §6.7 and §7). One row per client who already
 -- existed at week end, with the portfolio, home branch and FSA on the client version in
 -- force at Sunday 23:59 America/Toronto, and an active flag. The book owner is the
--- portfolio's holder on the week-end date; a null PRTF_ID (rows from before portfolios)
--- or one the master lacks (DQ014) falls back to PRIM_ADVSR_ID until #226 drops it. Coverage's
--- denominator is the active subset (`is_active`). Versions come from every loaded CLNT
--- row: staging keeps only the latest, which would hide a mid-period reassignment or move.
+-- portfolio's holder on the week-end date; a portfolio the master lacks (DQ014) has no
+-- owner and stays out of the lead KPI. Versions come from every loaded CLNT row: staging
+-- keeps only the latest, which would hide a mid-period reassignment or move.
 with renamed as (
     select
         "CLNT_ID" as client_id,
         cast("CLNT_SINCE_DT" as date) as client_since_date,
-        nullif(trim("PRIM_ADVSR_ID"), '') as primary_advisor_id,
         nullif(trim("PRIM_BRNCH_ID"), '') as primary_branch_id,
         nullif(trim("PRTF_ID"), '') as portfolio_id,
         {{ fsa_code('"PSTL_CD"') }} as fsa_code,
@@ -38,7 +36,6 @@ ranged as (
     select
         client_id,
         client_since_date,
-        primary_advisor_id,
         primary_branch_id,
         portfolio_id,
         fsa_code,
@@ -78,7 +75,7 @@ select
     ranged.client_id,
     weeks.iso_week_id,
     weeks.week_end,
-    coalesce(holder.advisor_id, ranged.primary_advisor_id) as primary_advisor_id,
+    holder.advisor_id as primary_advisor_id,
     ranged.primary_branch_id,
     ranged.portfolio_id,
     holder.transit_branch_id,

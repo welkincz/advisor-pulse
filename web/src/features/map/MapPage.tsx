@@ -12,7 +12,7 @@ import { DIVERGING, SEQUENTIAL } from '../../theme/tokens'
 import { resolveWeek } from '../drill/path'
 import { KPI_CODES, LOWER_IS_BETTER } from '../overview/kpis'
 import { CanadaMap, type MapArea, type MapPlace } from './CanadaMap'
-import { type Basemap, type Boundary, bin, standoutSentence, fsaCoverage, deviationReach, drillHref, extent, historyExtent, loadBasemap, loadBoundaries, versusUsual } from './data'
+import { type Basemap, type Boundary, type FsaMeasure, bin, standoutSentence, fsaValues, deviationReach, drillHref, extent, historyExtent, loadBasemap, loadBoundaries, versusUsual } from './data'
 import './map.css'
 
 // three.js loads only when the relief view is on, so the flat map stays light.
@@ -80,17 +80,25 @@ function rowsFor(history: readonly WeeklyReport[], code: KpiCode, week: string, 
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`
 
-function Legend({ range, reach, code, fsa }: { range: [number, number] | null; reach: number | null; code: KpiCode; fsa: boolean }) {
+const FSA_LABELS: Record<FsaMeasure, string> = { PRTF_CONTACT_12M: KPI_LABELS.PRTF_CONTACT_12M, CLIENT_ACTIVITIES: 'Activities with clients here' }
+const FSA_PLAIN: Record<FsaMeasure, string> = {
+  PRTF_CONTACT_12M: KPI_PLAIN.PRTF_CONTACT_12M,
+  CLIENT_ACTIVITIES: 'Calls, meetings and reviews completed in the week with clients whose postal code is in this area, by any advisor. Shown until portfolio contact has 12 months of history.',
+}
+const formatFsa = (measure: FsaMeasure, value: number | null | undefined) =>
+  measure === 'PRTF_CONTACT_12M' ? formatKpi('PRTF_CONTACT_12M', value) : value == null ? '–' : value.toLocaleString('en-CA')
+
+function Legend({ range, reach, label, format, fsa }: { range: [number, number] | null; reach: number | null; label: string; format: (value: number) => string; fsa: boolean }) {
   return <div className="map-legend">
     {reach !== null ? <div className="map-legend-scale" aria-label={`Colour scale: worse to better than each area's 13-week average, up to ${percent(reach)}`}>
       <span>Worse <span className="figure-num">{percent(reach)}</span></span>
       <div className="map-legend-colours" aria-hidden="true">{SPLIT.map((fill, i) => <i key={i} className="map-swatch" style={{ background: fill }} />)}</div>
       <span>Better <span className="figure-num">{percent(reach)}</span></span>
       <span className="map-legend-mid">than its own <Term {...TERMS.usual}>usual week</Term>; grey is a usual week</span>
-    </div> : <div className="map-legend-scale" aria-label={`${KPI_LABELS[code]} colour scale`}>
-      <span className="figure-num">{range ? formatKpi(code, range[0]) : '–'}</span>
+    </div> : <div className="map-legend-scale" aria-label={`${label} colour scale`}>
+      <span className="figure-num">{range ? format(range[0]) : '–'}</span>
       <div className="map-legend-colours" aria-hidden="true">{PALETTE.map((_, i) => <i key={i} className={`map-swatch map-swatch-${i + 1}`} />)}</div>
-      <span className="figure-num">{range ? formatKpi(code, range[1]) : '–'}</span>
+      <span className="figure-num">{range ? format(range[1]) : '–'}</span>
       <span className="map-legend-mid"><Term title="Shade" text="Each area against its peers across every week shown, so a shade keeps its meaning while the weeks play.">across every week shown</Term></span>
     </div>}
     {!fsa && <span className="map-legend-key"><svg width="22" height="14" aria-hidden="true"><circle cx="5" cy="9" r="3" /><circle cx="15" cy="7" r="6" /></svg>Circle size: activities completed</span>}
@@ -153,8 +161,9 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const regionById = new Map(regionRows.map((row) => [row.id, row]))
   const districtById = new Map(districtRows.map((row) => [row.id, row]))
   const sizes = new Map(volume.status === 'ready' ? volume.data.map((row) => [row.node_id, row.activities_completed]) : [])
-  const coverage = useMemo(() => fsaCoverage(geo.status === 'ready' ? geo.data : []), [geo])
-  const geoValues = coverage.values
+  const fsaData = useMemo(() => fsaValues(geo.status === 'ready' ? geo.data : []), [geo])
+  const geoValues = fsaData.values
+  const fsaMeasure = fsaData.measure
   const fsaRange = extent(geoValues.values())
   const fsaList = (fsaShapes?.data?.map((f) => f.properties.CFSAUID ?? '') ?? [...geoValues.keys()])
     .sort((a, b) => Number(geoValues.get(b) != null) - Number(geoValues.get(a) != null) || a.localeCompare(b))
@@ -218,10 +227,18 @@ function MapContent({ manifest }: { manifest: Manifest }) {
   const sorted = [...rows, ...missing].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   const top = Math.max(0, ...rows.map((row) => row.value ?? 0))
   const scope = focus ? regionNames.get(focus) ?? focus : 'Canada'
-  // The readout follows the colours: in FSA mode that is 13-week coverage, whatever measure was chosen before.
-  const readoutCode: KpiCode = fsaMode ? 'COVERAGE_13W' : code
+  // The readout follows the colours: in FSA mode that is the FSA measure, whatever measure was chosen before.
+  const readoutCode: KpiCode = fsaMode ? 'PRTF_CONTACT_12M' : code
   const readoutRows = focus ? regionRowsAll : national.status === 'ready' ? national.data : []
-  const readout = readoutRows.find((row) => row.node_id === (focus ?? 'CA') && row.kpi_code === readoutCode && row.iso_week_id === week)?.value ?? null
+  const reported = readoutRows.find((row) => row.node_id === (focus ?? 'CA') && row.kpi_code === readoutCode && row.iso_week_id === week)?.value ?? null
+  // Activities with clients here have no report row: add up the FSA rows in scope, so the readout is the map's own total.
+  const regionOf = new Map(places.map((place) => [place.id, place.region]))
+  const clientActivities = geo.status === 'ready'
+    ? geo.data.filter((row) => !focus || regionOf.get(row.district_code) === focus).reduce((sum, row) => sum + row.activities_completed, 0)
+    : null
+  const fsaActivities = fsaMode && fsaMeasure === 'CLIENT_ACTIVITIES'
+  const readoutText = fsaActivities ? formatFsa(fsaMeasure, clientActivities) : formatKpi(readoutCode, reported)
+  const readoutLabel = fsaMode ? FSA_LABELS[fsaMeasure] : KPI_LABELS[readoutCode]
 
   /** One card for an area, on the map and in the list: what the measure is, what happened, the trend, and the next click. */
   const cardFor = (row: Row): CardContent => ({
@@ -233,7 +250,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
     hint: focus ? 'Click to open its weekly report.' : 'Click to fly to its districts.',
   })
   const tooltip = (id: string) => {
-    if (fsaMode) return <HoverCard card={{ title: id, value: formatKpi('COVERAGE_13W', geoValues.get(id)), what: KPI_PLAIN.COVERAGE_13W }} />
+    if (fsaMode) return <HoverCard card={{ title: id, value: formatFsa(fsaMeasure, geoValues.get(id)), what: FSA_PLAIN[fsaMeasure] }} />
     const row = districtById.get(id) ?? regionById.get(id)
     if (!row) return <HoverCard card={{ title: regionNames.get(id) ?? id, what: 'No value for this area this week.' }} />
     return <HoverCard card={cardFor(row)} />
@@ -241,8 +258,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
 
   return <>
     <div className="map-controls">
-      <label>Measure <select value={fsaMode ? 'COVERAGE_13W' : code} disabled={fsaMode} onChange={(event) => setQuery({ kpi: event.target.value })}>
-        {KPI_CODES.map((id) => <option key={id} value={id}>{KPI_LABELS[id]}</option>)}
+      <label>Measure <select value={fsaMode ? fsaMeasure : code} disabled={fsaMode} onChange={(event) => setQuery({ kpi: event.target.value })}>
+        {fsaMode ? <option value={fsaMeasure}>{FSA_LABELS[fsaMeasure]}</option> : KPI_CODES.map((id) => <option key={id} value={id}>{KPI_LABELS[id]}</option>)}
       </select></label>
       <fieldset className="map-colouring" disabled={fsaMode || code === 'AVG_MEET_MIN'}>
         <legend>Colour by</legend>
@@ -254,7 +271,7 @@ function MapContent({ manifest }: { manifest: Manifest }) {
         <label><input type="radio" name="view" checked={relief} onChange={() => setQuery({ view: 'relief' })} /> Relief</label>
         <label><input type="radio" name="view" checked={!relief} onChange={() => setQuery({ view: 'flat' })} /> Flat</label>
       </fieldset>}
-      {manifest.has_fsa_boundaries && <label className="map-fsa-toggle"><input type="checkbox" checked={fsa} onChange={(event) => setFsa(event.target.checked)} /> FSA coverage layer</label>}
+      {manifest.has_fsa_boundaries && <label className="map-fsa-toggle"><input type="checkbox" checked={fsa} onChange={(event) => setFsa(event.target.checked)} /> FSA layer</label>}
     </div>
 
     <section className="map-stage" aria-label={`${KPI_LABELS[code]} map`}>
@@ -265,8 +282,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             <span className="map-readout-week figure-num">{week}</span>
           </p>
           <p className="map-readout-value">
-            <span className="figure-num">{formatKpi(readoutCode, readout)}</span>
-            <span className="map-readout-kpi">{KPI_LABELS[readoutCode]}</span>
+            <span className="figure-num">{readoutText}</span>
+            <span className="map-readout-kpi">{readoutLabel}</span>
           </p>
         </div>
         {focus && <Link className="map-open" to={drillHref(null, focus, week, manifest.latest_week)}>Open the {scope} report</Link>}
@@ -295,19 +312,19 @@ function MapContent({ manifest }: { manifest: Manifest }) {
             tooltip={tooltip} label={`${KPI_LABELS[code]} by ${focus ? 'district' : 'region'}, ${week}`} />}
           {(!base || !districts) && <p aria-busy="true">Drawing the map…</p>}
           {(base?.error || districts?.error) && <p role="alert">{(base?.error ?? districts?.error)!.message}</p>}
-          {fsaMode && fsaShapes?.error && <p role="alert" className="map-alert">The FSA shapes could not load, so the coverage layer is not drawn. <button type="button" onClick={() => setFsaAttempt((n) => n + 1)}>Try again</button></p>}
+          {fsaMode && fsaShapes?.error && <p role="alert" className="map-alert">The FSA shapes could not load, so the FSA layer is not drawn. <button type="button" onClick={() => setFsaAttempt((n) => n + 1)}>Try again</button></p>}
         </div>
 
         <aside className="map-ranking">
           {fsaMode ? <>
-            <h2>FSA coverage</h2>
+            <h2>By FSA</h2>
             {geo.status === 'loading' && <p aria-busy="true">Loading FSA values…</p>}
-            {geo.status === 'error' && <DataNotice what="FSA coverage" onRetry={geo.retry} />}
-            {geo.status === 'empty' && <p>No FSA coverage values for this week.</p>}
-            {geo.status === 'ready' && <div className="map-fsa-values" role="region" aria-label="FSA coverage values" tabIndex={0}><table>
-              <caption>13-week coverage by FSA, {week}; available values first{coverage.unknownClients > 0 && `. ${coverage.unknownClients.toLocaleString('en-CA')} clients with an unreadable postal code are counted in their district but not mapped`}</caption>
-              <thead><tr><th scope="col">FSA</th><th scope="col">Coverage</th></tr></thead>
-              <tbody>{fsaList.map((id) => <tr key={id}><th scope="row">{id}</th><td>{formatKpi('COVERAGE_13W', geoValues.get(id))}</td></tr>)}</tbody>
+            {geo.status === 'error' && <DataNotice what="FSA values" onRetry={geo.retry} />}
+            {geo.status === 'empty' && <p>No FSA values for this week.</p>}
+            {geo.status === 'ready' && <div className="map-fsa-values" role="region" aria-label="FSA values" tabIndex={0}><table>
+              <caption>{FSA_LABELS[fsaMeasure]} by FSA, {week}; available values first{fsaMeasure === 'CLIENT_ACTIVITIES' && '. Portfolio contact shows here once it has 12 months of history'}{fsaData.unknownClients > 0 && `. ${fsaData.unknownClients.toLocaleString('en-CA')} clients with an unreadable postal code are counted in their district but not mapped`}</caption>
+              <thead><tr><th scope="col">FSA</th><th scope="col">{fsaMeasure === 'PRTF_CONTACT_12M' ? 'Contacted' : 'Activities'}</th></tr></thead>
+              <tbody>{fsaList.map((id) => <tr key={id}><th scope="row">{id}</th><td>{formatFsa(fsaMeasure, geoValues.get(id))}</td></tr>)}</tbody>
             </table></div>}
           </> : <>
             <h2>{focus ? `Districts in ${scope}` : 'Regions'}</h2>
@@ -336,7 +353,8 @@ function MapContent({ manifest }: { manifest: Manifest }) {
         </aside>
       </div>
       {volume.status === 'error' && !fsaMode && <DataNotice what="district activity, which sizes the circles" onRetry={volume.retry} />}
-      <Legend range={fsaMode ? fsaRange : range} reach={fsaMode ? null : reach} code={fsaMode ? 'COVERAGE_13W' : code} fsa={fsaMode} />
+      <Legend range={fsaMode ? fsaRange : range} reach={fsaMode ? null : reach} fsa={fsaMode}
+        label={fsaMode ? FSA_LABELS[fsaMeasure] : KPI_LABELS[code]} format={(value) => fsaMode ? formatFsa(fsaMeasure, value) : formatKpi(code, value)} />
       <WeekPlayer weeks={weeks} value={week} onChange={(next) => setQuery({ week: next })} series={playerSeries}
         label={`Week shown on the map; the strip is ${focus ? scope : 'national'} ${KPI_LABELS[code].toLowerCase()}`} />
       <p className="map-source">

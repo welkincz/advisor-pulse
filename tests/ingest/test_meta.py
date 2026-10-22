@@ -15,6 +15,7 @@ from pulse.warehouse import (
     TABLES,
     add_column_sql,
     connect,
+    create_table_sql,
     init_warehouse,
     transaction,
     warehouse_path,
@@ -272,23 +273,48 @@ def test_rejected_rows_bulk_and_rerun_safe(con: duckdb.DuckDBPyConnection) -> No
 
 
 def test_restored_warehouse_gains_new_optional_columns() -> None:
-    # A warehouse restored from before #220 has CLNT without PRTF_ID; init adds it, keeps rows.
+    # A warehouse restored from an older contract lacks a nullable column; init adds it and
+    # keeps the rows (#220 added PRTF_ID this way while it was optional).
     con = connect(":memory:")
     init_warehouse(con)
-    con.execute('ALTER TABLE raw.teradata__clnt DROP COLUMN "PRTF_ID"')
+    con.execute('ALTER TABLE raw.teradata__clnt DROP COLUMN "PSTL_CD"')
     con.execute(
         'INSERT INTO raw.teradata__clnt ("CLNT_ID", "CLNT_SINCE_DT", "BRTH_YR", "SEG_CD", '
-        '"PROV_CD", "PRIM_ADVSR_ID", "PRIM_BRNCH_ID", "STAT_CD", "LAST_UPD_TS", "_batch_id", '
+        '"PROV_CD", "PRIM_BRNCH_ID", "STAT_CD", "LAST_UPD_TS", "PRTF_ID", "_batch_id", '
         '"_source_file", "_source_row", "_row_hash", "_loaded_at") VALUES (\'CLI-00000001\', '
-        "DATE '2020-01-01', 1980, 'MASS', 'ON', 'ADV-00001', 'BR-0101', 'A', "
-        "TIMESTAMPTZ '2026-01-01 00:00:00+00', 'b', 'f', 1, 'h', "
+        "DATE '2020-01-01', 1980, 'MASS', 'ON', 'BR-0101', 'A', "
+        "TIMESTAMPTZ '2026-01-01 00:00:00+00', 'PRT-000001', 'b', 'f', 1, 'h', "
         "TIMESTAMPTZ '2026-01-01 00:00:00+00')"
     )
     init_warehouse(con)
-    assert con.execute('SELECT "CLNT_ID", "PRTF_ID" FROM raw.teradata__clnt').fetchall() == [
+    assert con.execute('SELECT "CLNT_ID", "PSTL_CD" FROM raw.teradata__clnt').fetchall() == [
         ("CLI-00000001", None)
     ]
     init_warehouse(con)  # and stays idempotent
+
+
+def test_restored_warehouse_with_a_dropped_required_column_fails_loudly() -> None:
+    # #226 dropped CLNT.PRIM_ADVSR_ID. A warehouse restored from before still has it as
+    # NOT NULL, so the first insert fails instead of loading rows that history disagrees
+    # with: the contract step needs a rebuild (docs/adr/0004-expand-contract-migration.md).
+    con = connect(":memory:")
+    init_warehouse(con)
+    spec = next(t for t in TABLES if t.name == "raw.teradata__clnt")
+    old_ddl = create_table_sql(spec).replace(
+        '"PRIM_BRNCH_ID"', '"PRIM_ADVSR_ID" VARCHAR NOT NULL,\n  "PRIM_BRNCH_ID"', 1
+    )
+    con.execute("DROP TABLE raw.teradata__clnt")
+    con.execute(old_ddl)
+    init_warehouse(con)
+    with pytest.raises(duckdb.ConstraintException, match="PRIM_ADVSR_ID"):
+        con.execute(
+            'INSERT INTO raw.teradata__clnt ("CLNT_ID", "CLNT_SINCE_DT", "BRTH_YR", "SEG_CD", '
+            '"PROV_CD", "PRIM_BRNCH_ID", "STAT_CD", "LAST_UPD_TS", "PRTF_ID", "_batch_id", '
+            '"_source_file", "_source_row", "_row_hash", "_loaded_at") VALUES '
+            "('CLI-00000001', DATE '2020-01-01', 1980, 'MASS', 'ON', 'BR-0101', 'A', "
+            "TIMESTAMPTZ '2026-01-01 00:00:00+00', 'PRT-000001', 'b', 'f', 1, 'h', "
+            "TIMESTAMPTZ '2026-01-01 00:00:00+00')"
+        )
 
 
 def test_new_required_columns_are_not_added_silently() -> None:

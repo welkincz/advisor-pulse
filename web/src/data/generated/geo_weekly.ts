@@ -2,8 +2,6 @@
 
 export type ActiveClients = number;
 export type ActivitiesCompleted = number;
-export type ClientsContacted13W = number;
-export type CoverageRate13W = number | null;
 export type DistrictCode = string;
 export type FsaCode = string;
 export type IsoWeekId = string;
@@ -26,8 +24,6 @@ export type PortfolioContactedRate12M = number | null;
 export interface GeoWeekly {
   active_clients: ActiveClients;
   activities_completed: ActivitiesCompleted;
-  clients_contacted_13w: ClientsContacted13W;
-  coverage_rate_13w?: CoverageRate13W;
   district_code: DistrictCode;
   fsa_code: FsaCode;
   iso_week_id: IsoWeekId;

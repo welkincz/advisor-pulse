@@ -15,7 +15,7 @@ export interface LeaderRow {
 /** KPIs that exist below the national level; LATE_RATE and QUAR_RATE are batch-wide. */
 export const ORG_KPIS: readonly KpiCode[] = [
   'PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV',
-  'CLIENTS_CONTACTED', 'COVERAGE_13W', 'AVG_MEET_MIN', 'NO_SHOW_RATE',
+  'CLIENTS_CONTACTED', 'AVG_MEET_MIN', 'NO_SHOW_RATE',
 ]
 
 function ratio(numerator: number, denominator: number): number | null {
@@ -31,7 +31,6 @@ const ADVISOR_VALUE: Partial<Record<KpiCode, (row: AdvisorWeekly) => number | nu
   SHOW_RATE: (r) => ratio(r.appointments_held, r.appointments_held + r.no_shows),
   APPT_CONV: (r) => ratio(r.conversions, r.appointments_held),
   CLIENTS_CONTACTED: (r) => r.unique_clients_contacted,
-  COVERAGE_13W: (r) => r.coverage_rate_13w ?? null,
   AVG_MEET_MIN: (r) => r.avg_meeting_duration_min ?? null,
   NO_SHOW_RATE: (r) => {
     const show = ratio(r.appointments_held, r.appointments_held + r.no_shows)

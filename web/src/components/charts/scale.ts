@@ -52,7 +52,7 @@ export function mixPoints(from: readonly Pt[], to: readonly Pt[], t: number): Pt
 
 /**
  * The extent inside Tukey's fences (1.5 × IQR beyond the quartiles). Warm-up weeks, such as
- * 13-week coverage climbing from zero, would otherwise squeeze every real week into one shade.
+ * a rate whose window is still filling, would otherwise squeeze every real week into one shade.
  */
 export function fenced(values: Iterable<number | null>): [number, number] | null {
   const known = [...values].filter((value): value is number => value !== null && Number.isFinite(value)).sort((a, b) => a - b)

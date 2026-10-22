@@ -34,9 +34,10 @@ from read_parquet('fixtures/exports/geo_weekly.parquet') as e
 full outer join {{ ref('mart_geo_weekly') }} as a using (iso_week_id, fsa_code, district_code)
 where e.fsa_code is null or a.fsa_code is null
     or e.active_clients is distinct from a.active_clients
-    or e.clients_contacted_13w is distinct from a.clients_contacted_13w
+    or e.portfolio_clients is distinct from a.portfolio_clients
+    or e.portfolio_contacted_12m is distinct from a.portfolio_contacted_12m
     or e.activities_completed is distinct from a.activities_completed
-    or {{ close_to.format('coverage_rate_13w', 0.000101) }}
+    or {{ close_to.format('portfolio_contacted_rate_12m', 0.000101) }}
 
 union all
 

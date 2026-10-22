@@ -25,7 +25,6 @@ export const QUARTER_MEASURES: Partial<Record<KpiCode, Measure>> = {
   SHOW_RATE: { basis: 'rate', value: (r) => r.show_rate ?? null },
   APPT_CONV: { basis: 'rate', value: (r) => r.conversion_rate ?? null },
   CLIENTS_CONTACTED: { basis: 'quarter', value: (r) => r.unique_clients_contacted },
-  COVERAGE_13W: { basis: 'rate', value: (r) => r.coverage_rate_13w ?? null },
   AVG_MEET_MIN: { basis: 'rate', value: (r) => r.avg_meeting_duration_min ?? null },
   NO_SHOW_RATE: { basis: 'rate', value: (r) => ratio(r.no_shows, r.appointments_held + r.no_shows) },
 }

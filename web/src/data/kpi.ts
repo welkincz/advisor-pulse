@@ -10,7 +10,6 @@ export const KPI_LABELS: Record<KpiCode, string> = {
   SHOW_RATE: 'Show rate',
   APPT_CONV: 'Appointment conversion',
   CLIENTS_CONTACTED: 'Clients contacted',
-  COVERAGE_13W: '13-week coverage',
   AVG_MEET_MIN: 'Average meeting minutes',
   NO_SHOW_RATE: 'No-show rate',
   LATE_RATE: 'Late-arriving rate',
@@ -36,7 +35,7 @@ export function leadFor(history: readonly KpiValue[], week: string): KpiCode {
   return history.some((row) => row.kpi_code === LEAD_KPI && row.iso_week_id === week && row.value != null) ? LEAD_KPI : FALLBACK_LEAD
 }
 
-export const RATES: ReadonlySet<KpiCode> = new Set<KpiCode>(['PRTF_CONTACT_12M', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
+export const RATES: ReadonlySet<KpiCode> = new Set<KpiCode>(['PRTF_CONTACT_12M', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
 /** Averages keep one decimal even when whole, so a column of them lines up (16.0, not 16). */
 const AVERAGES = new Set<KpiCode>(['ACT_PER_ADV', 'AVG_MEET_MIN'])
 

@@ -61,11 +61,6 @@
       "default": null,
       "title": "Avg Meeting Duration Min"
     },
-    "book_size": {
-      "minimum": 0,
-      "title": "Book Size",
-      "type": "integer"
-    },
     "booked_from_call": {
       "minimum": 0,
       "title": "Booked From Call",
@@ -95,11 +90,6 @@
       "title": "Calls Out",
       "type": "integer"
     },
-    "clients_covered_13w": {
-      "minimum": 0,
-      "title": "Clients Covered 13W",
-      "type": "integer"
-    },
     "conversion_rate": {
       "anyOf": [
         {
@@ -118,20 +108,6 @@
       "minimum": 0,
       "title": "Conversions",
       "type": "integer"
-    },
-    "coverage_rate_13w": {
-      "anyOf": [
-        {
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Coverage Rate 13W"
     },
     "first_week": {
       "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
@@ -290,8 +266,6 @@
     "no_shows",
     "conversions",
     "unique_clients_contacted",
-    "book_size",
-    "clients_covered_13w",
     "portfolio_clients",
     "portfolio_contacted_12m"
   ],

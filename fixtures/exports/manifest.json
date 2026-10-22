@@ -12,33 +12,33 @@
   "files": [
     {
       "name": "org_weekly.parquet",
-      "sha256": "b3eb12e66916c9518c809fac32122384256f190f55fc545b43edafd3026ca1c9",
+      "sha256": "d09c7fbb552f6dc1d44c36d420737288e385a5acbee843f1f1b8ac0a75de9868",
       "rows": 48,
-      "bytes": 10932
+      "bytes": 9467
     },
     {
       "name": "org_quarterly.parquet",
-      "sha256": "9c2a21d3a6c78b59ee672b090fd9ae2cac840276cc985bd293d105e6ec31b033",
+      "sha256": "43700a9be6b2d4a898b940ba17f09d9931e5a7df739617fec67ddcfd274b6933",
       "rows": 12,
-      "bytes": 12464
+      "bytes": 11358
     },
     {
       "name": "advisor_weekly.parquet",
-      "sha256": "00fd55520c14223f6473f7f2c426bc5e94f3f5314c8d159ab82d032b82d3b4ae",
+      "sha256": "9a39d001d689a5335f8401139a3fae1305459884898364303d16b5f3632bc7ef",
       "rows": 55,
-      "bytes": 7713
+      "bytes": 6391
     },
     {
       "name": "weekly_report.parquet",
-      "sha256": "edd5c435baaad66409d625abae87f43f3e0781bd96cbfa46a1eb977411b57ba0",
-      "rows": 536,
-      "bytes": 14387
+      "sha256": "926ddb06b6233d93661919392c7b867ea714cbb41fd376909c4d4f29927721bd",
+      "rows": 488,
+      "bytes": 13023
     },
     {
       "name": "geo_weekly.parquet",
-      "sha256": "8e7efc33e70e1b64d66c2f4c2e8293e7b3ffb007471ac00850637d6a697e8f91",
+      "sha256": "8e55ac67d7f814e0d7d0b3bc37d802d094f387b8d9d2e802d17d852a88355d2b",
       "rows": 48,
-      "bytes": 4216
+      "bytes": 3207
     },
     {
       "name": "dq_weekly.parquet",
@@ -60,9 +60,9 @@
     },
     {
       "name": "narratives/2026-W40.json",
-      "sha256": "63fb91c0e352f4d10b5e14704476195aaebeca3dcf034d7874d97ff7d1809347",
+      "sha256": "dddccd155303e42cf3c2034a9a11d6aca4586ac9213e47e70b2814e50356aa82",
       "rows": null,
-      "bytes": 14647
+      "bytes": 14644
     }
   ],
   "summary": [
@@ -120,13 +120,6 @@
       "value": 95.0,
       "prior_week_value": 92.0,
       "wow_pct": 0.0326,
-      "flag": "UP"
-    },
-    {
-      "kpi_code": "COVERAGE_13W",
-      "value": 0.8985,
-      "prior_week_value": 0.8265,
-      "wow_pct": 0.0871,
       "flag": "UP"
     },
     {

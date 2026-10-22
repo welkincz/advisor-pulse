@@ -117,19 +117,13 @@ class TeradataClient(Contract):
         default=None, alias="PSTL_CD", description="Raw postal code; normalized in staging."
     )
     province_code: Province = Field(alias="PROV_CD")
-    primary_advisor_id: str = Field(
-        alias="PRIM_ADVSR_ID",
-        pattern=patterns.ADVISOR_ID,
-        description="Book owner. Deprecated: the owner is the holder of PRTF_ID.",
-    )
     primary_branch_id: str = Field(alias="PRIM_BRNCH_ID", pattern=patterns.BRANCH_ID)
     status_code: ClientStatus = Field(alias="STAT_CD")
     last_updated_ts: datetime = Field(alias="LAST_UPD_TS", description="Watermark column.")
-    portfolio_id: str | None = Field(
-        default=None,
+    portfolio_id: str = Field(
         alias="PRTF_ID",
         pattern=patterns.PORTFOLIO_ID,
-        description="Portfolio the client belongs to. Optional while the migration runs.",
+        description="Portfolio the client belongs to; its holder at week end owns the book.",
     )
 
 

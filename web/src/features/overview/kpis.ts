@@ -3,7 +3,7 @@ import type { KpiCode } from '../../data/generated/weekly_report'
 /** The business definitions in PLAN.md §7, with operational rates kept separate. */
 export const KPI_CODES: readonly KpiCode[] = [
   'PRTF_CONTACT_12M', 'ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV',
-  'CLIENTS_CONTACTED', 'COVERAGE_13W', 'AVG_MEET_MIN', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE',
+  'CLIENTS_CONTACTED', 'AVG_MEET_MIN', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE',
 ]
 
 export const KPI_DEFINITIONS: Record<KpiCode, string> = {
@@ -15,7 +15,6 @@ export const KPI_DEFINITIONS: Record<KpiCode, string> = {
   SHOW_RATE: 'Held appointments divided by held plus no-show appointments scheduled in the week. Cancelled appointments are excluded.',
   APPT_CONV: 'Held appointments resulting in a plan or opened product divided by held appointments.',
   CLIENTS_CONTACTED: 'Distinct clients with at least one completed contact activity in the week.',
-  COVERAGE_13W: 'Distinct active book clients contacted in the trailing 13 weeks divided by active book clients at week end.',
   AVG_MEET_MIN: 'Average minutes for completed appointments and reviews.',
   NO_SHOW_RATE: 'One minus the show rate.',
   LATE_RATE: 'Late-arriving rows divided by rows loaded in the batch.',
@@ -23,7 +22,7 @@ export const KPI_DEFINITIONS: Record<KpiCode, string> = {
 }
 
 export const RATE_CODES = new Set<KpiCode>([
-  'PRTF_CONTACT_12M', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'COVERAGE_13W', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE',
+  'PRTF_CONTACT_12M', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE',
 ])
 
 export const LOWER_IS_BETTER = new Set<KpiCode>(['NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
