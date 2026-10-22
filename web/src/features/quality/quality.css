@@ -14,7 +14,13 @@
 .quality-muted { color: var(--faint); }
 
 /* Check scorecards: the value, a bullet against its limit, and what the check read. */
-.checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--space-6); margin: 0; padding: 0; list-style: none; }
+/* Four checks: one column on a phone, 2×2 on a tablet, a row of four on a desktop. No orphan. */
+.checks { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); margin: 0; padding: 0; list-style: none; }
+@media (min-width: 36rem) { .checks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 64rem) { .checks { grid-template-columns: repeat(4, minmax(0, 1fr)); } .checks .check-value { font-size: var(--text-xl); } }
+.quality-mark { align-items: center; }
+.quality-mark .status-glyph { flex: none; width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.quality-mark.status-running .status-glyph circle { fill: currentColor; }
 .check { display: grid; align-content: start; gap: var(--space-2); border-top: 2px solid var(--ink); padding-top: var(--space-3); }
 .check-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); font-size: var(--text-sm); }
 .check-title { font-weight: 600; }
