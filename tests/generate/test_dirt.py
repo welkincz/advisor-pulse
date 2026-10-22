@@ -473,7 +473,11 @@ def test_unknown_portfolio_is_injected_and_recorded(tmp_path: Path) -> None:
         seed=8,
         rates=_rates(UNKNOWN_PORTFOLIO=1.0),
     )
-    found = [d for d in manifest.defects if d.kind is DefectKind.UNKNOWN_PORTFOLIO]
+    found = [
+        d
+        for d in manifest.defects
+        if d.kind is DefectKind.UNKNOWN_PORTFOLIO and d.file == "teradata/client_20260913.csv"
+    ]
     assert len(found) == len(rows)
     assert {(d.rule_id, d.action, d.expected_value) for d in found} == {
         ("DQ014", DqAction.MAP_UNKNOWN, "PRT-000001")
