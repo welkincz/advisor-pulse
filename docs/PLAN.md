@@ -154,11 +154,10 @@ advisor-pulse/
 │   └── public/{data,geo}      # data/ is generated, gitignored except a fixtures symlink
 ├── tests/                     # pytest (unit + integration + idempotency)
 ├── docs/
-│   ├── PLAN.md  BACKLOG.md  design.md  case-study.md
-│   └── adr/                   # one file per significant decision
-├── scripts/
-│   ├── backlog.py             # source of truth for the issue backlog
-│   └── create_github_backlog.sh
+│   ├── PLAN.md  design.md  case-study.md  code-tour.md  baseline.md
+│   ├── adr/                   # one file per significant decision
+│   └── archive/planning/      # the starting backlog and the script that generated it
+├── scripts/                   # dev and CI helpers (fixtures, exports, dbt docs)
 └── .github/
     ├── workflows/{ci,weekly,backfill,deps}.yml
     ├── ISSUE_TEMPLATE/agent-task.md
@@ -542,4 +541,4 @@ Contracts and fixtures come first, so every lane after that can work in parallel
 
 Tool routing (detailed in AGENTS.md): **Claude** for architecture, contracts, reasoning-heavy and cross-cutting issues, and PR review. **Cursor** for most implementation (components, charts, dbt staging and marts, workflows, loaders, export, docs). **Human** for account setup (Cloudflare, R2, Google service account, Tableau publish).
 
-The issue backlog lives in [`docs/BACKLOG.md`](BACKLOG.md). It is generated from `scripts/backlog.py`, which also renders `scripts/create_github_backlog.sh`.
+The live backlog is the GitHub issue list. The starting backlog, and the `backlog.py` script that generated it and the GitHub issues, are kept in [`docs/archive/planning/`](archive/planning/).
