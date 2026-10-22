@@ -11,7 +11,14 @@ from pulse.contracts import duckdb_columns
 from pulse.contracts.enums import CheckSeverity, CheckStatus, LoadStatus, RunType, StageStatus
 from pulse.contracts.meta import CheckResult, LoadManifest, RejectedRow, RunLogRow, Watermark
 from pulse.ingest import meta
-from pulse.warehouse import TABLES, connect, init_warehouse, transaction, warehouse_path
+from pulse.warehouse import (
+    TABLES,
+    add_column_sql,
+    connect,
+    init_warehouse,
+    transaction,
+    warehouse_path,
+)
 
 T0 = datetime(2026, 10, 12, 6, 0, tzinfo=UTC)
 SHA_A = "a" * 64
@@ -282,3 +289,12 @@ def test_restored_warehouse_gains_new_optional_columns() -> None:
         ("CLI-00000001", None)
     ]
     init_warehouse(con)  # and stays idempotent
+
+
+def test_new_required_columns_are_not_added_silently() -> None:
+    # Only nullable columns evolve in place; a required one needs a rebuild and fails loudly.
+    con = connect(":memory:")
+    init_warehouse(con)
+    con.execute('ALTER TABLE raw.teradata__clnt DROP COLUMN "STAT_CD"')
+    spec = next(t for t in TABLES if t.name == "raw.teradata__clnt")
+    assert add_column_sql(con, spec) == []
