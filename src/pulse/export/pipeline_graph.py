@@ -36,7 +36,6 @@ REFERENCE_LABEL = "Reference seeds"
 # Where a stage's output lands outside the pipeline.
 OUTPUTS: dict[str, tuple[tuple[str, str], ...]] = {
     "export": (("out_web", "pulse.charliebuild.com"),),
-    "publish_sheets": (("out_tableau", "Tableau Public"),),
 }
 
 Manifest = Mapping[str, Any]

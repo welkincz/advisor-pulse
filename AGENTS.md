@@ -77,7 +77,7 @@ make web-check       # lint + typecheck + build + Playwright smoke
 make export          # marts -> web/public/data
 ```
 
-Environment variables (`.env.example`): `PULSE_DATA_DIR`, `PULSE_SEED`, `PULSE_NARRATIVE_MODEL`, `ANTHROPIC_API_KEY`, `R2_*`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GSHEET_ID`. Everything except `PULSE_*` is optional locally. Code paths that need a secret must skip cleanly when it is absent.
+Environment variables (`.env.example`): `PULSE_DATA_DIR`, `PULSE_SEED`, `PULSE_NARRATIVE_MODEL`, `ANTHROPIC_API_KEY`, `R2_*`, `ALERT_WEBHOOK_URL`. Everything except `PULSE_*` is optional locally. Code paths that need a secret must skip cleanly when it is absent.
 
 ## 6. Testing conventions
 
@@ -92,7 +92,7 @@ Environment variables (`.env.example`): `PULSE_DATA_DIR`, `PULSE_SEED`, `PULSE_N
 |------|---------------------|--------------|
 | Claude Code | `agent:claude` | Contracts, SCD2 and attribution logic, runner and failure handling, AI narrative and guardrails, data layer, design direction, integration, PR review |
 | Cursor | `agent:cursor` | Most implementation: dbt staging and marts, React features, charts, map, workflows, geo scripts, loaders, export, docs |
-| Human | `agent:human` | Accounts, secrets, DNS, Tableau publishing, final copy approval |
+| Human | `agent:human` | Accounts, secrets, DNS, final copy approval |
 
 Labels are a default, not a lock. Any agent can take an `agent:any` issue.
 Before starting, every agent must read: this file, the issue, the contracts it depends on, and the "Owns" paths.

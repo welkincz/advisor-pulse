@@ -116,7 +116,6 @@ RUNNER_STAGES = (
     "checks",
     "narrate",
     "export",
-    "publish_sheets",
     "persist_state",
     "release_lock",
 )
@@ -1803,7 +1802,6 @@ def run_log(
         else:
             stage("narrate", 22100, message="5 narratives validated.")
         stage("export", 2600, message="Exported 5 tables and 4 documents.")
-        stage("publish_sheets", 0, StageStatus.SKIPPED, message="GSHEET_ID is not set.")
         stage(
             "persist_state",
             3900,

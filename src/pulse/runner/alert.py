@@ -33,7 +33,6 @@ STAGE_NAMES = frozenset(
         "checks",
         "narrate",
         "export",
-        "publish_sheets",
         "persist_state",
         "release_lock",
     }

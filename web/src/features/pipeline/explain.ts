@@ -12,7 +12,6 @@ export const STAGE_PLAIN: Record<string, string> = {
   checks: 'Runs the data-quality rules, so a bad week is flagged before it is published.',
   narrate: 'Writes each region’s summary from the week’s figures, then checks every number against them.',
   export: 'Writes the marts to the files this site reads.',
-  publish_sheets: 'Copies the report to Google Sheets.',
   persist_state: 'Saves the warehouse and new extracts, so next week’s run starts from here.',
   release_lock: 'Releases the run lock, so the next run can start.',
 }

@@ -145,7 +145,7 @@ class WeeklyReport(Contract):
     contract_name = "weekly_report"
     contract_description = (
         "mart_weekly_report: long format, one row per (ISO week, node, KPI). "
-        "Feeds the dashboard, Tableau and the AI narrative."
+        "Feeds the dashboard and the AI narrative."
     )
 
     iso_week_id: IsoWeek

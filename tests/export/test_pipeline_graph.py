@@ -113,6 +113,16 @@ def test_sources_sit_before_their_first_consumer() -> None:
     assert x["export"] < x["out_web"]
 
 
+def test_the_only_output_is_the_site() -> None:
+    # Sheets and Tableau are out of scope (#55, #56): no node for either.
+    graph = build_pipeline_graph(WEEKLY_STAGES, manifest())
+    outputs = {n.id for n in graph.nodes if n.kind is PipelineNodeKind.OUTPUT}
+    assert outputs == {"out_web"}
+    labels = " ".join(n.label for n in graph.nodes).lower()
+    assert "tableau" not in labels
+    assert "sheets" not in labels
+
+
 def test_without_a_manifest_the_graph_has_stages_and_outputs(tmp_path: Path) -> None:
     assert read_manifest(tmp_path / "manifest.json") is None
     graph = build_pipeline_graph(WEEKLY_STAGES, None)

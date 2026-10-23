@@ -188,7 +188,7 @@ def test_retries_exhausted_fails_and_skips_downstream() -> None:
     assert dbt[-1].status is StageStatus.FAILED
     assert "retrying" not in (dbt[-1].message or "")
     statuses = final(rows)
-    for name in ("checks", "narrate", "publish_sheets", "persist_state"):
+    for name in ("checks", "narrate", "persist_state"):
         assert statuses[name] is StageStatus.SKIPPED
     assert "Upstream stage dbt_build failed." in {r.message for r in rows}
     # export and release_lock are ``always`` stages: they run even though upstream failed.
@@ -230,12 +230,21 @@ def test_returned_failed_status_is_not_retried() -> None:
 
 def test_failure_only_skips_its_own_descendants() -> None:
     clock = FakeClock()
-    boom = ok(clock, status=StageStatus.FAILED, message="Sheets API 403")
-    rows, status = run(weekly(clock, publish_sheets=boom), clock)
+    boom = ok(clock, status=StageStatus.FAILED, message="Narrative backend 503")
+    rows, status = run(weekly(clock, narrate=boom), clock)
     statuses = final(rows)
-    assert statuses["publish_sheets"] is StageStatus.FAILED
+    assert statuses["narrate"] is StageStatus.FAILED
     assert statuses["persist_state"] is StageStatus.SUCCESS
+    assert statuses["release_lock"] is StageStatus.SUCCESS
     assert status is StageStatus.FAILED
+
+
+def test_weekly_dag_has_no_sheets_stage() -> None:
+    # #55 (Google Sheets push) is out of scope: no stage, and the lock waits on export.
+    names = [s.name for s in WEEKLY_STAGES]
+    assert "publish_sheets" not in names
+    release = next(s for s in WEEKLY_STAGES if s.name == "release_lock")
+    assert set(release.depends_on) == {"persist_state", "export"}
 
 
 def test_export_failure_still_persists_checked_state() -> None:
@@ -244,7 +253,6 @@ def test_export_failure_still_persists_checked_state() -> None:
     rows, status = run(weekly(clock, export=boom), clock)
     statuses = final(rows)
     assert statuses["export"] is StageStatus.FAILED
-    assert statuses["publish_sheets"] is StageStatus.SKIPPED
     assert statuses["persist_state"] is StageStatus.SUCCESS
     assert status is StageStatus.FAILED
 
@@ -333,8 +341,8 @@ def test_dry_run_prints_the_plan_and_touches_nothing(
     lines = result.output.splitlines()
     assert lines[0] == f"Plan for {WEEK} (MANUAL), nothing will run:"
     assert lines[1].strip() == "1. restore_state (Restore state), up to 3 attempts"
-    assert lines[-2].strip().startswith("9. persist_state (Persist state) after checks")
-    assert lines[-1].strip().startswith("10. release_lock (Release lock) after persist_state")
+    assert lines[-2].strip().startswith("8. persist_state (Persist state) after checks")
+    assert lines[-1].strip().startswith("9. release_lock (Release lock) after persist_state, export")
     assert list(tmp_path.iterdir()) == []
 
 

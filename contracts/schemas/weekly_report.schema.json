@@ -42,7 +42,7 @@
   },
   "$id": "https://pulse.charliebuild.com/contracts/weekly_report.schema.json",
   "additionalProperties": false,
-  "description": "mart_weekly_report: long format, one row per (ISO week, node, KPI). Feeds the dashboard, Tableau and the AI narrative.",
+  "description": "mart_weekly_report: long format, one row per (ISO week, node, KPI). Feeds the dashboard and the AI narrative.",
   "properties": {
     "flag": {
       "$ref": "#/$defs/ReportFlag"

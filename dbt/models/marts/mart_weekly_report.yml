@@ -4,7 +4,7 @@ models:
   - name: mart_weekly_report
     description: >
       Long format, one row per ISO week, hierarchy node and KPI (PLAN.md §6.8, §7),
-      exported as weekly_report.parquet for the dashboard, Tableau and the AI narrative.
+      exported as weekly_report.parquet for the dashboard and the AI narrative.
       The ten activity KPIs come from mart_org_weekly at every level; LATE_RATE and
       QUAR_RATE are national only, from int_ingest_weekly. Week-over-week fields compare
       with the previous ISO week of the same node and KPI. rank_in_parent is a dense rank

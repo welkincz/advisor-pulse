@@ -179,10 +179,10 @@
       }
     },
     {
-      "id": "publish_sheets",
-      "label": "Google Sheets",
+      "id": "release_lock",
+      "label": "Release lock",
       "kind": "STAGE",
-      "stage": "publish_sheets",
+      "stage": "release_lock",
       "models": [],
       "position": {
         "x": 2640.0,
@@ -197,28 +197,6 @@
       "models": [],
       "position": {
         "x": 2640.0,
-        "y": 80.0
-      }
-    },
-    {
-      "id": "release_lock",
-      "label": "Release lock",
-      "kind": "STAGE",
-      "stage": "release_lock",
-      "models": [],
-      "position": {
-        "x": 2880.0,
-        "y": -80.0
-      }
-    },
-    {
-      "id": "out_tableau",
-      "label": "Tableau Public",
-      "kind": "OUTPUT",
-      "stage": null,
-      "models": [],
-      "position": {
-        "x": 2880.0,
         "y": 80.0
       }
     }
@@ -295,16 +273,6 @@
       "target": "out_web"
     },
     {
-      "id": "export->publish_sheets",
-      "source": "export",
-      "target": "publish_sheets"
-    },
-    {
-      "id": "publish_sheets->out_tableau",
-      "source": "publish_sheets",
-      "target": "out_tableau"
-    },
-    {
       "id": "checks->persist_state",
       "source": "checks",
       "target": "persist_state"
@@ -315,8 +283,8 @@
       "target": "release_lock"
     },
     {
-      "id": "publish_sheets->release_lock",
-      "source": "publish_sheets",
+      "id": "export->release_lock",
+      "source": "export",
       "target": "release_lock"
     }
   ]
