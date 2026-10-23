@@ -91,6 +91,37 @@ def _write_parquet(path: Path, model: type[Contract], rows: list[Contract]) -> N
     pq.write_table(table, path, compression="zstd", row_group_size=ROW_GROUP_SIZE)
 
 
+def publish_run_log(
+    output_dir: Path,
+    run_log: RunLogExport,
+    *,
+    max_total_bytes: int = DEFAULT_TOTAL_BYTES,
+    max_file_bytes: int = DEFAULT_FILE_BYTES,
+) -> None:
+    """Republish ``output_dir`` with only ``run_log.json`` replaced; every other file stays.
+
+    ``run_log.json`` is not listed in the manifest, so the manifest's hashes still hold.
+    """
+    if not run_log.runs:
+        raise ValueError("run_log must contain the current run")
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output_dir.parent) as directory:
+        temporary = Path(directory)
+        staging = temporary / "data"
+        if output_dir.exists():
+            shutil.copytree(output_dir, staging)
+        else:
+            staging.mkdir()
+        _write_json(staging / "run_log.json", run_log)
+        publish_directory(
+            staging,
+            output_dir,
+            temporary,
+            max_file_bytes=max_file_bytes,
+            max_total_bytes=max_total_bytes,
+        )
+
+
 def export_web(
     warehouse: duckdb.DuckDBPyConnection,
     output_dir: Path,
@@ -117,21 +148,9 @@ def export_web(
         raise ValueError("export byte budgets must be positive")
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     if run_log.runs[0].status is StageStatus.FAILED:
-        with tempfile.TemporaryDirectory(dir=output_dir.parent) as directory:
-            temporary = Path(directory)
-            staging = temporary / "data"
-            if output_dir.exists():
-                shutil.copytree(output_dir, staging)
-            else:
-                staging.mkdir()
-            _write_json(staging / "run_log.json", run_log)
-            publish_directory(
-                staging,
-                output_dir,
-                temporary,
-                max_file_bytes=max_file_bytes,
-                max_total_bytes=max_total_bytes,
-            )
+        publish_run_log(
+            output_dir, run_log, max_file_bytes=max_file_bytes, max_total_bytes=max_total_bytes
+        )
         return None
 
     with tempfile.TemporaryDirectory(dir=output_dir.parent) as directory:
