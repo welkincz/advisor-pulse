@@ -6,7 +6,7 @@
 .leader-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 .leader-table caption { text-align: left; color: var(--muted); padding-bottom: var(--space-2); }
 .leader-table th, .leader-table td { text-align: left; padding: var(--space-2) var(--space-2) var(--space-2) 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
-.leader-table thead th { position: sticky; top: 0; background: var(--paper); color: var(--muted); font-weight: 500; }
-.leader-table tbody th { font-weight: 500; }
+.leader-table thead th { position: sticky; top: 0; background: var(--paper); color: var(--muted); font-weight: var(--weight-medium); }
+.leader-table tbody th { font-weight: var(--weight-medium); }
 .leader-table .num { text-align: right; }
 .leader-muted { color: var(--muted); }

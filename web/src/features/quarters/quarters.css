@@ -4,8 +4,8 @@
 .quarters-months { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); margin: var(--space-1) 0 0; color: var(--muted); font-size: var(--text-sm); }
 .quarters-to-date { color: var(--ink); }
 .quarters-now { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2) var(--space-6); margin: 0; }
-.quarters-value { font-size: var(--text-3xl); font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
-.quarters-value small { margin-left: var(--space-1); color: var(--muted); font-size: var(--text-sm); font-weight: 400; letter-spacing: 0; }
+.quarters-value { font-size: var(--text-3xl); font-weight: var(--weight-medium); letter-spacing: -0.02em; line-height: 1; }
+.quarters-value small { margin-left: var(--space-1); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-regular); letter-spacing: 0; }
 .quarters-versus { display: grid; gap: var(--space-1); color: var(--muted); font-size: var(--text-sm); }
 .quarters-versus > span { display: flex; justify-content: space-between; gap: var(--space-3); }
 .quarters-none, .quarters-loading { margin: 0; color: var(--muted); }
@@ -21,10 +21,10 @@
 .quarters-hatch { stroke: var(--seq-3); stroke-width: 2.2; }
 .quarters-col.is-chosen .quarters-hatch { stroke: var(--seq-5); }
 .quarters-q, .quarters-year text { fill: var(--muted); font-size: var(--text-xs); }
-.quarters-col.is-chosen .quarters-q { fill: var(--ink); font-weight: 600; }
-text.quarters-label { fill: var(--ink); font-size: var(--text-xs); font-weight: 500; font-variant-numeric: tabular-nums lining-nums; }
+.quarters-col.is-chosen .quarters-q { fill: var(--ink); font-weight: var(--weight-strong); }
+text.quarters-label { fill: var(--ink); font-size: var(--text-xs); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums lining-nums; }
 .quarters-year line { stroke: var(--rule); }
-.quarters-year text { font-weight: 600; }
+.quarters-year text { font-weight: var(--weight-strong); }
 .quarters-base { stroke: var(--ink); stroke-width: 1; }
 /* Dots: a rate on a fitted axis. Open dot and dashed line for a quarter still running. */
 .quarters-line { stroke: var(--seq-4); stroke-width: 1.5; stroke-linecap: round; }
@@ -48,7 +48,7 @@ text.quarters-label { fill: var(--ink); font-size: var(--text-xs); font-weight: 
 .quarters-children { margin-top: var(--space-8); }
 .quarters-children .figure-title { margin: 0 0 var(--space-2); }
 .quarters-children table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.quarters-children th, .quarters-children td { padding: var(--space-2) var(--space-2) var(--space-2) 0; border-bottom: 1px solid var(--rule); text-align: left; font-weight: 400; }
+.quarters-children th, .quarters-children td { padding: var(--space-2) var(--space-2) var(--space-2) 0; border-bottom: 1px solid var(--rule); text-align: left; font-weight: var(--weight-regular); }
 .quarters-children thead th { color: var(--muted); font-size: var(--text-xs); }
 .quarters-children .num { text-align: right; }
 .quarters-children tbody th a { color: var(--ink); }
