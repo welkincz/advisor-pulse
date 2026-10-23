@@ -66,6 +66,7 @@ Rules:
 - Weights: three, through tokens only: `--weight-regular` (400) body, `--weight-medium` (500)
   stat values, `--weight-strong` (600) headings, labels and the status glyph. Never 700+;
   `base.css` brings `b`, `strong`, `th` and `h4`–`h6` down to `--weight-strong`.
+  `web/src/theme/weights.test.ts` fails on any other weight value outside `tokens.css`.
 - Wrapping: display heads (`h1`–`h3`) set `text-wrap: balance`; body copy sets `pretty`, so no
   line ends on a single word.
 - Sentence case everywhere, including buttons and table headers.

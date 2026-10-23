@@ -6,7 +6,7 @@
 /* Labels are SVG text with a paper halo painted under the glyphs (stroke first, then fill),
    so they read over any relief without a text-shadow. */
 .relief-label { fill: var(--ink); font-size: var(--text-sm); text-anchor: middle; paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; }
-.relief-label-name { font-weight: 600; }
+.relief-label-name { font-weight: var(--weight-strong); }
 .relief-label-value { fill: var(--muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums lining-nums; }
 .relief-label.is-small { font-size: var(--text-xs); }
 .relief-label.is-hot .relief-label-value { fill: var(--ink); }
