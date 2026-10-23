@@ -1,8 +1,30 @@
 # Advisor Pulse
 
-Advisor Pulse is a weekly batch BI pipeline for **Maplecrest Bank**, a fictional Canadian bank. It tracks how much client activity each advisor has. It takes two messy synthetic source systems through an incremental load with quarantine, a dbt star schema on DuckDB, data-quality checks reconciled against known ground truth, and short weekly notes written by Claude and checked against the figures. The result is a static report, published at [pulse.charliebuild.com](https://pulse.charliebuild.com), that the browser queries with DuckDB-WASM.
+**Is every client in an advisor's portfolio hearing from the bank at least once a year?** Advisor Pulse answers that every Monday for Maplecrest Bank, a fictional Canadian bank, and backs every number with tests you can read.
+
+The lead measure is **portfolio contacted (12 months)**: of the active clients in a portfolio at week end, the share who had at least one completed contact, by any advisor, in the last 12 months. It rolls up from portfolio to advisor, branch, district, region and the nation, from counts rather than averaged rates, and it stays blank until a full year of history exists ([ADR 0005](docs/adr/0005-twelve-month-contact-window.md)).
+
+Behind it is a weekly batch pipeline: two messy synthetic source systems, an incremental load with quarantine, a dbt star schema on DuckDB, data-quality checks reconciled against an answer key, and short weekly notes written by Claude and checked against the figures. The result is a static report at [pulse.charliebuild.com](https://pulse.charliebuild.com) that the browser queries with DuckDB-WASM, with the [dbt lineage graph](https://pulse.charliebuild.com/lineage/) beside it.
+
+| 104 weeks | 1.5M activity rows | 106 of 106 runs | 37 s | 55 min |
+|---|---|---|---|---|
+| of history, rebuilt from events | loaded incrementally, 5,906 quarantined | reconciled every injected defect, nothing missing | per weekly run | for a cold rebuild of all history |
+
+Stack: Python, SQL, dbt, DuckDB, GitHub Actions, Cloudflare R2 and Pages, TypeScript, React, DuckDB-WASM, Claude.
 
 > **All data is synthetic.** The bank, its people, clients, schemas and business rules are invented. Only public geography (Statistics Canada FSA boundaries, province names) is real. This is a **weekly batch report**: it updates once a week, after the weekly run.
+
+## My role
+
+I set the goals, made the design calls and own the result, working with AI coding agents as my team. Each call below has a test or an ADR behind it, and I can walk through any of them:
+
+- **Contracts first.** One set of Python contracts generates the JSON schemas, the dbt sources and the TypeScript types, so a renamed column fails CI instead of a Monday report.
+- **History from events.** Advisor and portfolio ownership are SCD Type 2 ranges rebuilt from assignment events, so a backfill of any week reproduces it exactly ([ADR 0001](docs/adr/0001-scd2-from-events.md)).
+- **The portfolio model and its migration.** I added portfolios as their own entity and moved the lead KPI to them with an expand/contract migration across ten small pull requests, keeping the old path running until a full rebuild proves the new one ([ADR 0003](docs/adr/0003-portfolio-entity.md), [ADR 0004](docs/adr/0004-expand-contract-migration.md)).
+- **Data quality you can prove.** The generator writes an answer key of every defect it injects, and a check compares it with what the pipeline caught, every week.
+- **A narrow, grounded LLM.** Claude writes the weekly notes from a list of cited facts; a validator rejects any number that isn't in them and falls back to a template.
+
+I ran the build like a small team lead. The plan, the contracts and a backlog of small issues came first; coding agents (Claude Code, Codex, Cursor) implemented the issues one pull request each. Every pull request got an automated review against the checklist in [AGENTS.md](AGENTS.md), and I approved every contract and design change.
 
 ![The weekly briefing: the trend draws in, measures morph, the map flies to a region and plays the weeks, then a district report and the pipeline](docs/assets/demo.gif)
 
@@ -37,6 +59,9 @@ Each skill an analytics or data engineer is asked about, and where it lives in t
 
 ## Read more
 
+- [Code tour](docs/code-tour.md): eight stops through the code in data-flow order, each with the lines worth reading and the test that proves them. Start here if you have 20 minutes.
+- [dbt lineage](https://pulse.charliebuild.com/lineage/): every model, column and test, from sources to the pages that read them.
+- [Decision records](docs/adr/): SCD2 from events, the geo size budget, the portfolio entity, the expand/contract migration and the 12-month window.
 - [Case study](docs/case-study.md): the problem, key decisions and tradeoffs, data quality, and what would change at real scale. It is also on the site at [/case-study](https://pulse.charliebuild.com/case-study).
 - [Baseline](docs/baseline.md): row counts, durations, export sizes and defect catch rate for a 104-week run.
 - [PLAN.md](docs/PLAN.md): architecture, data dictionary, KPIs, data-quality rules and failure handling.
@@ -119,13 +144,6 @@ make backfill FROM=2026-W39 TO=2026-W40  # writes data/ and web/public/data/
 | Site: overview, drill, map, pipeline replay, data quality, case study, app shell | [`web/src/features/`](web/src/features/), [`web/src/app/`](web/src/app/) |
 | Weekly, backfill and CI workflows; Pages deploy | [`.github/workflows/`](.github/workflows/), [`.github/actions/`](.github/actions/) |
 | End-to-end test (8-week backfill plus a weekly run) | [`tests/integration/test_e2e.py`](tests/integration/test_e2e.py) |
-
-## How it was built
-
-The work ran as GitHub issues in waves.
-- **Wave 0** set up contracts and deterministic fixtures. Every later lane could then build in parallel against fixtures.
-- **The agents:** Claude Code, Codex and Cursor each took issues by label and opened one small pull request per issue.
-- **Review:** Claude reviewed every PR against the checklist in [AGENTS.md](AGENTS.md). The human owner approved contract and plan changes.
 
 ## License
 
