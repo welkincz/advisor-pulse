@@ -2,10 +2,11 @@
 .narrative-disclosure { margin: 0; color: var(--muted); font-size: var(--text-sm); }
 .narrative-headline {
   margin: 0;
-  padding-left: var(--space-4);
-  border-left: 3px solid var(--signal);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 4px;
+  background: var(--field);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   line-height: 1.4;
 }
 .narrative-bullets, .narrative-watchlist ul { margin: 0; padding: 0; list-style: none; }
@@ -15,7 +16,7 @@
 .narrative-facts summary { width: fit-content; cursor: pointer; color: var(--muted); }
 .narrative-facts dl { display: grid; gap: var(--space-2); margin: var(--space-3) 0 0; }
 .narrative-facts dl > div { display: flex; flex-wrap: wrap; gap: 0 var(--space-3); }
-.narrative-facts dt { font-weight: 600; }
+.narrative-facts dt { font-weight: var(--weight-strong); }
 .narrative-facts dd { display: flex; flex-wrap: wrap; gap: 0 var(--space-3); margin: 0; }
 .narrative-fact-context { color: var(--muted); }
 .narrative-watchlist { border-top: 1px solid var(--rule); padding-top: var(--space-4); }

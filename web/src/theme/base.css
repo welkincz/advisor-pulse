@@ -14,15 +14,18 @@ a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px
 a:hover { text-decoration-thickness: 2px; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 button { font: inherit; color: inherit; }
+/* Browser defaults reach for 700; this site's strongest weight is --weight-strong. */
+b, strong, th, h4, h5, h6 { font-weight: var(--weight-strong); }
 
 .site { max-width: var(--page-max); margin: auto; min-height: 100vh; display: flex; flex-direction: column; padding: var(--gutter); }
 main { flex: 1; padding: clamp(var(--space-8), 5vw, var(--space-16)) 0; }
 
 /* The kicker above a page title says where you are; sentence case, never tracked capitals. */
-.eyebrow { color: var(--signal); font-size: var(--text-sm); font-weight: 600; margin: 0; }
-h1 { max-width: 24ch; font-size: var(--text-title); font-weight: 600; letter-spacing: -0.02em; line-height: var(--leading-tight); margin: var(--space-2) 0 var(--space-4); }
-h2 { font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; margin: 0 0 var(--space-3); }
-h3 { font-size: var(--text-md); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
+.eyebrow { color: var(--signal); font-size: var(--text-sm); font-weight: var(--weight-strong); margin: 0; }
+h1 { max-width: 24ch; font-size: var(--text-title); font-weight: var(--weight-strong); letter-spacing: -0.02em; line-height: var(--leading-tight); margin: var(--space-2) 0 var(--space-4); text-wrap: balance; }
+h2 { font-size: var(--text-xl); font-weight: var(--weight-strong); letter-spacing: -0.01em; line-height: 1.25; margin: 0 0 var(--space-3); text-wrap: balance; }
+h3 { font-size: var(--text-md); font-weight: var(--weight-strong); line-height: 1.35; margin: 0 0 var(--space-2); text-wrap: balance; }
+p, li, dd, figcaption, blockquote { text-wrap: pretty; }
 p { max-width: var(--measure); }
 .intro { max-width: var(--measure); color: var(--muted); font-size: var(--text-lg); line-height: 1.45; margin: 0; }
 

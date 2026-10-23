@@ -5,7 +5,7 @@
 .quality-table-wrap { min-width: 0; }
 .quality-table { width: 100%; min-width: 38rem; border-collapse: collapse; font-size: var(--text-sm); }
 .quality-table th, .quality-table td { padding: var(--space-2) var(--space-3) var(--space-2) 0; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
-.quality-table thead th { color: var(--muted); font-weight: 500; }
+.quality-table thead th { color: var(--muted); font-weight: var(--weight-medium); }
 .quality-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .quality-table a { color: var(--ink); text-underline-offset: 2px; }
 .quality-run { margin: 0; color: var(--muted); font-size: var(--text-sm); text-transform: capitalize; }
@@ -23,9 +23,9 @@
 .quality-mark.status-running .status-glyph circle { fill: currentColor; }
 .check { display: grid; align-content: start; gap: var(--space-2); border-top: 2px solid var(--ink); padding-top: var(--space-3); }
 .check-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); font-size: var(--text-sm); }
-.check-title { font-weight: 600; }
-.check-title a { color: var(--muted); font-weight: 500; margin-right: var(--space-1); }
-.check-value { margin: 0; font-size: var(--text-2xl); font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
+.check-title { font-weight: var(--weight-strong); }
+.check-title a { color: var(--muted); font-weight: var(--weight-medium); margin-right: var(--space-1); }
+.check-value { margin: 0; font-size: var(--text-2xl); font-weight: var(--weight-medium); letter-spacing: -0.02em; line-height: 1.1; }
 .check-detail { margin: 0; color: var(--muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .check-severity { margin: 0; color: var(--faint); font-size: var(--text-xs); }
 
@@ -45,7 +45,7 @@
 .rule-list button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .rule-id { grid-area: id; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rule-name { grid-area: name; }
-.rule-rate { grid-area: rate; font-weight: 600; text-align: right; }
+.rule-rate { grid-area: rate; font-weight: var(--weight-strong); text-align: right; }
 .rule-list .sparkline { grid-area: spark; }
 .rule-detail { margin: 0; min-width: 0; }
 .rule-detail h3 { margin: 0; }
