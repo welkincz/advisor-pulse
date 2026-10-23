@@ -18,6 +18,8 @@ The source data never arrives clean:
 
 The project rebuilds that situation on synthetic data and solves it the way I would want it solved at work. Loads are incremental and idempotent. History is explicit. Every check ties back to a known ground truth.
 
+The lead question is what share of active clients in each portfolio heard from an advisor in the last 12 months. The seeded generator's national contacted rate rises gradually from about 83% at the first reported week towards 86–87% by 2026-W42, then eases into a flatter line in 2027. The useful exceptions are in the detail: a few branches and advisors lose ground even while the national figure improves. The weekly report helps a manager find and investigate those exceptions; it does not claim that contact alone measures client outcomes.
+
 ## Architecture
 
 ```mermaid

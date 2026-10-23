@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-21
-- Issues: #219, #223, #224, #225, #273
+- Issues: #219, #223, #224, #225, #273, #288
 
 ## Context
 
@@ -49,6 +49,15 @@ load. `int_contact_window.is_reported` starts the report at the first week with 
 window, so the warm-up year feeds the window but is never a reported week, and every
 reported week has the lead KPI. A history shorter than a year (the fixtures) still reports
 every week with the rate null, as above.
+
+### Update (#288): a rising synthetic baseline
+
+The source generator gradually spreads completed contacts across more of each advisor's
+book from the warm-up year through 2026-W42. This is a seeded behavior change, not a new
+KPI definition: the same completed-contact window and any-advisor credit still apply.
+The national line starts near 83% at 2024-W41, reaches roughly 86–87% by 2026-W42, and
+levels off below 88% through 2027. A seeded minority of advisors becomes more concentrated
+after 2025-11-01, so the branch and advisor detail can decline while the bank improves.
 
 ## Alternatives considered
 
