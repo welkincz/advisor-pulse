@@ -140,7 +140,7 @@ portfolio as (
     where iso_week_id in (select iso_week_id from weeks)
 )
 
-select * from completed
+select * from completed where iso_week_id in (select iso_week_id from weeks)
 union all select * from scheduled where iso_week_id in (select iso_week_id from weeks)
 union all select * from booked where iso_week_id in (select iso_week_id from weeks)
 union all select * from advisor

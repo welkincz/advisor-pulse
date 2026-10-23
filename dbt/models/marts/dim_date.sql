@@ -1,9 +1,9 @@
--- One row per calendar day, with ISO weeks and the fiscal calendar (FY starts 1 November). The range covers the 104-week history and the reporting
+-- One row per calendar day, with ISO weeks and the fiscal calendar (FY starts 1 November). The range covers the warm-up year, the history and the reporting
 -- horizon; override with --vars '{dim_date_start: ..., dim_date_end: ...}'.
 with days as (
     select cast(day as date) as date_day
     from range(
-        date '{{ var("dim_date_start", "2024-01-01") }}',
+        date '{{ var("dim_date_start", "2023-01-01") }}',
         date '{{ var("dim_date_end", "2027-12-31") }}' + interval 1 day,
         interval 1 day
     ) as t(day)
