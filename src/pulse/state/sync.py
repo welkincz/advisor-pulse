@@ -260,7 +260,12 @@ class StateSync:
                     found = store.get(key) if Path(key).stem in started else None
                     if found is None:
                         continue  # its persist failed: the warehouse never saw that run
-                    rows = [RunLogRow.model_validate(r) for r in json.loads(found[0])]
+                    try:
+                        rows = [RunLogRow.model_validate(r) for r in json.loads(found[0])]
+                    except (ValueError, TypeError) as exc:
+                        # Never block a restore on it; this run's persist removes it.
+                        log.warning("Skipped unreadable run-log tail %s: %s", key, exc)
+                        continue
                     if not rows or min(r.started_at for r in rows) != started[rows[0].run_id]:
                         continue
                     for row in rows:
