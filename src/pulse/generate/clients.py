@@ -19,11 +19,11 @@ from typing import Literal
 from pulse.contracts import column_names
 from pulse.contracts.enums import ClientStatus, Role, Segment
 from pulse.contracts.sources import TeradataClient
+from pulse.generate.advisors import DEFAULT_START
 from pulse.generate.portfolios import PortfolioBatch, generate_portfolios, holder_as_of
 from pulse.generate.teradata import replace_table, sql_value, write_transaction
 from pulse.reference import OrgReference, fsa_province
 
-DEFAULT_START = date(2024, 10, 7)
 QUARTER_DAYS = 91
 REASSIGN_RATE = 0.02
 NEW_DAILY_RATE = 0.00002

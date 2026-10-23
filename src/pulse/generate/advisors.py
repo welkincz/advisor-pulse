@@ -16,7 +16,10 @@ from pulse.contracts.sources import TeradataAdvisor, TeradataAssignment, Teradat
 from pulse.generate.teradata import replace_table, write_transaction
 from pulse.reference import BranchPlacement, OrgReference
 
-DEFAULT_START = date(2024, 10, 7)
+# The world starts a year before the first reported week, so the 12-month contacted rate has
+# a full window from that week on (PLAN.md §7); the warm-up year is loaded, never reported.
+DEFAULT_START = date(2023, 10, 9)
+REPORT_START = date(2024, 10, 7)
 TRANSFER_RATE = 0.015
 PROMOTION_RATE = 0.002
 TERM_RATE = 0.002

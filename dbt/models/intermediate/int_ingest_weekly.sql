@@ -3,10 +3,15 @@
 --
 -- A file belongs to the week of the date in its name (contracts.sources):
 -- snowflake/activity/extract_date=YYYY-MM-DD/ and teradata/client_YYYYMMDD.csv. The CLNT
--- snapshot (edw.sqlite) has no date and belongs to the first activity week of the run
--- that loaded it, which is how the fixtures and a backfill's first week read it.
+-- snapshot (edw.sqlite) has no date and belongs to the first reported activity week of the
+-- run that loaded it, which is how the fixtures and a backfill's first week read it; the
+-- warm-up extracts that run also loads (int_contact_window) are not reported weeks.
 -- Rows read include quarantined rows; per-row counts are over rows that were loaded.
-with manifest as (
+with reported as (
+    select iso_week_id from {{ ref('int_contact_window') }} where is_reported
+),
+
+manifest as (
     select
         file_path,
         batch_id,
@@ -28,8 +33,13 @@ files as (
         manifest.*,
         coalesce(
             {{ iso_week_id('file_date') }},
-            min(case when table_name = 'activity' then {{ iso_week_id('file_date') }} end)
-                over (partition by run_id)
+            min(
+                case
+                    when table_name = 'activity'
+                        and {{ iso_week_id('file_date') }} in (select iso_week_id from reported)
+                        then {{ iso_week_id('file_date') }}
+                end
+            ) over (partition by run_id)
         ) as iso_week_id
     from manifest
 ),
@@ -107,3 +117,4 @@ select
 from read_counts
 left join quarantined using (iso_week_id)
 left join loaded_counts using (iso_week_id)
+where read_counts.iso_week_id in (select iso_week_id from reported)

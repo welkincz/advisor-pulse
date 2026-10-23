@@ -47,7 +47,7 @@ def test_skips_when_the_week_is_already_present(tmp_path: Path) -> None:
 
 
 def test_a_generator_error_fails_the_stage_with_its_message(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="before the generator's first week"):
+    with pytest.raises(ValueError, match="before the first reported week"):
         generate(ctx(tmp_path, "2024-W01"), SMALL)
 
     stages = [

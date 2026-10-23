@@ -86,9 +86,11 @@ def test_a_new_week_adds_files_and_rewrites_none(tmp_path: Path) -> None:
 
 
 def test_late_arrivals_are_three_to_five_percent_of_rows(backfill: Path) -> None:
+    sundays = {f"extract_date={date.fromisoformat(f'{week}-7')}" for week in WEEKS}
     rows = sum(
         pq.read_metadata(p).num_rows
         for p in (backfill / "sources/snowflake/activity").rglob("*.parquet")
+        if p.parent.name in sundays
     )
     manifest = DefectManifest.model_validate_json((backfill / "defects.json").read_text())
     late = sum(d.kind is DefectKind.LATE_ARRIVING for d in manifest.defects)
@@ -166,19 +168,69 @@ def test_cli_backfill_writes_each_week(tmp_path: Path, monkeypatch: pytest.Monke
     assert "2026-W09: already generated" in again.output
 
 
-def test_the_first_weeks_have_no_activity_before_the_history_start(tmp_path: Path) -> None:
+def test_the_first_week_loads_a_clean_warm_up_year_from_the_history_start(
+    tmp_path: Path,
+) -> None:
     from zoneinfo import ZoneInfo
 
-    from pulse.generate.advisors import DEFAULT_START
+    from pulse.generate.advisors import DEFAULT_START, REPORT_START
 
-    first = DEFAULT_START.isocalendar()
+    first = REPORT_START.isocalendar()
     weeks = week_range(f"{first.year}-W{first.week:02d}", f"{first.year}-W{first.week + 1:02d}")
     generate_weeks(tmp_path, weeks, seed=SEED, sizes=SIZES, echo=quiet)
+    activity = tmp_path / "sources/snowflake/activity"
+    extracts = sorted(p.name for p in activity.iterdir())
+    # 52 warm-up weeks from the world's start, then the two reported weeks.
+    assert len(extracts) == 54
+    assert extracts[0] == f"extract_date={DEFAULT_START + timedelta(days=6)}"
+    assert extracts[-2] == f"extract_date={REPORT_START + timedelta(days=6)}"
     toronto = ZoneInfo("America/Toronto")
     earliest = min(
         ts.astimezone(toronto).date()
-        for p in (tmp_path / "sources/snowflake/activity").rglob("*.parquet")
+        for p in activity.rglob("*.parquet")
         for ts in pq.read_table(p, columns=["ACTIVITY_TS"]).column("ACTIVITY_TS").to_pylist()
         if ts is not None
     )
     assert earliest >= DEFAULT_START
+    # Defects are injected into reported weeks only; the warm-up year is clean.
+    manifest = DefectManifest.model_validate_json((tmp_path / "defects.json").read_text())
+    assert manifest.iso_weeks == weeks
+
+
+def test_a_later_first_week_loads_only_the_52_weeks_before_it(tmp_path: Path) -> None:
+    generate_weeks(tmp_path, ["2026-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+    extracts = sorted(p.name for p in (tmp_path / "sources/snowflake/activity").iterdir())
+    assert len(extracts) == 53
+    assert extracts[0] == "extract_date=2025-10-05"
+    assert extracts[-1] == "extract_date=2026-10-04"
+
+
+def test_a_warm_up_interrupted_partway_is_completed_on_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clean = tmp_path / "clean"
+    generate_weeks(clean, ["2026-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+
+    real = gen.write_activity
+    written: list[date] = []
+
+    def failing(*args: object, extract_date: date, **kwargs: object) -> object:
+        if len(written) == 10:
+            raise OSError("disk full")
+        written.append(extract_date)
+        return real(*args, extract_date=extract_date, **kwargs)  # type: ignore[arg-type]
+
+    retried = tmp_path / "retried"
+    monkeypatch.setattr(gen, "write_activity", failing)
+    with pytest.raises(OSError, match="disk full"):
+        generate_weeks(retried, ["2026-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+    assert not (retried / "sources/teradata/edw.sqlite").exists()
+    monkeypatch.setattr(gen, "write_activity", real)
+    generate_weeks(retried, ["2026-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+    assert hashes(retried) == hashes(clean)
+
+
+def test_a_week_before_the_first_reported_week_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="before the first reported week, 2024-W41"):
+        generate_weeks(tmp_path, ["2024-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+    assert not any(tmp_path.iterdir())

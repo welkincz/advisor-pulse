@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import itertools
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -109,8 +109,17 @@ def generate_portfolios(
             ]
             if not candidates:
                 raise ValueError(f"no portfolio handover advisor at {transit} on {day}")
-            digest = hashlib.sha256(f"{seed}|{portfolio_id}|{day}".encode()).digest()
-            successor = candidates[int.from_bytes(digest[:8], "big") % len(candidates)]
+            # The book goes to the colleague holding the fewest portfolios, as a branch would
+            # spread a leaver's clients; a random pick piled books onto a few advisors, and
+            # their portfolios' contacted rate slid year after year.
+            held = Counter(current.values())
+            successor = min(
+                candidates,
+                key=lambda a: (
+                    held[a],
+                    hashlib.sha256(f"{seed}|{portfolio_id}|{day}|{a}".encode()).digest(),
+                ),
+            )
             current[portfolio_id] = successor
             pending.append((day, portfolio_id, successor, reason))
         if destination is not None:

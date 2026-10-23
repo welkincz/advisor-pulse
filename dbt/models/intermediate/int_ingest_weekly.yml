@@ -94,8 +94,39 @@ unit_tests:
       - input: ref('stg_advisor')
         rows:
           - {advisor_id: ADV-1}
+      - input: ref('int_contact_window')
+        rows:
+          - {iso_week_id: '2026-W38', is_reported: true}
+          - {iso_week_id: '2026-W39', is_reported: true}
+          - {iso_week_id: '2026-W40', is_reported: true}
     expect:
       rows:
         - {iso_week_id: '2026-W38', activity_loaded: 1, late_rows: 0, dedupe_rows: 0}
         - {iso_week_id: '2026-W39', activity_loaded: 1, late_rows: 1, dedupe_rows: 0}
         - {iso_week_id: '2026-W40', activity_loaded: 1, late_rows: 0, dedupe_rows: 1}
+
+  - name: int_ingest_weekly_leaves_the_warm_up_extracts_out
+    description: >
+      The first run loads a warm-up extract (W39, before the report starts) with the first
+      reported week's extract (W40) and the CLNT snapshot. The warm-up week is not an
+      ingest week, and the snapshot counts in W40, the run's first reported week.
+    model: int_ingest_weekly
+    given:
+      - input: source('meta', 'load_manifest')
+        rows:
+          - {file_path: 'snowflake/activity/extract_date=2026-09-27/part-0.parquet', batch_id: b39, run_id: r1, table_name: activity, row_count: 5, status: LOADED}
+          - {file_path: 'snowflake/activity/extract_date=2026-10-04/part-0.parquet', batch_id: b40, run_id: r1, table_name: activity, row_count: 3, status: LOADED}
+          - {file_path: 'teradata/edw.sqlite', batch_id: bc, run_id: r1, table_name: CLNT, row_count: 7, status: LOADED}
+      - input: source('quarantine', 'rejected_rows')
+        rows: []
+      - input: source('raw', 'snowflake__activity')
+        rows: []
+      - input: ref('stg_advisor')
+        rows: []
+      - input: ref('int_contact_window')
+        rows:
+          - {iso_week_id: '2026-W39', is_reported: false}
+          - {iso_week_id: '2026-W40', is_reported: true}
+    expect:
+      rows:
+        - {iso_week_id: '2026-W40', activity_rows: 3, client_rows: 7}
