@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
-import { extremeSince, weekHeadline } from './headline'
+import { extremeSince, measuresSentence, moveSentence, nodeHeadline, weekHeadline } from './headline'
 
 const row = (week: number, value: number | null, wow: number | null, kpi_code: KpiCode = 'ACT_PER_ADV', flag = 'NONE') =>
   ({ iso_week_id: `2026-W${String(week).padStart(2, '0')}`, kpi_code, value, wow_pct: wow, flag }) as WeeklyReport
@@ -51,4 +51,37 @@ it('leads with portfolio contacted when asked to, and its title fits the move al
   expect(headline.record).toBe('')
   // A week without 12 months of history has no value to lead with: no sentence, so the page falls back.
   expect(weekHeadline([row(12, null, null, 'PRTF_CONTACT_12M')], '2026-W12', 'PRTF_CONTACT_12M')).toBeNull()
+})
+
+it('writes one move sentence for every page, and none without a value', () => {
+  expect(moveSentence('PRTF_CONTACT_12M', 0.842, 0.001)).toBe('Portfolio contacted (12 months) held steady at 84.2%.')
+  expect(moveSentence('PRTF_CONTACT_12M', 0.842, -0.012)).toBe('Portfolio contacted (12 months) fell 1.2% to 84.2%.')
+  expect(moveSentence('PRTF_CONTACT_12M', 0.842, null)).toBe('Portfolio contacted (12 months) was 84.2%.')
+  expect(moveSentence('ACT_PER_ADV', 16, 0.1, 'Activities completed')).toBe('Activities completed rose 10.0% to 16.0.')
+  expect(moveSentence('PRTF_CONTACT_12M', null, 0.01)).toBeNull()
+  expect(moveSentence('PRTF_CONTACT_12M', undefined, undefined)).toBeNull()
+})
+
+it('opens a node with the lead KPI, and with activities in a week the lead has no value', () => {
+  const history = [
+    row(11, 0.84, null, 'PRTF_CONTACT_12M'), row(12, 0.842, 0.002, 'PRTF_CONTACT_12M'),
+    row(11, 17, null), row(12, 15.5, -0.102),
+  ]
+  // The overview and a drill page ask the same question and get the same sentence.
+  const headline = nodeHeadline(history, '2026-W12', 'PRTF_CONTACT_12M')!
+  expect(headline.lead).toBe('Portfolio contacted (12 months) held steady at 84.2%.')
+  expect(headline.support).toBe('Every other measure stayed within its usual range.')
+  const early = [row(12, null, null, 'PRTF_CONTACT_12M'), row(12, 15.5, -0.102)]
+  expect(nodeHeadline(early, '2026-W12', 'PRTF_CONTACT_12M')!.lead).toBe('Activities per advisor fell 10.2% to 15.5.')
+  expect(nodeHeadline([], '2026-W12', 'PRTF_CONTACT_12M')).toBeNull()
+  expect(nodeHeadline([row(12, null, null, 'PRTF_CONTACT_12M'), row(12, null, null)], '2026-W12', 'PRTF_CONTACT_12M')).toBeNull()
+})
+
+it('opens an advisor page from their tiles, falling back to activities completed', () => {
+  const label = (code: KpiCode) => (code === 'ACT_PER_ADV' ? 'Activities completed' : 'Portfolio contacted (12 months)')
+  const tiles = [{ code: 'PRTF_CONTACT_12M' as const, value: 0.9, wow: 0.0111 }, { code: 'ACT_PER_ADV' as const, value: 14, wow: -0.125 }]
+  expect(measuresSentence(tiles, 'PRTF_CONTACT_12M', label)).toBe('Portfolio contacted (12 months) rose 1.1% to 90.0%.')
+  const noPortfolio = [{ ...tiles[0]!, value: null, wow: null }, tiles[1]!]
+  expect(measuresSentence(noPortfolio, 'PRTF_CONTACT_12M', label)).toBe('Activities completed fell 12.5% to 14.0.')
+  expect(measuresSentence([], 'PRTF_CONTACT_12M')).toBeNull()
 })

@@ -12,7 +12,7 @@ import { ADVISOR_KPIS, ORG_KPIS, advisorValue } from '../leaderboard/rows'
 import { NarrativePanel } from '../narrative/NarrativePanel'
 import { KPI_DEFINITIONS, LOWER_IS_BETTER } from '../overview/kpis'
 import { KpiBoard, boardRows } from '../overview/KpiBoard'
-import { weekHeadline } from '../overview/headline'
+import { measuresSentence, nodeHeadline } from '../overview/headline'
 import { QuarterPanel } from '../quarters/QuarterPanel'
 import { ChildMultiples } from './ChildMultiples'
 import { type DrillPath, LEVEL_LABEL, crumbs, drillPath, resolveWeek, weekQuery } from './path'
@@ -53,13 +53,14 @@ const CHILD_LABEL = { d: 'Districts', b: 'Branches', a: 'Advisors' } as const
  * An org node's week: its sentence, one measure across every weekly run over its parent's
  * line, every measure, and its children as small multiples on one axis.
  */
-function OrgReport({ path, week, weeks, name, parentName, setKpi, code, childHref, onChildClick }: {
+function OrgReport({ path, week, weeks, name, parentName, setKpi, code, lead, childHref, onChildClick }: {
   path: DrillPath
   week: string
   weeks: readonly string[]
   name: string
   parentName: string
   code: KpiCode
+  lead: KpiCode
   setKpi: (code: KpiCode) => void
   childHref: (id: string) => string
   onChildClick: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void
@@ -82,8 +83,10 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, childHre
     return weeks.map((w) => byWeek.get(w) ?? null)
   }, [parentRows, code, weeks])
   const current = series[weeks.indexOf(week)]
-  // The narrative panel below carries the model's headline; the lede stays the computed one.
-  const lede = weekHeadline(all, week)?.lead
+  // The lede opens with the lead KPI at this node, as the overview does, then the biggest move
+  // elsewhere. The narrative panel below carries the model's own headline.
+  const headline = useMemo(() => nodeHeadline(all, week, lead), [all, week, lead])
+  const lede = headline ? `${headline.lead} ${headline.support}` : null
   const better = code === 'AVG_MEET_MIN' ? 'neither' : LOWER_IS_BETTER.has(code) ? 'lower' : 'higher'
   const childLabel = path.childSegment ? CHILD_LABEL[path.childSegment] : null
 
@@ -142,19 +145,24 @@ function parentLineFor(rows: readonly WeeklyReport[], code: KpiCode, week: strin
   return rows.find((r) => r.kpi_code === code && r.iso_week_id === week)?.value ?? null
 }
 
-function AdvisorKpis({ weeks, branchId, advisorId, code, setKpi }: { weeks: readonly string[]; branchId: string; advisorId: string; code: KpiCode; setKpi: (code: KpiCode) => void }) {
+/** One advisor's week: the lead KPI sentence, their tiles, and a trend against their branch. */
+function AdvisorKpis({ name, week, weeks, branchId, advisorId, code, lead, setKpi }: { name: string; week: string; weeks: readonly string[]; branchId: string; advisorId: string; code: KpiCode; lead: KpiCode; setKpi: (code: KpiCode) => void }) {
   const recent = weeks.slice(-CHILD_WEEKS)
   const result = useAdvisorWeekly(branchId, recent)
-  const last = useRef<{ advisorId: string; tiles: Tile[] } | null>(null)
+  const last = useRef<{ advisorId: string; tiles: Tile[]; lede: string | null } | null>(null)
   const chosen: KpiCode = ADVISOR_KPIS.includes(code) ? code : 'ACT_PER_ADV'
-  if (result.status === 'error') return <DataNotice what="these KPIs" onRetry={result.retry} />
+  const frame = (body: React.ReactNode, lede: string | null = null) => <>
+    <p className="drill-lede" aria-live="polite">{lede ?? (result.status === 'loading' ? 'Reading the weekly runs…' : '')}</p>
+    <Section id="kpis" title={`${name}, week ${week}`} lede="Change is against the prior week." revealOrder={0}>{body}</Section>
+  </>
+  if (result.status === 'error') return frame(<DataNotice what="these KPIs" onRetry={result.retry} />)
   if (result.status === 'loading' && last.current?.advisorId === advisorId) {
-    return <PendingTiles tiles={last.current.tiles} label={`${advisorId} key performance indicators`} loading name={advisorLabel} />
+    return frame(<PendingTiles tiles={last.current.tiles} label={`${advisorId} key performance indicators`} loading name={advisorLabel} />, last.current.lede)
   }
-  if (result.status === 'loading') return <p aria-busy="true">Loading the KPIs…</p>
+  if (result.status === 'loading') return frame(<p aria-busy="true">Loading the KPIs…</p>)
   const rows = result.status === 'ready' ? result.data.filter((r) => r.advisor_id === advisorId) : []
   const current = rows.find((r) => r.iso_week_id === recent.at(-1))
-  if (!current) return <p>{advisorId} has no activity recorded at this branch in {recent.at(-1)}.</p>
+  if (!current) return frame(<p>{advisorId} has no activity recorded at this branch in {recent.at(-1)}.</p>)
   const prior = rows.find((r) => r.iso_week_id === recent.at(-2) && recent.length > 1)
   const tiles = ADVISOR_KPIS.map((kpi) => {
     const value = advisorValue(kpi, current)
@@ -162,7 +170,8 @@ function AdvisorKpis({ weeks, branchId, advisorId, code, setKpi }: { weeks: read
     const wow = value !== null && before ? Math.round(((value - before) / before) * 10000) / 10000 : null
     return { code: kpi, value, wow, anomaly: false }
   })
-  last.current = { advisorId, tiles }
+  const lede = measuresSentence(tiles, lead, advisorLabel)
+  last.current = { advisorId, tiles, lede }
   // The branch's other advisors, as a median line, so one advisor is read against their peers.
   const byWeek = (w: string) => rows.find((r) => r.iso_week_id === w)
   const peers = recent.map((w) => {
@@ -170,7 +179,7 @@ function AdvisorKpis({ weeks, branchId, advisorId, code, setKpi }: { weeks: read
       .map((r) => advisorValue(chosen, r)).filter((v): v is number => v !== null).sort((a, b) => a - b)
     return values.length ? values[Math.floor((values.length - 1) / 2)]! : null
   })
-  return <>
+  return frame(<>
     <PendingTiles tiles={tiles} label={`${advisorId} key performance indicators`} loading={false} name={advisorLabel} />
     <figure className="advisor-trend">
       <label className="advisor-pick">Plot <select value={chosen} onChange={(event) => setKpi(event.target.value as KpiCode)}>
@@ -181,7 +190,7 @@ function AdvisorKpis({ weeks, branchId, advisorId, code, setKpi }: { weeks: read
         label={`${advisorLabel(chosen)} for ${advisorId} over ${recent.length} weeks, with the branch's median advisor dashed`} />
       <figcaption className="hero-legend"><span><i className="hero-key-line" aria-hidden="true" />{advisorId}</span><span><i className="hero-key-ref" aria-hidden="true" />Median of the branch's other advisors</span></figcaption>
     </figure>
-  </>
+  </>, lede)
 }
 
 function Drill({ path, weeks, latest, lead }: { path: DrillPath; weeks: readonly string[]; latest: string; lead: KpiCode }) {
@@ -213,10 +222,8 @@ function Drill({ path, weeks, latest, lead }: { path: DrillPath; weeks: readonly
     <h1 className="drill-title">{name}</h1>
     <div className="drill-when"><WeekStepper weeks={weeks} week={week} latest={latest} onWeek={(w) => set('week', w)} /></div>
     {path.level === 'ADVISOR'
-      ? <Section id="kpis" title={`${name}, week ${week}`} lede="Change is against the prior week." revealOrder={0}>
-        <AdvisorKpis weeks={shown} branchId={path.orgIds[2]!} advisorId={path.nodeId} code={code} setKpi={(c) => set('kpi', c)} />
-      </Section>
-      : <OrgReport path={path} week={week} weeks={weeks} name={name} parentName={parentName} code={code} setKpi={(c) => set('kpi', c)} childHref={childHref} onChildClick={onChildClick} />}
+      ? <AdvisorKpis name={name} week={week} weeks={shown} branchId={path.orgIds[2]!} advisorId={path.nodeId} code={code} lead={lead} setKpi={(c) => set('kpi', c)} />
+      : <OrgReport path={path} week={week} weeks={weeks} name={name} parentName={parentName} code={code} lead={lead} setKpi={(c) => set('kpi', c)} childHref={childHref} onChildClick={onChildClick} />}
     {path.level !== 'ADVISOR' && <NarrativePanel week={week} nodeId={path.nodeId} />}
     {path.childSegment === 'a' && <AdvisorLeaderboard weeks={shown} parentId={path.nodeId} parentName={name} childHref={childHref} onChildClick={onChildClick} />}
     {(path.childSegment === 'd' || path.childSegment === 'b') && <OrgLeaderboard weeks={shown} parentId={path.nodeId} parentName={name} childHref={childHref} onChildClick={onChildClick} />}
