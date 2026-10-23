@@ -198,6 +198,18 @@ def generate_week(
         return None
     edw = sources / EDW
     first_week = not edw.exists()
+    if first_week:
+        # The warm-up extracts go first, before edw exists, so a run that stops partway is
+        # still a first week when retried; each partition is written atomically, and one
+        # already written is kept.
+        warm_up = max(DEFAULT_START, monday - timedelta(weeks=WARM_UP_WEEKS))
+        while warm_up < monday:
+            extract_date = warm_up + timedelta(days=6)
+            if not (sources / ACTIVITY / f"extract_date={extract_date}").exists():
+                write_activity(
+                    _activity(world, iso_week(warm_up), seed), sources, extract_date=extract_date
+                )
+            warm_up += timedelta(weeks=1)
     hr = roster_as_of(world.roster, sunday)
     with write_transaction(edw) as con:
         replace_table(con, "ADVSR", TeradataAdvisor, hr.advisors, "ADVSR_ID")
@@ -220,16 +232,6 @@ def generate_week(
         if first_week:
             snapshot = clients_as_of(world.clients, monday - timedelta(days=1))
             replace_table(con, "CLNT", TeradataClient, snapshot, "CLNT_ID")
-
-    if first_week:
-        warm_up = max(DEFAULT_START, monday - timedelta(weeks=WARM_UP_WEEKS))
-        while warm_up < monday:
-            write_activity(
-                _activity(world, iso_week(warm_up), seed),
-                sources,
-                extract_date=warm_up + timedelta(days=6),
-            )
-            warm_up += timedelta(weeks=1)
 
     deltas = delta_rows(world.clients)
     for day in (monday + timedelta(days=i) for i in range(7)):

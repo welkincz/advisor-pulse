@@ -203,3 +203,34 @@ def test_a_later_first_week_loads_only_the_52_weeks_before_it(tmp_path: Path) ->
     assert len(extracts) == 53
     assert extracts[0] == "extract_date=2025-10-05"
     assert extracts[-1] == "extract_date=2026-10-04"
+
+
+def test_a_warm_up_interrupted_partway_is_completed_on_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clean = tmp_path / "clean"
+    generate_weeks(clean, ["2026-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+
+    real = gen.write_activity
+    written: list[date] = []
+
+    def failing(*args: object, extract_date: date, **kwargs: object) -> object:
+        if len(written) == 10:
+            raise OSError("disk full")
+        written.append(extract_date)
+        return real(*args, extract_date=extract_date, **kwargs)  # type: ignore[arg-type]
+
+    retried = tmp_path / "retried"
+    monkeypatch.setattr(gen, "write_activity", failing)
+    with pytest.raises(OSError, match="disk full"):
+        generate_weeks(retried, ["2026-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+    assert not (retried / "sources/teradata/edw.sqlite").exists()
+    monkeypatch.setattr(gen, "write_activity", real)
+    generate_weeks(retried, ["2026-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+    assert hashes(retried) == hashes(clean)
+
+
+def test_a_week_before_the_first_reported_week_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="before the first reported week, 2024-W41"):
+        generate_weeks(tmp_path, ["2024-W40"], seed=SEED, sizes=SIZES, echo=quiet)
+    assert not any(tmp_path.iterdir())
