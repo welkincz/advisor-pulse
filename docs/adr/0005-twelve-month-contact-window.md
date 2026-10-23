@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-21
-- Issues: #219, #223, #224, #225
+- Issues: #219, #223, #224, #225, #273
 
 ## Context
 
@@ -40,6 +40,16 @@ details decide whether the number can be trusted:
   (`defaultLead`, `leadFor`) lead with activities per advisor, and the KPI board hides a
   measure with no value in any shown week.
 
+### Update (#273): a warm-up year
+
+A null lead for the whole first reported year left FY25 without its headline. The
+generator now starts its world 52 weeks before the first reported week, and the first
+week loaded into a data directory carries those weeks' activity as an initial history
+load. `int_contact_window.is_reported` starts the report at the first week with a full
+window, so the warm-up year feeds the window but is never a reported week, and every
+reported week has the lead KPI. A history shorter than a year (the fixtures) still reports
+every week with the rate null, as above.
+
 ## Alternatives considered
 
 - **Holder's own contacts only.** Rewards the person, not the outcome, and every handover
@@ -54,8 +64,9 @@ details decide whether the number can be trusted:
 
 ## Consequences
 
-- The KPI is null for the first year of any history and in the 4-week fixtures, so CI
-  tests compare the counts exactly and test the rate on its own unit tests.
+- The KPI is null in the 4-week fixtures (and would be for the first year of a history
+  without a warm-up), so CI tests compare the counts exactly and test the rate on its own
+  unit tests.
 - Numbers agree across views: an advisor, a branch and the nation are built from the same
   two counts.
 - An advisor's score includes colleagues' calls to their clients. That is intended; a

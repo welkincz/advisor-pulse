@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from pulse.contracts.enums import RunType, StageStatus
-from pulse.generate.advisors import DEFAULT_START
+from pulse.generate.advisors import REPORT_START
 from pulse.runner.stage import RetryableError, StageContext, StageResult
 from pulse.state import lock
 from pulse.state.store import ObjectStore
@@ -48,7 +48,7 @@ def _week_id(day: date) -> str:
     return f"{year}-W{week:02d}"
 
 
-START_WEEK = _week_id(DEFAULT_START)
+START_WEEK = _week_id(REPORT_START)
 
 
 def weeks_between(first: str, stop: str) -> list[str]:

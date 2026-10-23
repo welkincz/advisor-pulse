@@ -77,11 +77,12 @@ def _propensity(seed: int, client: str) -> float:
 
 def _concentration(seed: int, advisor: str, day: date) -> float:
     """How strongly an advisor favours the same clients: 0 spreads calls across the whole
-    book, higher keeps returning to a few. Calibrated so the 12-month contacted rate spans
-    roughly 55–97% per advisor; a seeded few drift upward (their coverage slips)."""
-    alpha: float = 0.35 + 1.5 * _unit(seed, "reach", advisor) ** 1.2
+    book, higher keeps returning to a few. Calibrated so the national 12-month contacted rate
+    sits near 86% in FY25 and settles near 83% once the drift is done, with advisors from
+    about 65% (5th percentile) to 99%; a seeded few drift upward (their coverage slips)."""
+    alpha: float = 0.22 + 1.45 * _unit(seed, "reach", advisor) ** 1.2
     if _unit(seed, "drift", advisor) < DRIFT_SHARE:
-        alpha += 0.8 * min(1.0, max(0.0, (day - DRIFT_START).days / DRIFT_DAYS))
+        alpha += 0.7 * min(1.0, max(0.0, (day - DRIFT_START).days / DRIFT_DAYS))
     return alpha
 
 

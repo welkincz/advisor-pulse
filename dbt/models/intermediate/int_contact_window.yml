@@ -6,6 +6,9 @@ models:
       One row per ISO week in `dim_date`: `is_window_complete` is true when the 12-month
       window ending that Sunday starts on or after the first completed activity in the
       warehouse. The marts null the lead KPI's rate for weeks where it is false.
+      `is_reported` marks the weeks the marts report: from the first week with a full
+      window, so a warm-up year of history feeds the window without being reported, or
+      from the first activity week when no week has a full window yet.
     columns:
       - name: iso_week_id
         description: ISO week.
@@ -16,23 +19,50 @@ models:
       - name: is_window_complete
         description: A full 12 months of activity history lies behind this week.
         data_tests: [not_null]
+      - name: is_reported
+        description: The week is a reported week (on or after the report start).
+        data_tests: [not_null]
 
 unit_tests:
   - name: int_contact_window_needs_twelve_months_behind_the_week
     description: >
       History starts on 2024-10-07. The week ending 2025-10-05 still lacks a day; the week
-      ending 2025-10-12 has its full year behind it.
+      ending 2025-10-12 has its full year behind it, so the report starts there.
     model: int_contact_window
     given:
       - input: ref('int_activity_enriched')
         rows:
-          - {activity_date: '2024-10-07', status: COMPLETED}
-          - {activity_date: '2024-09-30', status: CANCELLED}
+          - {activity_date: '2024-10-07', iso_week_id: '2024-W41', status: COMPLETED}
+          - {activity_date: '2024-09-30', iso_week_id: '2024-W40', status: CANCELLED}
+          - {activity_date: '2025-10-08', iso_week_id: '2025-W41', status: COMPLETED}
       - input: ref('dim_date')
         rows:
           - {iso_week_id: '2025-W40', week_end: '2025-10-05'}
           - {iso_week_id: '2025-W41', week_end: '2025-10-12'}
     expect:
       rows:
-        - {iso_week_id: '2025-W40', is_window_complete: false}
-        - {iso_week_id: '2025-W41', is_window_complete: true}
+        - {iso_week_id: '2025-W40', is_window_complete: false, is_reported: false}
+        - {iso_week_id: '2025-W41', is_window_complete: true, is_reported: true}
+
+  - name: int_contact_window_reports_every_week_of_a_short_history
+    description: >
+      Four weeks of history: no week up to the last activity has a full window, so every
+      week from the first activity is reported and the lead KPI stays null. A calendar week
+      a year later has a window but does not move the report start.
+    model: int_contact_window
+    given:
+      - input: ref('int_activity_enriched')
+        rows:
+          - {activity_date: '2026-09-08', iso_week_id: '2026-W37', status: COMPLETED}
+      - input: ref('dim_date')
+        rows:
+          - {iso_week_id: '2026-W36', week_end: '2026-09-06'}
+          - {iso_week_id: '2026-W37', week_end: '2026-09-13'}
+          - {iso_week_id: '2026-W40', week_end: '2026-10-04'}
+          - {iso_week_id: '2027-W40', week_end: '2027-10-10'}
+    expect:
+      rows:
+        - {iso_week_id: '2026-W36', is_window_complete: false, is_reported: false}
+        - {iso_week_id: '2026-W37', is_window_complete: false, is_reported: true}
+        - {iso_week_id: '2026-W40', is_window_complete: false, is_reported: true}
+        - {iso_week_id: '2027-W40', is_window_complete: true, is_reported: true}

@@ -53,6 +53,23 @@ def test_portfolio_history_hands_over_whole_book_and_retains_transit() -> None:
     ] == PortfolioAssignmentReason.TRANSFER
 
 
+def test_a_leavers_book_goes_to_the_colleague_holding_the_fewest_portfolios() -> None:
+    """Two leavers hand four portfolios to two colleagues (one a new hire with an empty
+    portfolio): each ends with two for every seed, where a random pick could give one three."""
+    first, second = START + timedelta(days=14), START + timedelta(days=28)
+    advisors = (
+        ("ADV-00001", BRANCH, Role.ADVISOR, START - timedelta(days=30), first),
+        ("ADV-00002", BRANCH, Role.ADVISOR, START - timedelta(days=30), None),
+        ("ADV-00005", BRANCH, Role.ADVISOR, START - timedelta(days=30), second),
+        ("ADV-00006", BRANCH, Role.ADVISOR, START + timedelta(days=21), None),
+    )
+    for seed in range(8):
+        portfolios = generate_portfolios(advisors, seed=seed, start_date=START)
+        holders = holders_on(portfolios, second)
+        assert sorted(holders.values()).count("ADV-00002") == 2, seed
+        assert sorted(holders.values()).count("ADV-00006") == 2, seed
+
+
 def test_clients_retain_portfolio_on_handover_and_change_it_on_reassignment() -> None:
     portfolios = generate_portfolios(roster(), seed=19, start_date=START)
     batch = generate_clients(

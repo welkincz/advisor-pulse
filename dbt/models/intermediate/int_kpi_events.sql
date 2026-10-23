@@ -13,6 +13,8 @@
 -- Every other event is credited to the advisor's branch on the date it counts: the
 -- activity date, the scheduled date or the booking date; advisor events use week start.
 -- Activity with no advisor history on that date (DQ012) stays at its logged branch.
+-- Only reported weeks (int_contact_window) get rows: a warm-up year feeds the 12-month
+-- window through int_client_contact_12m, not through these events.
 with activity as (
     select * from {{ ref('int_activity_enriched') }}
 ),
@@ -30,6 +32,7 @@ weeks as (
     from {{ ref('dim_date') }}
     where iso_week_id between (select min(iso_week_id) from activity)
         and (select max(iso_week_id) from activity)
+        and iso_week_id in (select iso_week_id from {{ ref('int_contact_window') }} where is_reported)
     group by iso_week_id
 ),
 

@@ -259,6 +259,8 @@ The contracts in `src/pulse/contracts/` are the executable form of this dictiona
 | UPDATED_TS | TIMESTAMP | no | Source system last update |
 | _EXTRACTED_AT | TIMESTAMP | no | Extract time; **watermark column** |
 
+**Warm-up year (#273).** The generator's world starts on 2023-10-09, 52 weeks before the first reported week (2024-W41). The first week generated into a data directory also writes the clean activity extracts of the 52 weeks before it (never before the world's start), as an initial history load, so the 12-month contacted rate has a full window from the first reported week and FY25 is reported in full. dbt reports from the first week with a full window (`int_contact_window.is_reported`), or from the first activity week when the history is shorter than a year (the fixtures): warm-up activity feeds `int_client_contact_12m` only, and the warm-up extracts are not ingest weeks in `mart_dq_weekly`. Books handed over by a leaver go to the colleague at that transit holding the fewest portfolios, so books do not pile up on a few advisors and the national rate stays in a steady band (about 86% in FY25, settling near 83% after the seeded drift).
+
 ### 6.2 Source: "Teradata" — `data/sources/teradata/edw.sqlite` (tables) and `client_YYYYMMDD.csv` (daily delta)
 
 **CLNT** (client)
@@ -405,7 +407,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 
 | KPI | Code | Formula | Notes |
 |-----|------|---------|-------|
-| **Portfolio contacted (12 months)** — lead KPI | `PRTF_CONTACT_12M` | active clients in the node's portfolios at week end with ≥1 completed contact activity (`counts_as_contact`) by **any** advisor whose Toronto activity date is in `(week_end − 12 months, week_end]` ÷ active clients in those portfolios at week end | A portfolio is credited to its holder as of week end and to its transit branch. Null for weeks with less than 12 months of activity history, never a partial window. Higher is better |
+| **Portfolio contacted (12 months)** — lead KPI | `PRTF_CONTACT_12M` | active clients in the node's portfolios at week end with ≥1 completed contact activity (`counts_as_contact`) by **any** advisor whose Toronto activity date is in `(week_end − 12 months, week_end]` ÷ active clients in those portfolios at week end | A portfolio is credited to its holder as of week end and to its transit branch. Null for weeks with less than 12 months of activity history, never a partial window; the generator's warm-up year (§6.1) gives every reported week a full window. Higher is better |
 | Activities per advisor | `ACT_PER_ADV` | completed activities ÷ active advisors in week | Active = SCD2 range overlaps week, not terminated, role ≠ `BR_MGR` |
 | Outbound calls | `CALLS_OUT` | count `CALL_OUT` completed | |
 | Appointments booked | `APPT_BOOKED` | appointments with `created_ts` in week | |

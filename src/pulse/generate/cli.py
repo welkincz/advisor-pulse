@@ -6,6 +6,9 @@ backfill of W01..W08. A week writes only files that belong to it:
 
 - ``snowflake/activity/extract_date=<Sunday>/part-NNN.parquet``, then defects (#15),
   which include the late arrivals (1–3 weeks back) and re-sent updates;
+- the first week into a data directory also writes the clean extracts of the 52 warm-up
+  weeks before it (an initial history load), so the 12-month contacted rate has a full
+  window from the first reported week (PLAN.md §6.1, §7);
 - ``teradata/client_YYYYMMDD.csv`` for each of its days with a client change;
 - ``defects/YYYY-Www.json``.
 
@@ -29,6 +32,7 @@ from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import AssignmentReason
 from pulse.contracts.patterns import ISO_WEEK_ID
 from pulse.contracts.sources import (
+    SnowflakeActivity,
     TeradataAdvisor,
     TeradataAssignment,
     TeradataBranch,
@@ -39,6 +43,7 @@ from pulse.contracts.sources import (
 from pulse.generate.activity import generate_activity, write_activity
 from pulse.generate.advisors import (
     DEFAULT_START,
+    REPORT_START,
     AdvisorRoster,
     assignment_ranges,
     generate_advisors,
@@ -67,6 +72,8 @@ DEFAULT_CLIENTS = 150_000
 # The roster and book generators are stable on a prefix only when their horizon ends on a
 # client reassignment quarter, so the horizon grows in whole quarters.
 HORIZON_STEP_WEEKS = QUARTER_DAYS // 7
+# The first week's initial history load: enough for a full 12-month window behind it.
+WARM_UP_WEEKS = 52
 
 
 @dataclass(frozen=True)
@@ -93,8 +100,9 @@ def week_start(iso_week_id: str) -> date:
         raise ValueError(f"Not an ISO week id: {iso_week_id!r} (expected e.g. 2026-W40)")
     year, week = iso_week_id.split("-W")
     monday = date.fromisocalendar(int(year), int(week), 1)
-    if monday < DEFAULT_START:
-        raise ValueError(f"{iso_week_id} is before the generator's first week, 2024-W41")
+    if monday < REPORT_START:
+        first = iso_week(REPORT_START)
+        raise ValueError(f"{iso_week_id} is before the first reported week, {first}")
     return monday
 
 
@@ -164,6 +172,16 @@ def clients_as_of(batch: ClientBatch, as_of: date) -> tuple[TeradataClient, ...]
     return tuple(state[key] for key in sorted(state))
 
 
+def _activity(world: World, iso_week_id: str, seed: int) -> tuple[SnowflakeActivity, ...]:
+    return generate_activity(
+        org(),
+        assignment_ranges(world.roster),
+        iso_week_id=iso_week_id,
+        seed=seed,
+        client_batch=world.clients,
+    )
+
+
 def activity_dir(sources: Path, iso_week_id: str) -> Path:
     return sources / ACTIVITY / f"extract_date={week_start(iso_week_id) + timedelta(days=6)}"
 
@@ -203,18 +221,21 @@ def generate_week(
             snapshot = clients_as_of(world.clients, monday - timedelta(days=1))
             replace_table(con, "CLNT", TeradataClient, snapshot, "CLNT_ID")
 
+    if first_week:
+        warm_up = max(DEFAULT_START, monday - timedelta(weeks=WARM_UP_WEEKS))
+        while warm_up < monday:
+            write_activity(
+                _activity(world, iso_week(warm_up), seed),
+                sources,
+                extract_date=warm_up + timedelta(days=6),
+            )
+            warm_up += timedelta(weeks=1)
+
     deltas = delta_rows(world.clients)
     for day in (monday + timedelta(days=i) for i in range(7)):
         if day in deltas:
             write_delta(edw.parent, day, deltas[day])
-    rows = generate_activity(
-        org(),
-        assignment_ranges(world.roster),
-        iso_week_id=iso_week_id,
-        seed=seed,
-        client_batch=world.clients,
-    )
-    write_activity(rows, sources, extract_date=sunday)
+    write_activity(_activity(world, iso_week_id, seed), sources, extract_date=sunday)
     manifest = inject_dirt(
         sources,
         data_dir / DEFECTS_DIR,

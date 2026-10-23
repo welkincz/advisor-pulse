@@ -15,7 +15,9 @@ def test_active_books_follow_new_reassigned_and_closed_clients() -> None:
         (f"ADV-{index:05d}", branch.branch_id, Role.ADVISOR, date(2024, 10, 6), None)
         for index, branch in enumerate(org().branches[:8], 1)
     ]
-    batch = generate_clients(org(), roster, seed=19, client_count=5000, weeks=13)
+    batch = generate_clients(
+        org(), roster, seed=19, client_count=5000, start_date=date(2024, 10, 7), weeks=13
+    )
     days = [date(2024, 10, 7), date(2024, 12, 30)]
     pools = client_pools_by_day(batch, days)
     assert {change.kind for change in batch.changes} >= {"NEW", "REASSIGNED", "CLOSED"}
