@@ -66,6 +66,8 @@ test('children sort by any KPI from the keyboard at 375 px', async ({ page }) =>
 
 test('an org page plots any measure against its parent and lists its children as small multiples', async ({ page }) => {
   await page.goto('/r/ON')
+  // The page opens with the lead measure's sentence, as the overview does.
+  await expect(page.locator('.drill-lede')).toHaveText(/^Activities per advisor (was|held steady at|rose|fell) .+\. /)
   await expect(page.getByRole('img', { name: /Activities per advisor, Ontario, 2026-W37 to 2026-W40, with Canada dashed/ })).toBeVisible()
   await page.locator('[data-kpi="SHOW_RATE"] button').click()
   await expect(page).toHaveURL(/kpi=SHOW_RATE/)
@@ -80,6 +82,8 @@ test('an advisor page plots a measure against the branch median', async ({ page 
   await page.goto('/r/ON/d/GTA/b/BR-0101/a/ADV-10003')
   // The advisor series needs DuckDB-WASM from the CDN, which can take a while on a CI runner.
   await expect(page.getByRole('img', { name: /Activities completed for ADV-10003 over \d+ weeks, with the branch's median advisor dashed/ })).toBeVisible({ timeout: 30_000 })
+  // The fixtures have no 12-month history, so the advisor's opening sentence falls back to activities.
+  await expect(page.locator('.drill-lede')).toHaveText(/^Activities completed (was|held steady at|rose|fell) .+\.$/)
   await page.getByRole('combobox', { name: 'Plot' }).selectOption('SHOW_RATE')
   await expect(page).toHaveURL(/kpi=SHOW_RATE/)
 })
