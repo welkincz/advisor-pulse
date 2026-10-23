@@ -87,7 +87,7 @@ export function PipelineDiagram({ graph, state, summaries, selected, onSelect, w
   }
 
   const hotNode = hot ? graph.nodes.find((n) => n.id === hot.id) : undefined
-  return <><svg className={`line-diagram${replaying ? ' is-replaying' : ''}`} width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
+  return <><svg className={`line-diagram${replaying ? ' is-replaying' : ''}`} role="group" aria-label="Weekly pipeline: every stage of one weekly run, from restoring state to publishing" width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
     <g className="line-edges" aria-hidden="true">
       {graph.edges.map((edge) => {
         const a = at(edge.source)

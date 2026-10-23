@@ -1,11 +1,24 @@
 .map-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3) var(--space-6); margin: var(--space-8) 0 var(--space-6); }
 .map-controls label { display: grid; gap: var(--space-1); color: var(--muted); font-size: var(--text-sm); }
-.map-controls select { min-width: 14rem; max-width: 100%; padding: var(--space-2); border: 1px solid var(--rule); background: var(--paper); color: var(--ink); font: inherit; }
+.map-controls select { min-width: 14rem; max-width: 100%; padding: var(--space-2); border: 1px solid var(--field-edge); background: var(--paper); color: var(--ink); font: inherit; }
 .map-colouring { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; border: 0; min-height: 2.5rem; font-size: var(--text-sm); }
 .map-colouring legend { float: left; margin-right: var(--space-2); padding: 0; color: var(--muted); }
 .map-colouring label { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--ink); }
 .map-colouring:disabled label { color: var(--faint); }
 .map-controls .map-fsa-toggle { display: flex; align-items: center; gap: var(--space-2); min-height: 2.5rem; }
+/* Radios and the checkbox are drawn here so their edge holds 3:1 in both themes (the native
+   ones do not in dark). Checked is ink-filled; the browser's own control returns in forced colours. */
+.map-controls input:is([type='radio'], [type='checkbox']) { appearance: none; display: inline-grid; place-content: center; flex: none; width: 1rem; height: 1rem; margin: 0; border: 1.5px solid var(--field-edge); border-radius: 50%; background: var(--paper); cursor: pointer; transition: border-color var(--duration-quick) var(--ease-standard); }
+.map-controls input[type='checkbox'] { border-radius: 2px; }
+.map-controls input:is([type='radio'], [type='checkbox']):hover:not(:disabled) { border-color: var(--ink); }
+.map-controls input:is([type='radio'], [type='checkbox']):checked { border-color: var(--ink); }
+.map-controls input[type='radio']:checked::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ink); }
+.map-controls input[type='checkbox']:checked { background: var(--ink); }
+.map-controls input[type='checkbox']:checked::before { content: ''; width: 0.625rem; height: 0.625rem; background: var(--paper); clip-path: polygon(14% 44%, 0 59%, 39% 96%, 100% 22%, 85% 8%, 38% 66%); }
+.map-controls input:is([type='radio'], [type='checkbox']):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.map-controls input:is([type='radio'], [type='checkbox']):disabled { border-color: var(--faint); cursor: default; }
+.map-controls input[type='radio']:disabled:checked::before { background: var(--faint); }
+@media (forced-colors: active) { .map-controls input:is([type='radio'], [type='checkbox']) { appearance: auto; } }
 
 /* The readout: where you are, the week, and the number the colours are about. */
 .map-stage { display: grid; gap: var(--space-4); border-top: 1px solid var(--ink); padding-top: var(--space-4); }

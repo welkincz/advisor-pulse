@@ -97,6 +97,7 @@ Rules:
 | `--signal` | The one accent: leading stat rule, current selection, latest point, the kicker above `h1` |
 | `--focus` | Keyboard focus ring only |
 | `--field` | Subtle fills (input backgrounds, swatch borders) |
+| `--field-edge` | Edges of form fields: selects, radios, checkboxes (3:1 or better on paper and on `--field`, both modes) |
 
 Dark mode is chosen, not inverted: every token has its own dark value in `tokens.css`,
 and the data palettes were re-stepped for the dark surface and validated there.
