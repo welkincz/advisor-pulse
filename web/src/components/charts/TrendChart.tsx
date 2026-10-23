@@ -37,7 +37,7 @@ export interface TrendChartProps {
   morphKey?: string
   /** Fit the y axis from this index on, so warm-up weeks do not flatten the rest. */
   fitFrom?: number
-  /** False when no data is coming (the load failed): the empty chart's placeholder stops pulsing. */
+  /** True while the data is on its way: the empty chart's placeholder pulses and says so. Settled or failed, it stays still. */
   loading?: boolean
 }
 
@@ -60,7 +60,7 @@ function useWidth<T extends HTMLElement>() {
  * changes, and moves its week cursor when the week does. Hover shows a crosshair and the
  * week's numbers; click or arrow keys choose a week when `onSelect` is given.
  */
-export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, describe, hint, morphKey, fitFrom = 0, loading = true }: TrendChartProps) {
+export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, describe, hint, morphKey, fitFrom = 0, loading = false }: TrendChartProps) {
   const reducedMotion = useReducedMotion()
   const clip = useId()
   const [box, width] = useWidth<HTMLDivElement>()

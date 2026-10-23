@@ -23,8 +23,8 @@ const weeks = ['2026-W38', '2026-W39', '2026-W40']
 const base: TrendChartProps = { weeks, values: [null, null, null], format: (v) => String(v ?? '–'), label: 'Test measure', selected: '2026-W40', height: 280 }
 const render = (props: Partial<TrendChartProps> = {}) => act(() => root.render(<TrendChart {...base} {...props} />))
 
-it('draws a placeholder, not an empty axis, while there are no values', async () => {
-  await render()
+it('draws a placeholder, not an empty axis, while the values are on their way', async () => {
+  await render({ loading: true })
   const skeleton = container.querySelector('.trend-skeleton')
   expect(skeleton).not.toBeNull()
   expect(skeleton!.classList.contains('is-loading')).toBe(true)
@@ -36,7 +36,7 @@ it('draws a placeholder, not an empty axis, while there are no values', async ()
 })
 
 it('swaps the placeholder for the chart in the same box once values arrive', async () => {
-  await render()
+  await render({ loading: true })
   await render({ values: [10, 12, 11] })
   expect(container.querySelector('.trend-skeleton')).toBeNull()
   expect(container.querySelector('.trend-line')).not.toBeNull()
@@ -44,11 +44,18 @@ it('swaps the placeholder for the chart in the same box once values arrive', asy
   expect((container.querySelector('.trend') as HTMLElement).style.height).toBe('280px')
 })
 
-it('stops pulsing when no data is coming', async () => {
+it('settles into a still placeholder when the load finished with nothing to plot', async () => {
+  await render({ loading: true })
   await render({ loading: false })
   const skeleton = container.querySelector('.trend-skeleton')!
   expect(skeleton.classList.contains('is-loading')).toBe(false)
   expect(skeleton.textContent).toContain('No values to plot.')
+  expect(skeleton.textContent).not.toContain('Loading')
+})
+
+it('never claims to be loading unless told so', async () => {
+  await render()
+  expect(container.querySelector('.trend-skeleton')!.classList.contains('is-loading')).toBe(false)
 })
 
 it('keeps small multiples free of placeholders', async () => {
