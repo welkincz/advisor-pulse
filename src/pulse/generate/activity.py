@@ -29,7 +29,7 @@ from pulse.contracts.enums import (
 )
 from pulse.contracts.patterns import ISO_WEEK_ID
 from pulse.contracts.sources import SnowflakeActivity
-from pulse.generate.advisors import AssignmentRow
+from pulse.generate.advisors import DEFAULT_START, AssignmentRow
 from pulse.generate.books import client_pools_by_day
 from pulse.generate.clients import ClientBatch
 from pulse.reference import OrgReference
@@ -39,6 +39,11 @@ STORY_START = date(2026, 8, 10)
 DRIFT_START = date(2025, 11, 1)
 DRIFT_DAYS = 270
 DRIFT_SHARE = 0.12
+# A gradual bank-wide shift towards clients who hear from advisors less often. The rolling
+# 12-month KPI keeps improving after this ramp ends as concentrated-contact weeks roll off.
+OUTREACH_END = date.fromisocalendar(2026, 42, 1)
+OUTREACH_INITIAL_BIAS = 0.28
+OUTREACH_FINAL_BIAS = -0.19
 _STANDARD_NORMAL = NormalDist()
 
 
@@ -77,10 +82,11 @@ def _propensity(seed: int, client: str) -> float:
 
 def _concentration(seed: int, advisor: str, day: date) -> float:
     """How strongly an advisor favours the same clients: 0 spreads calls across the whole
-    book, higher keeps returning to a few. Calibrated so the national 12-month contacted rate
-    sits near 86% in FY25 and settles near 83% once the drift is done, with advisors from
-    about 65% (5th percentile) to 99%; a seeded few drift upward (their coverage slips)."""
+    book, higher keeps returning to a few. A gradual bank-wide easing lifts the rolling
+    12-month rate from about 83% in 2024 to about 87% by 2027; seeded drifters still slip."""
     alpha: float = 0.22 + 1.45 * _unit(seed, "reach", advisor) ** 1.2
+    progress = min(1.0, max(0.0, (day - DEFAULT_START).days / (OUTREACH_END - DEFAULT_START).days))
+    alpha += OUTREACH_INITIAL_BIAS + (OUTREACH_FINAL_BIAS - OUTREACH_INITIAL_BIAS) * progress
     if _unit(seed, "drift", advisor) < DRIFT_SHARE:
         alpha += 0.7 * min(1.0, max(0.0, (day - DRIFT_START).days / DRIFT_DAYS))
     return alpha

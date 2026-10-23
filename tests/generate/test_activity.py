@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 from functools import lru_cache
+from itertools import pairwise
 from pathlib import Path
 from statistics import median
 
@@ -12,11 +13,17 @@ import pyarrow.parquet as pq
 import pytest
 
 from pulse.contracts import arrow_schema
-from pulse.contracts.enums import ActivityStatus, ActivityType, Role
+from pulse.contracts.enums import ActivityStatus, ActivityType, ClientStatus, Role
 from pulse.contracts.sources import SnowflakeActivity
 from pulse.generate.activity import generate_activity, write_activity
-from pulse.generate.advisors import DEFAULT_START, assignment_ranges, generate_advisors
+from pulse.generate.advisors import (
+    DEFAULT_START,
+    REPORT_START,
+    assignment_ranges,
+    generate_advisors,
+)
 from pulse.generate.books import client_pools_by_day
+from pulse.generate.cli import DEFAULT_SEED, Sizes, build_world
 from pulse.generate.clients import ClientBatch, generate_clients
 from pulse.reference import org
 
@@ -188,8 +195,8 @@ def test_seed_week_determinism_and_parquet_schema(tmp_path: Path) -> None:
 
 @pytest.mark.slow
 def test_default_scale_twelve_month_portfolio_contacted_spreads() -> None:
-    # #230: calibrated contact breadth. After 57 weeks at full scale the 12-month
-    # contacted rate sits in 80-88% nationally and spreads widely across advisors.
+    # #230, #288: shortly after the first reported week, the national rate starts
+    # near 83% and still spreads widely across advisor books.
     weeks = 57
     roster = generate_advisors(org(), seed=7, advisor_count=900, weeks=weeks)
     ranges = assignment_ranges(roster)
@@ -209,6 +216,89 @@ def test_default_scale_twelve_month_portfolio_contacted_spreads() -> None:
     hit = {a: sum(last.get(c, cutoff) > cutoff for c in ids) for a, ids in books.items()}
     national = sum(hit.values()) / sum(len(ids) for ids in books.values())
     rates = sorted(hit[a] / len(ids) for a, ids in books.items() if len(ids) >= 20)
-    assert 0.80 <= national <= 0.88
+    assert 0.81 <= national <= 0.84
     assert rates[len(rates) // 20] < 0.75  # the bottom 5% is clearly behind
     assert rates[-len(rates) // 20] > 0.95  # and the top 5% reaches almost everyone
+
+
+@pytest.mark.slow
+def test_default_seed_contacted_rate_rises_smoothly_with_local_slips() -> None:
+    """Model the mart's any-advisor, completed-contact, rolling-year definition."""
+    end = date.fromisocalendar(2027, 52, 1)
+    weeks = (end - DEFAULT_START).days // 7 + 1
+    reference = org()
+    world = build_world(DEFAULT_SEED, Sizes(), "2027-W52")
+    ranges = assignment_ranges(world.roster)
+    state = {client.client_id: client for client in world.clients.snapshot}
+    changes = sorted(world.clients.changes, key=lambda change: change.day)
+    cursor = 0
+    last_contact: dict[str, date] = {}
+    rates: dict[str, float] = {}
+    details: dict[str, tuple[dict[str, float], dict[str, float]]] = {}
+    placements = {p.branch.branch_id: p.region.region_code for p in reference.placements()}
+    endpoints = {"2024-W41", "2027-W52"}
+
+    for offset in range(weeks):
+        monday = DEFAULT_START + timedelta(weeks=offset)
+        sunday = monday + timedelta(days=6)
+        week = f"{monday.isocalendar().year}-W{monday.isocalendar().week:02d}"
+        for row in generate_activity(
+            reference, ranges, iso_week_id=week, seed=DEFAULT_SEED, client_batch=world.clients
+        ):
+            if row.client_id and row.status is ActivityStatus.COMPLETED:
+                day = row.activity_ts.date()
+                last_contact[row.client_id] = max(day, last_contact.get(row.client_id, day))
+        while cursor < len(changes) and changes[cursor].day <= sunday:
+            client = changes[cursor].after
+            state[client.client_id] = client
+            cursor += 1
+        if monday < REPORT_START:
+            continue
+        cutoff = sunday.replace(year=sunday.year - 1)
+        active = [
+            client
+            for client in state.values()
+            if client.status_code is ClientStatus.ACTIVE and client.client_since_date <= sunday
+        ]
+        contacted = {
+            c.client_id for c in active if last_contact.get(c.client_id, date.min) > cutoff
+        }
+        rates[week] = len(contacted) / len(active)
+        if week in endpoints:
+            by_region: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+            by_branch: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+            transit = {p.portfolio_id: p.branch_id for p in world.portfolios.master}
+            for client in active:
+                branch = transit[client.portfolio_id]
+                hit = int(client.client_id in contacted)
+                by_branch[branch][0] += hit
+                by_branch[branch][1] += 1
+                region = placements[branch]
+                by_region[region][0] += hit
+                by_region[region][1] += 1
+            details[week] = (
+                {code: hit / total for code, (hit, total) in by_region.items()},
+                {code: hit / total for code, (hit, total) in by_branch.items()},
+            )
+
+    values = list(rates.values())
+    assert 0.81 <= rates["2024-W41"] <= 0.84
+    assert 0.855 <= rates["2026-W42"] <= 0.875
+    assert all(0.80 <= value <= 0.90 for value in values)
+    assert max(abs(right - left) for left, right in pairwise(values)) <= 0.0015
+    assert rates["2027-W52"] <= 0.88
+    early_gain = (rates["2026-W42"] - rates["2024-W41"]) / 105
+    late_gain = (rates["2027-W52"] - rates["2026-W42"]) / 63
+    assert 0 <= late_gain < early_gain
+    first_regions, first_branches = details["2024-W41"]
+    last_regions, last_branches = details["2027-W52"]
+    assert any(last_regions[key] < value for key, value in first_regions.items())
+    assert (
+        sum(last_regions[key] > value for key, value in first_regions.items())
+        > len(first_regions) // 2
+    )
+    assert max(last_regions.values()) - min(last_regions.values()) >= 0.03
+    assert sum(last_branches[key] < value for key, value in first_branches.items()) >= 3
+    branch_rates = sorted(last_branches.values())
+    assert 0.72 <= branch_rates[len(branch_rates) // 20] <= 0.80
+    assert 0.90 <= branch_rates[-len(branch_rates) // 20] <= 0.96
