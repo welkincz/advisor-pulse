@@ -1,5 +1,19 @@
 import { expect, it } from 'vitest'
-import { annotatedWeek, domain, fenced, linePath, mixPoints, ticks } from './scale'
+import { annotatedWeek, domain, fenced, fitted, linePath, mixPoints, ticks } from './scale'
+
+it('fits a value axis to the data with round ends, never crossing zero', () => {
+  // The lead measure's quarters: 84.2% to 86.8% sit on 83% to 88%, not 0% to 100%.
+  expect(fitted([0.868, 0.864, 0.842, null])).toEqual({ lo: 0.83, hi: 0.88, ticks: [0.83, 0.84, 0.85, 0.86, 0.87, 0.88] })
+  expect(fitted([92.5, 101, 97.4])).toEqual({ lo: 90, hi: 105, ticks: [90, 95, 100, 105] })
+  // A share near zero stops at zero, not a negative tick; an all-negative series stops at zero above.
+  expect(fitted([0.01, 0.4])?.lo).toBe(0)
+  expect(fitted([-3, -0.1])?.hi).toBe(0)
+  expect(fitted([5])).toEqual({ lo: 4, hi: 6, ticks: [4, 4.5, 5, 5.5, 6] })
+  expect(fitted([null, undefined])).toBeNull()
+  // A share near 100% stops at 100%, not an impossible 110%.
+  expect(fitted([0.9], 4, 0.15, 1)).toEqual({ lo: 0.7, hi: 1, ticks: [0.7, 0.8, 0.9, 1] })
+  expect(fitted([0.97, 1], 4, 0.15, 1)?.hi).toBe(1)
+})
 
 it('handles empty, all-null and single-value series', () => {
   expect(fenced([])).toBeNull()

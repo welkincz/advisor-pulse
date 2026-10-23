@@ -4,6 +4,7 @@ import { Delta, Explain, Section, Term } from '../../components/primitives'
 import type { Better } from '../../components/primitives/Delta'
 import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, formatKpi, useOrgQuarterly } from '../../data'
 import { quarterLabel, quarterMonths } from '../../data/fiscal'
+import { RATES } from '../../data/kpi'
 import type { KpiCode } from '../../data/generated/weekly_report'
 import { QuarterChart } from './QuarterChart'
 import { type Change, QUARTER_MEASURES, change, quarterSeries, toDate } from './quarters'
@@ -82,8 +83,10 @@ export function QuarterPanel({ nodeId, nodeName, code, better, childLabel, hrefF
             </span>
           </p>
         </div>
+        {/* A rate as dots on a fitted axis, so its change shows; counts keep bars from zero. */}
         <QuarterChart points={series} selected={point.id} onSelect={setChosen} format={fmt}
-          tickFormat={measure.basis === 'weekly' ? (v) => Math.round(v).toLocaleString('en-CA') : fmt}
+          form={measure.basis === 'rate' ? 'dots' : 'bars'} ceiling={RATES.has(code) ? 1 : undefined}
+          tickFormat={measure.basis === 'weekly' ? (v) => Math.round(v).toLocaleString('en-CA') : (v) => fmt(v).replace(/\.0(?=%|$)/, '')}
           label={`${KPI_LABELS[code]}${unit}, ${nodeName}, by fiscal quarter from ${quarterLabel(series[0]!.id)} to ${quarterLabel(series.at(-1)!.id)}. Use the arrow keys to choose a quarter.`} />
         <figcaption className="figure-note">
           <details className="figure-table">
