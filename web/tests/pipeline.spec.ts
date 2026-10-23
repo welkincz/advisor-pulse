@@ -13,7 +13,8 @@ test.beforeEach(async ({ page }) => {
 test('replays the last weekly run, then can restart it', async ({ page }) => {
   await page.goto('/pipeline')
   await expect(page.getByText(/^Replaying weekly run of October 5, 2026/)).toBeVisible()
-  await expect(page.locator('.line-diagram [data-node]')).toHaveCount(18)
+  await expect(page.locator('.line-diagram [data-node]')).toHaveCount(16)
+  await expect(page.locator('.line-diagram')).not.toContainText(/Tableau|Sheets/)
   const replay = page.getByRole('button', { name: 'Replay run' })
   await expect(replay).toBeDisabled()
   await expect(page.getByText(/^Weekly run of October 5, 2026/)).toBeVisible({ timeout: 9000 })

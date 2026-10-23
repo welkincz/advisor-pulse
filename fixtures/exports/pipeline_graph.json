@@ -179,10 +179,10 @@
       }
     },
     {
-      "id": "release_lock",
-      "label": "Release lock",
-      "kind": "STAGE",
-      "stage": "release_lock",
+      "id": "out_web",
+      "label": "pulse.charliebuild.com",
+      "kind": "OUTPUT",
+      "stage": null,
       "models": [],
       "position": {
         "x": 2640.0,
@@ -190,10 +190,10 @@
       }
     },
     {
-      "id": "out_web",
-      "label": "pulse.charliebuild.com",
-      "kind": "OUTPUT",
-      "stage": null,
+      "id": "release_lock",
+      "label": "Release lock",
+      "kind": "STAGE",
+      "stage": "release_lock",
       "models": [],
       "position": {
         "x": 2640.0,

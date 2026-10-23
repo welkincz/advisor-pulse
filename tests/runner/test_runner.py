@@ -342,7 +342,8 @@ def test_dry_run_prints_the_plan_and_touches_nothing(
     assert lines[0] == f"Plan for {WEEK} (MANUAL), nothing will run:"
     assert lines[1].strip() == "1. restore_state (Restore state), up to 3 attempts"
     assert lines[-2].strip().startswith("8. persist_state (Persist state) after checks")
-    assert lines[-1].strip().startswith("9. release_lock (Release lock) after persist_state, export")
+    last = "9. release_lock (Release lock) after persist_state, export"
+    assert lines[-1].strip().startswith(last)
     assert list(tmp_path.iterdir()) == []
 
 
