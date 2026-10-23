@@ -88,6 +88,7 @@ def _record_final_run_log(rows: Sequence[RunLogRow], echo: Callable[[str], None]
     """
     from pulse.state import STATE
 
+    # Echoed, not logged to meta.run_log: every stage has finished and the log is exported.
     try:
         STATE.record_run_log(rows)
     except Exception as exc:
