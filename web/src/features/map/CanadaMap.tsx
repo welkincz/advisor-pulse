@@ -1,8 +1,9 @@
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Geometry } from 'geojson'
 import { useReducedMotion } from '../../app/useReducedMotion'
 import { standardEase } from '../../motion/tween'
 import type { Basemap } from './data'
+import { labelRank, shift, shortBox, spreadLabels } from './labels'
 import { type Box, type Point, type Project, centroid, fit, fitted, lambert, lineData, pathData, projectedBox } from './projection'
 
 /** A district's shape, which places its circle at the middle of its branch FSAs. Pass a stable array. */
@@ -232,6 +233,43 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
     event.preventDefault()
   }
 
+  // Province labels are drawn at their spot, then measured and moved apart before paint, so no
+  // two touch and none hangs off the canvas. Runs after every render: the camera moves them.
+  const provinceLabels = useRef<SVGGElement>(null)
+  useLayoutEffect(() => {
+    const groups = [...(provinceLabels.current?.querySelectorAll<SVGGElement>('.map-label-group') ?? [])]
+    const texts = groups.map((g) => g.querySelector('text')!)
+    if (!texts.length || typeof texts[0]!.getBBox !== 'function') return
+    const order = groups.map((g, i) => ({ g, text: texts[i]!, id: g.dataset.region ?? '' })).sort((a, b) => labelRank(a.id) - labelRank(b.id))
+    const names = order.map(({ text }) => {
+      const name = text.firstElementChild as SVGTSpanElement
+      // A short code is written straight into the DOM below, which React does not see. Putting
+      // the full name (data-name, set by React) back before every measure keeps the two in step.
+      if (name.textContent !== name.dataset.name) name.textContent = name.dataset.name ?? ''
+      return name
+    })
+    const spots = spreadLabels(order.map(({ id, text }, i) => {
+      const name = shift(names[i]!.getBBox(), 0, 0)
+      const anchor = (text.getAttribute('text-anchor') ?? 'middle') as 'start' | 'middle' | 'end'
+      const line = order[i]!.g.querySelector('line')
+      const at = line ? [Number(line.getAttribute('x1')), Number(line.getAttribute('y1'))] as const : undefined
+      return { id, full: shift(text.getBBox(), 0, 0), name, short: shortBox(name, names[i]!.dataset.name ?? '', id, anchor), at }
+    }), { width, height })
+    order.forEach(({ g, text, id }, i) => {
+      const spot = spots[i]!
+      if (spot.short) names[i]!.textContent = id
+      text.setAttribute('transform', `translate(${spot.dx} ${spot.dy})`)
+      g.style.visibility = spot.visible ? '' : 'hidden'
+      const value = text.children[1] as SVGTSpanElement | undefined
+      if (value) value.style.visibility = spot.visible && spot.value ? '' : 'hidden'
+      const line = g.querySelector('line')
+      if (line) {
+        line.setAttribute('x2', String(Number(line.dataset.x2) + spot.dx))
+        line.setAttribute('y2', String(Number(line.dataset.y2) + spot.dy))
+      }
+    })
+  })
+
   if (!geometry) return null
   const { k, x, y } = camera
   const screen = ([px, py]: Point): Point => [px * k + x, py * k + y]
@@ -287,15 +325,16 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
           className={`map-mark${inFocus ? ' is-focus' : ''}${inFocus && mark.empty ? ' is-empty' : ''}${mark.id === hot ? ' is-hot' : ''}`} data-hot={mark.id}
           onClick={clicked(() => inFocus ? onMark(mark.id) : onRegion(mark.region))} />)}
       </g>
-      <g className="map-labels" aria-hidden="true">
+      <g className="map-labels" aria-hidden="true" ref={provinceLabels}>
         {!focus && [...geometry.labels].filter(([id]) => regionNames.has(id)).map(([id, label]) => {
           const [lx, ly] = screen(label.at)
           const value = regionValue(id)
           const from = label.from ? screen(label.from) : null
-          return <g key={id} className={`map-label-group${id === hot ? ' is-hot' : ''}`}>
-            {from && <line className="map-leader" x1={from[0]} y1={from[1]} x2={lx + (label.anchor === 'end' ? 4 : -4)} y2={ly - 4} />}
+          const end = [lx + (label.anchor === 'end' ? 4 : -4), ly - 4]
+          return <g key={id} className={`map-label-group${id === hot ? ' is-hot' : ''}`} data-region={id}>
+            {from && <line className="map-leader" x1={from[0]} y1={from[1]} x2={end[0]} y2={end[1]} data-x2={end[0]} data-y2={end[1]} />}
             <text x={lx} y={ly} className={`map-label${id === hot ? ' is-hot' : ''}${from ? ' map-label-small' : ''}`} textAnchor={label.anchor}>
-              <tspan className="map-label-name">{regionNames.get(id)}</tspan>
+              <tspan className="map-label-name" data-name={regionNames.get(id)}>{regionNames.get(id)}</tspan>
               {value && <tspan x={lx} dy="1.25em" className="map-label-value">{value}</tspan>}
             </text>
           </g>

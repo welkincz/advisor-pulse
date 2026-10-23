@@ -10,7 +10,7 @@ import { useReducedMotion } from '../../app/useReducedMotion'
 import { standardEase } from '../../motion/tween'
 import type { MapMark, MapPlace } from './CanadaMap'
 import type { Basemap } from './data'
-import { labelFits } from './labels'
+import { labelRank, shift, shortBox, spreadLabels } from './labels'
 import { type Point, centroid, lambert, projectedBox } from './projection'
 import './relief.css'
 
@@ -21,8 +21,6 @@ const RISE = 7
 const FLOOR = 0.12
 /** Small Maritime provinces label out at sea, with a leader line: screen-pixel offsets. */
 const LEADER: Record<string, [number, number]> = { NB: [-46, 44], PE: [4, -46], NS: [58, 34] }
-/** Neighbouring prairie labels step apart so their names do not touch. */
-const NUDGE: Record<string, [number, number]> = { SK: [-14, 8], MB: [16, -6] }
 const FLY_MS = 900
 /** The country fills a canvas this wide for its height; a narrower canvas pulls the camera back so no coast is cut. */
 const HOME_ASPECT = 1.3
@@ -270,33 +268,46 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
       if (s.controls.update()) moving = true
       s.renderer.render(s.scene, s.camera)
       // Labels follow their province's top face on screen, moved directly (no React render).
-      // A label whose whole box (name and value lines) would cross the canvas edge hides rather
-      // than show a clipped fragment. Positions are written first and boxes read after, so the
-      // loop forces one layout at most.
+      // Positions are written first and boxes read after, so the loop forces one layout at most;
+      // then spreadLabels moves any label that would touch another or cross the canvas edge.
       const rect = s.renderer.domElement.getBoundingClientRect()
-      const placed: { el: SVGTextElement; region: string; x: number; y: number; tx: number; ty: number }[] = []
+      const placed: { el: SVGTextElement; name: SVGTSpanElement; region: string; x: number; y: number; tx: number; ty: number }[] = []
       for (const p of s.provinces) {
         const el = p.region ? labelEls.current.get(p.region) : undefined
         if (!el || p.region !== p.id) continue
         const v = anchor.set(p.centre[0], p.centre[1], p.height + 0.6).project(s.camera)
         const x = ((v.x + 1) / 2) * rect.width
         const y = ((1 - v.y) / 2) * rect.height
-        const [dx, dy] = LEADER[p.region] ?? NUDGE[p.region] ?? [0, 0]
+        const [dx, dy] = LEADER[p.region] ?? [0, 0]
         el.setAttribute('transform', `translate(${x + dx} ${y + dy})`)
-        placed.push({ el, region: p.region, x, y, tx: x + dx, ty: y + dy })
+        const name = el.firstElementChild as SVGTSpanElement
+        // A short code is written straight into the DOM below, which React does not see. Putting
+        // the full name (data-name, set by React) back before every measure keeps the two in step.
+        if (name.textContent !== name.dataset.name) name.textContent = name.dataset.name ?? ''
+        placed.push({ el, name, region: p.region, x, y, tx: x + dx, ty: y + dy })
       }
-      for (const { el, region, x, y, tx, ty } of placed) {
-        // getBBox is in the text's own space, before its transform: add the translation back.
-        const box = el.getBBox()
-        const fits = labelFits({ x: box.x + tx, y: box.y + ty, width: box.width, height: box.height }, rect)
-        el.style.visibility = fits ? '' : 'hidden'
+      placed.sort((a, b) => labelRank(a.region) - labelRank(b.region))
+      // getBBox is in the text's own space, before its transform: add the translation back.
+      const spots = spreadLabels(placed.map(({ el, name, region, x, y, tx, ty }) => {
+        const nameBox = shift(name.getBBox(), tx, ty)
+        const short = region in LEADER ? undefined : shortBox(nameBox, name.dataset.name ?? '', region)
+        return { id: region, full: shift(el.getBBox(), tx, ty), name: nameBox, short, at: region in LEADER ? [x, y] as const : undefined }
+      }), rect)
+      placed.forEach(({ el, name, region, x, y, tx, ty }, i) => {
+        const spot = spots[i]!
+        if (spot.short) name.textContent = region
+        el.setAttribute('transform', `translate(${tx + spot.dx} ${ty + spot.dy})`)
+        el.style.visibility = spot.visible ? '' : 'hidden'
+        const value = el.children[1] as SVGTSpanElement | undefined
+        if (value) value.style.visibility = spot.visible && spot.value ? '' : 'hidden'
         const line = leaderEls.current.get(region)
         if (line) {
-          const [dx, dy] = LEADER[region] ?? [0, 0]
-          Object.entries({ x1: x, y1: y, x2: x + dx * 0.78, y2: y + dy * 0.78 }).forEach(([k, n]) => line.setAttribute(k, String(n)))
-          line.style.visibility = fits ? '' : 'hidden'
+          const lx = tx + spot.dx - x
+          const ly = ty + spot.dy - y
+          Object.entries({ x1: x, y1: y, x2: x + lx * 0.78, y2: y + ly * 0.78 }).forEach(([k, n]) => line.setAttribute(k, String(n)))
+          line.style.visibility = spot.visible ? '' : 'hidden'
         }
-      }
+      })
       if (moving) s.frame = requestAnimationFrame(loop)
     }
     const anchor = new Vector3()
@@ -447,7 +458,7 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
           <line key={id} ref={(el) => { if (el) leaderEls.current.set(id, el); else leaderEls.current.delete(id) }} />)}
         {[...regionNames.keys()].map((id) => <text key={id} ref={(el) => { if (el) labelEls.current.set(id, el); else labelEls.current.delete(id) }}
           className={`relief-label${id in LEADER ? ' is-small' : ''}${hot === id ? ' is-hot' : ''}`}>
-          <tspan className="relief-label-name" x="0" dy="-0.45em">{id in LEADER ? id : regionNames.get(id)}</tspan>
+          <tspan className="relief-label-name" x="0" dy="-0.45em" data-name={id in LEADER ? id : regionNames.get(id)}>{id in LEADER ? id : regionNames.get(id)}</tspan>
           {regionValue(id) && <tspan className="relief-label-value" x="0" dy="1.2em">{regionValue(id)}</tspan>}
         </text>)}
       </svg>}

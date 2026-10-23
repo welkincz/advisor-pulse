@@ -11,6 +11,8 @@
   --signal: #8A6A1C;
   --focus: #2F5FA8;
   --field: rgba(27, 34, 43, 0.082);
+  /* Edges of form fields (selects, radios, checkboxes): 3:1 or better against --paper and --field (WCAG 1.4.11). */
+  --field-edge: #78818C;
 
   /* Categorical: regions and other identities, fixed order, never cycled.
      Validated all-pairs (worst CVD dE 12.7, normal vision 16.3), so any chart form may use all four. */
@@ -106,6 +108,7 @@
     --signal: #D0A64C;
     --focus: #82ADE7;
     --field: rgba(226, 229, 232, 0.095);
+    --field-edge: #6E7884;
 
     --series-1: #346FB8;
     --series-2: #05A7A7;
@@ -149,6 +152,7 @@
   --signal: #D0A64C;
   --focus: #82ADE7;
   --field: rgba(226, 229, 232, 0.095);
+  --field-edge: #6E7884;
 
   --series-1: #346FB8;
   --series-2: #05A7A7;

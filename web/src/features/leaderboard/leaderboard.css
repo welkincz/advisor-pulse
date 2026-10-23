@@ -1,5 +1,5 @@
 .leader-picker { display: grid; gap: var(--space-1); max-width: 22rem; color: var(--muted); font-size: var(--text-sm); }
-.leader-picker select { width: 100%; padding: var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; }
+.leader-picker select { width: 100%; padding: var(--space-2); border: 1px solid var(--field-edge); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; }
 .leader-wrap { overflow-x: auto; }
 .leader-scroll { overflow-y: auto; border-bottom: 1px solid var(--rule); }
 .leader-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
