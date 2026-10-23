@@ -243,6 +243,8 @@ export function CanadaMap({ ready, basemap, width, height, focus, regionNames, r
     const order = groups.map((g, i) => ({ g, text: texts[i]!, id: g.dataset.region ?? '' })).sort((a, b) => labelRank(a.id) - labelRank(b.id))
     const names = order.map(({ text }) => {
       const name = text.firstElementChild as SVGTSpanElement
+      // A short code is written straight into the DOM below, which React does not see. Putting
+      // the full name (data-name, set by React) back before every measure keeps the two in step.
       if (name.textContent !== name.dataset.name) name.textContent = name.dataset.name ?? ''
       return name
     })

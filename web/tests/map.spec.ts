@@ -252,6 +252,32 @@ test('the relief map fits a 375 px screen without sideways scrolling', async ({ 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
+for (const width of [375, 1440]) {
+  test(`every province label shows whole and none overlap at ${width} px`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/map?view=flat')
+    await expect(page.locator('.map-label-group')).toHaveCount(10)
+    // Every problem as a sentence: a hidden label, one past the canvas edge, two that touch.
+    // Polled, because the labels settle in the frame after the data arrives.
+    await expect.poll(() => page.evaluate(() => {
+      const shown = (e: Element) => getComputedStyle(e).visibility !== 'hidden'
+      const canvas = document.querySelector('.canada-map')!.getBoundingClientRect()
+      const boxes = [...document.querySelectorAll<SVGGElement>('.map-label-group')].map((g) => {
+        // Only the lines the reader sees: a dropped value line is hidden, not removed.
+        const rects = [...g.querySelectorAll('tspan')].filter(shown).map((t) => t.getBoundingClientRect())
+        return { id: g.dataset.region, shown: shown(g), left: Math.min(...rects.map((r) => r.left)), top: Math.min(...rects.map((r) => r.top)), right: Math.max(...rects.map((r) => r.right)), bottom: Math.max(...rects.map((r) => r.bottom)) }
+      })
+      return [
+        ...boxes.filter((b) => !b.shown).map((b) => `${b.id} hidden`),
+        ...boxes.filter((b) => b.left < canvas.left || b.right > canvas.right || b.top < canvas.top || b.bottom > canvas.bottom).map((b) => `${b.id} off the canvas`),
+        ...boxes.flatMap((a, i) => boxes.slice(i + 1)
+          .filter((b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom).map((b) => `${a.id} touches ${b.id}`)),
+      ]
+    })).toEqual([])
+  })
+}
+
 test('the list shows the comparison the colours show, and each row explains itself on hover', async ({ page }) => {
   await page.goto('/map?view=flat')
   // Four fixture weeks have no usual yet, so the colours fall back to value and the list says it compares with last week.

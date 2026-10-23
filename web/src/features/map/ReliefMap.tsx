@@ -281,6 +281,8 @@ export default function ReliefMap({ basemap, places, mark, width, height, focus,
         const [dx, dy] = LEADER[p.region] ?? [0, 0]
         el.setAttribute('transform', `translate(${x + dx} ${y + dy})`)
         const name = el.firstElementChild as SVGTSpanElement
+        // A short code is written straight into the DOM below, which React does not see. Putting
+        // the full name (data-name, set by React) back before every measure keeps the two in step.
         if (name.textContent !== name.dataset.name) name.textContent = name.dataset.name ?? ''
         placed.push({ el, name, region: p.region, x, y, tx: x + dx, ty: y + dy })
       }
