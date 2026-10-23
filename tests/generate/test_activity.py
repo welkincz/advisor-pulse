@@ -293,7 +293,10 @@ def test_default_seed_contacted_rate_rises_smoothly_with_local_slips() -> None:
     first_regions, first_branches = details["2024-W41"]
     last_regions, last_branches = details["2027-W52"]
     assert any(last_regions[key] < value for key, value in first_regions.items())
-    assert sum(last_regions[key] > value for key, value in first_regions.items()) > len(first_regions) // 2
+    assert (
+        sum(last_regions[key] > value for key, value in first_regions.items())
+        > len(first_regions) // 2
+    )
     assert max(last_regions.values()) - min(last_regions.values()) >= 0.03
     assert sum(last_branches[key] < value for key, value in first_branches.items()) >= 3
     branch_rates = sorted(last_branches.values())
