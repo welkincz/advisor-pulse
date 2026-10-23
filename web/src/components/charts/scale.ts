@@ -20,9 +20,10 @@ function niceStep(lo: number, hi: number, count: number): number {
 /**
  * A value axis fitted to the data, for marks that do not encode length (dots, lines): the
  * padded extent widened to round ticks at both ends. It does not cross zero when the data
- * does not, so a share never shows a negative tick. Bars keep a zero baseline instead.
+ * does not, so a share never shows a negative tick, and it stops at `ceiling` (1 for a share,
+ * so no 110% tick). Bars keep a zero baseline instead.
  */
-export function fitted(values: Iterable<number | null | undefined>, count = 4, pad = 0.15): { lo: number; hi: number; ticks: number[] } | null {
+export function fitted(values: Iterable<number | null | undefined>, count = 4, pad = 0.15, ceiling = Infinity): { lo: number; hi: number; ticks: number[] } | null {
   const known = [...values].filter((v): v is number => v != null && Number.isFinite(v))
   const padded = domain(known, pad)
   if (!padded) return null
@@ -32,6 +33,7 @@ export function fitted(values: Iterable<number | null | undefined>, count = 4, p
   let hi = round(Math.ceil(padded[1] / step - 1e-9) * step)
   if (lo < 0 && Math.min(...known) >= 0) lo = 0
   if (hi > 0 && Math.max(...known) <= 0) hi = 0
+  if (hi > ceiling && Math.max(...known) <= ceiling) hi = ceiling
   const out: number[] = []
   for (let k = Math.ceil(lo / step - 1e-9); k * step <= hi + step * 1e-9; k++) out.push(round(k * step))
   return { lo, hi, ticks: out }

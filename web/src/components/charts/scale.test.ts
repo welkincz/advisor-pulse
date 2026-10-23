@@ -10,6 +10,9 @@ it('fits a value axis to the data with round ends, never crossing zero', () => {
   expect(fitted([-3, -0.1])?.hi).toBe(0)
   expect(fitted([5])).toEqual({ lo: 4, hi: 6, ticks: [4, 4.5, 5, 5.5, 6] })
   expect(fitted([null, undefined])).toBeNull()
+  // A share near 100% stops at 100%, not an impossible 110%.
+  expect(fitted([0.9], 4, 0.15, 1)).toEqual({ lo: 0.7, hi: 1, ticks: [0.7, 0.8, 0.9, 1] })
+  expect(fitted([0.97, 1], 4, 0.15, 1)?.hi).toBe(1)
 })
 
 it('handles empty, all-null and single-value series', () => {

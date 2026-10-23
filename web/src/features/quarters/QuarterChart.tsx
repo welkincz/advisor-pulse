@@ -32,7 +32,7 @@ function column(x: number, y: number, w: number, h: number): string {
  * line, or a hatched column) and says how many of its weeks are in. Choose a quarter by
  * click or arrow keys; hover shows its months and value.
  */
-export function QuarterChart({ points, selected, onSelect, format, tickFormat = format, label, form = 'bars', height = 240 }: {
+export function QuarterChart({ points, selected, onSelect, format, tickFormat = format, label, form = 'bars', ceiling, height = 240 }: {
   points: readonly QuarterPoint[]
   selected: string
   onSelect: (id: string) => void
@@ -41,6 +41,8 @@ export function QuarterChart({ points, selected, onSelect, format, tickFormat = 
   tickFormat?: (value: number) => string
   label: string
   form?: 'bars' | 'dots'
+  /** The highest value the measure can take (1 for a share), so a fitted axis stops there. */
+  ceiling?: number
   height?: number
 }) {
   const hatch = useId()
@@ -51,7 +53,7 @@ export function QuarterChart({ points, selected, onSelect, format, tickFormat = 
   const innerW = Math.max(0, width - margin.left - margin.right)
   const innerH = height - margin.top - margin.bottom
   const top = Math.max(0, ...points.map((p) => p.value ?? 0))
-  const fit = dots ? fitted(points.map((p) => p.value)) : null
+  const fit = dots ? fitted(points.map((p) => p.value), 4, 0.15, ceiling) : null
   const yTicks = fit?.ticks ?? ticks(0, top || 1, 3)
   const yMin = fit?.lo ?? 0
   const yMax = fit?.hi ?? (Math.max(top, yTicks.at(-1) ?? top) || 1)
