@@ -12,31 +12,58 @@ export interface Recap {
 
 const base = `${import.meta.env.BASE_URL}recap/`
 
-/** The weekly run's recap, or null when this build has none (it is optional: a failed render ships without it). */
+function isRecap(data: unknown): data is Recap {
+  const r = data as Partial<Recap> | null
+  return !!r && typeof r.week === 'string' && typeof r.headline === 'string' && typeof r.support === 'string'
+    && Array.isArray(r.kpis) && Array.isArray(r.flagged)
+}
+
+/**
+ * The recap, or null when this build has none (it is optional: a failed render ships without it).
+ * The video must be there too: a deploy without it answers the mp4 path with the site's
+ * index.html, and a recap.json kept from an earlier deploy must not show a player for it.
+ */
+export async function loadRecap(fetcher: typeof fetch = fetch): Promise<Recap | null> {
+  try {
+    const response = await fetcher(`${base}recap.json`, { cache: 'no-cache' })
+    if (!response.ok) return null
+    const data: unknown = await response.json()
+    if (!isRecap(data)) return null
+    const video = await fetcher(`${base}recap.mp4`, { method: 'HEAD', cache: 'no-cache' })
+    return video.ok && (video.headers.get('content-type') ?? '').startsWith('video/mp4') ? data : null
+  } catch {
+    return null
+  }
+}
+
 export function useRecap(): Recap | null {
   const [recap, setRecap] = useState<Recap | null>(null)
   useEffect(() => {
-    let live = true
-    fetch(`${base}recap.json`)
-      .then((response) => (response.ok ? response.json() as Promise<Recap> : null))
-      .then((data) => { if (live && data && typeof data.week === 'string') setRecap(data) })
-      .catch(() => undefined)
-    return () => { live = false }
+    let active = true
+    void loadRecap().then((data) => { if (active) setRecap(data) })
+    return () => { active = false }
   }, [])
   return recap
 }
 
 /**
  * The week in 20 seconds, rendered by the weekly run (video/). It never plays on its own, so
- * reduced motion needs nothing more; the transcript says everything the video shows.
+ * reduced motion needs nothing more; the transcript says everything the video shows. If the
+ * video fails to load, the poster and the open transcript take its place.
  */
 export function WeekRecap({ recap }: { recap: Recap }) {
+  const [failed, setFailed] = useState(false)
+  const [posterFailed, setPosterFailed] = useState(false)
   return <div className="recap">
-    <video className="recap-video" controls muted playsInline preload="none" poster={`${base}poster.jpg`}
-      aria-label={`The week in 20 seconds, ${recap.week}`} aria-describedby="recap-transcript">
-      <source src={`${base}recap.mp4`} type="video/mp4" />
-    </video>
-    <details className="recap-transcript" id="recap-transcript">
+    {failed
+      ? <>
+        {!posterFailed && <img className="recap-video" src={`${base}poster.jpg`} alt="" onError={() => setPosterFailed(true)} />}
+        <p className="recap-note" role="status">The video did not load. The transcript below says what it shows.</p>
+      </>
+      : <video className="recap-video" controls muted playsInline preload="none" poster={`${base}poster.jpg`}
+        src={`${base}recap.mp4`} onError={() => setFailed(true)}
+        aria-label={`The week in 20 seconds, ${recap.week}`} aria-describedby="recap-transcript" />}
+    <details className="recap-transcript" id="recap-transcript" open={failed || undefined}>
       <summary>What the video shows</summary>
       <p>{recap.headline} {recap.support}</p>
       <p>{recap.kpis.map((k) => `${k.label} ${k.text}${k.flag ? ' (anomaly)' : ''}`).join('; ')}.</p>

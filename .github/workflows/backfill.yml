@@ -97,6 +97,17 @@ jobs:
             echo "next=$(cat "$RUNNER_TEMP/resume_week")" >> "$GITHUB_OUTPUT"
           fi
 
+      # Optional, as in weekly.yml: the recap video of the last week backfilled. A failed render
+      # warns and the site ships without it.
+      - name: Render weekly recap video
+        if: steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next == ''
+        run: |
+          if ! (pnpm -C video install --frozen-lockfile && make video); then
+            echo "::warning::The recap video did not render; the site ships without it."
+            echo "Recap video: not rendered this run (the site ships without it)." >> "$GITHUB_STEP_SUMMARY"
+            rm -rf web/public/recap
+          fi
+
       # Optional: the dbt docs read the warehouse this run just built (fixtures when there is
       # none). A failed build warns and the site ships without /lineage/.
       - name: Build dbt docs lineage

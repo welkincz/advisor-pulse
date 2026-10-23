@@ -51,7 +51,19 @@ runs:
       env:
         CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
-      run: npx --yes wrangler@4.151.1 pages deploy web/dist --project-name advisor-pulse
+      run: |
+        npx --yes wrangler@4.151.1 pages deploy web/dist --project-name advisor-pulse | tee "$RUNNER_TEMP/pages-deploy.log"
+        url=$(grep -oE 'https://[a-z0-9-]+\.advisor-pulse\.pages\.dev' "$RUNNER_TEMP/pages-deploy.log" | tail -n 1 || true)
+        echo "url=$url" >> "$GITHUB_OUTPUT"
+
+    # The recap video is optional, but a deploy that carries it must serve it as video: a file
+    # missing from the upload falls through to index.html (/* /index.html 200) as text/html.
+    - name: Check recap video on the deployment
+      if: steps.deploy_pages.outcome == 'success'
+      shell: bash
+      env:
+        DEPLOY_URL: ${{ steps.deploy_pages.outputs.url }}
+      run: bash "$GITHUB_ACTION_PATH/check_recap.sh" web/dist "$DEPLOY_URL"
 
     - name: Save successful Pages artifact
       if: steps.deploy_pages.outcome == 'success'
