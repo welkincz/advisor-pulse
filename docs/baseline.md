@@ -1,173 +1,175 @@
-# Baseline: 104-week backfill and two weekly runs
+# Baseline: the 106-week rebuild
 
-These numbers come from a run of the real pipeline at the generator's default scale on synthetic Maplecrest Bank (fictional) data. They are the reference for later performance work and for the case study.
+These numbers come from the last full rebuild of the real pipeline at the generator's default scale on synthetic Maplecrest Bank (fictional) data, with the one-year warm-up added in #273. They are the reference for later performance work and for the case study. Every figure names its source.
 
-## How it was run
+## Sources
 
-- **Code:** `586f759` (main after #145, #146, #149, #150).
-- **Machine:** Apple M4 Max (14 cores, 36 GB), local disk.
-- **Environment:** no R2 credentials, so state stayed local. There was no model backend, so every narrative is a template.
+| Source | What it is |
+|---|---|
+| Run [39899627759](https://github.com/welkincz/advisor-pulse/actions/runs/39899627759) | `backfill.yml` with `rebuild=true`, 2024-W41 to 2026-W42, code `050434c`. It stopped on the time budget after 85 weeks. |
+| Run [39927479992](https://github.com/welkincz/advisor-pulse/actions/runs/39927479992) | The continuation it dispatched, 2026-W22 to 2026-W42. It built and deployed the site. |
+| Artifact `pages-deploy-39927479992` | The deployed site, including `data/manifest.json`, the Parquet exports and `run_log.json`. |
+| Artifact `backfill-39927479992` | `run_log.json` with stage timings and row counts for the last 12 weeks. |
+| Local reproduction | The same code and seed on an Apple M4 Max with no R2 credentials and no model backend (commands below). It gives the warehouse row counts, which the Actions runs do not upload. Its `mart_dq_weekly` and `mart_org_weekly` match the deployed exports row for row, so the counts are the deployed run's counts. |
 
 ```bash
-export PULSE_DATA_DIR=run/data PULSE_EXPORT_DIR=run/export
-uv run pulse backfill --from 2024-W41 --to 2026-W40 --rebuild
-uv run pulse run --week 2026-W41 --run-type WEEKLY
-uv run pulse run --week 2026-W42 --run-type WEEKLY
+export PULSE_DATA_DIR=run/data PULSE_EXPORT_DIR=run/export   # the export dir must not exist yet
+uv run pulse backfill --from 2024-W41 --to 2026-W42 --rebuild
 ```
 
-- **Backfill:** a cold rebuild of 104 weeks, which took 55.5 minutes of wall time.
-- **Weekly runs:** each incremental run took about 37 s.
-- **Exit codes:** all three commands exited 0.
-
-**On GitHub Actions** a backfill week took 4–5 minutes, more than half of it in `restore_state` re-downloading the state the runner had just persisted. Two changes made a full rebuild fit (#206):
-
-- Restore downloads only files whose MD5 differs from R2's ETag, and it keeps the local warehouse when it is the one this runner persisted.
-- The backfill workflow has a `budget_minutes` input (default 320 of the job's 360; it counts from the backfill step, so the rest covers setup and deploy). Before each week it checks whether the next one fits, at the slowest week so far plus a quarter. If not, it stops between weeks with the lock released and dispatches itself from the next week. Only the last run of the chain builds and deploys the site.
+The weekly reports that ran before #273 (`weekly.yml`) used the old generator, so none of them is a source here. The generator changed again after `050434c` (#288), so the next rebuild will move the row and defect counts; this page describes the site as deployed by run 39927479992.
 
 ## Outcome
 
-| | Runs | Result |
-|---|---|---|
-| Backfill weeks | 104 | 104 completed, with 0 failed stages |
-| Weekly runs | 2 | 2 completed, with 0 failed stages |
-| DQ033 defect reconciliation | 106 | 106 PASS ("Missing 0; unexpected 0") |
-| DQ030 freshness | 106 | 106 PASS |
-| DQ032 load integrity | 106 | 106 PASS |
-| DQ031 volume | 106 | 82 PASS, 24 WARN, 0 FAIL |
+From the step logs of both runs (`gh run view <id> --log`):
 
-Every run finished as WARN, never SUCCESS. Three things caused that, and each one was expected. Since #251 the first two no longer warn: the booked-from check warns only above 2% of at least 500 bookings, and template narration in backfilled history records SUCCESS.
+| | Result |
+|---|---|
+| Weeks | 106, 2024-W41 to 2026-W42 (`weeks_available` in `manifest.json`) |
+| Runs | 97 SUCCESS, 9 WARN, 0 failed stages, 0 retries |
+| `checks` | WARN in 8 runs (2024-W41 to W48), SUCCESS in 98 |
+| `dbt_build` | "527 dbt nodes passed" in all 106 runs |
+| `narrate` | Templates for the 105 historical weeks. In 2026-W42 the model wrote 26 of 27 narratives; 1 failed validation and fell back to the template, which made that run WARN. |
 
-| Stage | Status | Why |
-|---|---|---|
-| `dbt_build` | WARN in all 106 runs | The one warning is the relationship test `stg_activity.booked_from_activity_id → stg_activity.activity_id`, which is set to `severity: warn`. 295 of 68,712 bookings (0.43%) point to a source activity row that DQ001–DQ003 quarantined, so the parent never reaches staging. Keeping the booking is deliberate. |
-| `narrate` | WARN in all 106 runs | No model backend was configured, so each week wrote 18 template narratives. The backfill keeps template narratives for historical weeks by design (PLAN.md §9). |
-| `checks` | WARN in 24 runs | DQ031, explained below. |
-
-### DQ031 warnings
-
-- **Baseline pending (8 weeks):** 2024-W41 to 2024-W48. These weeks have fewer than 8 reported weeks before them. The partial weeks before the first extract (2024-W38 to W40, which hold only late rows) are excluded since #146.
-- **Statutory holidays (10 weeks):**
-  - Weeks: 2024-W52, 2025-W21, W27, W36, W40, W52, and 2026-W21, W27, W37, W40.
-  - Effect: the generator cuts a holiday's volume to 0.65×, so the week drops 10–17%.
-  - Result: that drop is well past 3σ of a steady baseline but far inside the ±50% FAIL bound.
-- **Small dips with a narrow baseline (6 weeks):**
-  - Weeks: 2025-W18, W19, W20, and 2026-W18, W19, W36.
-  - Size: these weeks are 3–5% below the trailing mean.
-  - Why they still warn: the trailing σ there is only 119–188 rows, so a 3% dip still crosses 3σ.
-
-The 16 non-pending warnings are 15% of weeks. That is noisy for a check people are meant to look at.
-
-**Since #156:** DQ031 divides each week by its business-calendar factor (`pulse.business_calendar.week_factor`: holidays 0.65×, February 1.10×, weighted by weekday) and warns only beyond 3σ **and** 5% of the adjusted mean. Replayed on the national weekly volumes from this run, that gives 0 warnings on the 98 full-baseline weeks. The 8 baseline-pending weeks still warn by design. In production the calendar factors would be estimated from prior years rather than shared with a generator.
+- **The 8 check warnings** are DQ031 with a pending baseline: those weeks have fewer than 8 reported weeks before them. DQ030, DQ032 and DQ033 passed in every run.
+- **DQ033 defect reconciliation** passed in all 106 weeks: "Missing 0; unexpected 0". The local reproduction agrees: 106 PASS for DQ030, DQ032 and DQ033.
 
 ## Row counts per layer (after 2026-W42)
 
+From the local reproduction's `warehouse.duckdb`.
+
 | Layer | Table | Rows |
 |---|---|---:|
-| raw | `snowflake__activity` | 1,535,275 |
-| raw | `teradata__clnt` | 184,730 |
-| raw | `teradata__advsr` / `teradata__advsr_asgn` | 1,352 / 1,352 |
+| raw | `snowflake__activity` | 2,265,315 |
+| raw | `teradata__clnt` | 288,487 |
+| raw | `teradata__advsr` / `teradata__advsr_asgn` | 1,371 / 1,577 |
+| raw | `teradata__prtf` / `teradata__prtf_asgn` | 1,320 / 2,049 |
 | raw | `teradata__brnch` | 122 |
-| quarantine | `rejected_rows` | 5,906 |
-| staging | `stg_activity` | 1,472,505 |
-| staging | `stg_client` | 152,234 |
-| staging | `stg_advisor` / `stg_advisor_assignment` | 941 / 1,352 |
-| intermediate | `int_activity_enriched` | 1,472,505 |
-| intermediate | `int_kpi_events` | 18,364,973 |
-| intermediate | `int_client_book_weekly` | 20,912,063 |
-| intermediate | `int_advisor_history` | 1,311 |
-| marts | `fct_activity` | 1,472,505 |
-| marts | `dim_client` / `dim_advisor` / `dim_org` | 152,234 / 1,312 / 122 |
-| marts | `mart_weekly_report` | 153,902 |
-| marts | `mart_advisor_weekly` | 84,795 |
-| marts | `mart_org_weekly` | 15,369 |
-| marts | `mart_geo_weekly` | 15,172 |
-| marts | `mart_dq_weekly` | 848 |
-| meta | `run_log` / `load_manifest` / `check_result` | 1,060 / 1,060 / 424 |
+| quarantine | `rejected_rows` | 5,910 |
+| staging | `stg_activity` | 2,202,422 |
+| staging | `stg_client` | 153,338 |
+| staging | `stg_advisor` / `stg_advisor_assignment` | 962 / 1,577 |
+| intermediate | `int_activity_enriched` | 2,202,422 |
+| intermediate | `int_kpi_events` | 17,961,907 |
+| intermediate | `int_client_book_weekly` | 25,243,626 |
+| intermediate | `int_client_contact_12m` | 22,194,794 |
+| intermediate | `int_advisor_history` | 1,515 |
+| marts | `fct_activity` | 2,202,422 |
+| marts | `dim_client` / `dim_advisor` / `dim_org` | 153,338 / 1,516 / 122 |
+| marts | `mart_weekly_report` | 159,212 |
+| marts | `mart_portfolio_weekly` | 120,901 |
+| marts | `mart_advisor_weekly` | 82,468 |
+| marts | `mart_org_weekly` | 15,900 |
+| marts | `mart_geo_weekly` | 14,734 |
+| marts | `mart_org_quarterly` | 1,350 |
+| marts | `mart_dq_weekly` | 954 |
 
-### How raw activity becomes staging
+### How activity rows become staging
 
 | Step | Rows | Change |
 |---|---:|---:|
-| Raw activity | 1,535,275 | |
-| Removed by DQ010 dedupe (exact duplicates and resent updates) | | 56,864 |
-| Removed by DQ001–DQ003 quarantine | | 5,906 |
-| Staging activity | 1,472,505 | |
+| Activity rows read (158 extract files, `load_manifest.row_count`) | 2,271,225 | |
+| Quarantined by DQ001–DQ003, never loaded to raw | | 5,910 |
+| Loaded to `raw.snowflake__activity` | 2,265,315 | |
+| Collapsed by DQ010 dedupe (exact duplicates and resent updates) | | 62,893 |
+| Staging activity | 2,202,422 | |
 
-- **Weeks in `mart_org_weekly`:** 109, covering 2024-W38 to 2026-W42.
-- **The 3 weeks before the first extract** hold late-arriving rows only.
+- **Warm-up year:** 727,378 of the rows read come from the 52 clean warm-up extracts that the first week loads (#273), so the 12-month contacted rate has a full window from 2024-W41. They are loaded, never reported.
+- **Reported weeks:** the other 1,543,847 rows belong to the 106 reported weeks. That is the sum of `rows_in_batch` in the deployed `dq_weekly.parquet`, and 1,475,044 of them are kept.
 
-## Duration per stage
+## Duration
 
-### Backfill, 104 weeks
+### The rebuild on GitHub Actions
 
-| Stage | Median (s) | p90 (s) | Max (s) | Total (s) |
-|---|---:|---:|---:|---:|
-| ingest | 15.8 | 17.5 | 135.2 | 1,773 |
-| dbt_build | 10.0 | 13.5 | 18.2 | 1,050 |
-| generate | 3.0 | 4.0 | 4.2 | 307 |
-| export | 1.1 | 1.8 | 2.1 | 111 |
-| narrate (template) | 0.2 | 0.2 | 0.2 | 21 |
-| checks | 0.1 | 0.2 | 0.2 | 12 |
+| | Wall time | Weeks |
+|---|---:|---:|
+| Run 39899627759 (04:18 to 08:50 UTC) | 4 h 32 min | 85, then "Time budget reached after 85 weeks (271 min of 320 min)" |
+| Run 39927479992 (08:50 to 10:02 UTC) | 1 h 12 min | 21, then the site build and deploy |
+| **Whole rebuild** | **5 h 44 min** | **106** |
 
-- **ingest:** the 135 s maximum is the first week, which loads the full client snapshot. After that, ingest is flat at about 16 s per week.
-- **dbt_build:** it grows slowly with history, from about 8 s per week early on to about 14 s by 2026.
-- **Whole first week:** 145 s. Every week after it takes 41 s or less.
+Per week, from the `Backfill n/106` timestamps in the logs:
 
-### Weekly runs
+- **First week:** 41.6 minutes. It generates and loads the warm-up year as well as its own week.
+- **Later weeks:** 110 s at 2024-W43, growing to about 210 s by 2026-W21. On the fresh runner of the second run they took 155–175 s.
+- **Last week:** 809 s, because it was the only week that called the model.
 
-| Week | generate | ingest | dbt_build | checks | narrate | export | Rows in → loaded (quarantined) |
-|---|---:|---:|---:|---:|---:|---:|---|
-| 2026-W41 | 4.4 s | 15.2 s | 13.5 s | 0.2 s | 0.2 s | 1.9 s | 167,034 → 14,564 (55) |
-| 2026-W42 | 4.2 s | 14.4 s | 14.9 s | 0.2 s | 0.2 s | 2.0 s | 166,075 → 13,609 (51) |
+**Why it is slow.** A backfill replays the whole weekly pipeline once per week: each week runs a full `dbt build` over all the history so far and persists the warehouse to R2, so the cost grows with every week added. #275 runs dbt, checks, export and persist once per backfill instead of once per week, and will update these figures when it lands.
 
-- **Rows in:** each week ingest reads the week's activity extract plus 8 client delta files, 167,000 rows in all.
-- **Rows loaded:** about 14,000 new rows, after the watermark and dedupe.
-- **A real weekly run:** this one used templates. The model backend adds about 18 Claude calls for the narratives.
+### One week
+
+The stages of `backfill-2026-W42-1` and the median of the last 12 weeks, from `run_log.json` in artifact `backfill-39927479992`. A weekly report runs the same stages.
+
+| Stage | 2026-W42 (s) | Median, last 12 weeks (s) |
+|---|---:|---:|
+| restore_state | 21 | 21 |
+| generate | 16 | 16 |
+| ingest | 23 | 25 |
+| dbt_build | 77 | 73 |
+| checks | 0.7 | 0.6 |
+| narrate | 631 (model) | 0.9 (template) |
+| export | 5 | 5 |
+| persist_state | 34 | |
+| **Whole run** | **809** | |
+
+- **Without the model:** about 3 minutes, most of it dbt.
+- **With the model:** about 13.5 minutes. Narration is 27 Claude calls, one per region and district.
+- **Ingest in 2026-W42:** 170,990 rows read (the week's activity extract plus 8 client delta files), 13,815 loaded, 52 quarantined.
 
 ## Export sizes (site after 2026-W42)
 
+From the deployed site in `pages-deploy-39927479992`; the bytes match `manifest.json`.
+
 | File | Bytes |
 |---|---:|
-| `weekly_report.parquet` | 2,665,444 |
-| `org_weekly.parquet` | 368,936 |
-| `advisor_weekly.parquet` | 217,084 |
-| `run_log.json` | 67,101 |
-| `geo_weekly.parquet` | 17,134 |
-| `manifest.json` | 9,545 |
-| `pipeline_graph.json` | 6,517 |
-| `dq_weekly.parquet` | 6,055 |
-| `narratives/*.json` (26 files) | 5,309,257 |
-| **Total** | **8,667,073** (43% of the 20 MB budget) |
+| `weekly_report.parquet` | 2,785,560 |
+| `org_weekly.parquet` | 372,091 |
+| `portfolio_weekly.parquet` | 270,636 |
+| `advisor_weekly.parquet` | 240,833 |
+| `org_quarterly.parquet` | 69,670 |
+| `run_log.json` | 60,744 |
+| `geo_weekly.parquet` | 20,383 |
+| `manifest.json` | 9,851 |
+| `dq_weekly.parquet` | 6,742 |
+| `pipeline_graph.json` | 6,739 |
+| `narratives/*.json` (26 files, 2026-W17 to W42) | 6,649,657 |
+| **Total** | **10,492,906** (52% of the 20 MB budget) |
 
-- **Before #148:** the export had no narrative window. It failed at week 54 of the first attempt with 20,134,747 bytes, against a 20,000,000-byte budget.
-- **After #148:** the site keeps the latest 26 weeks of compact narratives, about 200 KB each. Older narratives stay in local storage only, 36 MB for 106 weeks.
-- **Local state:** `warehouse.duckdb` is 1.18 GB and the generated sources are 59 MB.
+- **Narratives:** the site keeps the latest 26 weeks, about 255 KB each (#148). Older narratives stay in state only: 43 MB for 106 weeks in the local reproduction.
+- **Local state:** `warehouse.duckdb` is 1.9 GB and the generated sources are 84 MB.
 
 ## Defect catch rate
 
-Over 106 weeks the generator injected and recorded these defects. DQ033 compares the manifest with what the pipeline did, week by week. It found no missed and no unexpected rows in any week.
+Over the 106 reported weeks the generator injected and recorded these defects (`defects.json` in the local reproduction). The warm-up extracts are clean. DQ033 compares the manifest with what the pipeline did, week by week, and found no missed and no unexpected rows in any week.
 
 | Defect | Expected action | Rule | Injected |
 |---|---|---|---:|
-| Null activity id | Quarantine | DQ001 | 2,957 |
+| Null activity id | Quarantine | DQ001 | 2,960 |
 | Invalid enum | Quarantine | DQ002 | 1,476 |
-| Duration out of range | Quarantine | DQ003 | 1,473 |
-| Exact duplicate | Dedupe | DQ010 | 20,498 |
-| Resent update | Dedupe | DQ010 | 42,272 |
-| Dirty postal code | Normalize | DQ011 | 14,782 |
-| Unknown advisor | Map to unknown | DQ012 | 4,415 |
-| Late-arriving activity | Keep, flagged | — | 58,719 |
+| Duration out of range | Quarantine | DQ003 | 1,474 |
+| Exact duplicate | Dedupe | DQ010 | 20,541 |
+| Resent update | Dedupe | DQ010 | 42,352 |
+| Dirty postal code | Normalize | DQ011 | 23,069 |
+| Unknown advisor | Map to unknown | DQ012 | 4,430 |
+| Unknown portfolio | Map to unknown | DQ014 | 399 |
+| Late-arriving activity | Keep, flagged | — | 58,824 |
 
-- **Quarantine:** the injected quarantine defects add up to 2,957 + 1,476 + 1,473 = 5,906, exactly the number of rows in `quarantine.rejected_rows`.
-- **Change events:** the generator also recorded 31,402 client reassignments and 411 advisor changes (326 transfers, 44 promotions, 41 terminations). These are not defects. They are tested by the SCD2 models, not by DQ033.
+- **Quarantine:** 2,960 + 1,476 + 1,474 = 5,910, exactly the rows in `quarantine.rejected_rows`.
+- **Dedupe:** 20,541 + 42,352 = 62,893, exactly the rows DQ010 collapsed.
+- **Change events:** the generator also recorded 31,184 client reassignments and 409 advisor changes (325 transfers, 43 promotions, 41 terminations). These are not defects. The SCD2 models test them, not DQ033.
 
-## Bugs this run found
+## Earlier baseline
+
+The first baseline (#52, code `586f759`) was a local 104-week backfill without the warm-up year: 1,535,275 raw activity rows, 1,472,505 kept, 55.5 minutes of wall time, about 37 s per weekly run and an 8.7 MB export. It found three bugs:
 
 | Problem | Fix |
 |---|---|
 | DQ031 counted the partial weeks before the first extract in its baseline. | Fixed in #146. |
 | Unbounded narrative history broke the 20 MB export budget at week 54. | Fixed in #148 (PR #150). |
 | CI slowed to 29 minutes once the runner's generate stage used default sizes. | Fixed by small generate sizes in `tests/conftest.py`. |
+
+Every run in it finished as WARN. Since #251 the booked-from relationship test warns only above 2% of at least 500 bookings, and template narration in backfilled history records SUCCESS. It also showed DQ031 warning on 16 holiday and small-dip weeks. Since #156 DQ031 divides each week by its business-calendar factor and warns only beyond 3σ **and** 5% of the adjusted mean. The rebuild above has no such warnings.
+
+**On GitHub Actions** a backfill week then took 4–5 minutes, more than half of it in `restore_state`. #206 made restore download only files whose MD5 differs from R2's ETag, and added the `budget_minutes` input that splits a rebuild across runs, which is how the rebuild above ran.
 
 ## Reproducing at small scale
 
@@ -176,7 +178,6 @@ uv run pytest tests/integration/test_e2e.py -m slow
 ```
 
 - **What it runs:** an 8-week cold backfill plus one weekly run, at the small sizes from `tests/conftest.py`.
-- **Time:** about 85 s.
 - **What it asserts:**
   - generate, ingest and dbt_build succeed for every week.
   - DQ030, DQ032 and DQ033 pass every week.

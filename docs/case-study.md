@@ -52,7 +52,7 @@ GitHub Actions runs the whole pipeline every Monday through one Python runner, w
 
 **Watermarks on extract time, not event time.** Late activity is picked up because the loader asks "which files are new?", not "which events are new?". Each batch is deleted and re-inserted in one transaction, together with its watermark and manifest entry, so a rerun gives the same row counts and the same mart hashes.
 
-**DuckDB everywhere.** The same engine runs in the pipeline and in the browser. At around 1.5 million activity rows that is plenty. It also removes a whole class of "the dashboard query disagrees with the warehouse" bugs, and the site needs no backend.
+**DuckDB everywhere.** The same engine runs in the pipeline and in the browser. At about 2.2 million activity rows that is plenty. It also removes a whole class of "the dashboard query disagrees with the warehouse" bugs, and the site needs no backend.
 
 **State in object storage.** Actions runners are thrown away after every job, and the Actions cache can evict entries after seven days, exactly one weekly interval. The warehouse and sources therefore persist to Cloudflare R2 between runs. If that state is lost, the runner falls back to a deterministic cold rebuild. The fallback is the same backfill path, and it is tested.
 
@@ -62,22 +62,22 @@ GitHub Actions runs the whole pipeline every Monday through one Python runner, w
 
 The generator injects realistic defects and writes a manifest of every one. The pipeline has to handle each defect as designed, and the reconciliation check (DQ033) compares the manifest with what actually happened, week by week.
 
-This table covers a 104-week backfill plus two weekly runs:
+This table covers the latest rebuild, 106 weeks of history:
 
 | Defect | Handling | Injected |
 |---|---|---:|
-| Null activity id | Quarantine (DQ001) | 2,957 |
+| Null activity id | Quarantine (DQ001) | 2,960 |
 | Invalid enum | Quarantine (DQ002) | 1,476 |
-| Duration out of range | Quarantine (DQ003) | 1,473 |
-| Exact duplicates | Dedupe (DQ010) | 20,498 |
-| Resent updates | Dedupe, latest version wins (DQ010) | 42,272 |
-| Dirty postal codes | Normalize (DQ011) | 14,782 |
-| Unknown advisor | Map to an unknown member (DQ012) | 4,415 |
-| Late-arriving activity | Keep, flagged | 58,719 |
+| Duration out of range | Quarantine (DQ003) | 1,474 |
+| Exact duplicates | Dedupe (DQ010) | 20,541 |
+| Resent updates | Dedupe, latest version wins (DQ010) | 42,352 |
+| Dirty postal codes | Normalize (DQ011) | 23,069 |
+| Unknown advisor | Map to an unknown member (DQ012) | 4,430 |
+| Late-arriving activity | Keep, flagged | 58,824 |
 
 - **Reconciliation:** DQ033 passed in all 106 runs, with nothing missing and nothing unexpected.
-- **Quarantine:** the three quarantine defects add up to 5,906 rows, exactly the size of the quarantine table.
-- **Volume:** the volume check warned on 24 weeks and failed on none. Eight of those were weeks without enough history yet. Ten were statutory-holiday weeks and six were dips of 3–5% on a very steady baseline. The check now compares each week with a business-calendar expectation and ignores changes under 5%, which takes those 16 warnings to zero.
+- **Quarantine:** the three quarantine defects add up to 5,910 rows, exactly the size of the quarantine table.
+- **Volume:** the volume check warned on 8 weeks and failed on none. All 8 were the first weeks, without enough history yet. An earlier version also warned on holidays and small dips; the check now compares each week with a business-calendar expectation and ignores changes under 5%.
 
 The full numbers are in [baseline.md](https://github.com/welkincz/advisor-pulse/blob/main/docs/baseline.md).
 
@@ -85,14 +85,16 @@ The full numbers are in [baseline.md](https://github.com/welkincz/advisor-pulse/
 
 | | |
 |---|---:|
-| Weeks of history | 104 (plus 2 weekly runs) |
-| Raw activity rows | 1,535,275 |
-| Activity rows after dedupe and quarantine | 1,472,505 |
-| Cold backfill, 104 weeks | 55.5 minutes |
-| One weekly run | about 37 seconds |
-| Published site data | 8.7 MB (budget 20 MB) |
+| Weeks of history | 106 (2024-W41 to 2026-W42), after a one-year warm-up |
+| Activity rows read | 2,271,225 |
+| Activity rows after dedupe and quarantine | 2,202,422 |
+| Full rebuild on GitHub Actions | 5 h 44 min, in two runs |
+| One weekly run | about 3 minutes; 13.5 minutes with model narratives |
+| Published site data | 10.5 MB (budget 20 MB) |
 
-A weekly run spends most of its time in ingest (about 16 s) and dbt (10 to 15 s). The rest takes a few seconds.
+Without the model, a week spends most of its time in dbt (about 75 s). Writing the 27 narratives with Claude adds about 10 minutes.
+
+The rebuild is slow because each week replays the whole pipeline: a full dbt build over all the history so far, then a save of the warehouse to object storage. So every added week costs more than the last. The fix runs those steps once per rebuild instead of once per week ([#275](https://github.com/welkincz/advisor-pulse/issues/275)).
 
 ## Failure handling
 
@@ -132,4 +134,4 @@ The parts I would keep: deriving history from events, idempotent batches, reconc
 - The data is synthetic, and so are the defects.
 - The report is weekly, by design.
 - Advisors and clients are generated. Only the geography (public FSA boundaries) is real.
-- The narratives for the 104 historical weeks are templates. Only weeks run with a model backend get model-written text.
+- The narratives for the 105 historical weeks are templates. Only weeks run with a model backend get model-written text.

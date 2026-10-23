@@ -6,9 +6,9 @@ The lead measure is **portfolio contacted (12 months)**: of the active clients i
 
 Behind it is a weekly batch pipeline: two messy synthetic source systems, an incremental load with quarantine, a dbt star schema on DuckDB, data-quality checks reconciled against an answer key, and short weekly notes written by Claude and checked against the figures. The result is a static report at [pulse.charliebuild.com](https://pulse.charliebuild.com) that the browser queries with DuckDB-WASM, with the [dbt lineage graph](https://pulse.charliebuild.com/lineage/) beside it.
 
-| 104 weeks | 1.5M activity rows | 106 of 106 runs | 37 s | 55 min |
+| 106 weeks | 2.2M activity rows | 106 of 106 runs | 3 min | 5 h 44 min |
 |---|---|---|---|---|
-| of history, rebuilt from events | loaded incrementally, 5,906 quarantined | reconciled every injected defect, nothing missing | per weekly run | for a cold rebuild of all history |
+| of history, rebuilt from events | loaded incrementally, 5,910 quarantined | reconciled every injected defect, nothing missing | per weekly run, plus about 10 min of model narratives | for a rebuild of all history on GitHub Actions |
 
 Stack: Python, SQL, dbt, DuckDB, GitHub Actions, Cloudflare R2 and Pages, TypeScript, React, DuckDB-WASM, Claude.
 
@@ -63,7 +63,7 @@ Each skill an analytics or data engineer is asked about, and where it lives in t
 - [dbt lineage](https://pulse.charliebuild.com/lineage/): every model, column and test, from sources to the pages that read them.
 - [Decision records](docs/adr/): SCD2 from events, the geo size budget, the portfolio entity, the expand/contract migration and the 12-month window.
 - [Case study](docs/case-study.md): the problem, key decisions and tradeoffs, data quality, and what would change at real scale. It is also on the site at [/case-study](https://pulse.charliebuild.com/case-study).
-- [Baseline](docs/baseline.md): row counts, durations, export sizes and defect catch rate for a 104-week run.
+- [Baseline](docs/baseline.md): row counts, durations, export sizes and defect catch rate for the latest 106-week rebuild.
 - [PLAN.md](docs/PLAN.md): architecture, data dictionary, KPIs, data-quality rules and failure handling.
 - [AGENTS.md](AGENTS.md): how humans and coding agents (Claude Code, Codex, Cursor) work in this repo.
 
