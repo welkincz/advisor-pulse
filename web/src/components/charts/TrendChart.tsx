@@ -37,6 +37,8 @@ export interface TrendChartProps {
   morphKey?: string
   /** Fit the y axis from this index on, so warm-up weeks do not flatten the rest. */
   fitFrom?: number
+  /** True while the data is on its way: the empty chart's placeholder pulses and says so. Settled or failed, it stays still. */
+  loading?: boolean
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -58,7 +60,7 @@ function useWidth<T extends HTMLElement>() {
  * changes, and moves its week cursor when the week does. Hover shows a crosshair and the
  * week's numbers; click or arrow keys choose a week when `onSelect` is given.
  */
-export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, describe, hint, morphKey, fitFrom = 0 }: TrendChartProps) {
+export function TrendChart({ weeks, values, usual, reference, flagged, selected, onSelect, format, label, height = 280, compact = false, color, tip, describe, hint, morphKey, fitFrom = 0, loading = false }: TrendChartProps) {
   const reducedMotion = useReducedMotion()
   const clip = useId()
   const [box, width] = useWidth<HTMLDivElement>()
@@ -166,8 +168,18 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
   const named = latest !== null && !compact ? `${label} Latest anomaly: ${weeks[latest]}.` : label
   const dip = ringPoint != null && near.length > 0 && ringPoint[1] > near.reduce((sum, p) => sum + p[1], 0) / near.length
 
+  // No values yet: a placeholder in the line's shape, in the plot's place, instead of an empty axis.
+  const skeleton = !compact && !hasData
+
   return <div ref={box} className={`trend${compact ? ' trend-compact' : ''}`} style={{ height }}>
-    {width > 0 && <svg width={width} height={height} role="img" aria-label={named}
+    {skeleton && <div className={`trend-skeleton${loading ? ' is-loading' : ''}`} role="status"
+      style={{ inset: `${margin.top}px ${margin.right}px ${margin.bottom}px ${margin.left}px` }}>
+      <span className="trend-skeleton-label">{loading ? 'Loading the chart…' : 'No values to plot.'}</span>
+      <svg className="trend-skeleton-shape" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 27 C8 25 14 30 22 27 S36 17 46 20 S62 28 72 22 S88 13 100 16" vectorEffect="non-scaling-stroke" />
+      </svg>
+    </div>}
+    {width > 0 && !skeleton && <svg width={width} height={height} role="img" aria-label={named}
       tabIndex={onSelect ? 0 : undefined} onKeyDown={onKeyDown} onBlur={() => setKeyed(false)}
       onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) setKeyed(true) }}
       onPointerMove={compact ? undefined : (event) => { setKeyed(false); setHover(pick(event)) }}

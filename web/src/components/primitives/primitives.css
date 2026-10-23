@@ -25,7 +25,7 @@
 .stat { border-top: 1px solid var(--rule); padding-top: var(--space-3); min-width: 0; }
 .stat-emphasis { border-top: 3px solid var(--signal); }
 .stat-label { color: var(--muted); font-size: var(--text-sm); }
-.stat-value { margin: var(--space-1) 0 0; font-size: var(--text-2xl); font-weight: 500; letter-spacing: -0.02em; line-height: var(--leading-tight); }
+.stat-value { margin: var(--space-1) 0 0; font-size: var(--text-2xl); font-weight: var(--weight-medium); letter-spacing: -0.02em; line-height: var(--leading-tight); }
 .stat-emphasis .stat-value { font-size: var(--text-3xl); }
 .stat-unit { font-size: var(--text-md); color: var(--muted); margin-left: var(--space-1); letter-spacing: 0; }
 .stat-context { margin: var(--space-2) 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--muted); font-size: var(--text-sm); }
@@ -44,11 +44,11 @@
 /* Breadcrumb */
 .breadcrumb ol { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); color: var(--muted); }
 .breadcrumb li + li::before { content: '/'; margin-right: var(--space-2); color: var(--faint); }
-.breadcrumb [aria-current='page'] { color: var(--ink); font-weight: 600; }
+.breadcrumb [aria-current='page'] { color: var(--ink); font-weight: var(--weight-strong); }
 
 /* Status */
 .status { display: inline-flex; align-items: baseline; gap: var(--space-2); font-size: var(--text-sm); }
-.status-glyph { font-weight: 700; width: 1em; text-align: center; }
+.status-glyph { font-weight: var(--weight-strong); width: 1em; text-align: center; }
 .status-good .status-glyph { color: var(--status-good); }
 .status-warning .status-glyph { color: var(--status-warning); }
 .status-critical .status-glyph { color: var(--status-critical); }
@@ -72,7 +72,7 @@
 .week-player-years span { position: absolute; padding-left: var(--space-1); border-left: 1px solid var(--rule); }
 .week-player-track input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
 .week-player-track:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 4px; }
-.week-player-value { min-width: 5.5rem; font-weight: 600; text-align: right; }
+.week-player-value { min-width: 5.5rem; font-weight: var(--weight-strong); text-align: right; }
 
 /* Week stepper: previous, a select of every week, next. */
 .stepper { display: inline-flex; align-items: center; gap: var(--space-1); }
@@ -80,7 +80,7 @@
 .stepper button:hover:not(:disabled) { border-color: var(--ink); }
 .stepper button:disabled { color: var(--faint); cursor: default; }
 .stepper svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-.stepper .stepper-week { height: 2.25rem; padding: 0 var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.stepper .stepper-week { height: 2.25rem; padding: 0 var(--space-2); border: 1px solid var(--rule); border-radius: 2px; background: var(--paper); color: var(--ink); font: inherit; font-size: var(--text-sm); font-weight: var(--weight-strong); cursor: pointer; }
 .stepper .stepper-week:hover { border-color: var(--ink); }
 .stepper .stepper-latest { margin-left: var(--space-2); }
 
@@ -98,7 +98,7 @@
 .ks-status { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-8); }
 .ks-trail { margin: var(--space-8) 0 var(--space-4); }
 .ks-multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-4); }
-.ks-group h3 { font-size: var(--text-sm); color: var(--muted); font-weight: 500; }
+.ks-group h3 { font-size: var(--text-sm); color: var(--muted); font-weight: var(--weight-medium); }
 
 /* Hover card: what a thing is, what happened, and the answer to the question it raises.
    It floats, so it is the one element with a shadow. */
@@ -113,12 +113,12 @@
   color: var(--ink); font-size: var(--text-sm); line-height: var(--leading-tight); text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .hc p, .hc ul { margin: 0; }
 .hc-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); }
-.hc-title { font-weight: 600; }
-.hc-value { font-size: var(--text-lg); font-weight: 500; }
+.hc-title { font-weight: var(--weight-strong); }
+.hc-value { font-size: var(--text-lg); font-weight: var(--weight-medium); }
 .hc-what { color: var(--muted); }
 .hc-happened { display: grid; gap: var(--space-1); padding: var(--space-2) 0 0; border-top: 1px solid var(--rule); list-style: none; }
 .hc-answer { padding-top: var(--space-2); border-top: 1px solid var(--rule); }
-.hc-q { font-weight: 600; }
+.hc-q { font-weight: var(--weight-strong); }
 .hc .hc-a { margin-top: var(--space-1); color: var(--muted); }
 .hc-hint { color: var(--muted); font-size: var(--text-xs); }
 .term { text-decoration: underline dotted var(--muted); text-underline-offset: 3px; cursor: help; }

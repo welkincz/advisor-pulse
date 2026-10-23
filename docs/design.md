@@ -63,7 +63,11 @@ Rules:
   and do not jitter when a value tweens. This is what "mono figures" means here: monospaced
   digits in Avenir Next, not a monospace typeface.
 - Body text stays under `--measure` (38rem, about 70 characters).
-- Weights: 400 body, 500 stat values, 600 headings. Never 700+ except the status glyph.
+- Weights: three, through tokens only: `--weight-regular` (400) body, `--weight-medium` (500)
+  stat values, `--weight-strong` (600) headings, labels and the status glyph. Never 700+;
+  `base.css` brings `b`, `strong`, `th` and `h4`–`h6` down to `--weight-strong`.
+- Wrapping: display heads (`h1`–`h3`) set `text-wrap: balance`; body copy sets `pretty`, so no
+  line ends on a single word.
 - Sentence case everywhere, including buttons and table headers.
 - Write numbers the same way everywhere: one decimal for rates as percentages (`84.4%`),
   thousands separators (`1,284`), a real minus sign (`−7.1%`), week IDs as `2026-W40`.

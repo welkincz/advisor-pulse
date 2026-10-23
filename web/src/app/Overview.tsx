@@ -111,7 +111,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
       <div className="briefing-hero-plot">
       {history.status === 'error' && <DataNotice what="the weekly history" onRetry={history.retry} />}
       <TrendChart weeks={plotWeeks} values={plotted.map((r) => r?.value ?? null)} usual={plotted.map((r) => (r && settled.has(r.iso_week_id) ? r.trailing_13w_avg ?? null : null))}
-        flagged={plotted.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={Math.max(0, WARM_UP_WEEKS - start)}
+        flagged={plotted.map((r) => r?.flag === 'ANOMALY')} selected={week} onSelect={(w) => set('week', w)} morphKey={code} fitFrom={Math.max(0, WARM_UP_WEEKS - start)} loading={history.status === 'loading'}
         format={(v) => formatKpi(code, v)} height={heroChartHeight(wide, phone)} hint="Click to open this week"
         describe={(i) => {
           const r = plotted[i]
