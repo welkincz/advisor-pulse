@@ -6,6 +6,13 @@ their model-response cache (so history accrues and a rerun of a week costs no mo
 ``lock.json``. Persist uploads sources before the warehouse:
 if it stops halfway, R2 holds sources the warehouse has not loaded yet, which the next ingest
 picks up. The reverse (a warehouse that saw files R2 lacks) cannot happen.
+
+``run_logs/<run_id>.json`` holds a run's final ``meta.run_log`` rows (#291). Persist uploads
+the warehouse while its own row is RUNNING and before release_lock has run, so the persisted
+log cannot end that run. ``pulse run`` writes this tail once every stage has finished, and the
+next restore applies it to the restored warehouse, only for runs that warehouse holds: a run
+whose persist failed is not in it, so its tail is never applied. That restore's persist then
+uploads the finished rows and removes the tails it applied.
 """
 
 from __future__ import annotations
@@ -16,10 +23,11 @@ import shutil
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from pulse.contracts.enums import RunType, StageStatus
+from pulse.contracts.meta import RunLogRow
 from pulse.generate.advisors import REPORT_START
 from pulse.runner.stage import RetryableError, StageContext, StageResult
 from pulse.state import lock
@@ -36,6 +44,7 @@ NARRATIVES_DIR = "narratives"
 # Every run_id in the persisted warehouse. A fresh runner starts with an empty local
 # warehouse, so ``pulse run`` reads this to number its run (weekly-2026-W40-2, not -1 again).
 RUNS_KEY = "runs.json"
+TAILS_DIR = "run_logs"
 STATE_STAGES = frozenset({"restore_state", "persist_state", "release_lock"})
 
 # Rebuild every week in order, oldest first, into ctx.data_dir. Returns the stage outcome.
@@ -134,6 +143,8 @@ class StateSync:
         self._tokens: dict[str, str] = {}
         # Runs that started from empty local state: their first persist prunes stale sources.
         self._fresh: set[str] = set()
+        # Run-log tails each run's restore saw; its persist removes them once uploaded.
+        self._tails: dict[str, list[str]] = {}
 
     def _store(self) -> ObjectStore | None:
         store = self.store_factory()
@@ -178,12 +189,14 @@ class StateSync:
             # cold. It never leaves the old warehouse beside new sources.
             store.delete(WAREHOUSE_FILE)
             self._fresh.add(ctx.run_id)
+            self._tails[ctx.run_id] = sorted(store.etags(f"{TAILS_DIR}/"))  # old runs' tails
             return StageResult(message=f"Rebuild starts from empty local state.{note}")
 
         if not store.exists(WAREHOUSE_FILE):
             # Narratives in R2 are left there: the rebuild narrates nothing, and mirroring
             # uploads only new or changed files, so the next persist cannot overwrite them.
             clear_local(ctx.data_dir)
+            self._tails[ctx.run_id] = sorted(store.etags(f"{TAILS_DIR}/"))  # never applied
             weeks = weeks_between(self.start_week, ctx.iso_week_id)
             if not weeks:
                 return StageResult(message=f"Cold start: no state in R2.{note}")
@@ -216,13 +229,59 @@ class StateSync:
             (ctx.data_dir / f"{WAREHOUSE_FILE}.wal").unlink(missing_ok=True)
             store.download(WAREHOUSE_FILE, ctx.data_dir / WAREHOUSE_FILE)
             warehouse = "restored"
+        finished = self._apply_tails(store, ctx)
         return StageResult(
             rows_out=len(sources),
             message=(
                 f"State matches R2: {warehouse} {WAREHOUSE_FILE}, {len(sources)} source files and "
-                f"{len(narratives)} narrative files ({fetched} downloaded).{note}"
+                f"{len(narratives)} narrative files ({fetched} downloaded).{finished}{note}"
             ),
         )
+
+    def _apply_tails(self, store: ObjectStore, ctx: StageContext) -> str:
+        """Upsert each earlier run's final rows into the restored warehouse (module docstring)."""
+        from pulse.ingest import meta
+        from pulse.warehouse import connect, init_warehouse, transaction
+
+        keys = sorted(store.etags(f"{TAILS_DIR}/"))
+        self._tails[ctx.run_id] = keys
+        if not keys:
+            return ""
+        con = connect(ctx.data_dir / WAREHOUSE_FILE)
+        try:
+            init_warehouse(con)
+            # When each held run started. A tail must match it: a rebuild can reuse run ids.
+            started: dict[str, datetime] = {}
+            for r in meta.get_run_log(con):
+                started[r.run_id] = min(started.get(r.run_id, r.started_at), r.started_at)
+            applied: list[str] = []
+            with transaction(con):
+                for key in keys:
+                    found = store.get(key) if Path(key).stem in started else None
+                    if found is None:
+                        continue  # its persist failed: the warehouse never saw that run
+                    rows = [RunLogRow.model_validate(r) for r in json.loads(found[0])]
+                    if not rows or min(r.started_at for r in rows) != started[rows[0].run_id]:
+                        continue
+                    for row in rows:
+                        meta.write_run_log(con, row)
+                    applied.append(rows[0].run_id)
+        finally:
+            con.close()
+        return f" Finished the run log of {', '.join(applied)}." if applied else ""
+
+    def record_run_log(self, rows: Sequence[RunLogRow]) -> bool:
+        """Keep a run's final rows in R2 for the next restore. False when there is nothing to
+        keep: no credentials, or the run never reached persist_state. Raises if R2 fails."""
+        persists = [r for r in rows if r.stage == "persist_state"]
+        if not persists or persists[-1].status is StageStatus.SKIPPED:
+            return False
+        store = self.store_factory()
+        if store is None:
+            return False
+        body = json.dumps([r.model_dump(mode="json") for r in rows]).encode()
+        store.put(f"{TAILS_DIR}/{rows[0].run_id}.json", body)
+        return True
 
     @staticmethod
     def _warehouse_is_current(store: ObjectStore, data_dir: Path) -> bool:
@@ -290,6 +349,13 @@ class StateSync:
         )
         store.put(RUNS_KEY, json.dumps(_run_ids(ctx.data_dir / WAREHOUSE_FILE)).encode())
         persisted = f"Persisted {WAREHOUSE_FILE} and {sources} new or changed source files{pruned}"
+        # The uploaded run log now ends the runs whose tails restore saw, or never held them.
+        # Best effort: a tail left behind is applied again, which changes nothing.
+        try:
+            for key in self._tails.pop(ctx.run_id, []):
+                store.delete(key)
+        except Exception as exc:
+            log.warning("Run-log tails not removed: %s", exc)
         try:
             narratives = self._mirror(store, ctx.data_dir, NARRATIVES_DIR)
             stale = ""

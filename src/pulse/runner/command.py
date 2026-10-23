@@ -71,11 +71,29 @@ def run_week(
         con.close()
     run_log.write_json(doc, data_dir / RUN_LOG_JSON)
     refreshed = _refresh_exported_run_log(report.rows, doc, echo)
+    recorded = _record_final_run_log(report.rows, echo)
 
     for row in report.rows:
         echo(f"  {row.stage:<15} attempt {row.attempt}  {row.status.value:<8} {row.message or ''}")
     echo(f"{report.run_id}: {report.status.value}")
-    return 1 if report.failed or not refreshed else 0
+    return 1 if report.failed or not refreshed or not recorded else 0
+
+
+def _record_final_run_log(rows: Sequence[RunLogRow], echo: Callable[[str], None]) -> bool:
+    """Keep this run's final rows beside the persisted state (#291).
+
+    persist_state uploads the warehouse while its own row is RUNNING, so the next restore
+    finishes this run's log from these rows. Returns False, after saying why, when R2 fails:
+    the next run would then show this run's persist_state as unfinished.
+    """
+    from pulse.state import STATE
+
+    try:
+        STATE.record_run_log(rows)
+    except Exception as exc:
+        echo(f"Could not keep the final run log with the state: {type(exc).__name__}: {exc}")
+        return False
+    return True
 
 
 def _refresh_exported_run_log(
