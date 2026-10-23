@@ -212,6 +212,18 @@ def test_without_credentials_no_tail_is_kept(tmp_path: Path) -> None:
     assert sync.record_run_log([]) is False
 
 
+def test_an_unreadable_tail_is_skipped_and_removed(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clock = Clock()
+    use_store(monkeypatch, store)
+    assert backfill(WEEKS[0], WEEKS[0], tmp_path, clock, []) == 0
+    store.put(f"run_logs/{RUNS[0]}.json", b'[{"run_id": "half a ro')
+    out: list[str] = []
+    assert backfill(WEEKS[1], WEEKS[1], tmp_path, clock, out) == 0, out
+    assert sorted(store.etags("run_logs/")) == [f"run_logs/{RUNS[1]}.json"]
+
+
 @pytest.mark.integration
 @pytest.mark.slow
 def test_real_two_week_backfill_on_fixtures_exports_every_stage_final(
