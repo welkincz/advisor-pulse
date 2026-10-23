@@ -176,6 +176,8 @@
 /* The week in 20 seconds: the weekly run's recap video, with its transcript. */
 .recap { display: grid; gap: var(--space-3); max-inline-size: 48rem; }
 .recap-video { display: block; inline-size: 100%; aspect-ratio: 16 / 9; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); }
+img.recap-video { object-fit: cover; }
+.recap-note { margin: 0; font-size: var(--text-sm); color: var(--ink); }
 .recap-transcript { font-size: var(--text-sm); color: var(--muted); }
 .recap-transcript summary { cursor: pointer; color: var(--ink); }
 .recap-transcript summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

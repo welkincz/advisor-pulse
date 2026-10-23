@@ -12,6 +12,10 @@
 /data/run_log.json
   Cache-Control: no-cache
 
+# The weekly recap (make video) is replaced every week under the same names: revalidate.
+/recap/*
+  Cache-Control: no-cache
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 

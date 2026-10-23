@@ -154,6 +154,7 @@ test('the week in 20 seconds plays only when asked and has a transcript, for its
   await page.setViewportSize({ width: 375, height: 812 })
   const recap = readFileSync(resolve(import.meta.dirname, '../../video/src/sample.json'), 'utf8')
   await page.route('**/recap/recap.json', (route) => route.fulfill({ body: recap, contentType: 'application/json' }))
+  await page.route('**/recap/recap.mp4', (route) => route.fulfill({ body: '', contentType: 'video/mp4' }))
   await page.goto('/')
   const section = page.getByRole('region', { name: 'The week in 20 seconds' })
   await expect(section).toBeVisible()
@@ -167,6 +168,25 @@ test('the week in 20 seconds plays only when asked and has a transcript, for its
   await page.goto('/?week=2026-W39')
   await expect(page.getByRole('heading', { name: 'Activities per advisor', level: 2 })).toBeVisible()
   await expect(page.getByRole('region', { name: 'The week in 20 seconds' })).toHaveCount(0)
+})
+
+test('the week in 20 seconds stays off a deploy without its video, and a broken video leaves the transcript', async ({ page }) => {
+  const recap = readFileSync(resolve(import.meta.dirname, '../../video/src/sample.json'), 'utf8')
+  await page.route('**/recap/recap.json', (route) => route.fulfill({ body: recap, contentType: 'application/json' }))
+  // No video in this build: the mp4 path falls through to the site's index.html.
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Activities per advisor', level: 2 })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'The week in 20 seconds' })).toHaveCount(0)
+  // The video is announced as an mp4 but cannot be decoded: no dead player.
+  await page.route('**/recap/recap.mp4', (route) => route.fulfill({ body: 'not a video', contentType: 'video/mp4' }))
+  await page.reload()
+  const section = page.getByRole('region', { name: 'The week in 20 seconds' })
+  await expect(section).toBeVisible()
+  await section.locator('video').evaluate((el: HTMLVideoElement) => el.play().catch(() => undefined))
+  await expect(section.getByRole('status')).toHaveText('The video did not load. The transcript below says what it shows.')
+  await expect(section.locator('video')).toHaveCount(0)
+  await expect(section.locator('.recap-transcript')).toHaveAttribute('open', '')
+  await expect(section.locator('.recap-transcript')).toContainText(JSON.parse(recap).headline)
 })
 
 test.describe('on a touch screen', () => {

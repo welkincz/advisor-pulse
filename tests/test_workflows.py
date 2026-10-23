@@ -168,6 +168,7 @@ def test_pages_cache_headers_and_spa_fallback() -> None:
     assert "/data/manifest.json\n  Cache-Control: no-cache" in headers
     assert "/data/run_log.json\n  Cache-Control: no-cache" in headers
     assert "/assets/*\n  Cache-Control: public, max-age=31536000, immutable" in headers
+    assert "/recap/*\n  Cache-Control: no-cache" in headers
     assert "/* /index.html 200" in redirects
 
 
@@ -285,3 +286,116 @@ def test_deploys_build_the_dbt_docs_before_the_site_and_ship_without_them_on_fai
     assert ci["Static dbt docs build within budget (CI fixtures)"]["run"] == (
         "DBT_TARGET=ci make dbt-docs-static"
     )
+
+
+def test_deploys_render_the_recap_video_before_the_site_and_ship_without_it_on_failure() -> None:
+    builds = (
+        ("weekly.yml", "Build weekly site", "steps.weekly_run.outcome == 'success'"),
+        (
+            "backfill.yml",
+            "Build backfilled site",
+            "steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next == ''",
+        ),
+    )
+    for name, build, condition in builds:
+        steps = load(name)["jobs"]["run"]["steps"]
+        names = [step.get("name") for step in steps]
+        video = steps[names.index("Render weekly recap video")]
+        assert names.index("Render weekly recap video") < names.index(build)
+        assert video["if"] == condition
+        assert "pnpm -C video install --frozen-lockfile && make video" in video["run"]
+        assert "::warning::" in video["run"]
+        assert "rm -rf web/public/recap" in video["run"]
+
+
+def test_pages_action_checks_the_recap_video_after_a_successful_deploy() -> None:
+    by_name = {step.get("name"): step for step in action_steps()}
+    deploy = by_name["Deploy successful site"]
+    assert 'tee "$RUNNER_TEMP/pages-deploy.log"' in deploy["run"]
+    assert 'echo "url=$url" >> "$GITHUB_OUTPUT"' in deploy["run"]
+    check = by_name["Check recap video on the deployment"]
+    assert check["if"] == "steps.deploy_pages.outcome == 'success'"
+    assert check["env"]["DEPLOY_URL"] == "${{ steps.deploy_pages.outputs.url }}"
+    assert "check_recap.sh" in check["run"]
+    names = [step.get("name") for step in action_steps()]
+    assert names.index("Deploy successful site") < names.index(
+        "Check recap video on the deployment"
+    )
+
+
+def _serve(root: Path, handler_type: type) -> Any:
+    import functools
+    import http.server
+    import threading
+
+    handler = functools.partial(handler_type, directory=str(root))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def _check_recap(dist: Path, url: str, tmp_path: Path) -> tuple[str, str]:
+    summary = tmp_path / "summary.md"
+    summary.touch()
+    result = subprocess.run(
+        ["bash", str(PAGES_ACTION / "check_recap.sh"), str(dist), url],
+        env={
+            "PATH": os.environ["PATH"],
+            "GITHUB_STEP_SUMMARY": str(summary),
+            "RECAP_CHECK_DELAY": "0",
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout, summary.read_text()
+
+
+def test_recap_check_passes_video_and_warns_on_the_spa_fallback(tmp_path: Path) -> None:
+    import http.server
+
+    class SpaFallback(http.server.SimpleHTTPRequestHandler):
+        """Pages' ``/* /index.html 200``: a missing file answers as the site page."""
+
+        def send_head(self) -> Any:
+            if not Path(self.translate_path(self.path)).exists():
+                self.path = "/index.html"
+            return super().send_head()
+
+        def log_message(self, *args: Any) -> None:
+            pass
+
+    dist = tmp_path / "dist"
+    (dist / "recap").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html>")
+    (dist / "recap" / "recap.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
+    served = tmp_path / "served"
+    served.mkdir()
+    (served / "index.html").write_text("<!doctype html>")
+
+    good = _serve(dist, SpaFallback)
+    stale = _serve(served, SpaFallback)
+    try:
+        good_url = f"http://127.0.0.1:{good.server_address[1]}"
+        stale_url = f"http://127.0.0.1:{stale.server_address[1]}/"
+        stdout, summary = _check_recap(dist, good_url, tmp_path)
+        assert "content-type: video/mp4" in stdout.lower()
+        assert "serves video/mp4" in summary
+        stdout, summary = _check_recap(dist, stale_url, tmp_path)
+        assert "::warning::" in stdout
+        assert "text/html" in summary and "not video/mp4" in summary
+    finally:
+        good.shutdown()
+        stale.shutdown()
+
+
+def test_recap_check_notes_a_deploy_without_the_video(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    _, summary = _check_recap(dist, "http://127.0.0.1:9", tmp_path)
+    assert summary == "Recap video: not in this deploy (the page shows no recap section).\n"
+    (dist / "recap").mkdir()
+    (dist / "recap" / "recap.mp4").write_bytes(b"")
+    stdout, summary = _check_recap(dist, "", tmp_path)
+    assert "::warning::" in stdout
+    assert "not checked" in summary
