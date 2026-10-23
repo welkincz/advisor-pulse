@@ -25,6 +25,12 @@ test('the overview reads the fiscal quarter to date, by region, at 375 px', asyn
   await expect(section.getByRole('link', { name: 'Ontario' })).toHaveAttribute('href', '/r/ON')
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
 
+  // A rate is a dot per quarter on a fitted axis that says it does not start at zero.
+  await page.goto('/?kpi=SHOW_RATE')
+  await expect(section.locator('.quarters-chart.is-dots .quarters-col.is-to-date circle')).toHaveCount(1, { timeout: 30_000 })
+  await expect(section.locator('.quarters-axis-note')).toContainText('not 0')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+
   // Distinct clients only grow through a quarter, so they wait for it to close.
   await page.goto('/?kpi=CLIENTS_CONTACTED')
   await expect(section.locator('.quarters-head')).toContainText('None yet', { timeout: 30_000 })

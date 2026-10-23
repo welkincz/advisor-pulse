@@ -4,12 +4,37 @@
 export function ticks(lo: number, hi: number, count = 4): number[] {
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) return []
   if (lo === hi) return [lo]
-  const raw = (hi - lo) / Math.max(1, count)
-  const power = 10 ** Math.floor(Math.log10(raw))
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= raw) ?? 10 * power
+  const step = niceStep(lo, hi, count)
   const out: number[] = []
   for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Number(v.toPrecision(12)))
   return out
+}
+
+/** The round step (1, 2, 2.5 or 5 times a power of ten) that cuts [lo, hi] into about `count` parts. */
+function niceStep(lo: number, hi: number, count: number): number {
+  const raw = (hi - lo) / Math.max(1, count)
+  const power = 10 ** Math.floor(Math.log10(raw))
+  return [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= raw) ?? 10 * power
+}
+
+/**
+ * A value axis fitted to the data, for marks that do not encode length (dots, lines): the
+ * padded extent widened to round ticks at both ends. It does not cross zero when the data
+ * does not, so a share never shows a negative tick. Bars keep a zero baseline instead.
+ */
+export function fitted(values: Iterable<number | null | undefined>, count = 4, pad = 0.15): { lo: number; hi: number; ticks: number[] } | null {
+  const known = [...values].filter((v): v is number => v != null && Number.isFinite(v))
+  const padded = domain(known, pad)
+  if (!padded) return null
+  const step = niceStep(padded[0], padded[1], count)
+  const round = (v: number) => Number(v.toPrecision(12))
+  let lo = round(Math.floor(padded[0] / step + 1e-9) * step)
+  let hi = round(Math.ceil(padded[1] / step - 1e-9) * step)
+  if (lo < 0 && Math.min(...known) >= 0) lo = 0
+  if (hi > 0 && Math.max(...known) <= 0) hi = 0
+  const out: number[] = []
+  for (let k = Math.ceil(lo / step - 1e-9); k * step <= hi + step * 1e-9; k++) out.push(round(k * step))
+  return { lo, hi, ticks: out }
 }
 
 /** The [min, max] of the known values, padded by `pad` of the span on each side. */
