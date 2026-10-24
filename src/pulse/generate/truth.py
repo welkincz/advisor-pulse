@@ -292,6 +292,11 @@ def ground_truth(
     """Every injected behaviour change, from the seed and the generator's own functions."""
     stories = _volume_stories(org, assignments) + _drift_stories(org, seed, clients, portfolios)
     stories += _advisor_stories(org, assignments, seed, last)
+    # Planned future events are not missed detections in an earlier report; likewise,
+    # events whose entire detection window precedes this history cannot be assessed.
+    stories = [
+        s for s in stories if s.start_week <= iso_week(last) and s.end_week >= iso_week(first)
+    ]
     stories.sort(key=lambda s: (s.story, TRUTH_LEVELS.index(s.level), s.node_id, s.start_week))
     return GroundTruth(
         seed=seed, stories=tuple(stories), calendar_weeks=calendar_weeks(first, last)

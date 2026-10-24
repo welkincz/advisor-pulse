@@ -123,3 +123,17 @@ def test_a_sunday_hire_changes_volume_only_when_the_advisor_can_first_work() -> 
     )
     volume = next(s for s in events if s.story == "DISTRICT_VOLUME")
     assert volume.start_week == "2026-W41"  # Monday October 5; no activities on Sunday
+
+
+def test_future_planned_stories_do_not_reduce_recall_before_they_happen() -> None:
+    world = _world(7)
+    truth = ground_truth(
+        org(),
+        assignment_ranges(world.roster),
+        world.clients,
+        world.portfolios,
+        seed=7,
+        first=REPORT_START,
+        last=date(2025, 10, 27),
+    )
+    assert truth.stories == ()

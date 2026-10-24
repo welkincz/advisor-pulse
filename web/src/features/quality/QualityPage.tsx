@@ -7,6 +7,7 @@ import { Section, Sparkline } from '../../components/primitives'
 import { DataNotice, useDqWeekly, useRunLog } from '../../data'
 import type { DqAction, DqWeekly } from '../../data/generated/dq_weekly'
 import { ingestSkip, qualitySentence, readCheck } from './checks'
+import { FlagBacktest } from './FlagBacktest'
 import { QualityMark } from './QualityMark'
 import { RULES, RULES_URL } from './rules'
 import './quality.css'
@@ -89,6 +90,8 @@ export function QualityPage() {
         })}
       </ul> : <p>No checks were recorded for this run.</p>)}
     </Section>
+
+    <FlagBacktest />
 
     <Section id="quality-volume" title="Rows held back each week" lede="Every weekly batch, split by what the rules did with the rows they caught.">
       {weekly.status === 'loading' && <p aria-busy="true">Loading quality history…</p>}
