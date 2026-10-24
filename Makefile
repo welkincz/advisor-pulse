@@ -105,6 +105,12 @@ run: ## One weekly run end to end (WEEK=YYYY-Www)
 backfill: ## Weekly runs over a range (FROM=YYYY-Www TO=YYYY-Www)
 	$(RUN) pulse backfill --from $(FROM) --to $(TO)
 
+# Each dir is a built data dir (generate --backfill, then one run); ADR 0006 has the commands.
+BACKTEST_DIRS ?= data
+.PHONY: backtest
+backtest: ## Score the report's flags against the generator's ground truth (BACKTEST_DIRS='tune held-out', ARGS='--tune')
+	$(RUN) python -m pulse.quality.backtest_cli $(BACKTEST_DIRS) $(ARGS)
+
 .PHONY: export
 export: ## Export marts to web/public/data
 	$(RUN) pulse export
