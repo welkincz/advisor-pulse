@@ -78,6 +78,7 @@ This table covers the latest rebuild, 106 weeks of history:
 - **Reconciliation:** DQ033 passed in all 106 runs, with nothing missing and nothing unexpected.
 - **Quarantine:** the three quarantine defects add up to 5,910 rows, exactly the size of the quarantine table.
 - **Volume:** the volume check warned on 8 weeks and failed on none. All 8 were the first weeks, without enough history yet. An earlier version also warned on holidays and small dips; the check now compares each week with a business-calendar expectation and ignores changes under 5%.
+- **The lead KPI, computed twice:** a separate Python script recomputes the 12-month contacted rate from the raw extracts, sharing no code with dbt or ingest, and must match the marts for every portfolio, advisor and org node in every week, in CI and on a full-size run.
 
 The full numbers are in [baseline.md](https://github.com/welkincz/advisor-pulse/blob/main/docs/baseline.md).
 

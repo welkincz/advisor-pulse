@@ -133,6 +133,10 @@ dbt-build-ci: ## dbt build against fixtures (ARGS='-s model')
 	$(DBT) seed $(DBT_DIRS) --target ci
 	$(DBT) build $(DBT_DIRS) --target ci --indirect-selection=buildable $(ARGS)
 
+.PHONY: crosscheck-kpi
+crosscheck-kpi: ## Recompute the lead KPI from the raw extracts and compare it with the marts (PULSE_DATA_DIR)
+	$(RUN) python scripts/crosscheck_kpi.py --data-dir "$${PULSE_DATA_DIR:-data}"
+
 .PHONY: dbt-docs
 dbt-docs: ## dbt docs generate + serve (local warehouse)
 	$(DBT) docs generate $(DBT_DIRS)
