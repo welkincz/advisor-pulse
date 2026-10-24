@@ -91,7 +91,7 @@ jobs:
           BENCHMARK_ONLY: ${{ inputs.benchmark_only }}
           BUDGET_MINUTES: ${{ inputs.budget_minutes || '320' }}
           PULSE_DATA_DIR: data
-          PULSE_NARRATIVE_BACKEND: claude-code
+          PULSE_NARRATIVE_BACKEND: ${{ inputs.benchmark_only && 'api' || 'claude-code' }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.benchmark_only != true && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           R2_ACCESS_KEY_ID: ${{ inputs.benchmark_only != true && secrets.R2_ACCESS_KEY_ID || '' }}
           R2_SECRET_ACCESS_KEY: ${{ inputs.benchmark_only != true && secrets.R2_SECRET_ACCESS_KEY || '' }}

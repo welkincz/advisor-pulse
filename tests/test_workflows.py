@@ -437,6 +437,9 @@ def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
     assert workflow["on"]["workflow_dispatch"]["inputs"]["benchmark_only"]["default"] == "false"
     steps = {s.get("name"): s for s in workflow["jobs"]["run"]["steps"]}
     env = steps["Backfill selected weeks"]["env"]
+    assert env["PULSE_NARRATIVE_BACKEND"] == (
+        "${{ inputs.benchmark_only && 'api' || 'claude-code' }}"
+    )
     for key in (
         "R2_ACCESS_KEY_ID",
         "R2_SECRET_ACCESS_KEY",
