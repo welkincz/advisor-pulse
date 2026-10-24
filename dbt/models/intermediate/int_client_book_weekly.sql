@@ -54,7 +54,6 @@ ranged as (
 weeks as (
     select
         iso_week_id,
-        min(week_start) as week_start,
         max(week_end) as week_end,
         timezone(
             'America/Toronto',
@@ -64,11 +63,11 @@ weeks as (
     group by iso_week_id
 ),
 
+-- A quiet client source does not end the book. Use the same last activity
+-- week as int_kpi_events; the version ranges already supply the lower bound.
 observed as (
-    select
-        min({{ toronto_date('valid_from') }}) as first_update,
-        max({{ toronto_date('valid_from') }}) as last_update
-    from ranged
+    select max(iso_week_id) as last_week
+    from {{ ref('int_activity_enriched') }}
 )
 
 select
@@ -84,8 +83,7 @@ select
     ranged.status_code = 'A' as is_active
 from weeks
 inner join observed
-    on weeks.week_end >= observed.first_update
-    and weeks.week_start <= observed.last_update
+    on weeks.iso_week_id <= observed.last_week
 inner join ranged
     on weeks.as_of_ts >= ranged.valid_from
     and weeks.as_of_ts < ranged.valid_to

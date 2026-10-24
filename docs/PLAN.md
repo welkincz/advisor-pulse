@@ -341,7 +341,7 @@ These hold source columns as-is, plus:
 |-------|-------|---------|
 | int_advisor_history | advisor_id × valid_from | SCD2 ranges from assignment events: `valid_from`, `valid_to` (exclusive, `9999-12-31` open), `branch_id`, `role_code`, `change_reason` |
 | int_portfolio_history | portfolio_id × valid_from | SCD2 holder ranges from PRTF_ASGN: `advisor_id`, `valid_from`, `valid_to` (exclusive), `change_reason`; DQ024 (#223) |
-| int_client_book_weekly | client_id × iso_week_id | Client's portfolio as of week end, then that portfolio's holder as of week end (the book owner; null for an unknown portfolio, DQ014); transit branch; active flag |
+| int_client_book_weekly | client_id × iso_week_id | Client's portfolio as of week end, then that portfolio's holder as of week end (the book owner; null for an unknown portfolio, DQ014); transit branch; active flag; version ranges supply the lower bound, and weeks extend through the last activity week (`int_kpi_events` history), including weeks with no client delta |
 | int_client_contact_12m | client_id × iso_week_id | Last completed contact activity by any advisor on or before week end; `contacted_12m` = that date > week end − 12 months (#223) |
 | int_activity_enriched | activity_id | Activity joined to as-of advisor history (branch at time of activity) |
 

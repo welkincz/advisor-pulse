@@ -9,6 +9,9 @@ models:
       true when that version's status is `A`. A closure at or before that cut-off drops
       the client for that week and every later week (PLAN.md §7, active book at week end).
       Reassignments are read from every loaded CLNT version, not from `stg_client`.
+      Weeks extend through the last activity week, using the same activity
+      history as `int_kpi_events`, even when no client delta arrives that week.
+      The version ranges and client-since date supply each client's lower bound.
     data_tests:
       - expression_is_true:
           arguments:
@@ -83,3 +86,34 @@ models:
           True when the week-end version is status `A`. Closed clients stay in the
           history with this flag false; they are not part of the active book.
         data_tests: [not_null]
+
+unit_tests:
+  - name: int_client_book_weekly_carries_quiet_weeks_only_through_activity_history
+    description: >
+      A W37 client version remains the book in W38 without a new delta. The calendar's
+      earlier W36 predates that version and its later W40 has no activity;
+      neither may invent a book week. W39 has only cancelled activity and retains its book.
+    model: int_client_book_weekly
+    given:
+      - input: source('raw', 'teradata__clnt')
+        rows:
+          - {CLNT_ID: CLI-00000001, CLNT_SINCE_DT: '2020-01-01', PRIM_BRNCH_ID: BR-0001, PRTF_ID: PRT-000001, PSTL_CD: M5V3L9, STAT_CD: A, LAST_UPD_TS: '2026-09-08 12:00:00+00', _loaded_at: '2026-09-09 00:00:00+00', _source_file: snapshot, _source_row: 1}
+      - input: ref('dim_date')
+        rows:
+          - {iso_week_id: '2026-W36', week_start: '2026-08-31', week_end: '2026-09-06'}
+          - {iso_week_id: '2026-W37', week_start: '2026-09-07', week_end: '2026-09-13'}
+          - {iso_week_id: '2026-W38', week_start: '2026-09-14', week_end: '2026-09-20'}
+          - {iso_week_id: '2026-W39', week_start: '2026-09-21', week_end: '2026-09-27'}
+          - {iso_week_id: '2026-W40', week_start: '2026-09-28', week_end: '2026-10-04'}
+      - input: ref('int_activity_enriched')
+        rows:
+          - {iso_week_id: '2026-W38', status: COMPLETED}
+          - {iso_week_id: '2026-W39', status: CANCELLED}
+      - input: ref('int_portfolio_history')
+        rows:
+          - {portfolio_id: PRT-000001, advisor_id: ADV-00001, transit_branch_id: BR-0001, valid_from: '2020-01-01', valid_to: '9999-12-31'}
+    expect:
+      rows:
+        - {client_id: CLI-00000001, iso_week_id: '2026-W37', portfolio_id: PRT-000001, primary_advisor_id: ADV-00001, is_active: true}
+        - {client_id: CLI-00000001, iso_week_id: '2026-W38', portfolio_id: PRT-000001, primary_advisor_id: ADV-00001, is_active: true}
+        - {client_id: CLI-00000001, iso_week_id: '2026-W39', portfolio_id: PRT-000001, primary_advisor_id: ADV-00001, is_active: true}

@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import random
+import shutil
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -96,6 +97,47 @@ def test_independent_kpi_matches_the_marts_on_every_node_and_week(fixture_run: P
     # Every DQ001–DQ004 activity defect and both DQ005 client rows in defects.json.
     assert "8 quarantined" in report
     assert "Clients: 2 CLNT rows quarantined" in report
+
+
+def test_final_activity_week_keeps_the_book_without_a_client_delta(
+    fixture_run: Path, tmp_path: Path
+) -> None:
+    """A quiet CLNT week carries the prior book forward, without inventing future weeks."""
+    warehouse = tmp_path / "warehouse.duckdb"
+    shutil.copy2(fixture_run / "warehouse.duckdb", warehouse)
+    with duckdb.connect(str(warehouse)) as con:
+        # Move final-week deltas into W39 in a scratch warehouse. The final activity
+        # week then has no client change; committed source fixtures stay intact.
+        con.execute(
+            "update raw.teradata__clnt set LAST_UPD_TS = LAST_UPD_TS - interval 7 day where "
+            "timezone('America/Toronto', LAST_UPD_TS)::date >= date '2026-09-28'"
+        )
+        # A client whose relationship starts in W40 would legitimately change the
+        # book even without a new delta; exclude those clients from this quiet case.
+        con.execute("delete from raw.teradata__clnt where CLNT_SINCE_DT > date '2026-09-27'")
+        assert con.execute(
+            "select max(strftime(timezone('America/Toronto', LAST_UPD_TS), '%G-W%V'))"
+            " from raw.teradata__clnt"
+        ).fetchone() == ("2026-W39",)
+        assert con.execute(
+            "select max(iso_week_id) from intermediate.int_activity_enriched"
+            " where status = 'COMPLETED'"
+        ).fetchone() == ("2026-W40",)
+
+    _dbt(tmp_path, "run", "--select", *MARTS)
+
+    with duckdb.connect(str(warehouse), read_only=True) as con:
+        counts = dict(
+            con.execute(
+                "select iso_week_id, portfolio_clients from marts.mart_org_weekly"
+                " where level = 'NATIONAL' and iso_week_id in ('2026-W39', '2026-W40')"
+            ).fetchall()
+        )
+        assert counts["2026-W39"] > 0
+        assert counts["2026-W40"] == counts["2026-W39"], counts
+        assert con.execute(
+            "select max(iso_week_id) from intermediate.int_client_book_weekly"
+        ).fetchone() == ("2026-W40",)
 
 
 def test_a_broken_rule_is_caught_and_the_first_difference_is_named(
