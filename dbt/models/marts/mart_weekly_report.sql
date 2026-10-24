@@ -143,7 +143,9 @@ compared as (
     select
         *,
         round(value - prior_week_value, 4) as wow_delta,
-        round(round(value - prior_week_value, 4) / nullif(prior_week_value, 0), 4) as wow_pct
+        -- Not rounded: rounding a ratio to four places and showing it to one decimal of a
+        -- percent can land 0.1 point away from value / prior_week_value − 1.
+        round(value - prior_week_value, 4) / nullif(prior_week_value, 0) as wow_pct
     from windowed
 ),
 

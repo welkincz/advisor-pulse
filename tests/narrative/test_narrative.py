@@ -204,7 +204,7 @@ def test_cache_key_covers_prompt_model_and_facts(report: list[WeeklyReport]) -> 
     base = cache_key("claude-opus-5-5", on)
     assert base == cache_key("claude-opus-5-5", build_facts(report, "ON", WEEK))
     assert base != cache_key("claude-sonnet-5-5", on)
-    assert PROMPT_VERSION == "narrative-v3"
+    assert PROMPT_VERSION == "narrative-v4"
     assert base != cache_key("claude-opus-5-5", on, prompt_version="narrative-v1")
     assert base != cache_key("claude-opus-5-5", qc)
 

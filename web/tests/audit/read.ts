@@ -28,16 +28,15 @@ export class Ledger {
 export const changeText = (share: number | null | undefined) => (share == null ? 'No prior week' : formatChange(share))
 
 /**
- * wow_pct is stored to four places, so it must sit within half of the fourth place of
- * value / prior_week_value − 1. A change that lands exactly on a rounding tie can then show
- * either neighbour at one decimal; anything further apart is a broken source.
+ * wow_pct is stored unrounded, so it must equal value / prior_week_value − 1 up to floating
+ * point: the change a reader recomputes is the change the site shows.
  */
 export function wowTies(ledger: Ledger, where: string, row: Pick<WeeklyReport, 'value' | 'prior_week_value' | 'wow_pct'>) {
   const { value, prior_week_value: prior, wow_pct: wow } = row
   if (wow == null) return ledger.ok(where, value == null || prior == null || prior === 0, `has no change though value ${value} and prior ${prior} are both there`)
   if (value == null || prior == null || prior === 0) return ledger.fail(where, `shows a change of ${wow} with no prior week to compare`)
   const recomputed = value / prior - 1
-  ledger.ok(where, Math.abs(wow - recomputed) <= 0.00005 + 1e-9, `change ${wow} does not match ${value} / ${prior} − 1 = ${recomputed.toFixed(6)}`)
+  ledger.ok(where, Math.abs(wow - recomputed) <= 1e-9, `change ${wow} does not match ${value} / ${prior} − 1 = ${recomputed.toFixed(6)}`)
 }
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

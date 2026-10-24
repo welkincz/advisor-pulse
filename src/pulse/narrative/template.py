@@ -6,7 +6,7 @@ from __future__ import annotations
 from pulse.contracts.enums import KpiCode
 from pulse.contracts.exports import NarrativeBullet, NarrativeFact, NodeNarrative, WatchItem
 from pulse.narrative.facts import NodeFacts
-from pulse.narrative.prompt import KPI_LABELS, LOWER_IS_BETTER, PROMPT_VERSION, fmt
+from pulse.narrative.prompt import KPI_LABELS, LOWER_IS_BETTER, PROMPT_VERSION, fmt, fmt_share
 
 BULLET_KPIS = (KpiCode.ACT_PER_ADV, KpiCode.CALLS_OUT, KpiCode.SHOW_RATE, KpiCode.APPT_CONV)
 FLAT = 0.01  # |wow_pct| below 1% reads as "held"
@@ -28,7 +28,7 @@ def _move(fact: NarrativeFact) -> str:
     pct = fact.wow_pct
     if pct is None or abs(pct) < FLAT:
         return f"held at {value}"
-    return f"{'rose' if pct > 0 else 'fell'} {abs(pct):.1%} week over week to {value}"
+    return f"{'rose' if pct > 0 else 'fell'} {fmt_share(pct)} week over week to {value}"
 
 
 def template_narrative(node: NodeFacts) -> NodeNarrative:
