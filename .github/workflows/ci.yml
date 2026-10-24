@@ -72,6 +72,11 @@ jobs:
               - 'web/**'
               - 'contracts/schemas/**'
               - 'fixtures/**'
+              # Read by the web build and tests: the case study page, its figure check
+              # against the baseline, and the motion recordings.
+              - 'docs/case-study.md'
+              - 'docs/baseline.md'
+              - 'docs/recordings/**'
               - 'Makefile'
               - '.github/workflows/ci.yml'
 
