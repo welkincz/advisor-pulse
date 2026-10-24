@@ -1,8 +1,9 @@
 -- Activity fact (PLAN.md §6.8), one row per activity, credited to the advisor's branch as
 -- of the activity date. Incremental delete+insert: each run rebuilds every activity dated
 -- within the lookback (28 days by default) of the latest one already loaded, so rows that
--- arrive up to four weeks late land in their original week, and a full refresh gives the
--- same table.
+-- arrive up to four weeks late land in their original week. A full refresh reapplies
+-- current client attributes to older facts too; incremental replay can retain their
+-- earlier FSA/client match outside the lookback (owner-approved backfill exception, #275).
 {{ config(
     materialized='incremental',
     incremental_strategy='delete+insert',

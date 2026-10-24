@@ -9,7 +9,8 @@ models:
       an unknown client keeps a null `client_sk` (DQ013). Incremental `delete+insert` on
       `activity_id`: each run rebuilds every activity dated within `fct_activity_lookback_days`
       (default 28) of the latest loaded `activity_date`, so late rows land in their original
-      week and a full refresh produces the same table.
+      week. A full refresh also reapplies current client attributes to older facts; incremental
+      replay can retain an earlier FSA/client match outside the lookback (#275).
     data_tests:
       - expression_is_true:
           arguments:
