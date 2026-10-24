@@ -11,6 +11,9 @@ test('a change is written one way: signed, one decimal, a real minus, ±0.0% whe
   expect(formatChange(-0.071)).toBe('−7.1%')
   // Under half a tenth of a point the table, the card and the delta all call it level.
   expect(formatChange(0.0003)).toBe('±0.0%')
+  // At the boundary the sign and the rounding agree: half a tenth of a point is +0.1%.
+  expect(formatChange(0.0005)).toBe('+0.1%')
+  expect(formatChange(-0.0005)).toBe('−0.1%')
   expect(formatWow(0.0003)).toBe('±0.0% WoW')
   expect(formatWow(null)).toBe('no prior week')
 })

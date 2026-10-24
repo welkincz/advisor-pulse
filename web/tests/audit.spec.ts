@@ -34,7 +34,11 @@ const weeks = () => truth.manifest.weeks_available
 const settled = (week: string) => weeks().indexOf(week) >= 13
 const query = (extra = '') => `?week=${truth.week}${extra}`
 
-/** A figure that fills in once its data loads: give it time to reach `expected`, then read what it shows. */
+/**
+ * A figure that fills in once its data loads: give it time to reach `expected`, then read what it
+ * shows. The wait never fails on its own; the caller hands the text to the ledger, which records
+ * any mismatch.
+ */
 async function loaded(figure: Locator, expected: string): Promise<string | null> {
   await expect(figure).toHaveText(expected, { timeout: 30_000 }).catch(() => undefined)
   return figure.textContent()
