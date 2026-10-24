@@ -115,6 +115,23 @@ The stages of `backfill-2026-W42-1` and the median of the last 12 weeks, from `r
 - **With the model:** about 11 minutes. Narration is 27 Claude calls, one per region and district.
 - **Ingest in 2026-W42:** 170,990 rows read (the week's activity extract plus 8 client delta files), 13,815 loaded, 52 quarantined.
 
+### Why this rebuild's weeks are slower (#335)
+
+Median `dbt_build` went from 73 s in the previous rebuild to 108 s, and ingest from 25 s to 36 s, with the same 527 dbt nodes and the same row counts. The cause is the Actions runner, not the code.
+
+Same 12 weeks (2026-W31 to W42), from artifacts `backfill-39927479992` (code `050434c`) and `backfill-40065355219` (code `ef841e1`):
+
+| Stage | Before (s) | After (s) | Ratio |
+|---|---:|---:|---:|
+| generate | 15.6 | 18.8 | 1.20× |
+| ingest | 25.3 | 36.0 | 1.42× |
+| dbt_build | 72.9 | 108.3 | 1.49× |
+| checks | 0.63 | 0.99 | 1.57× |
+
+- **Same code paths.** Between the two commits, `src/pulse/ingest/`, the runner stages, the warehouse helper and `uv.lock` are byte-identical, and every model's compiled SQL matches. The slowest-growing model, `int_client_book_weekly` (26 → 38 s), reads client history that #288 did not change.
+- **Same workload, same machine.** Built once to 2025-W10 at full size, then timed 2025-W11 three times per commit in alternating order on an Apple M4 Max: dbt 16.5 → 17.1 s (+3%) and ingest 15.9 → 16.0 s (+1%), with overlapping ranges and identical mart hashes.
+- **Different runners.** Both runs used the same `ubuntu-26.04` image and package versions, but in different Azure regions (centralus, then eastus2 and westus3). The logs do not record the CPU model or core count; #336 adds that, so the next comparison can show it directly.
+
 ## Export sizes (site after 2026-W42)
 
 From the deployed site in `pages-deploy-40065355219`; the bytes match `manifest.json`.
