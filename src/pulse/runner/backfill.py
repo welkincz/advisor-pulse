@@ -1,4 +1,4 @@
-"""Run an ordered ISO-week range through the same pipeline as ``pulse run``."""
+"""Ingest an ordered ISO-week range, then finalize the historical backfill once."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def _template_narrate(ctx: StageContext) -> StageResult:
 
 
 def _rebuild_restore(ctx: StageContext) -> StageResult:
-    """Acquire the state lock for the first week without fetching the old warehouse."""
+    """Acquire the state lock without fetching the old warehouse."""
     from pulse.state import STATE
 
     return STATE.restore(ctx, skip_remote=True)
@@ -63,12 +63,11 @@ def backfill_range(
     budget: timedelta | None = None,
     resume_file: Path | None = None,
 ) -> int:
-    """Return nonzero at the first failed week; ``rebuild`` starts with empty local state.
+    """Ingest in week order; build, check and publish the complete range at the end.
 
-    With a ``budget``, stop cleanly between weeks once the next one might not fit: each week
-    has released the state lock and persisted its state, so a later run continues with
-    ``--from`` the week named in the message (and written to ``resume_file``). This keeps a
-    long rebuild inside a CI job's time limit instead of being cancelled mid-week (#206).
+    A budgeted run checkpoints raw state every eight weeks and before a clean stop. A
+    continuation restores pending week/run IDs and defect manifests before finishing all
+    checks. Small custom DAGs retain weekly execution for focused stage callers/tests.
     """
     weeks = week_range(first, last)
     timer = clock or SystemClock()
