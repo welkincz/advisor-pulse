@@ -17,6 +17,18 @@ permissions:
   pull-requests: read
 
 jobs:
+  reviewer-map:
+    name: Reviewer evidence links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      # Always run: source, router or docs-only changes can invalidate evidence.
+      # The validator uses only the standard library; no project install is needed.
+      - run: uv run --no-project --python 3.12 python scripts/reviewer_map.py --check
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest

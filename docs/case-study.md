@@ -1,5 +1,12 @@
 # Advisor Pulse: a weekly advisor-activity report, built end to end
 
+## For reviewers: three minutes
+
+1. **0:00–0:45** — Read the business question, weekly measure and drill-down in the [weekly report](https://pulse.charliebuild.com/).
+2. **0:45–1:30** — Inspect how assignment events rebuild point-in-time ownership in the [SCD2 model](https://github.com/welkincz/advisor-pulse/blob/main/dbt/models/intermediate/int_advisor_history.sql#L1).
+3. **1:30–2:15** — Read the repeat-run and crash-recovery evidence in the [idempotency tests](https://github.com/welkincz/advisor-pulse/blob/main/tests/integration/test_idempotency.py#L84).
+4. **2:15–3:00** — Compare the demonstrated capabilities, limits and tracked gaps with the [job-sample evidence map](https://github.com/welkincz/advisor-pulse/blob/main/docs/reviewer-map.md).
+
 Advisor Pulse is a weekly batch pipeline and report for Maplecrest Bank, a fictional Canadian bank. Every number on this page comes from synthetic data. The data is generated with a fixed seed, loaded the way a real warehouse would load it, modelled in dbt, checked, explained in plain language by Claude, and published as a static site. The site updates once a week, after the weekly run, and that is all a Monday report needs.
 
 ## The problem
