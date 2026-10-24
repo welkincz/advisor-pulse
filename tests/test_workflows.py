@@ -35,7 +35,8 @@ def test_weekly_and_backfill_share_the_state_lock_and_failure_artifacts() -> Non
             "weekly"
             if name == "weekly.yml"
             else (
-                "${{ inputs.benchmark_only && format('backfill-benchmark-{0}', github.ref) || 'weekly' }}"
+                "${{ inputs.benchmark_only && "
+                "format('backfill-benchmark-{0}', github.ref) || 'weekly' }}"
             )
         )
         assert workflow["concurrency"] == {"group": expected_group, "cancel-in-progress": "false"}
