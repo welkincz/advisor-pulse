@@ -128,8 +128,8 @@ def render(data: dict) -> str:
         "## Individual tool mentions",
         "",
         "PySpark is counted separately from Python; a skill inferred from another tool "
-        "does not become a direct mention. These per-role lists cannot substantiate the "
-        "owner's earlier aggregate of Python 11/12 and SQL 9/12.",
+        "does not become a direct mention. Inaccessible or incomplete descriptions "
+        "are not filled in by inference.",
         "",
         f"| Tool | Observed / {len(posts)} | Retrieved / {retrieved} | Source IDs |",
         "|---|---|---|---|",
