@@ -113,10 +113,6 @@
 .heat-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
 .heat-cursor { fill: none; stroke: var(--focus); stroke-width: 2; pointer-events: none; }
 .national-only { margin: 0; max-width: var(--measure); color: var(--muted); }
-.hero-table { margin-top: var(--space-3); }
-.hero-table-scroll { max-height: 20rem; overflow: auto; }
-.hero-table-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.hero-table tr[aria-current='true'] th, .hero-table tr[aria-current='true'] td { background: var(--field); font-weight: var(--weight-strong); }
 .swatch-word { font-weight: var(--weight-strong); }
 .swatch-better { color: var(--better-3); }
 .swatch-worse { color: var(--worse-3); }

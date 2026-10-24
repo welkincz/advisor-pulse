@@ -153,6 +153,11 @@ web-dev-latest: ## Vite dev server on the latest published weekly export: every 
 	scripts/fetch_latest_export.sh data/web-latest
 	cd web && PULSE_FIXTURES_DIR=$(CURDIR)/data/web-latest pnpm dev
 
+.PHONY: web-audit-latest
+web-audit-latest: ## Cross-view number audit on the latest weekly export (EXPORTS=dir skips the download; WEEK=2026-W41 audits an earlier week; needs gh)
+	$(if $(EXPORTS),,scripts/fetch_latest_export.sh data/web-latest)
+	cd web && PULSE_AUDIT_EXPORTS=$(abspath $(or $(EXPORTS),data/web-latest)) $(if $(filter-out last,$(WEEK)),PULSE_AUDIT_WEEK=$(WEEK)) pnpm exec playwright test tests/audit.spec.ts --reporter=line
+
 .PHONY: web-check
 web-check: ## Web lint + typecheck + unit tests + build (+ smoke)
 	cd web && pnpm types:check

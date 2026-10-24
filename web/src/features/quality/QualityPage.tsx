@@ -6,12 +6,12 @@ import { TrendChart } from '../../components/charts/TrendChart'
 import { Section, Sparkline } from '../../components/primitives'
 import { DataNotice, useDqWeekly, useRunLog } from '../../data'
 import type { DqAction, DqWeekly } from '../../data/generated/dq_weekly'
-import { ingestSkip, qualitySentence, readCheck } from './checks'
+import { formatShare, ingestSkip, qualitySentence, readCheck } from './checks'
 import { QualityMark } from './QualityMark'
 import { RULES, RULES_URL } from './rules'
 import './quality.css'
 
-const percent = (rate: number | null | undefined, digits = 2) => (rate == null ? '–' : `${(rate * 100).toFixed(digits)}%`)
+const percent = (rate: number | null | undefined, digits = 2) => (rate == null ? '–' : formatShare(rate, digits))
 
 /**
  * The share of the batch, from the counts. The mart's `rate` is rounded to four places, which
@@ -131,11 +131,11 @@ export function QualityPage() {
             <p>{rule?.action}. Latest: {percent(share(series.at(-1)))} of the batch, {series.at(-1)?.rows_affected.toLocaleString('en-CA') ?? '–'} rows.</p>
           </figcaption>
           <TrendChart weeks={weeks} values={series.map(share)} morphKey={selected} height={220}
-            format={(v) => percent(v, 3)} label={`${selected} weekly affected rate, ${weeks[0]} to ${lastWeek}`}
+            format={(v) => percent(v)} label={`${selected} weekly affected rate, ${weeks[0]} to ${lastWeek}`}
             tip={(i) => series[i] ? <span>{series[i]!.rows_affected.toLocaleString('en-CA')} of {series[i]!.rows_in_batch.toLocaleString('en-CA')} rows</span> : null} />
           <details className="figure-table"><summary>Show the numbers</summary>
             <table aria-label={`${selected} weekly values`}><thead><tr><th>Week</th><th className="num">Affected</th><th className="num">Batch</th><th className="num">Rate</th></tr></thead><tbody>
-              {series.flatMap((row) => row ? [<tr key={row.iso_week_id}><th scope="row">{row.iso_week_id}</th><td className="num">{row.rows_affected.toLocaleString('en-CA')}</td><td className="num">{row.rows_in_batch.toLocaleString('en-CA')}</td><td className="num">{percent(share(row), 3)}</td></tr>] : [])}
+              {series.flatMap((row) => row ? [<tr key={row.iso_week_id}><th scope="row">{row.iso_week_id}</th><td className="num">{row.rows_affected.toLocaleString('en-CA')}</td><td className="num">{row.rows_in_batch.toLocaleString('en-CA')}</td><td className="num">{percent(share(row))}</td></tr>] : [])}
             </tbody></table>
           </details>
         </figure>

@@ -40,7 +40,7 @@ export function RegionMultiples({ regions, national, code, week, weeks, settled,
         const country = nationalLine[here]
         return { title: name, value: formatKpi(code, current?.value), happened: country != null && current?.value != null ? [...lines, `Canada: ${formatKpi(code, country)}.`] : lines, hint: `Click to open the ${name} report.` }
       }
-      return <li key={id} className="multiple">
+      return <li key={id} className="multiple" data-node={id}>
         <Explain block card={card}>{(described) => <Link to={hrefFor(id)} className="multiple-head" {...described}>
           <span className="multiple-name">{name}</span>
           <span className="multiple-value figure-num">{formatKpi(code, current?.value)}</span>

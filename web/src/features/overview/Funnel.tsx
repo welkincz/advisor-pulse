@@ -46,7 +46,7 @@ export function Funnel({ data }: { data: FunnelData }) {
       return <li key={stage.label} className="funnel-stage">
         {step && <Explain card={() => ({ title: KPI_LABELS[step.code], value: formatKpi(step.code, step.value), what: KPI_PLAIN[step.code],
           happened: happened({ code: step.code, value: step.value, wow: step.wow, usual: step.usual, better: 'higher' }) })}>
-          {(described) => <div className="funnel-step" tabIndex={0} {...described}>
+          {(described) => <div className="funnel-step" data-step={step.code} tabIndex={0} {...described}>
             <span className="funnel-step-rate figure-num">{formatKpi(step.code, step.value)}</span>
             <span className="funnel-step-label">{KPI_LABELS[step.code].toLowerCase()}</span>
             <Delta value={step.wow} />

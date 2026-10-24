@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Delta, Explain } from '../../components/primitives'
-import { KPI_LABELS, happened, formatKpi, useNarrative } from '../../data'
+import { KPI_LABELS, formatChange, formatKpi, happened, useNarrative } from '../../data'
 import type { Better } from '../../data/glossary'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { REGION_ORDER } from '../../data/regions'
@@ -44,14 +44,14 @@ function MovedRow({ item, code, week, better, reach, href }: { item: Moved; code
     answer: summary ? { q: 'The run summary', a: summary } : undefined,
     hint: `Click to open the ${item.name} report.`,
   })
-  return <li className="moved-row">
+  return <li className="moved-row" data-node={item.id}>
     <Explain block card={card}>{(described) => <Link to={href} className="moved-link" {...described}>
       <span className="moved-name">{item.name}</span>
       <span className="moved-track" aria-hidden="true">
         <i className="moved-mid" />
         <i className={`moved-bar${share < 0 ? ' is-below' : ''}`} style={{ inlineSize: `${Math.abs(share) * 50}%`, background: step === null ? undefined : SPLIT[step] }} />
       </span>
-      <span className="moved-away figure-num">{away === null ? '–' : `${away > 0 ? '+' : away < 0 ? '−' : '±'}${Math.abs(away * 100).toFixed(1)}%`}<span className="moved-away-unit"> vs usual</span></span>
+      <span className="moved-away figure-num">{away === null ? '–' : formatChange(away)}<span className="moved-away-unit"> vs usual</span></span>
       <span className="moved-value figure-num">{formatKpi(code, row?.value)}</span>
       <Delta value={row?.wow_pct} better={better} />
     </Link>}</Explain>

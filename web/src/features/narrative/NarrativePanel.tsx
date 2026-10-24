@@ -11,7 +11,7 @@ function CitedFacts({ ids, facts }: { ids: readonly string[]; facts: readonly Na
     <dl>
       {ids.map((id) => {
         const fact = byId.get(id)
-        return <div key={id}>
+        return <div key={id} data-fact={id}>
           <dt>{fact ? KPI_LABELS[fact.kpi_code] : `Fact ${id} unavailable`}</dt>
           <dd>{fact && <>
             <span className="figure-num">{formatKpi(fact.kpi_code, fact.value)}</span>

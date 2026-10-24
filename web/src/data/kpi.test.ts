@@ -1,5 +1,19 @@
 import { describe, expect, it, test } from 'vitest'
-import { defaultLead, formatKpi, leadFor } from './kpi'
+import { defaultLead, formatChange, formatKpi, formatWow, leadFor } from './kpi'
+
+test('batch data-quality rates keep two decimals, so a small rate never reads as 0.0%', () => {
+  expect(formatKpi('QUAR_RATE', 0.0003)).toBe('0.03%')
+  expect(formatKpi('LATE_RATE', 0.0156)).toBe('1.56%')
+})
+
+test('a change is written one way: signed, one decimal, a real minus, ±0.0% when level', () => {
+  expect(formatChange(0.146)).toBe('+14.6%')
+  expect(formatChange(-0.071)).toBe('−7.1%')
+  // Under half a tenth of a point the table, the card and the delta all call it level.
+  expect(formatChange(0.0003)).toBe('±0.0%')
+  expect(formatWow(0.0003)).toBe('±0.0% WoW')
+  expect(formatWow(null)).toBe('no prior week')
+})
 
 test('averages keep a decimal; counts and rates read as before', () => {
   expect(formatKpi('ACT_PER_ADV', 16)).toBe('16.0')
