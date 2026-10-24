@@ -80,7 +80,7 @@ def backfill_rebuild(ctx: StageContext, weeks: Sequence[str]) -> StageResult:
     from pulse.warehouse import connect, init_warehouse
 
     # Rebuild the warehouse only: publishing every historical week would be wasted work.
-    skip = STATE_STAGES | {"narrate", "export", "publish_sheets"}
+    skip = STATE_STAGES | {"narrate", "export"}
     stages = [
         replace(s, depends_on=tuple(d for d in s.depends_on if d not in skip))
         for s in WEEKLY_STAGES

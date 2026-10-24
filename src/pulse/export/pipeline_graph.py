@@ -36,7 +36,6 @@ REFERENCE_LABEL = "Reference seeds"
 # Where a stage's output lands outside the pipeline.
 OUTPUTS: dict[str, tuple[tuple[str, str], ...]] = {
     "export": (("out_web", "pulse.charliebuild.com"),),
-    "publish_sheets": (("out_tableau", "Tableau Public"),),
 }
 
 Manifest = Mapping[str, Any]
@@ -168,7 +167,9 @@ def _laid_out(
     nodes: Mapping[str, PipelineNode], edges: Sequence[tuple[str, str]]
 ) -> list[PipelineNode]:
     """Column = longest path from a root; a root SOURCE sits just left of its first consumer.
-    Each column stacks in insertion order, centred on y = 0."""
+    Each column stacks outputs first, then the rest in insertion order, centred on y = 0.
+    Outputs on top keep ``release_lock`` in the bottom lane, so the line from
+    ``persist_state`` runs below ``export`` instead of through it."""
     parents: dict[str, list[str]] = {n: [] for n in nodes}
     for s, t in edges:
         parents[t].append(s)
@@ -191,6 +192,7 @@ def _laid_out(
         columns.setdefault(col[node_id], []).append(node_id)
     placed = []
     for c, members in sorted(columns.items()):
+        members.sort(key=lambda n: nodes[n].kind is not PipelineNodeKind.OUTPUT)
         for row, node_id in enumerate(members):
             y = (row - (len(members) - 1) / 2) * ROW_HEIGHT
             position = Position(x=c * COLUMN_WIDTH, y=y)

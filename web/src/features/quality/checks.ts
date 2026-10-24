@@ -77,7 +77,6 @@ const STAGE_WORDS: Record<string, string> = {
   dbt_build: 'the dbt build',
   narrate: 'narration',
   export: 'the export',
-  publish_sheets: 'publishing to Sheets',
   persist_state: 'saving state',
   release_lock: 'releasing the lock',
 }

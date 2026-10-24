@@ -54,9 +54,9 @@
     },
     {
       "name": "pipeline_graph.json",
-      "sha256": "116b445d87f32b4722d6baac520c3915aab82e82abae6f23dc72e3293acb26d2",
+      "sha256": "c19011b8864bb520c1e878bdeb4ae4fd9c2e5cc06ad890094745e92dea5995df",
       "rows": null,
-      "bytes": 6463
+      "bytes": 5793
     },
     {
       "name": "narratives/2026-W40.json",

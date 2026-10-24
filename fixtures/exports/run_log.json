@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-10-05T10:01:24.050000Z",
+  "generated_at": "2026-10-05T10:01:23.900000Z",
   "runs": [
     {
       "run_id": "weekly-2026-W40-1",
@@ -8,8 +8,8 @@
       "iso_week_id": "2026-W40",
       "status": "WARN",
       "started_at": "2026-10-05T10:00:00Z",
-      "ended_at": "2026-10-05T10:01:24.050000Z",
-      "duration_ms": 84050,
+      "ended_at": "2026-10-05T10:01:23.900000Z",
+      "duration_ms": 83900,
       "git_sha": "88ee740d318c5856e32be2e58b7501e51b6724ff",
       "stages": [
         {
@@ -97,23 +97,11 @@
           "message": "Exported 5 tables and 4 documents."
         },
         {
-          "stage": "publish_sheets",
-          "attempt": 1,
-          "status": "SKIPPED",
-          "started_at": "2026-10-05T10:01:19.550000Z",
-          "ended_at": "2026-10-05T10:01:19.550000Z",
-          "duration_ms": 0,
-          "rows_in": null,
-          "rows_out": null,
-          "rows_quarantined": null,
-          "message": "GSHEET_ID is not set."
-        },
-        {
           "stage": "persist_state",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-10-05T10:01:19.700000Z",
-          "ended_at": "2026-10-05T10:01:23.600000Z",
+          "started_at": "2026-10-05T10:01:19.550000Z",
+          "ended_at": "2026-10-05T10:01:23.450000Z",
           "duration_ms": 3900,
           "rows_in": null,
           "rows_out": null,
@@ -124,8 +112,8 @@
           "stage": "release_lock",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-10-05T10:01:23.750000Z",
-          "ended_at": "2026-10-05T10:01:24.050000Z",
+          "started_at": "2026-10-05T10:01:23.600000Z",
+          "ended_at": "2026-10-05T10:01:23.900000Z",
           "duration_ms": 300,
           "rows_in": null,
           "rows_out": null,
@@ -174,8 +162,8 @@
       "iso_week_id": "2026-W39",
       "status": "WARN",
       "started_at": "2026-09-28T10:00:00Z",
-      "ended_at": "2026-09-28T10:01:25.300000Z",
-      "duration_ms": 85300,
+      "ended_at": "2026-09-28T10:01:25.150000Z",
+      "duration_ms": 85150,
       "git_sha": "824b15cf34371782ed9b6424c62dc3d468db2d2d",
       "stages": [
         {
@@ -275,23 +263,11 @@
           "message": "Exported 5 tables and 4 documents."
         },
         {
-          "stage": "publish_sheets",
-          "attempt": 1,
-          "status": "SKIPPED",
-          "started_at": "2026-09-28T10:01:20.800000Z",
-          "ended_at": "2026-09-28T10:01:20.800000Z",
-          "duration_ms": 0,
-          "rows_in": null,
-          "rows_out": null,
-          "rows_quarantined": null,
-          "message": "GSHEET_ID is not set."
-        },
-        {
           "stage": "persist_state",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-09-28T10:01:20.950000Z",
-          "ended_at": "2026-09-28T10:01:24.850000Z",
+          "started_at": "2026-09-28T10:01:20.800000Z",
+          "ended_at": "2026-09-28T10:01:24.700000Z",
           "duration_ms": 3900,
           "rows_in": null,
           "rows_out": null,
@@ -302,8 +278,8 @@
           "stage": "release_lock",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-09-28T10:01:25Z",
-          "ended_at": "2026-09-28T10:01:25.300000Z",
+          "started_at": "2026-09-28T10:01:24.850000Z",
+          "ended_at": "2026-09-28T10:01:25.150000Z",
           "duration_ms": 300,
           "rows_in": null,
           "rows_out": null,
@@ -352,8 +328,8 @@
       "iso_week_id": "2026-W38",
       "status": "SUCCESS",
       "started_at": "2026-09-21T10:00:00Z",
-      "ended_at": "2026-09-21T10:01:21.350000Z",
-      "duration_ms": 81350,
+      "ended_at": "2026-09-21T10:01:21.200000Z",
+      "duration_ms": 81200,
       "git_sha": "bf11c64452289711e90d4f2a6f12cda1d922b21b",
       "stages": [
         {
@@ -441,23 +417,11 @@
           "message": "Exported 5 tables and 4 documents."
         },
         {
-          "stage": "publish_sheets",
-          "attempt": 1,
-          "status": "SKIPPED",
-          "started_at": "2026-09-21T10:01:16.850000Z",
-          "ended_at": "2026-09-21T10:01:16.850000Z",
-          "duration_ms": 0,
-          "rows_in": null,
-          "rows_out": null,
-          "rows_quarantined": null,
-          "message": "GSHEET_ID is not set."
-        },
-        {
           "stage": "persist_state",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-09-21T10:01:17Z",
-          "ended_at": "2026-09-21T10:01:20.900000Z",
+          "started_at": "2026-09-21T10:01:16.850000Z",
+          "ended_at": "2026-09-21T10:01:20.750000Z",
           "duration_ms": 3900,
           "rows_in": null,
           "rows_out": null,
@@ -468,8 +432,8 @@
           "stage": "release_lock",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-09-21T10:01:21.050000Z",
-          "ended_at": "2026-09-21T10:01:21.350000Z",
+          "started_at": "2026-09-21T10:01:20.900000Z",
+          "ended_at": "2026-09-21T10:01:21.200000Z",
           "duration_ms": 300,
           "rows_in": null,
           "rows_out": null,
@@ -518,8 +482,8 @@
       "iso_week_id": "2026-W37",
       "status": "SUCCESS",
       "started_at": "2026-09-14T10:00:00Z",
-      "ended_at": "2026-09-14T10:01:21.350000Z",
-      "duration_ms": 81350,
+      "ended_at": "2026-09-14T10:01:21.200000Z",
+      "duration_ms": 81200,
       "git_sha": "de0ad1f194b6abc20a4c3e367a6f2c0b7a20f7f8",
       "stages": [
         {
@@ -607,23 +571,11 @@
           "message": "Exported 5 tables and 4 documents."
         },
         {
-          "stage": "publish_sheets",
-          "attempt": 1,
-          "status": "SKIPPED",
-          "started_at": "2026-09-14T10:01:16.850000Z",
-          "ended_at": "2026-09-14T10:01:16.850000Z",
-          "duration_ms": 0,
-          "rows_in": null,
-          "rows_out": null,
-          "rows_quarantined": null,
-          "message": "GSHEET_ID is not set."
-        },
-        {
           "stage": "persist_state",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-09-14T10:01:17Z",
-          "ended_at": "2026-09-14T10:01:20.900000Z",
+          "started_at": "2026-09-14T10:01:16.850000Z",
+          "ended_at": "2026-09-14T10:01:20.750000Z",
           "duration_ms": 3900,
           "rows_in": null,
           "rows_out": null,
@@ -634,8 +586,8 @@
           "stage": "release_lock",
           "attempt": 1,
           "status": "SUCCESS",
-          "started_at": "2026-09-14T10:01:21.050000Z",
-          "ended_at": "2026-09-14T10:01:21.350000Z",
+          "started_at": "2026-09-14T10:01:20.900000Z",
+          "ended_at": "2026-09-14T10:01:21.200000Z",
           "duration_ms": 300,
           "rows_in": null,
           "rows_out": null,

@@ -1,5 +1,5 @@
 -- Node × KPI × ISO week in long format (PLAN.md §6.8, §7), exported as weekly_report.parquet
--- for the dashboard, Tableau and the AI narrative. Values come from mart_org_weekly, plus
+-- for the dashboard and the AI narrative. Values come from mart_org_weekly, plus
 -- the operational LATE_RATE and QUAR_RATE at national level from int_ingest_weekly.
 --
 --   prior_week_value  the same node and KPI in the previous ISO week

@@ -106,7 +106,7 @@ def test_a_failed_export_is_recorded_and_keeps_the_previous_data(tmp_path: Path)
     by_stage = {a.stage: a for a in doc.runs[0].stages}
     assert by_stage["export"].status is StageStatus.FAILED
     assert by_stage["export"].message == "OSError: disk full"
-    assert by_stage["publish_sheets"].status is StageStatus.SKIPPED
+    assert "publish_sheets" not in by_stage
     assert by_stage["release_lock"].status is StageStatus.SUCCESS
     assert doc.runs[0].status is StageStatus.FAILED
     assert (stages.export_dir() / "manifest.json").read_text() == "last good manifest"

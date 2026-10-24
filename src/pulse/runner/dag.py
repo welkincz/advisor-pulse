@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from pulse.runner import stages
-from pulse.runner.stage import Stage, StageContext, StageResult, not_implemented
+from pulse.runner.stage import Stage, StageContext, StageResult
 
 
 class DagError(ValueError):
@@ -95,7 +95,6 @@ WEEKLY_STAGES: tuple[Stage, ...] = (
     Stage("narrate", "AI narrative", _narrate, ("checks",)),
     # always: after a failure, export still publishes run_log.json (and no data).
     Stage("export", "Export", stages.export, ("narrate",), always=True),
-    Stage("publish_sheets", "Google Sheets", not_implemented(55), ("export",)),
     # After checks, not export: a narrative or export bug must not throw away a loaded,
     # checked warehouse (#162 lost a 3 h cold rebuild that way). The next export heals the site.
     Stage("persist_state", "Persist state", _persist_state, ("checks",)),
@@ -103,7 +102,7 @@ WEEKLY_STAGES: tuple[Stage, ...] = (
         "release_lock",
         "Release lock",
         _release_lock,
-        ("persist_state", "publish_sheets"),
+        ("persist_state", "export"),
         always=True,
     ),
 )

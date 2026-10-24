@@ -1,1 +1,1 @@
-"""Exports for the web app, pipeline graph and Google Sheets (issues #41, #46, #55)."""
+"""Exports for the web app and the pipeline graph (issues #41, #46)."""

@@ -1,7 +1,7 @@
 # dbt project: `advisor_pulse`
 
 dbt-duckdb models that turn the raw tables into the star schema and weekly marts the web
-app and Tableau read. Design and column lists: [docs/PLAN.md](../docs/PLAN.md) §6.7–§6.8.
+app reads. Design and column lists: [docs/PLAN.md](../docs/PLAN.md) §6.7–§6.8.
 
 ## Running
 

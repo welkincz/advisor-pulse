@@ -113,6 +113,25 @@ def test_sources_sit_before_their_first_consumer() -> None:
     assert x["export"] < x["out_web"]
 
 
+def test_the_only_output_is_the_site() -> None:
+    # Sheets and Tableau are out of scope (#55, #56): no node for either.
+    graph = build_pipeline_graph(WEEKLY_STAGES, manifest())
+    outputs = {n.id for n in graph.nodes if n.kind is PipelineNodeKind.OUTPUT}
+    assert outputs == {"out_web"}
+    labels = " ".join(n.label for n in graph.nodes).lower()
+    assert "tableau" not in labels
+    assert "sheets" not in labels
+
+
+def test_the_lock_line_from_persist_state_clears_export() -> None:
+    # A curve between lanes bends through the middle column at y = 0, where export sits;
+    # with the website on top, persist_state and release_lock share the bottom lane.
+    graph = build_pipeline_graph(WEEKLY_STAGES, manifest())
+    pos = {n.id: n.position for n in graph.nodes}
+    assert pos["persist_state"].y == pos["release_lock"].y != pos["export"].y
+    assert pos["out_web"].y < pos["release_lock"].y
+
+
 def test_without_a_manifest_the_graph_has_stages_and_outputs(tmp_path: Path) -> None:
     assert read_manifest(tmp_path / "manifest.json") is None
     graph = build_pipeline_graph(WEEKLY_STAGES, None)

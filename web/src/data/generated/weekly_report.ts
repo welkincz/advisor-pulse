@@ -37,7 +37,7 @@ export type WowDelta = number | null;
 export type WowPct = number | null;
 
 /**
- * mart_weekly_report: long format, one row per (ISO week, node, KPI). Feeds the dashboard, Tableau and the AI narrative.
+ * mart_weekly_report: long format, one row per (ISO week, node, KPI). Feeds the dashboard and the AI narrative.
  */
 export interface WeeklyReport {
   flag: ReportFlag;

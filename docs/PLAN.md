@@ -55,7 +55,6 @@ flowchart LR
 
   subgraph OUT["Consumers"]
     WEB["pulse.charliebuild.com<br/>React · DuckDB-WASM · hand-written SVG charts and map"]
-    GS["Google Sheet"] --> TAB["Tableau Public<br/>(daily sync)"]
   end
 
   R2[("Cloudflare R2<br/>state: sources, narratives + warehouse")]
@@ -70,7 +69,6 @@ flowchart LR
   MART --> CHK --> AI --> EXP
   CHK --> LOG
   EXP --> WEB
-  EXP --> GS
   LOG --> WEB
   R2 <--> ING
   R2 <--> DBT
@@ -85,7 +83,7 @@ flowchart LR
 5. **Checks**: freshness, volume anomaly, quarantine rate, roll-up reconciliation. Policy decides warn vs fail.
 6. **Narrative**: generate a grounded summary per region and district; validate; fall back to a template if needed.
 7. **Export** marts to Parquet plus `manifest.json`, `run_log.json`, `pipeline_graph.json`, narratives.
-8. **Deploy** to Cloudflare Pages; push the weekly mart to Google Sheets; **persist state** to R2; release lock.
+8. **Deploy** to Cloudflare Pages; **persist state** to R2; release lock.
 
 On failure, data is **not** redeployed: the site keeps the last good week, and only the run status is updated (see §10).
 
@@ -116,7 +114,7 @@ On failure, data is **not** redeployed: the site keeps the last good week, and o
 | Pipeline viz | Hand-written SVG line diagram on the export's grid, plus a log-scale stage timeline (#172) | Every stage fits on one screen with readable labels; replay animates the line in use | React Flow shipped first, but its fixed zoom left most of the 13-column DAG off screen (#172) |
 | Motion | CSS transitions plus a small rAF tween (`web/src/motion/`) | No library weight; respects `prefers-reduced-motion` | Motion (Framer Motion) shipped first but cost about 50 KB gzip on every route (#152) |
 | Hosting | Cloudflare Pages project `advisor-pulse` on `pulse.charliebuild.com` | Matches the existing `orbit.` / `trip.` pattern; no coupling to the build-less main site | `/projects/advisor-pulse` subpath would need a Worker route or a build step in the main site |
-| Tableau | Weekly mart → Google Sheet (service account) → Tableau Public daily sync | Tableau Public only auto-refreshes from Google Sheets | One-off extract upload: goes stale |
+| BI tools | No Tableau or Google Sheets feed (#55, #56 closed as out of scope). Tables on the site have a CSV download for anyone who wants the figures in a BI tool or a spreadsheet | One destination to build, test and keep fresh | A Google Sheet synced to Tableau Public: a second publish path and a service-account secret for a copy of the same numbers |
 
 ---
 
@@ -139,7 +137,7 @@ advisor-pulse/
 │   ├── quality/               # freshness / volume / DQ-rate / reconciliation checks
 │   ├── runner/                # stage DAG, retries, run_log, lock
 │   ├── state/                 # R2 pull/push
-│   ├── export/                # Parquet + manifest for web; Google Sheets push
+│   ├── export/                # Parquet + manifest for web, pipeline graph
 │   ├── narrative/             # Anthropic client, prompt, validator, fallback, eval
 │   └── cli.py                 # `pulse generate|ingest|run|backfill|export|narrate`
 ├── dbt/
@@ -370,7 +368,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
 **mart_org_weekly** (node × week, all levels via `GROUPING SETS`): `iso_week_id`, `level` (`NATIONAL`, `REGION`, `DISTRICT`, `BRANCH`), `node_id` (`CA` for national), `node_name`, `parent_id` (null for national), `active_advisors`, the same measures as advisor weekly, plus `activities_per_advisor`, `show_rate`, `conversion_rate`, `call_to_appt_rate`.
 
-**mart_weekly_report** (long format, Tableau- and LLM-friendly): `iso_week_id`, `level`, `node_id`, `node_name`, `parent_id`, `kpi_code`, `value`, `prior_week_value`, `wow_delta`, `wow_pct`, `trailing_13w_avg`, `rank_in_parent`, `peer_count`, `flag` (`UP`, `DOWN`, `FLAT`, `ANOMALY`).
+**mart_weekly_report** (long format, BI- and LLM-friendly): `iso_week_id`, `level`, `node_id`, `node_name`, `parent_id`, `kpi_code`, `value`, `prior_week_value`, `wow_delta`, `wow_pct`, `trailing_13w_avg`, `rank_in_parent`, `peer_count`, `flag` (`UP`, `DOWN`, `FLAT`, `ANOMALY`).
 
 **mart_org_quarterly** (node × fiscal quarter, every level): `fiscal_quarter_id`, `fiscal_year`, `fiscal_quarter`, `quarter_start`, `quarter_end`, `first_week`, `last_week`, `weeks_reported`, `weeks_in_quarter`, `is_complete`, `level`, `node_id`, `node_name`, `parent_id`, `advisor_weeks`, the flow counts of mart_org_weekly plus `booked_from_call`, `unique_clients_contacted`, the ratios and the three portfolio columns. Flows are summed over the quarter's weeks; distinct clients are counted over the quarter (not added up); portfolio clients and those contacted in 12 months are stocks, taken at each branch's own last reported week and summed up the hierarchy (a branch that misses the final week keeps its portfolios); ratios are rebuilt from summed parts, and activities per advisor is activities over advisor-weeks (the average weekly rate). A quarter in progress has `is_complete = false` and reads as "to date".
 
@@ -508,13 +506,13 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 | Workflow | Trigger | Jobs |
 |----------|---------|------|
 | `ci.yml` | PR, push to `main` | ruff + pytest + contracts check; `dbt build --target ci` on fixtures; web lint + typecheck + build; Playwright smoke (once available). Path filters keep it fast. |
-| `weekly.yml` | `cron: '0 11 * * 1'` (Mon 07:00 ET) + manual | `pulse run --week last` → deploy → Sheets push → persist state. `concurrency: weekly` |
+| `weekly.yml` | `cron: '0 11 * * 1'` (Mon 07:00 ET) + manual | `pulse run --week last` → deploy → persist state. `concurrency: weekly` |
 | `backfill.yml` | `workflow_dispatch(from, to, rebuild)` | `pulse backfill` → export → deploy |
 | `deps.yml` | Issue closed / edited | Re-label dependents: `status:ready` when every `Depends on` issue is closed |
 
 Branch protection on `main`: CI required, squash merge only, linear history, no direct pushes.
 
-**Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` (narrative backend), `GOOGLE_SERVICE_ACCOUNT_JSON`, `GSHEET_ID`, optional `ALERT_WEBHOOK_URL`.
+**Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` (narrative backend), optional `ALERT_WEBHOOK_URL`.
 
 ---
 
@@ -523,7 +521,6 @@ Branch protection on `main`: CI required, squash merge only, linear history, no 
 - Cloudflare Pages project **`advisor-pulse`**, deployed by `wrangler pages deploy web/dist` from Actions (not Git-connected, so only pipeline-validated builds go out).
 - Custom domain **`pulse.charliebuild.com`** (same Cloudflare zone as the main site). SPA fallback via `_redirects`; long-cache headers for hashed assets and `no-cache` for `manifest.json` and `run_log.json` via `_headers`.
 - The main site (`welkincz/charliebuild`, static `index.html`) gets one entry in the "Selected work" list linking to `pulse.charliebuild.com`. The case study lives at `pulse.charliebuild.com/case-study`.
-- Tableau Public workbook embedded on the case-study page and linked from the dashboard footer.
 
 ---
 
@@ -537,8 +534,8 @@ Contracts and fixtures come first, so every lane after that can work in parallel
 | 0 | Scaffold, contracts, org reference, fixtures, CI, warehouse meta, dbt / web / runner skeletons | 1–2 (mostly Claude) |
 | 1 | Generator · Ingestion · dbt · Geo · Frontend (on fixtures) · Pipeline viz (on fixture run log) · Runner features | up to 5 |
 | 2 | Integration: real backfill, weekly workflow, export, deploy, narratives | 2–3 |
-| 3 | Polish: motion, performance and a11y, Tableau, case study, charliebuild entry | 3 |
+| 3 | Polish: motion, performance and a11y, case study, charliebuild entry | 3 |
 
-Tool routing (detailed in AGENTS.md): **Claude** for architecture, contracts, reasoning-heavy and cross-cutting issues, and PR review. **Cursor** for most implementation (components, charts, dbt staging and marts, workflows, loaders, export, docs). **Human** for account setup (Cloudflare, R2, Google service account, Tableau publish).
+Tool routing (detailed in AGENTS.md): **Claude** for architecture, contracts, reasoning-heavy and cross-cutting issues, and PR review. **Cursor** for most implementation (components, charts, dbt staging and marts, workflows, loaders, export, docs). **Human** for account setup (Cloudflare, R2).
 
 The live backlog is the GitHub issue list. The starting backlog, and the `backlog.py` script that generated it and the GitHub issues, are kept in [`docs/archive/planning/`](archive/planning/).
