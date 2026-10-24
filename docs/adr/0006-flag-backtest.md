@@ -134,7 +134,8 @@ What the held-out seed says:
   noisy, not a validated detector for a real bank.
 - **Holidays cause most national false alarms** (20 of 24 on the held-out seed). DQ031
   already divides volume by the calendar's expectation. Doing the same in the anomaly
-  baseline is the next step, and would need its own issue and backtest.
+  baseline is tracked in [#332](https://github.com/welkincz/advisor-pulse/issues/332)
+  and still needs its own backtest.
 
 ### Guarding it
 
