@@ -169,7 +169,14 @@ def test_budget_resume_checks_every_original_ingest_run(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("case", ["fixtures", "generated", "postal-correction"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "fixtures",
+        pytest.param("generated", marks=pytest.mark.slow),
+        pytest.param("postal-correction", marks=pytest.mark.slow),
+    ],
+)
 def test_fixture_marts_exports_and_weekly_checks_match_legacy(tmp_path, monkeypatch, case):
     import hashlib
     import shutil
@@ -178,6 +185,7 @@ def test_fixture_marts_exports_and_weekly_checks_match_legacy(tmp_path, monkeypa
     import duckdb
 
     from pulse.contracts.enums import RunType
+    from pulse.contracts.exports import EXPORT_TABLE_CONTRACTS
     from pulse.runner.backfill import _template_narrate
     from pulse.runner.command import run_week
     from pulse.runner.dag import WEEKLY_STAGES
@@ -253,7 +261,7 @@ def test_fixture_marts_exports_and_weekly_checks_match_legacy(tmp_path, monkeypa
 
     def timed_generate(ctx):
         if case == "fixtures":
-            timer.at += timedelta(minutes=10)
+            ctx.clock.at += timedelta(minutes=10)
         return original_generate(ctx)
 
     stages = tuple(replace(s, fn=timed_generate) if s.name == "generate" else s for s in stages)
@@ -320,15 +328,26 @@ def test_fixture_marts_exports_and_weekly_checks_match_legacy(tmp_path, monkeypa
                 ).hexdigest()
                 for name in names
             }
+            assert {"fct_activity"} | {
+                f"mart_{c.contract_name}" for c in EXPORT_TABLE_CONTRACTS
+            } <= hashes.keys()
             checks = con.execute(
                 "select run_id, check_id, status from meta.check_result order by all"
             ).fetchall()
-            assert all(status == "PASS" for _, check, status in checks if check == "DQ033")
+            dq033 = [(run, status) for run, check, status in checks if check == "DQ033"]
+            expected_weeks = week_range(first, "2026-W40")
+            assert len(dq033) == len(expected_weeks)
+            assert set(dq033) == {(f"backfill-{week}-1", "PASS") for week in expected_weeks}
             logs = con.execute(
                 "select iso_week_id, stage, status from meta.run_log "
                 "where stage in ('generate','ingest','checks','narrate') "
                 "and run_id not like 'backfill-range-%' order by all"
             ).fetchall()
+            expected_stages = {"generate", "ingest", "checks", "narrate"}
+            assert len(logs) == len(expected_weeks) * len(expected_stages)
+            assert {(week, stage) for week, stage, _ in logs} == {
+                (week, stage) for week in expected_weeks for stage in expected_stages
+            }
             stable_fact = hashlib.sha256(
                 repr(
                     con.execute(
@@ -339,6 +358,7 @@ def test_fixture_marts_exports_and_weekly_checks_match_legacy(tmp_path, monkeypa
         parquet = {
             p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in exports.glob("*.parquet")
         }
+        assert set(parquet) == {f"{c.contract_name}.parquet" for c in EXPORT_TABLE_CONTRACTS}
         snapshots.append((hashes, checks, logs, parquet, stable_fact))
     if case == "postal-correction":
         # Owner-approved #275 exception: full rebuild reapplies current client attributes
@@ -347,6 +367,7 @@ def test_fixture_marts_exports_and_weekly_checks_match_legacy(tmp_path, monkeypa
     assert all(snapshot == snapshots[0] for snapshot in snapshots[1:])
 
 
+@pytest.mark.integration
 def test_fresh_runner_restores_budget_checkpoint_and_weekly_defects(tmp_path, monkeypatch):
     import json
     from dataclasses import replace
