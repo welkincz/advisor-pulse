@@ -7,6 +7,8 @@ from datetime import date
 from functools import cache
 from pathlib import Path
 
+import pytest
+
 from pulse.contracts.enums import Role
 from pulse.generate import truth as truth_module
 from pulse.generate.activity import DRIFT_SHARE, default_story_districts, is_drifter
@@ -123,3 +125,39 @@ def test_a_sunday_hire_changes_volume_only_when_the_advisor_can_first_work() -> 
     )
     volume = next(s for s in events if s.story == "DISTRICT_VOLUME")
     assert volume.start_week == "2026-W41"  # Monday October 5; no activities on Sunday
+
+
+def test_future_planned_stories_do_not_reduce_recall_before_they_happen() -> None:
+    world = _world(7)
+    truth = ground_truth(
+        org(),
+        assignment_ranges(world.roster),
+        world.clients,
+        world.portfolios,
+        seed=7,
+        first=REPORT_START,
+        last=date(2025, 10, 27),
+    )
+    assert truth.stories == ()
+
+
+@pytest.mark.parametrize(
+    ("end", "effect", "full_week"),
+    [
+        (date(2026, 8, 28), -0.1, None),
+        (date(2026, 9, 28), -0.3, None),
+        (date(2026, 9, 29), -0.35, "2026-W40"),
+    ],
+)
+def test_advisor_volume_truth_records_only_the_attained_ramp(
+    end: date, effect: float, full_week: str | None
+) -> None:
+    branch = next(
+        p.branch.branch_id for p in org().placements() if p.district.district_code == "BCI"
+    )
+    events = truth_module._advisor_stories(
+        org(), [("ADV-12345", branch, Role.ADVISOR, date(2026, 8, 10), end)], 7, LAST
+    )
+    event = next(s for s in events if s.story == "DISTRICT_VOLUME")
+    assert event.effect == effect
+    assert event.full_week == full_week

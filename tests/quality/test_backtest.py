@@ -11,7 +11,7 @@ import pytest
 
 from pulse.generate.truth import GroundTruth, Story
 from pulse.quality import backtest
-from pulse.quality.backtest import PREVIOUS, SHIPPED, flags, mismatches, score
+from pulse.quality.backtest import SHIPPED, flags, mismatches, score
 from pulse.warehouse import WAREHOUSE_FILE
 
 # The dbt unit test's series (mart_weekly_report.yml): steady near 100, then 120 in W09.
@@ -110,7 +110,6 @@ def test_a_stricter_threshold_misses_the_story(tmp_path: Path) -> None:
         if s.rule == "ANOMALY" and s.level == "BRANCH"
     )
     assert anomaly.recall == 0.0 and anomaly.median_lag_weeks is None
-    assert PREVIOUS.z < SHIPPED.z
 
 
 def test_precision_counts_direct_small_stories_but_not_indirect_overlaps() -> None:
@@ -140,3 +139,15 @@ def test_operational_kpi_flags_are_included(tmp_path: Path) -> None:
     found = flags(con, SHIPPED)
     assert any(f.kpi == "LATE_RATE" and f.rule == "ANOMALY" for f in found)
     assert any(f.kpi == "LATE_RATE" and f.rule == "DOWN" for f in found)
+
+
+def test_default_thresholds_match_the_current_mart_before_tuning(tmp_path: Path) -> None:
+    con = _warehouse(tmp_path, MART_FLAGS)
+    con.execute(
+        "update backtest_report set value = 108, wow_delta = 8, wow_pct = 0.08 "
+        "where iso_week_id = '2026-W09'"
+    )
+    # This observation lies between 2 and 3 sigma: the current mart flags it, while
+    # the proposed policy does not. A correct current warehouse must pass parity.
+    assert mismatches(con) == 0
+    assert flags(con, backtest.PROPOSED)[-1].rule == "UP"
