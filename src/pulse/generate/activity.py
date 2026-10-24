@@ -87,9 +87,34 @@ def _concentration(seed: int, advisor: str, day: date) -> float:
     alpha: float = 0.22 + 1.45 * _unit(seed, "reach", advisor) ** 1.2
     progress = min(1.0, max(0.0, (day - DEFAULT_START).days / (OUTREACH_END - DEFAULT_START).days))
     alpha += OUTREACH_INITIAL_BIAS + (OUTREACH_FINAL_BIAS - OUTREACH_INITIAL_BIAS) * progress
-    if _unit(seed, "drift", advisor) < DRIFT_SHARE:
+    if is_drifter(seed, advisor):
         alpha += 0.7 * min(1.0, max(0.0, (day - DRIFT_START).days / DRIFT_DAYS))
     return alpha
+
+
+def is_drifter(seed: int, advisor: str) -> bool:
+    """Whether this advisor's portfolio slips from DRIFT_START (DRIFT_SHARE of advisors)."""
+    return _unit(seed, "drift", advisor) < DRIFT_SHARE
+
+
+def default_story_districts(org: OrgReference) -> tuple[str, str]:
+    """The falling and the rising story district: the first two district codes."""
+    codes = sorted({p.district.district_code for p in org.placements()})
+    return codes[0], codes[1]
+
+
+def story_step(monday: date) -> int:
+    """Weeks into the district story, 0 before STORY_START's following week, capped at 7."""
+    return min(7, max(0, (monday - STORY_START).days // 7))
+
+
+def story_factor(district: str, story_districts: tuple[str, str], step: int) -> float:
+    """Volume multiplier: the first story district falls 5% a step, the second rises."""
+    if district == story_districts[0]:
+        return 1 - 0.05 * step
+    if district == story_districts[1]:
+        return 1 + 0.05 * step
+    return 1.0
 
 
 def _count(rng: random.Random, factor: float) -> int:
@@ -110,11 +135,10 @@ def generate_activity(
     """Generate one week from as-of assignments; no wall clock or mutable state."""
     monday = _week_start(iso_week_id)
     pools = client_pools_by_day(client_batch, [monday + timedelta(days=i) for i in range(5)])
-    story_step = min(7, max(0, (monday - STORY_START).days // 7))
+    step = story_step(monday)
     districts = {p.branch.branch_id: p.district.district_code for p in org.placements()}
     if story_districts is None:
-        codes = sorted(set(districts.values()))
-        story_districts = (codes[0], codes[1])
+        story_districts = default_story_districts(org)
     if len(set(story_districts)) != 2 or any(d not in districts.values() for d in story_districts):
         raise ValueError("story_districts must name two distinct known districts")
     rng_seed = int.from_bytes(hashlib.sha256(f"{seed}|{iso_week_id}".encode()).digest()[:8], "big")
@@ -135,14 +159,7 @@ def generate_activity(
             if role != Role.BRANCH_MANAGER and start <= day and (end is None or day < end)
         )
         for advisor, branch in active:
-            district = districts[branch]
-            story = (
-                1 - 0.05 * story_step
-                if district == story_districts[0]
-                else 1 + 0.05 * story_step
-                if district == story_districts[1]
-                else 1.0
-            )
+            story = story_factor(districts[branch], story_districts, step)
             for _ in range(_count(rng, _profile(advisor) * weekday * seasonal * holiday * story)):
                 kind = rng.choices(
                     [ActivityType.CALL_OUT, ActivityType.CALL_IN, ActivityType.REVIEW],
