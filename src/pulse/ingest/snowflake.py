@@ -11,7 +11,6 @@ import duckdb
 import pyarrow.parquet as pq
 import xxhash
 
-from pulse.contracts import column_names
 from pulse.contracts.enums import LoadStatus, StageStatus
 from pulse.contracts.meta import LoadManifest, Watermark
 from pulse.contracts.raw import RawSnowflakeActivity
@@ -19,7 +18,7 @@ from pulse.contracts.sources import SnowflakeActivity
 from pulse.ingest import meta
 from pulse.ingest.validate import SchemaDriftError, validate_rows
 from pulse.runner.stage import StageResult
-from pulse.warehouse import transaction
+from pulse.warehouse import insert_contracts, transaction
 
 
 def _sha256(path: Path) -> str:
@@ -45,12 +44,7 @@ def _insert_rows(
     warehouse.execute("DELETE FROM raw.snowflake__activity WHERE _batch_id = ?", [batch_id])
     if not rows:
         return
-    columns = column_names(RawSnowflakeActivity)
-    quoted = ", ".join(f'"{name}"' for name in columns)
-    markers = ", ".join("?" for _ in columns)
-    sql = f"INSERT INTO raw.snowflake__activity ({quoted}) VALUES ({markers})"
-    values = [list(row.model_dump(by_alias=True, mode="python").values()) for row in rows]
-    warehouse.executemany(sql, values)
+    insert_contracts(warehouse, "raw.snowflake__activity", RawSnowflakeActivity, rows)
 
 
 def _load_file(
