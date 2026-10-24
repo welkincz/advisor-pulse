@@ -2,6 +2,13 @@
 
 **Is every client in an advisor's portfolio hearing from the bank at least once a year?** Advisor Pulse answers that every Monday for Maplecrest Bank, a fictional Canadian bank, and backs every number with tests you can read.
 
+## For reviewers: three minutes
+
+1. **0:00–0:45** — Read the business question, weekly measure and drill-down in the [weekly report](https://pulse.charliebuild.com/).
+2. **0:45–1:30** — Inspect how assignment events rebuild point-in-time ownership in the [SCD2 model](dbt/models/intermediate/int_advisor_history.sql#L1).
+3. **1:30–2:15** — Read the repeat-run and crash-recovery evidence in the [idempotency tests](tests/integration/test_idempotency.py#L84).
+4. **2:15–3:00** — Compare the demonstrated capabilities, limits and tracked gaps with the [job-sample evidence map](docs/reviewer-map.md).
+
 The lead measure is **portfolio contacted (12 months)**: of the active clients in a portfolio at week end, the share who had at least one completed contact, by any advisor, in the last 12 months. It rolls up from portfolio to advisor, branch, district, region and the nation, from counts rather than averaged rates, and it stays blank until a full year of history exists ([ADR 0005](docs/adr/0005-twelve-month-contact-window.md)).
 
 Behind it is a weekly batch pipeline: two messy synthetic source systems, an incremental load with quarantine, a dbt star schema on DuckDB, data-quality checks reconciled against an answer key, and short weekly notes written by Claude and checked against the figures. The result is a static report at [pulse.charliebuild.com](https://pulse.charliebuild.com) that the browser queries with DuckDB-WASM, with the [dbt lineage graph](https://pulse.charliebuild.com/lineage/) beside it.
