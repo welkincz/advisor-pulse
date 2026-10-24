@@ -7,11 +7,12 @@
 --   completed  completed activity, by activity date
 --   scheduled  appointment or review, by SCHEDULED_TS (show rate, conversion)
 --   booked     appointment or review, by CREATED_TS (APPT_BOOKED, CALL_TO_APPT)
---   advisor    an active advisor: employed at week start and not a branch manager
+--   advisor    a non-manager employment range overlaps any day of the week
 --   portfolio  an active client in a known portfolio at week end (PRTF_CONTACT_12M),
 --              credited to the portfolio's holder at week end and to its transit branch
 -- Every other event is credited to the advisor's branch on the date it counts: the
--- activity date, the scheduled date or the booking date; advisor events use week start.
+-- activity date, the scheduled date or the booking date. Advisor events use the first
+-- non-manager range overlapping the week (week-start branch for existing advisors).
 -- Activity with no advisor history on that date (DQ012) stays at its logged branch.
 -- Only reported weeks (int_contact_window) get rows: a warm-up year feeds the 12-month
 -- window through int_client_contact_12m, not through these events.
@@ -40,9 +41,15 @@ roster as (
     select weeks.iso_week_id, weeks.week_end, history.advisor_id, history.branch_id
     from weeks
     inner join history
-        on weeks.week_start >= history.valid_from
-        and weeks.week_start < history.valid_to
+        on history.valid_from <= weeks.week_end
+        and history.valid_to > weeks.week_start
     where history.role_code <> 'BR_MGR'
+    -- Transfers and promotions can produce several overlapping ranges. Count a person
+    -- once, retaining the week-start branch or their first eligible branch that week.
+    qualify row_number() over (
+        partition by weeks.iso_week_id, history.advisor_id
+        order by history.valid_from, history.assignment_id
+    ) = 1
 ),
 
 completed as (
