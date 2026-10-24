@@ -96,11 +96,11 @@ The full numbers are in [baseline.md](https://github.com/welkincz/advisor-pulse/
 | Weeks of history | 106 (2024-W41 to 2026-W42), after a one-year warm-up |
 | Activity rows read | 2,271,225 |
 | Activity rows after dedupe and quarantine | 2,202,422 |
-| Full rebuild on GitHub Actions | 5 h 44 min, in two runs |
-| One weekly run | about 3 minutes; 13.5 minutes with model narratives |
+| Full rebuild on GitHub Actions | 6 h 22 min, in two runs |
+| One weekly run | about 4 minutes; 11 minutes with model narratives |
 | Published site data | 10.5 MB (budget 20 MB) |
 
-Without the model, a week spends most of its time in dbt (about 75 s). Writing the 27 narratives with Claude adds about 10 minutes.
+Without the model, a week spends most of its time in dbt (about 110 s). Writing the 27 narratives with Claude adds about 7 minutes.
 
 The rebuild is slow because each week replays the whole pipeline: a full dbt build over all the history so far, then a save of the warehouse to object storage. So every added week costs more than the last. The fix runs those steps once per rebuild instead of once per week ([#275](https://github.com/welkincz/advisor-pulse/issues/275)).
 

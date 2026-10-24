@@ -13,9 +13,9 @@ The lead measure is **portfolio contacted (12 months)**: of the active clients i
 
 Behind it is a weekly batch pipeline: two messy synthetic source systems, an incremental load with quarantine, a dbt star schema on DuckDB, data-quality checks reconciled against an answer key, and short weekly notes written by Claude and checked against the figures. The result is a static report at [pulse.charliebuild.com](https://pulse.charliebuild.com) that the browser queries with DuckDB-WASM, with the [dbt lineage graph](https://pulse.charliebuild.com/lineage/) beside it.
 
-| 106 weeks | 2.2M activity rows | 106 of 106 runs | 3 min | 5 h 44 min |
+| 106 weeks | 2.2M activity rows | 106 of 106 runs | 4 min | 6 h 22 min |
 |---|---|---|---|---|
-| of history, rebuilt from events | loaded incrementally, 5,910 quarantined | reconciled every injected defect, nothing missing | per weekly run, plus about 10 min of model narratives | for a rebuild of all history on GitHub Actions |
+| of history, rebuilt from events | loaded incrementally, 5,910 quarantined | reconciled every injected defect, nothing missing | per weekly run, plus about 7 min of model narratives | for a rebuild of all history on GitHub Actions |
 
 Stack: Python, SQL, dbt, DuckDB, GitHub Actions, Cloudflare R2 and Pages, TypeScript, React, DuckDB-WASM, Claude.
 

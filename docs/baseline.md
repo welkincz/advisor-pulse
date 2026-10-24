@@ -6,10 +6,10 @@ These numbers come from the last full rebuild of the real pipeline at the genera
 
 | Source | What it is |
 |---|---|
-| Run [39899627759](https://github.com/welkincz/advisor-pulse/actions/runs/39899627759) | `backfill.yml` with `rebuild=true`, 2024-W41 to 2026-W42, code `050434c`. It stopped on the time budget after 85 weeks. |
-| Run [39927479992](https://github.com/welkincz/advisor-pulse/actions/runs/39927479992) | The continuation it dispatched, 2026-W22 to 2026-W42. It built and deployed the site. |
-| Artifact `pages-deploy-39927479992` | The deployed site, including `data/manifest.json`, the Parquet exports and `run_log.json`. |
-| Artifact `backfill-39927479992` | `run_log.json` with stage timings and row counts for the last 12 weeks. |
+| Run [40047052218](https://github.com/welkincz/advisor-pulse/actions/runs/40047052218) | `backfill.yml` with `rebuild=true`, 2024-W41 to 2026-W42, code `ef841e1`. It stopped on the time budget after 77 weeks. |
+| Run [40065355219](https://github.com/welkincz/advisor-pulse/actions/runs/40065355219) | The continuation it dispatched, 2026-W14 to 2026-W42. It built and deployed the site. |
+| Artifact `pages-deploy-40065355219` | The deployed site, including `data/manifest.json`, the Parquet exports and `run_log.json`. |
+| Artifact `backfill-40065355219` | `run_log.json` with stage timings and row counts for the last 12 weeks. |
 | Local reproduction | The same code and seed on an Apple M4 Max with no R2 credentials and no model backend (commands below). It gives the warehouse row counts, which the Actions runs do not upload. Its `mart_dq_weekly` and `mart_org_weekly` match the deployed exports row for row, so the counts are the deployed run's counts. |
 
 ```bash
@@ -17,7 +17,7 @@ export PULSE_DATA_DIR=run/data PULSE_EXPORT_DIR=run/export   # the export dir mu
 uv run pulse backfill --from 2024-W41 --to 2026-W42 --rebuild
 ```
 
-The weekly reports that ran before #273 (`weekly.yml`) used the old generator, so none of them is a source here. The generator changed again after `050434c` (#288), so the next rebuild will move the row and defect counts; this page describes the site as deployed by run 39927479992.
+The weekly reports that ran before #273 (`weekly.yml`) used the old generator, so none of them is a source here. This rebuild includes the #288 change to who gets contacted: the national 12-month contacted rate now rises from 82.9% in 2024-W41 to 86.4% in 2026-W42, by at most 0.09 points a week. That change moves contacts between clients, not their number, so every row and defect count below is the same as in the rebuild before it.
 
 ## Outcome
 
@@ -29,7 +29,7 @@ From the step logs of both runs (`gh run view <id> --log`):
 | Runs | 97 SUCCESS, 9 WARN, 0 failed stages, 0 retries |
 | `checks` | WARN in 8 runs (2024-W41 to W48), SUCCESS in 98 |
 | `dbt_build` | "527 dbt nodes passed" in all 106 runs |
-| `narrate` | Templates for the 105 historical weeks. In 2026-W42 the model wrote 26 of 27 narratives; 1 failed validation and fell back to the template, which made that run WARN. |
+| `narrate` | Templates for the 105 historical weeks. In 2026-W42 the model wrote 25 of 27 narratives; 2 failed validation and fell back to the template, which made that run WARN. |
 
 - **The 8 check warnings** are DQ031 with a pending baseline: those weeks have fewer than 8 reported weeks before them. DQ030, DQ032 and DQ033 passed in every run.
 - **DQ033 defect reconciliation** passed in all 106 weeks: "Missing 0; unexpected 0". The local reproduction agrees: 106 PASS for DQ030, DQ032 and DQ033.
@@ -83,59 +83,59 @@ From the local reproduction's `warehouse.duckdb`.
 
 | | Wall time | Weeks |
 |---|---:|---:|
-| Run 39899627759 (04:18 to 08:50 UTC) | 4 h 32 min | 85, then "Time budget reached after 85 weeks (271 min of 320 min)" |
-| Run 39927479992 (08:50 to 10:02 UTC) | 1 h 12 min | 21, then the site build and deploy |
-| **Whole rebuild** | **5 h 44 min** | **106** |
+| Run 40047052218 (00:51 to 05:12 UTC) | 4 h 21 min | 77, then "Time budget reached after 77 weeks (260 min of 320 min)" |
+| Run 40065355219 (05:12 to 07:13 UTC) | 2 h 01 min | 29, then the site build and deploy |
+| **Whole rebuild** | **6 h 22 min** | **106** |
 
 Per week, from the `Backfill n/106` timestamps in the logs:
 
-- **First week:** 41.6 minutes. It generates and loads the warm-up year as well as its own week.
-- **Later weeks:** 110 s at 2024-W43, growing to about 210 s by 2026-W21. On the fresh runner of the second run they took 155–175 s.
-- **Last week:** 809 s, because it was the only week that called the model.
+- **First week:** 48.8 minutes. It generates and loads the warm-up year as well as its own week.
+- **Later weeks:** 136 s at 2024-W42, growing to about 195 s by 2026-W12. In the second run the first week took 506 s and the rest 205–235 s.
+- **Last week:** 668 s, because it was the only week that called the model.
 
 **Why it is slow.** A backfill replays the whole weekly pipeline once per week: each week runs a full `dbt build` over all the history so far and persists the warehouse to R2, so the cost grows with every week added. #275 runs dbt, checks, export and persist once per backfill instead of once per week, and will update these figures when it lands.
 
 ### One week
 
-The stages of `backfill-2026-W42-1` and the median of the last 12 weeks, from `run_log.json` in artifact `backfill-39927479992`. A weekly report runs the same stages.
+The stages of `backfill-2026-W42-1` and the median of the last 12 weeks, from `run_log.json` in artifact `backfill-40065355219`. A weekly report runs the same stages.
 
 | Stage | 2026-W42 (s) | Median, last 12 weeks (s) |
 |---|---:|---:|
-| restore_state | 21 | 21 |
-| generate | 16 | 16 |
-| ingest | 23 | 25 |
-| dbt_build | 77 | 73 |
-| checks | 0.7 | 0.6 |
-| narrate | 631 (model) | 0.9 (template) |
+| restore_state | 23 | 23 |
+| generate | 20 | 19 |
+| ingest | 34 | 36 |
+| dbt_build | 113 | 108 |
+| checks | 1.0 | 1.0 |
+| narrate | 426 (model) | 0.8 (template) |
 | export | 5 | 5 |
-| persist_state | 34 | |
-| **Whole run** | **809** | |
+| persist_state | 45 | |
+| **Whole run** | **668** | |
 
-- **Without the model:** about 3 minutes, most of it dbt.
-- **With the model:** about 13.5 minutes. Narration is 27 Claude calls, one per region and district.
+- **Without the model:** about 4 minutes (median 227 s), most of it dbt.
+- **With the model:** about 11 minutes. Narration is 27 Claude calls, one per region and district.
 - **Ingest in 2026-W42:** 170,990 rows read (the week's activity extract plus 8 client delta files), 13,815 loaded, 52 quarantined.
 
 ## Export sizes (site after 2026-W42)
 
-From the deployed site in `pages-deploy-39927479992`; the bytes match `manifest.json`.
+From the deployed site in `pages-deploy-40065355219`; the bytes match `manifest.json`.
 
 | File | Bytes |
 |---|---:|
-| `weekly_report.parquet` | 2,785,560 |
-| `org_weekly.parquet` | 372,091 |
-| `portfolio_weekly.parquet` | 270,636 |
-| `advisor_weekly.parquet` | 240,833 |
-| `org_quarterly.parquet` | 69,670 |
-| `run_log.json` | 60,744 |
-| `geo_weekly.parquet` | 20,383 |
+| `weekly_report.parquet` | 2,785,756 |
+| `org_weekly.parquet` | 372,745 |
+| `portfolio_weekly.parquet` | 262,875 |
+| `advisor_weekly.parquet` | 239,857 |
+| `org_quarterly.parquet` | 69,853 |
+| `run_log.json` | 63,569 |
+| `geo_weekly.parquet` | 20,243 |
 | `manifest.json` | 9,851 |
 | `dq_weekly.parquet` | 6,742 |
-| `pipeline_graph.json` | 6,739 |
-| `narratives/*.json` (26 files, 2026-W17 to W42) | 6,649,657 |
-| **Total** | **10,492,906** (52% of the 20 MB budget) |
+| `pipeline_graph.json` | 6,069 |
+| `narratives/*.json` (26 files, 2026-W17 to W42) | 6,647,405 |
+| **Total** | **10,484,965** (52% of the 20 MB budget) |
 
 - **Narratives:** the site keeps the latest 26 weeks, about 255 KB each (#148). Older narratives stay in state only: 43 MB for 106 weeks in the local reproduction.
-- **Local state:** `warehouse.duckdb` is 1.9 GB and the generated sources are 84 MB.
+- **Local state:** `warehouse.duckdb` is 1.7 GB and the generated sources are 84 MB. The local reproduction took 95 minutes of wall time.
 
 ## Defect catch rate
 
