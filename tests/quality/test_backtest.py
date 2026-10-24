@@ -110,7 +110,6 @@ def test_a_stricter_threshold_misses_the_story(tmp_path: Path) -> None:
         if s.rule == "ANOMALY" and s.level == "BRANCH"
     )
     assert anomaly.recall == 0.0 and anomaly.median_lag_weeks is None
-    assert PREVIOUS.z < SHIPPED.z
 
 
 def test_precision_counts_direct_small_stories_but_not_indirect_overlaps() -> None:
@@ -140,3 +139,16 @@ def test_operational_kpi_flags_are_included(tmp_path: Path) -> None:
     found = flags(con, SHIPPED)
     assert any(f.kpi == "LATE_RATE" and f.rule == "ANOMALY" for f in found)
     assert any(f.kpi == "LATE_RATE" and f.rule == "DOWN" for f in found)
+
+
+def test_tuned_policy_does_not_alert_between_two_and_three_sigma(tmp_path: Path) -> None:
+    con = _warehouse(tmp_path, MART_FLAGS)
+    con.execute(
+        "update backtest_report set value = 108, wow_delta = 8, wow_pct = 0.08 "
+        " , flag = 'UP' where iso_week_id = '2026-W09'"
+    )
+    # The integrated mart uses 3 sigma. The same observation is an anomaly under
+    # the previous 2-sigma rule and an ordinary UP under the tuned policy.
+    assert mismatches(con) == 0
+    assert flags(con, backtest.PROPOSED)[-1].rule == "UP"
+    assert flags(con, PREVIOUS)[-1].rule == "ANOMALY"

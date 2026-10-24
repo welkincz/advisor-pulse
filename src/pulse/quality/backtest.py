@@ -50,6 +50,7 @@ class Thresholds:
 
 
 SHIPPED = Thresholds()
+PROPOSED = Thresholds(z=3.0, prtf_min_move=0.002)
 # The thresholds before the backtest tuned them (ADR 0006).
 PREVIOUS = Thresholds(z=2.0, prtf_min_move=0.005)
 
