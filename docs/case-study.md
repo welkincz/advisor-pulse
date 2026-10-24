@@ -7,7 +7,7 @@
 3. **1:30–2:15** — Read the repeat-run and crash-recovery evidence in the [idempotency tests](https://github.com/welkincz/advisor-pulse/blob/main/tests/integration/test_idempotency.py#L84).
 4. **2:15–3:00** — Compare the demonstrated capabilities, limits and tracked gaps with the [job-sample evidence map](https://github.com/welkincz/advisor-pulse/blob/main/docs/reviewer-map.md).
 
-Advisor Pulse is a weekly batch pipeline and report for Maplecrest Bank, a fictional Canadian bank. Every number on this page comes from synthetic data. The data is generated with a fixed seed, loaded the way a real warehouse would load it, modelled in dbt, checked, explained in plain language by Claude, and published as a static site. The site updates once a week, after the weekly run, and that is all a Monday report needs.
+Advisor Pulse is a weekly batch pipeline and report for Maplecrest Bank, a fictional Canadian bank. Every number on this page comes from synthetic data. The data is generated with a fixed seed, loaded the way a real warehouse would load it, modelled in dbt, checked, explained in plain language by Claude, and published as a static site. The site updates once a week, after the weekly run.
 
 ## The problem
 
@@ -25,7 +25,7 @@ The source data never arrives clean:
 
 The project rebuilds that situation on synthetic data and solves it the way I would want it solved at work. Loads are incremental and idempotent. History is explicit. Every check ties back to a known ground truth.
 
-The lead question is what share of active clients in each portfolio heard from an advisor in the last 12 months. The seeded generator's national contacted rate rises gradually from about 83% at the first reported week towards 86–87% by 2026-W42, then eases into a flatter line in 2027. The useful exceptions are in the detail: a few branches and advisors lose ground even while the national figure improves. The weekly report helps a manager find and investigate those exceptions; it does not claim that contact alone measures client outcomes.
+The lead question is what share of active clients in each portfolio heard from an advisor in the last 12 months. Nationally it rises gradually, from 82.9% in the first reported week to 86.4% in 2026-W42. The useful exceptions are in the detail: some branches and advisors lose ground while the nation improves. The report helps a manager find them; it does not claim that contact alone measures client outcomes.
 
 ## Architecture
 
@@ -102,7 +102,7 @@ The full numbers are in [baseline.md](https://github.com/welkincz/advisor-pulse/
 
 Without the model, a week spends most of its time in dbt (about 110 s). Writing the 27 narratives with Claude adds about 7 minutes.
 
-The rebuild is slow because each week replays the whole pipeline: a full dbt build over all the history so far, then a save of the warehouse to object storage. So every added week costs more than the last. The fix runs those steps once per rebuild instead of once per week ([#275](https://github.com/welkincz/advisor-pulse/issues/275)).
+The rebuild is slow because each week replays the whole pipeline, a full dbt build and a warehouse save, so every added week costs more than the last. The fix runs those steps once per rebuild instead of once per week ([#275](https://github.com/welkincz/advisor-pulse/issues/275)).
 
 ## Failure handling
 
