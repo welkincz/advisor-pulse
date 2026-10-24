@@ -127,6 +127,9 @@ jobs:
       - name: dbt build (CI fixtures)
         run: make dbt-build-ci
 
+      - name: Lead KPI matches an independent implementation (CI fixtures, #303)
+        run: uv run python scripts/crosscheck_kpi.py --sources fixtures/sources --warehouse data/ci/warehouse.duckdb
+
       - name: Static dbt docs build within budget (CI fixtures)
         run: DBT_TARGET=ci make dbt-docs-static
 

@@ -46,7 +46,9 @@ R13 Advisor rows exist for advisors on the roster at week start: their latest AD
     event on or before Monday (two on one day: the larger ASGN_ID) is not TERM, and the role
     is not BR_MGR. Holders off the roster still count at their portfolios' branch.
 
-Usage: python scripts/crosscheck_kpi.py --data-dir data   (exit 1 on any mismatch)
+Usage: python scripts/crosscheck_kpi.py --data-dir data   (exit 1 on any mismatch, 2 when
+the warehouse is missing). CI's dbt job runs it on the fixture warehouse with
+--sources fixtures/sources --warehouse data/ci/warehouse.duckdb.
 """
 
 from __future__ import annotations
@@ -805,9 +807,15 @@ def summarize(expected: Expected, marts: Marts, report: Report) -> list[str]:
     return lines
 
 
-def run(data_dir: Path, reference: Path = ROOT / "reference") -> tuple[bool, list[str]]:
-    expected = compute(data_dir / "sources", reference)
-    marts = read_marts(data_dir / "warehouse.duckdb")
+def run(
+    data_dir: Path,
+    reference: Path = ROOT / "reference",
+    *,
+    sources: Path | None = None,
+    warehouse: Path | None = None,
+) -> tuple[bool, list[str]]:
+    expected = compute(sources or data_dir / "sources", reference)
+    marts = read_marts(warehouse or data_dir / "warehouse.duckdb")
     report = compare(expected, marts)
     return report.ok, summarize(expected, marts, report)
 
@@ -820,9 +828,22 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("data"),
         help="Holds sources/ and warehouse.duckdb (PULSE_DATA_DIR).",
     )
+    parser.add_argument("--sources", type=Path, help="Override <data-dir>/sources.")
+    parser.add_argument("--warehouse", type=Path, help="Override <data-dir>/warehouse.duckdb.")
     parser.add_argument("--reference", type=Path, default=ROOT / "reference")
     args = parser.parse_args(argv)
-    ok, lines = run(args.data_dir, args.reference)
+    sources = args.sources or args.data_dir / "sources"
+    warehouse = args.warehouse or args.data_dir / "warehouse.duckdb"
+    needed = (sources / "teradata" / "edw.sqlite", warehouse)
+    missing = [str(path) for path in needed if not path.is_file()]
+    if missing:
+        print(
+            f"Missing {', '.join(missing)}. Build the warehouse first"
+            " (make run / make backfill, or make dbt-build-ci for the fixtures).",
+            file=sys.stderr,
+        )
+        return 2
+    ok, lines = run(args.data_dir, args.reference, sources=sources, warehouse=warehouse)
     print("\n".join(lines))
     return 0 if ok else 1
 
