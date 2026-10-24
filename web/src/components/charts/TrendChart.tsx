@@ -214,7 +214,7 @@ export function TrendChart({ weeks, values, usual, reference, flagged, selected,
     </svg>}
     {tipAt !== null && !compact && <div ref={tipRef} id={tipId} className={`trend-tip${tipBelow ? ' is-below' : ''}`} aria-live={keyed ? 'polite' : undefined}
       style={{ left: tipLeft, top: tipBelow ? pointY + 12 : pointY - 12 }}>
-      <span className="trend-tip-week figure-num">{weeks[tipAt]}</span>
+      <span className="trend-tip-week figure-num" data-week={weeks[tipAt]}>{weeks[tipAt]}</span>
       <strong className="figure-num">{format(values[tipAt])}</strong>
       {describe ? describe(tipAt).map((line) => <span key={line} className="trend-tip-line">{line}</span>) : <>
         {usual && usual[tipAt] != null && <span>Usual {format(usual[tipAt])}</span>}

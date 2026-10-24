@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { TrendChart } from '../../components/charts/TrendChart'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useReducedMotion } from '../../app/useReducedMotion'
-import { Breadcrumb, Delta, Explain, Section, SeriesCsvButton, Stat, StatGroup, Term, WeekStepper } from '../../components/primitives'
+import { Breadcrumb, Delta, Explain, Section, SeriesCsvButton, SeriesTable, Stat, StatGroup, Term, WeekStepper } from '../../components/primitives'
 import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, happened, useAdvisorWeekly, useChildReportHistory, useManifest, useNodeNames, useWeeklyReportHistory } from '../../data'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../../data/usual'
@@ -127,6 +127,7 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, lead, ch
         <span><i className="hero-key-flag" aria-hidden="true" /><Term {...TERMS.anomaly} /></span>
         <span className="hero-hint"><SeriesCsvButton rows={series} filename={`advisor-pulse_${path.nodeId}_${code}.csv`} /></span>
       </p>
+      <SeriesTable rows={series} code={code} week={week} settled={settled} label={`${KPI_LABELS[code]}, ${name}, by week`} />
     </section>
     <Section id="kpis" title={`${name}, week ${week}`} lede="Hover or focus a measure for what it means; click to plot it." revealOrder={0}>
       {history.status === 'loading' && !rows.size ? <p aria-busy="true">Loading the KPIs…</p> : <KpiBoard rows={rows} selected={code} onSelect={setKpi} only={ORG_KPIS} />}

@@ -36,18 +36,35 @@ export function leadFor(history: readonly KpiValue[], week: string): KpiCode {
 }
 
 export const RATES: ReadonlySet<KpiCode> = new Set<KpiCode>(['PRTF_CONTACT_12M', 'CALL_TO_APPT', 'SHOW_RATE', 'APPT_CONV', 'NO_SHOW_RATE', 'LATE_RATE', 'QUAR_RATE'])
+/**
+ * Batch data-quality rates are a fraction of a percent: two decimals, as on the data quality
+ * page, so a quarantine rate of 0.03% never reads as 0.0% on the overview.
+ */
+const BATCH_RATES = new Set<KpiCode>(['LATE_RATE', 'QUAR_RATE'])
 /** Averages keep one decimal even when whole, so a column of them lines up (16.0, not 16). */
 const AVERAGES = new Set<KpiCode>(['ACT_PER_ADV', 'AVG_MEET_MIN'])
 
+/** The one way a measure's value is written, on every page, card, table and chart. */
 export function formatKpi(code: KpiCode, value: number | null | undefined): string {
   if (value === null || value === undefined) return '–'
-  if (RATES.has(code)) return `${(value * 100).toFixed(1)}%`
+  if (RATES.has(code)) return `${(value * 100).toFixed(BATCH_RATES.has(code) ? 2 : 1)}%`
   if (AVERAGES.has(code)) return value.toFixed(1)
   return Number.isInteger(value) ? value.toLocaleString('en-CA') : value.toFixed(1)
 }
 
+/** Under this share a change is level: it shows as ±0.0%, neither up nor down. */
+export const LEVEL_BELOW = 0.0005
+
+/**
+ * The one way a change is written: a share as a signed percentage with one decimal and a real
+ * minus sign ("+14.6%", "−7.1%", "±0.0%"). Week-over-week deltas and gaps from usual use it.
+ */
+export function formatChange(share: number): string {
+  const sign = Math.abs(share) < LEVEL_BELOW ? '±' : share > 0 ? '+' : '−'
+  return `${sign}${Math.abs(share * 100).toFixed(1)}%`
+}
+
 export function formatWow(pct: number | null | undefined): string {
   if (pct === null || pct === undefined) return 'no prior week'
-  const sign = pct > 0 ? '+' : pct < 0 ? '−' : '±'
-  return `${sign}${Math.abs(pct * 100).toFixed(1)}% WoW`
+  return `${formatChange(pct)} WoW`
 }

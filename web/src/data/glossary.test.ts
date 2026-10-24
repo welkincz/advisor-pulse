@@ -15,8 +15,8 @@ describe('happened', () => {
   })
 
   it('compares a rate with a 0% usual in points', () => {
-    expect(happened({ code: 'QUAR_RATE', value: 0.012, usual: 0, better: 'lower' })).toEqual(['1.2 pts above usual (0.0%): worse than a normal week.'])
-    expect(happened({ code: 'QUAR_RATE', value: 0, usual: 0, better: 'lower' })).toEqual(['Level with usual (0.0%).'])
+    expect(happened({ code: 'QUAR_RATE', value: 0.012, usual: 0, better: 'lower' })).toEqual(['1.2 pts above usual (0.00%): worse than a normal week.'])
+    expect(happened({ code: 'QUAR_RATE', value: 0, usual: 0, better: 'lower' })).toEqual(['Level with usual (0.00%).'])
   })
 
   it('states a small gap without calling it better or worse, so it never contradicts the colours', () => {

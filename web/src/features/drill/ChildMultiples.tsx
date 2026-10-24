@@ -39,7 +39,7 @@ export function ChildMultiples({ rows, parent, code, week, weeks, hrefFor, onOpe
   return <ul className="multiples child-multiples">
     {children.map(({ id, weeksOf, now, name }) => {
       const href = hrefFor(id)
-      return <li key={id} className="multiple">
+      return <li key={id} className="multiple" data-node={id}>
         <Link to={href} className="multiple-head" onClick={onOpen && ((event) => onOpen(event, href))}>
           <span className="multiple-name">{name}</span>
           <span className="multiple-value figure-num">{formatKpi(code, now?.value)}</span>

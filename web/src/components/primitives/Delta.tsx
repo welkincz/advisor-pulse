@@ -1,7 +1,9 @@
+import { LEVEL_BELOW, formatChange } from '../../data/kpi'
+
 export type Better = 'higher' | 'lower' | 'neither'
 
 function judge(value: number, better: Better): 'better' | 'worse' | 'flat' {
-  if (Math.abs(value) < 0.0005 || better === 'neither') return 'flat'
+  if (Math.abs(value) < LEVEL_BELOW || better === 'neither') return 'flat'
   return (value > 0) === (better === 'higher') ? 'better' : 'worse'
 }
 
@@ -15,11 +17,11 @@ const WORD = { better: 'better than', worse: 'worse than', flat: 'level with' } 
 export function Delta({ value, better = 'higher', against = 'last week' }: { value: number | null | undefined; better?: Better; against?: string }) {
   if (value === null || value === undefined) return <span className="delta delta-none">No prior week</span>
   const verdict = judge(value, better)
-  const direction = Math.abs(value) < 0.0005 ? 'flat' : value > 0 ? 'up' : 'down'
-  const sign = direction === 'up' ? '+' : direction === 'down' ? '−' : '±'
+  const direction = Math.abs(value) < LEVEL_BELOW ? 'flat' : value > 0 ? 'up' : 'down'
+  const text = formatChange(value)
   // role="img" makes the label valid on a span (axe: aria-prohibited-attr); the parts are hidden.
-  return <span className={`delta delta-${verdict}`} role="img" aria-label={`${sign}${Math.abs(value * 100).toFixed(1)}%, ${WORD[verdict]} ${against}`}>
+  return <span className={`delta delta-${verdict}`} role="img" aria-label={`${text}, ${WORD[verdict]} ${against}`}>
     <span className="delta-glyph" aria-hidden="true">{GLYPH[direction]}</span>
-    <span className="figure-num" aria-hidden="true">{sign}{Math.abs(value * 100).toFixed(1)}%</span>
+    <span className="figure-num" aria-hidden="true">{text}</span>
   </span>
 }

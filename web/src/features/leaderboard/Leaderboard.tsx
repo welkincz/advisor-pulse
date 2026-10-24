@@ -58,7 +58,7 @@ export function LeaderTable({ rows, code, caption, childHref, onChildClick }: { 
     </tr></thead>
     <tbody>
       {virtual && start > 0 && <tr aria-hidden="true" style={{ height: start * ROW_HEIGHT }} />}
-      {rows.slice(start, end).map((row, offset) => <tr key={row.id} aria-rowindex={start + offset + 2} style={virtual ? { height: ROW_HEIGHT } : undefined}>
+      {rows.slice(start, end).map((row, offset) => <tr key={row.id} data-node={row.id} aria-rowindex={start + offset + 2} style={virtual ? { height: ROW_HEIGHT } : undefined}>
         <td className="num figure-num">{row.rank ?? '–'}</td>
         <td><Change row={row} /></td>
         <th scope="row">{childHref ? <Link to={childHref(row.id)} onClick={onChildClick && ((event) => onChildClick(event, childHref(row.id)))}>{row.name}</Link> : row.name}</th>
