@@ -74,7 +74,7 @@ models:
         description: "value − prior_week_value, 4 decimals."
         data_type: double
       - name: wow_pct
-        description: "wow_delta ÷ prior_week_value as a fraction (0.042 = +4.2%); null when the prior value is 0 or null."
+        description: "wow_delta ÷ prior_week_value as a fraction (0.042 = +4.2%), not rounded; null when the prior value is 0 or null."
         data_type: double
       - name: trailing_13w_avg
         description: Mean of the non-null values in the 13 ISO weeks ending this week, 4 decimals.

@@ -86,7 +86,7 @@ def build_facts(report: Sequence[WeeklyReport], node_id: str, week: str) -> Node
                 iso_week_id=row.iso_week_id,
                 value=_round(row.value),
                 prior_week_value=_round(row.prior_week_value),
-                wow_pct=_round(row.wow_pct),
+                wow_pct=row.wow_pct,  # unrounded, as stored: the change the site shows (#310)
                 trailing_13w_avg=_round(row.trailing_13w_avg),
                 rank_in_parent=row.rank_in_parent,
                 peer_count=row.peer_count,

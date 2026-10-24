@@ -1,0 +1,126 @@
+{
+  "kpi": [
+    {
+      "code": "ACT_PER_ADV",
+      "value": 10.25,
+      "text": "10.3"
+    },
+    {
+      "code": "ACT_PER_ADV",
+      "value": 14,
+      "text": "14.0"
+    },
+    {
+      "code": "AVG_MEET_MIN",
+      "value": 33.98,
+      "text": "34.0"
+    },
+    {
+      "code": "AVG_MEET_MIN",
+      "value": 0.05,
+      "text": "0.1"
+    },
+    {
+      "code": "CALLS_OUT",
+      "value": 1284,
+      "text": "1,284"
+    },
+    {
+      "code": "CLIENTS_CONTACTED",
+      "value": 1234567,
+      "text": "1,234,567"
+    },
+    {
+      "code": "APPT_BOOKED",
+      "value": 0,
+      "text": "0"
+    },
+    {
+      "code": "APPT_BOOKED",
+      "value": 12.5,
+      "text": "12.5"
+    },
+    {
+      "code": "PRTF_CONTACT_12M",
+      "value": 0.8641,
+      "text": "86.4%"
+    },
+    {
+      "code": "PRTF_CONTACT_12M",
+      "value": 0.80165,
+      "text": "80.2%"
+    },
+    {
+      "code": "SHOW_RATE",
+      "value": 0.9509,
+      "text": "95.1%"
+    },
+    {
+      "code": "CALL_TO_APPT",
+      "value": 0.0803,
+      "text": "8.0%"
+    },
+    {
+      "code": "NO_SHOW_RATE",
+      "value": 0.00125,
+      "text": "0.1%"
+    },
+    {
+      "code": "QUAR_RATE",
+      "value": 0.0003,
+      "text": "0.03%"
+    },
+    {
+      "code": "LATE_RATE",
+      "value": 0.0382,
+      "text": "3.82%"
+    },
+    {
+      "code": "LATE_RATE",
+      "value": 0.01565,
+      "text": "1.57%"
+    }
+  ],
+  "change": [
+    {
+      "share": 0.146,
+      "text": "+14.6%"
+    },
+    {
+      "share": -0.071,
+      "text": "−7.1%"
+    },
+    {
+      "share": 0.0004,
+      "text": "±0.0%"
+    },
+    {
+      "share": -0.0004,
+      "text": "±0.0%"
+    },
+    {
+      "share": 0.0005,
+      "text": "+0.1%"
+    },
+    {
+      "share": 0.120512820512821,
+      "text": "+12.1%"
+    },
+    {
+      "share": 0.1205,
+      "text": "+12.0%"
+    },
+    {
+      "share": -0.0335,
+      "text": "−3.4%"
+    },
+    {
+      "share": 0.00125,
+      "text": "+0.1%"
+    },
+    {
+      "share": 1.5,
+      "text": "+150.0%"
+    }
+  ]
+}

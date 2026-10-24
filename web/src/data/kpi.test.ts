@@ -1,5 +1,17 @@
 import { describe, expect, it, test } from 'vitest'
+import cases from './format-cases.json'
+import type { KpiCode } from './generated/manifest'
 import { defaultLead, formatChange, formatKpi, formatWow, leadFor } from './kpi'
+
+// The narrative writer reads the same cases (tests/narrative/test_format.py), so the text
+// above a figure and the figure itself round alike.
+test.each(cases.kpi)('formatKpi($code, $value) is $text', ({ code, value, text }) => {
+  expect(formatKpi(code as KpiCode, value)).toBe(text)
+})
+
+test.each(cases.change)('formatChange($share) is $text', ({ share, text }) => {
+  expect(formatChange(share)).toBe(text)
+})
 
 test('batch data-quality rates keep two decimals, so a small rate never reads as 0.0%', () => {
   expect(formatKpi('QUAR_RATE', 0.0003)).toBe('0.03%')

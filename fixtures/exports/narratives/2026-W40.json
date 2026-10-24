@@ -27,7 +27,7 @@
           ]
         },
         {
-          "text": "Eastern Ontario trails its peers on activities per advisor at 10.2.",
+          "text": "Eastern Ontario trails its peers on activities per advisor at 10.3.",
           "fact_ids": [
             "F6"
           ]
@@ -36,7 +36,7 @@
       "watchlist": [
         {
           "node_id": "EON",
-          "reason": "Fewest activities per advisor under Ontario (10.2).",
+          "reason": "Fewest activities per advisor under Ontario (10.3).",
           "fact_ids": [
             "F6"
           ]
@@ -50,7 +50,7 @@
           "iso_week_id": "2026-W40",
           "value": 10.44,
           "prior_week_value": 10.1,
-          "wow_pct": 0.0337,
+          "wow_pct": 0.033663366336633666,
           "trailing_13w_avg": 10.135,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -62,7 +62,7 @@
           "iso_week_id": "2026-W40",
           "value": 59.0,
           "prior_week_value": 61.0,
-          "wow_pct": -0.0328,
+          "wow_pct": -0.03278688524590164,
           "trailing_13w_avg": 63.5,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -74,7 +74,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.8333,
           "prior_week_value": 0.9,
-          "wow_pct": -0.0741,
+          "wow_pct": -0.0741111111111111,
           "trailing_13w_avg": 0.8056,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -86,7 +86,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.5333,
           "prior_week_value": 0.4444,
-          "wow_pct": 0.2,
+          "wow_pct": 0.20004500450045004,
           "trailing_13w_avg": 0.5569,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -98,7 +98,7 @@
           "iso_week_id": "2026-W40",
           "value": 10.6,
           "prior_week_value": 9.0,
-          "wow_pct": 0.1778,
+          "wow_pct": 0.17777777777777778,
           "trailing_13w_avg": 9.8,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -110,7 +110,7 @@
           "iso_week_id": "2026-W40",
           "value": 10.25,
           "prior_week_value": 11.2,
-          "wow_pct": -0.0848,
+          "wow_pct": -0.08482142857142858,
           "trailing_13w_avg": 10.5,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -124,7 +124,7 @@
     {
       "node_id": "QC",
       "level": "REGION",
-      "headline": "Quebec: activities per advisor rose 40.0% week over week to 14.",
+      "headline": "Quebec: activities per advisor rose 40.0% week over week to 14.0.",
       "bullets": [
         {
           "text": "Outbound calls 35, from 29 the week before.",
@@ -166,7 +166,7 @@
           "iso_week_id": "2026-W40",
           "value": 35.0,
           "prior_week_value": 29.0,
-          "wow_pct": 0.2069,
+          "wow_pct": 0.20689655172413793,
           "trailing_13w_avg": 29.0,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -178,7 +178,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.8571,
           "prior_week_value": 0.4286,
-          "wow_pct": 0.9998,
+          "wow_pct": 0.9997666822211853,
           "trailing_13w_avg": 0.6443,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -190,7 +190,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.5833,
           "prior_week_value": 0.6667,
-          "wow_pct": -0.1251,
+          "wow_pct": -0.12509374531273437,
           "trailing_13w_avg": 0.65,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -225,7 +225,7 @@
           ]
         },
         {
-          "text": "King & Bay Branch trails its peers on activities per advisor at 8.",
+          "text": "King & Bay Branch trails its peers on activities per advisor at 8.0.",
           "fact_ids": [
             "F5"
           ]
@@ -234,7 +234,7 @@
       "watchlist": [
         {
           "node_id": "BR-0101",
-          "reason": "Fewest activities per advisor under GTA (8).",
+          "reason": "Fewest activities per advisor under GTA (8.0).",
           "fact_ids": [
             "F5"
           ]
@@ -248,7 +248,7 @@
           "iso_week_id": "2026-W40",
           "value": 10.6,
           "prior_week_value": 9.0,
-          "wow_pct": 0.1778,
+          "wow_pct": 0.17777777777777778,
           "trailing_13w_avg": 9.8,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -260,7 +260,7 @@
           "iso_week_id": "2026-W40",
           "value": 31.0,
           "prior_week_value": 29.0,
-          "wow_pct": 0.069,
+          "wow_pct": 0.06896551724137931,
           "trailing_13w_avg": 33.75,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -272,7 +272,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.7857,
           "prior_week_value": 0.875,
-          "wow_pct": -0.1021,
+          "wow_pct": -0.10205714285714286,
           "trailing_13w_avg": 0.7402,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -284,7 +284,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.5455,
           "prior_week_value": 0.5714,
-          "wow_pct": -0.0453,
+          "wow_pct": -0.045327266363318165,
           "trailing_13w_avg": 0.5292,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -296,7 +296,7 @@
           "iso_week_id": "2026-W40",
           "value": 8.0,
           "prior_week_value": 10.5,
-          "wow_pct": -0.2381,
+          "wow_pct": -0.23809523809523808,
           "trailing_13w_avg": 9.0425,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -308,7 +308,7 @@
           "iso_week_id": "2026-W40",
           "value": 12.33,
           "prior_week_value": 8.0,
-          "wow_pct": 0.5413,
+          "wow_pct": 0.54125,
           "trailing_13w_avg": 10.54,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -322,7 +322,7 @@
     {
       "node_id": "EON",
       "level": "DISTRICT",
-      "headline": "Eastern Ontario: activities per advisor fell 8.5% week over week to 10.2.",
+      "headline": "Eastern Ontario: activities per advisor fell 8.5% week over week to 10.3.",
       "bullets": [
         {
           "text": "Outbound calls 28, from 32 the week before.",
@@ -343,7 +343,7 @@
           ]
         },
         {
-          "text": "Centretown Branch trails its peers on activities per advisor at 8.",
+          "text": "Centretown Branch trails its peers on activities per advisor at 8.0.",
           "fact_ids": [
             "F6"
           ]
@@ -352,7 +352,7 @@
       "watchlist": [
         {
           "node_id": "BR-0202",
-          "reason": "Fewest activities per advisor under Eastern Ontario (8).",
+          "reason": "Fewest activities per advisor under Eastern Ontario (8.0).",
           "fact_ids": [
             "F6"
           ]
@@ -366,7 +366,7 @@
           "iso_week_id": "2026-W40",
           "value": 10.25,
           "prior_week_value": 11.2,
-          "wow_pct": -0.0848,
+          "wow_pct": -0.08482142857142858,
           "trailing_13w_avg": 10.5,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -390,7 +390,7 @@
           "iso_week_id": "2026-W40",
           "value": 1.0,
           "prior_week_value": 0.9167,
-          "wow_pct": 0.0909,
+          "wow_pct": 0.09086942293007527,
           "trailing_13w_avg": 0.8766,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -402,7 +402,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.5,
           "prior_week_value": 0.3636,
-          "wow_pct": 0.3751,
+          "wow_pct": 0.37513751375137516,
           "trailing_13w_avg": 0.5701,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -414,7 +414,7 @@
           "iso_week_id": "2026-W40",
           "value": 11.0,
           "prior_week_value": 10.67,
-          "wow_pct": 0.0309,
+          "wow_pct": 0.030927835051546393,
           "trailing_13w_avg": 10.71,
           "rank_in_parent": 1,
           "peer_count": 2
@@ -426,7 +426,7 @@
           "iso_week_id": "2026-W40",
           "value": 8.0,
           "prior_week_value": 12.0,
-          "wow_pct": -0.3333,
+          "wow_pct": -0.3333333333333333,
           "trailing_13w_avg": 10.0,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -440,7 +440,7 @@
     {
       "node_id": "MTL",
       "level": "DISTRICT",
-      "headline": "Activities per advisor rose 40.0% week over week to 14.",
+      "headline": "Activities per advisor rose 40.0% week over week to 14.0.",
       "bullets": [
         {
           "text": "Outbound calls 35, from 29 the week before.",
@@ -490,7 +490,7 @@
           "iso_week_id": "2026-W40",
           "value": 35.0,
           "prior_week_value": 29.0,
-          "wow_pct": 0.2069,
+          "wow_pct": 0.20689655172413793,
           "trailing_13w_avg": 29.0,
           "rank_in_parent": 1,
           "peer_count": 1
@@ -502,7 +502,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.8571,
           "prior_week_value": 0.4286,
-          "wow_pct": 0.9998,
+          "wow_pct": 0.9997666822211853,
           "trailing_13w_avg": 0.6443,
           "rank_in_parent": 1,
           "peer_count": 1
@@ -514,7 +514,7 @@
           "iso_week_id": "2026-W40",
           "value": 0.5833,
           "prior_week_value": 0.6667,
-          "wow_pct": -0.1251,
+          "wow_pct": -0.12509374531273437,
           "trailing_13w_avg": 0.65,
           "rank_in_parent": 1,
           "peer_count": 1
@@ -526,7 +526,7 @@
           "iso_week_id": "2026-W40",
           "value": 10.5,
           "prior_week_value": 9.0,
-          "wow_pct": 0.1667,
+          "wow_pct": 0.16666666666666666,
           "trailing_13w_avg": 10.375,
           "rank_in_parent": 2,
           "peer_count": 2
@@ -538,7 +538,7 @@
           "iso_week_id": "2026-W40",
           "value": 17.5,
           "prior_week_value": 11.0,
-          "wow_pct": 0.5909,
+          "wow_pct": 0.5909090909090909,
           "trailing_13w_avg": 11.5,
           "rank_in_parent": 1,
           "peer_count": 2

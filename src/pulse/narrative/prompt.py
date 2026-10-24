@@ -7,12 +7,13 @@ not reused under the new prompt.
 from __future__ import annotations
 
 import json
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from pulse.contracts.enums import KpiCode
 from pulse.narrative.facts import NodeFacts
 
-PROMPT_VERSION = "narrative-v3"
+PROMPT_VERSION = "narrative-v4"
 DEFAULT_MODEL = "claude-opus-5-5"
 MAX_TOKENS = 1500
 
@@ -42,14 +43,21 @@ RATE_KPIS = frozenset(
     }
 )
 LOWER_IS_BETTER = frozenset({KpiCode.NO_SHOW_RATE, KpiCode.LATE_RATE, KpiCode.QUAR_RATE})
+# Written as the site writes them (web/src/data/kpi.ts): batch rates with two decimals,
+# averages with one decimal even when whole.
+BATCH_RATE_KPIS = frozenset({KpiCode.LATE_RATE, KpiCode.QUAR_RATE})
+AVERAGE_KPIS = frozenset({KpiCode.ACT_PER_ADV, KpiCode.AVG_MEET_MIN})
 
 SYSTEM = """\
 You write the weekly activity summary for one node (region or district) of Maplecrest Bank, \
 a fictional bank. The data is synthetic and comes from a weekly batch report.
 
 Rules:
-- Use only the facts given. Every number you write must come from a cited fact; round as \
-the facts are rounded (rates as percentages with one decimal, other values to one decimal).
+- Use only the facts given. Every number you write must come from a cited fact.
+- Write numbers exactly as the report shows them, rounding halves up: rates as percentages \
+with one decimal (late-arriving and quarantine rates with two); activities per advisor and \
+average meeting minutes with one decimal, even when whole (14.0); counts as whole numbers \
+with thousands separators (1,284); changes as percentages with one decimal.
 - Every bullet and watchlist item cites the fact IDs (F1, F2, ...) it uses.
 - wow_pct and rate values are fractions: 0.042 means 4.2%.
 - Describe what changed and how this node compares with its children or peers. Do not \
@@ -128,7 +136,20 @@ def user_message(node: NodeFacts) -> str:
     )
 
 
+def _fixed(value: float, places: int) -> str:
+    """JavaScript's toFixed: the exact binary value, halves rounded away from zero."""
+    return f"{Decimal(value).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP):f}"
+
+
 def fmt(kpi: KpiCode, value: float) -> str:
+    """A KPI value as the site writes it (formatKpi in web/src/data/kpi.ts)."""
     if kpi in RATE_KPIS:
-        return f"{value:.1%}"
-    return f"{value:g}" if value == int(value) else f"{value:.1f}"
+        return f"{_fixed(value * 100, 2 if kpi in BATCH_RATE_KPIS else 1)}%"
+    if kpi in AVERAGE_KPIS:
+        return _fixed(value, 1)
+    return f"{int(value):,}" if value == int(value) else _fixed(value, 1)
+
+
+def fmt_share(share: float) -> str:
+    """An unsigned change as the site writes its size (formatChange without the sign)."""
+    return f"{_fixed(abs(share * 100), 1)}%"

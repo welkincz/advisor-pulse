@@ -30,9 +30,9 @@
     },
     {
       "name": "weekly_report.parquet",
-      "sha256": "926ddb06b6233d93661919392c7b867ea714cbb41fd376909c4d4f29927721bd",
+      "sha256": "347930d1089d08d104cb937094e8931204fb1455dcc47bf5271dec0b87d9a38a",
       "rows": 488,
-      "bytes": 13023
+      "bytes": 13188
     },
     {
       "name": "geo_weekly.parquet",
@@ -60,9 +60,9 @@
     },
     {
       "name": "narratives/2026-W40.json",
-      "sha256": "dddccd155303e42cf3c2034a9a11d6aca4586ac9213e47e70b2814e50356aa82",
+      "sha256": "3d277af3abd502446b12787ed401a76b5e0ac81832e1f66034ce0247cfecbef7",
       "rows": null,
-      "bytes": 14644
+      "bytes": 14971
     }
   ],
   "summary": [
@@ -77,77 +77,77 @@
       "kpi_code": "ACT_PER_ADV",
       "value": 11.54,
       "prior_week_value": 10.07,
-      "wow_pct": 0.146,
+      "wow_pct": 0.14597815292949354,
       "flag": "UP"
     },
     {
       "kpi_code": "CALLS_OUT",
       "value": 94.0,
       "prior_week_value": 90.0,
-      "wow_pct": 0.0444,
+      "wow_pct": 0.044444444444444446,
       "flag": "UP"
     },
     {
       "kpi_code": "APPT_BOOKED",
       "value": 26.0,
       "prior_week_value": 28.0,
-      "wow_pct": -0.0714,
+      "wow_pct": -0.07142857142857142,
       "flag": "DOWN"
     },
     {
       "kpi_code": "CALL_TO_APPT",
       "value": 0.2766,
       "prior_week_value": 0.2444,
-      "wow_pct": 0.1318,
+      "wow_pct": 0.13175122749590834,
       "flag": "UP"
     },
     {
       "kpi_code": "SHOW_RATE",
       "value": 0.8438,
       "prior_week_value": 0.7778,
-      "wow_pct": 0.0849,
+      "wow_pct": 0.0848547184366161,
       "flag": "UP"
     },
     {
       "kpi_code": "APPT_CONV",
       "value": 0.5556,
       "prior_week_value": 0.4762,
-      "wow_pct": 0.1667,
+      "wow_pct": 0.16673666526669464,
       "flag": "UP"
     },
     {
       "kpi_code": "CLIENTS_CONTACTED",
       "value": 95.0,
       "prior_week_value": 92.0,
-      "wow_pct": 0.0326,
+      "wow_pct": 0.03260869565217391,
       "flag": "UP"
     },
     {
       "kpi_code": "AVG_MEET_MIN",
       "value": 54.93,
       "prior_week_value": 61.9,
-      "wow_pct": -0.1126,
+      "wow_pct": -0.11260096930533117,
       "flag": "DOWN"
     },
     {
       "kpi_code": "NO_SHOW_RATE",
       "value": 0.1562,
       "prior_week_value": 0.2222,
-      "wow_pct": -0.297,
+      "wow_pct": -0.297029702970297,
       "flag": "DOWN"
     },
     {
       "kpi_code": "LATE_RATE",
       "value": 0.0289,
       "prior_week_value": 0.0061,
-      "wow_pct": 3.7377,
+      "wow_pct": 3.7377049180327866,
       "flag": "ANOMALY"
     },
     {
       "kpi_code": "QUAR_RATE",
       "value": 0.0156,
       "prior_week_value": 0.0121,
-      "wow_pct": 0.2893,
+      "wow_pct": 0.2892561983471075,
       "flag": "UP"
     }
   ],
