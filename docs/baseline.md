@@ -132,6 +132,8 @@ Same 12 weeks (2026-W31 to W42), from artifacts `backfill-39927479992` (code `05
 - **Same workload, same machine.** Built once to 2025-W10 at full size, then timed 2025-W11 three times per commit in alternating order on an Apple M4 Max: dbt 16.5 → 17.1 s (+3%) and ingest 15.9 → 16.0 s (+1%), with overlapping ranges and identical mart hashes.
 - **Different runners.** Both runs used the same `ubuntu-26.04` image and package versions, but in different Azure regions (centralus, then eastus2 and westus3). The logs do not record the CPU model or core count; #336 adds that, so the next comparison can show it directly.
 
+**Comparing timings from now on.** Every weekly and backfill run writes `runner_profile.json` into its run artifact (`data/artifacts/`), and every CI python and dbt job prints the same fields in its "Record runner profile" step: CPU model and count, `nproc`, runner image, Python, dbt-core, dbt-duckdb and DuckDB versions, dbt and DuckDB threads, and the commit. Compare two runs' stage times only when the profiles match. When the code and the image match but the CPU differs, the difference is the runner. To check a code change, rerun both commits on one machine, as above.
+
 ## Export sizes (site after 2026-W42)
 
 From the deployed site in `pages-deploy-40065355219`; the bytes match `manifest.json`.

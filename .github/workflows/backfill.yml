@@ -58,6 +58,9 @@ jobs:
           uv run dbt deps --project-dir dbt --profiles-dir dbt
           pnpm -C web install --frozen-lockfile
 
+      - name: Record runner profile
+        run: uv run python scripts/runner_profile.py --out data/artifacts/runner_profile.json
+
       - name: Check Claude subscription token
         id: narrative
         env:
@@ -166,6 +169,7 @@ jobs:
           path: |
             data/exports/run_log.json
             data/artifacts/check_results.json
+            data/artifacts/runner_profile.json
             data/dbt-target/run_results.json
             web/dist/
           if-no-files-found: warn

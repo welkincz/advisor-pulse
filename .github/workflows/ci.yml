@@ -111,6 +111,9 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen
 
+      - name: Record runner profile
+        run: uv run python scripts/runner_profile.py
+
       - name: Lint (ruff)
         run: make lint
 
@@ -140,6 +143,9 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --frozen
+
+      - name: Record runner profile
+        run: uv run python scripts/runner_profile.py
 
       - name: dbt build (CI fixtures)
         run: make dbt-build-ci
