@@ -115,6 +115,60 @@ The stages of `backfill-2026-W42-1` and the median of the last 12 weeks, from `r
 - **With the model:** about 11 minutes. Narration is 27 Claude calls, one per region and district.
 - **Ingest in 2026-W42:** 170,990 rows read (the week's activity extract plus 8 client delta files), 13,815 loaded, 52 quarantined.
 
+### Matched-workload timing investigation (#335)
+
+The 73 → 108 s dbt change is classified as **Actions execution-environment variance**. The matched-week timings, unchanged execution paths and controlled local comparison below support that conclusion; no performance code change was made. The logs do not record CPU model or available core count, so they cannot distinguish a different CPU allocation from host contention. Follow-up [#336](https://github.com/welkincz/advisor-pulse/issues/336) records that missing provenance.
+
+The comparison uses [39927479992](https://github.com/welkincz/advisor-pulse/actions/runs/39927479992) at `050434c` (the previous rebuild's 2026-W22..W42 continuation) and [40065355219](https://github.com/welkincz/advisor-pulse/actions/runs/40065355219) at `ef841e1` (2026-W14..W42). [40047052218](https://github.com/welkincz/advisor-pulse/actions/runs/40047052218) is the first 77 weeks of the latter rebuild and has no overlapping weeks with the previous continuation.
+
+From the two `backfill-<run id>` artifacts, the same 12 weeks, 2026-W31..W42:
+
+| Stage | Before median (s) | After median (s) | Ratio |
+|---|---:|---:|---:|
+| generate | 15.590 | 18.752 | 1.20× |
+| ingest | 25.313 | 35.992 | 1.42× |
+| dbt_build | 72.912 | 108.339 | 1.49× |
+| checks | 0.634 | 0.992 | 1.57× |
+| export | 4.786 | 4.932 | 1.03× |
+| restore_state | 21.232 | 23.046 | 1.09× |
+
+Ingest input, output and quarantine counts match in all 12 weeks; every dbt build has 527 nodes. The logs show the same `ubuntu-26.04` image `20261012.163.1`, Python requested as 3.12, dbt-core 1.12.5, dbt-duckdb 1.11.0 and DuckDB 1.5.6. The old run was in `centralus`, the new initial run in `eastus2`, and its continuation in `westus3`. Region identifies different allocations, but does not measure their CPU capacity.
+
+**Per-model evidence.** The final 2026-W42 `data/dbt-target/run_results.json` is retained in both artifacts. Every model's executable compiled SQL matches after removing comments. These are the ten largest absolute increases in dbt `execution_time` (compile plus execution; concurrent node times must not be summed as a build's wall time):
+
+| Model, 2026-W42 | Before (s) | After (s) | Increase (s) | Ratio |
+|---|---:|---:|---:|---:|
+| `int_client_book_weekly` | 26.162 | 37.802 | +11.640 | 1.44× |
+| `int_client_contact_12m` | 11.254 | 16.453 | +5.199 | 1.46× |
+| `mart_org_weekly` | 4.973 | 8.595 | +3.623 | 1.73× |
+| `int_kpi_events` | 5.520 | 8.906 | +3.386 | 1.61× |
+| `int_activity_enriched` | 4.766 | 7.938 | +3.172 | 1.67× |
+| `mart_org_quarterly` | 11.770 | 14.733 | +2.963 | 1.25× |
+| `mart_geo_weekly` | 9.689 | 12.146 | +2.456 | 1.25× |
+| `fct_activity` | 2.451 | 4.695 | +2.243 | 1.92× |
+| `mart_portfolio_weekly` | 3.005 | 3.951 | +0.946 | 1.31× |
+| `mart_weekly_report` | 2.058 | 2.733 | +0.675 | 1.33× |
+
+`int_client_book_weekly`, the largest increase, reads the unchanged client/portfolio history. The two published portfolio exports also match on all 33,241 rows of week, portfolio, holder, organization and client-count fields; only contact measures differ. Between these revisions `src/pulse/ingest/`, `src/pulse/runner/stages.py`, `src/pulse/runner/run.py`, `src/pulse/warehouse.py`, `pyproject.toml` and `uv.lock` are byte-identical. #288 changes activity client selection; #291 applies run-log tails in restore and records a tail after the run; #297 removes an unused DAG placeholder. None adds work inside the measured ingest or dbt functions.
+
+**Controlled local comparison.** Build one full-size warehouse at `ef841e1`:
+
+```bash
+PULSE_DATA_DIR=<tmp>/base PULSE_EXPORT_DIR=<tmp>/exports \
+  uv run pulse backfill --from 2024-W41 --to 2025-W10 --rebuild
+```
+
+The process had no `R2_*` or `ANTHROPIC_API_KEY` variables. On an Apple M4 Max (14 logical CPUs), Python 3.12.11 and the package versions above, both revision worktrees used the same interpreter and dbt profile (4 threads). Each stage ran three times in balanced order `old, new, new, old, old, new`, with a fresh byte-identical warehouse copy per trial and no other project test or backfill running. Generate 2025-W11 once: ingest trials load that same pending source batch against the W10 warehouse; dbt trials use a copy after that one ingest, with marts still at W10. Semantic timestamps are fixed at 2025-03-17 03:30 UTC. Each dbt trial starts with an empty target directory, so parsing treatment is equal.
+
+| Local stage | 050434c median (range), s | ef841e1 median (range), s | Ratio |
+|---|---:|---:|---:|
+| dbt_build | 16.524 (15.452–17.456) | 17.087 (16.634–17.413) | 1.034× |
+| ingest | 15.913 (15.849–16.411) | 16.036 (15.818–17.041) | 1.008× |
+
+The local median changes are +3.4% for dbt and +0.8% for ingest, with overlapping ranges; the Actions increase does not reproduce. The largest Actions mover, `int_client_book_weekly`, is 7.058 → 7.080 s locally (+0.3%). Each ingest reads 170,744 rows, loads 14,950 and quarantines 56, identically at both revisions. Each dbt build passes all 527 nodes. The resulting org (3,450 rows), portfolio (22,942) and advisor (17,894) marts have identical row counts and content hashes across revisions. `make crosscheck-kpi` independently passes on the original 22-week warehouse (3,300 org, 17,116 advisor and 21,906 portfolio rows).
+
+The old exported log leaves prior weeks' `persist_state` RUNNING and their total `duration_ms` null (the recording problem fixed by #291). Whole-week comparisons therefore use the `Backfill` start and final run-status timestamps in the step logs: median **165.127 → 228.173 s** for the same 11 weeks W31..W41, excluding W42's model calls. Do not compare a partial old exported duration with a completed new one. The per-stage ingest/dbt timings above are complete in both artifacts.
+
 ## Export sizes (site after 2026-W42)
 
 From the deployed site in `pages-deploy-40065355219`; the bytes match `manifest.json`.
