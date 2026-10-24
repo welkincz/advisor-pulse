@@ -42,10 +42,10 @@ RULES = ("ANOMALY", "PRTF_MOVE", "DOWN", "UP")
 class Thresholds:
     """The flag rule's knobs; the defaults are the shipped ones (PLAN.md §7)."""
 
-    z: float = 2.0
+    z: float = 3.0
     min_baseline_weeks: int = 8
     prtf_z: float = 2.0
-    prtf_min_move: float = 0.005
+    prtf_min_move: float = 0.002
     wow_pct: float = 0.01
 
 
