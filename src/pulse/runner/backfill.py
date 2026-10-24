@@ -194,6 +194,30 @@ def _fast_backfill(
             saved = json.loads(progress.read_text())
             entries = saved.get("pending", [])
             if saved.get("last") == weeks[-1] and entries and entries[-1]["week"] < weeks[0]:
+                if len(week_range(entries[-1]["week"], weeks[0])) != 2:
+                    return StageResult(
+                        StageStatus.FAILED, message="Continuation skips a checkpoint week."
+                    )
+                con = connect(data_dir / WAREHOUSE_FILE, read_only=True)
+                try:
+                    ingested = {
+                        (r.iso_week_id, r.run_id)
+                        for r in meta.get_run_log(con)
+                        if r.stage == "ingest"
+                        and r.status in {StageStatus.SUCCESS, StageStatus.WARN, StageStatus.SKIPPED}
+                    }
+                finally:
+                    con.close()
+                for entry in entries:
+                    if (entry["week"], entry["run_id"]) not in ingested:
+                        return StageResult(
+                            StageStatus.FAILED,
+                            message=(
+                                f"Checkpoint progress for {entry['week']} "
+                                "is ahead of the warehouse; "
+                                "restart from the last persisted ingest week."
+                            ),
+                        )
                 pending.extend(entries)
                 for entry in pending:
                     path = data_dir / "defects" / f"{entry['week']}.json"
