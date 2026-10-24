@@ -163,7 +163,9 @@ class StateSync:
             return set()
         return set(json.loads(found[0])) if found else set()
 
-    def restore(self, ctx: StageContext, *, skip_remote: bool = False) -> StageResult:
+    def restore(
+        self, ctx: StageContext, *, skip_remote: bool = False, rebuild_missing: bool = True
+    ) -> StageResult:
         store = self._store()
         if store is None:
             return StageResult(
@@ -197,6 +199,11 @@ class StateSync:
             # uploads only new or changed files, so the next persist cannot overwrite them.
             clear_local(ctx.data_dir)
             self._tails[ctx.run_id] = sorted(store.etags(f"{TAILS_DIR}/"))  # never applied
+            if not rebuild_missing:
+                self._fresh.add(ctx.run_id)
+                return StageResult(
+                    message=f"Cold start: backfill will ingest its requested range.{note}"
+                )
             weeks = weeks_between(self.start_week, ctx.iso_week_id)
             if not weeks:
                 return StageResult(message=f"Cold start: no state in R2.{note}")

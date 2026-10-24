@@ -17,9 +17,10 @@ import pulse.state
 from pulse.contracts.enums import RunType, StageStatus
 from pulse.contracts.exports import RunLogExport
 from pulse.contracts.meta import RunLogRow
+from pulse.generate.cli import week_range
 from pulse.runner import WEEKLY_STAGES, RetryableError, Stage, StageContext, StageResult, stages
 from pulse.runner.backfill import backfill_range
-from pulse.runner.command import RUN_LOG_JSON
+from pulse.runner.command import RUN_LOG_JSON, run_week
 from pulse.state import StateSync
 from pulse.state.store import ObjectStore
 
@@ -90,23 +91,41 @@ def assert_every_stage_final(doc: RunLogExport, run_ids: list[str]) -> None:
         assert run.ended_at is not None, run_id
 
 
-def backfill(first: str, last: str, data_dir: Path, clock: Clock, out: list[str]) -> int:
-    return backfill_range(
-        first, last, data_dir=data_dir, stages=stub_pipeline(), clock=clock, echo=out.append
-    )
+def weekly_runs(first: str, last: str, data_dir: Path, clock: Clock, out: list[str]) -> int:
+    # These tests cover command-level state tails for consecutive weekly runs.
+    for week in week_range(first, last):
+        code = run_week(
+            week,
+            data_dir=data_dir,
+            run_type=RunType.BACKFILL,
+            stages=stub_pipeline(),
+            clock=clock,
+            echo=out.append,
+        )
+        if code:
+            return code
+    return 0
 
 
 def test_two_week_backfill_keeps_every_stage_final(
     store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     use_store(monkeypatch, store)
-    assert backfill(WEEKS[0], WEEKS[-1], tmp_path, Clock(), []) == 0
+    assert (
+        backfill_range(
+            WEEKS[0], WEEKS[-1], data_dir=tmp_path, stages=stub_pipeline(), clock=Clock()
+        )
+        == 0
+    )
     doc = exported(tmp_path)
-    assert doc.runs[0].run_id == RUNS[-1]
-    assert_every_stage_final(doc, RUNS)
-    first = {a.stage: a for a in next(r for r in doc.runs if r.run_id == RUNS[0]).stages}
-    assert first["persist_state"].status is StageStatus.SUCCESS
-    assert first["release_lock"].status is StageStatus.SUCCESS
+    range_id = f"backfill-range-{WEEKS[0]}-{WEEKS[-1]}-1"
+    assert doc.runs[0].run_id == range_id
+    assert_every_stage_final(doc, [range_id])
+    for run in doc.runs[1:]:
+        assert {a.stage for a in run.stages} == {"generate", "ingest", "checks", "narrate"}
+        assert all(
+            a.ended_at is not None and a.status is not StageStatus.RUNNING for a in run.stages
+        )
 
 
 def test_a_fresh_runner_restores_the_previous_runs_final_rows(
@@ -116,7 +135,7 @@ def test_a_fresh_runner_restores_the_previous_runs_final_rows(
     clock = Clock()
     for week, data_dir in zip(WEEKS, (tmp_path / "runner1", tmp_path / "runner2"), strict=True):
         use_store(monkeypatch, store)
-        assert backfill(week, week, data_dir, clock, []) == 0
+        assert weekly_runs(week, week, data_dir, clock, []) == 0
     assert_every_stage_final(exported(tmp_path / "runner2"), RUNS)
 
 
@@ -125,14 +144,14 @@ def test_a_failed_persist_is_recorded_and_nothing_claims_it_succeeded(
 ) -> None:
     clock = Clock()
     use_store(monkeypatch, store)
-    assert backfill(WEEKS[0], WEEKS[0], tmp_path, clock, []) == 0
+    assert weekly_runs(WEEKS[0], WEEKS[0], tmp_path, clock, []) == 0
 
     def upload_fails(path: Path, key: str) -> None:
         raise OSError(f"cannot upload {key}")
 
     monkeypatch.setattr(store, "upload", upload_fails)
     out: list[str] = []
-    assert backfill(WEEKS[1], WEEKS[1], tmp_path, clock, out) == 1
+    assert weekly_runs(WEEKS[1], WEEKS[1], tmp_path, clock, out) == 1
     doc = exported(tmp_path)
     assert doc.runs[0].run_id == RUNS[1]
     assert_every_stage_final(doc, RUNS)
@@ -147,7 +166,7 @@ def test_a_failed_persist_is_recorded_and_nothing_claims_it_succeeded(
     monkeypatch.undo()
     use_store(monkeypatch, store)
     later = tmp_path / "runner2"
-    assert backfill("2026-W42", "2026-W42", later, clock, []) == 0
+    assert weekly_runs("2026-W42", "2026-W42", later, clock, []) == 0
     doc = exported(later)
     assert RUNS[1] not in {r.run_id for r in doc.runs}
     assert_every_stage_final(doc, [RUNS[0], "backfill-2026-W42-1"])
@@ -158,9 +177,9 @@ def test_applied_tails_are_removed_and_a_reused_run_id_is_not_finished(
 ) -> None:
     clock = Clock()
     use_store(monkeypatch, store)
-    assert backfill(WEEKS[0], WEEKS[0], tmp_path, clock, []) == 0
+    assert weekly_runs(WEEKS[0], WEEKS[0], tmp_path, clock, []) == 0
     assert sorted(store.etags("run_logs/")) == [f"run_logs/{RUNS[0]}.json"]
-    assert backfill(WEEKS[1], WEEKS[1], tmp_path, clock, []) == 0
+    assert weekly_runs(WEEKS[1], WEEKS[1], tmp_path, clock, []) == 0
     # The second persist uploaded the first run's final rows and dropped its tail.
     assert sorted(store.etags("run_logs/")) == [f"run_logs/{RUNS[1]}.json"]
 
@@ -171,7 +190,7 @@ def test_applied_tails_are_removed_and_a_reused_run_id_is_not_finished(
         row["status"] = "FAILED"
     store.put(f"run_logs/{RUNS[1]}.json", json.dumps(stale).encode())
     use_store(monkeypatch, store)
-    assert backfill("2026-W42", "2026-W42", tmp_path / "runner2", clock, []) == 0
+    assert weekly_runs("2026-W42", "2026-W42", tmp_path / "runner2", clock, []) == 0
     second = next(r for r in exported(tmp_path / "runner2").runs if r.run_id == RUNS[1])
     assert second.ended_at is None  # the stale FAILED rows were not applied
     assert {a.stage: a.status for a in second.stages}["persist_state"] is StageStatus.RUNNING
@@ -187,7 +206,7 @@ def test_a_failed_tail_write_fails_the_command_and_says_why(
 
     monkeypatch.setattr(sync, "record_run_log", r2_down)
     out: list[str] = []
-    assert backfill(WEEKS[0], WEEKS[0], tmp_path, Clock(), out) == 1
+    assert weekly_runs(WEEKS[0], WEEKS[0], tmp_path, Clock(), out) == 1
     assert (
         "Could not keep the final run log with the state: RetryableError: R2 put_object failed"
         in out
@@ -217,10 +236,10 @@ def test_an_unreadable_tail_is_skipped_and_removed(
 ) -> None:
     clock = Clock()
     use_store(monkeypatch, store)
-    assert backfill(WEEKS[0], WEEKS[0], tmp_path, clock, []) == 0
+    assert weekly_runs(WEEKS[0], WEEKS[0], tmp_path, clock, []) == 0
     store.put(f"run_logs/{RUNS[0]}.json", b'[{"run_id": "half a ro')
     out: list[str] = []
-    assert backfill(WEEKS[1], WEEKS[1], tmp_path, clock, out) == 0, out
+    assert weekly_runs(WEEKS[1], WEEKS[1], tmp_path, clock, out) == 0, out
     assert sorted(store.etags("run_logs/")) == [f"run_logs/{RUNS[1]}.json"]
 
 
@@ -240,7 +259,7 @@ def test_real_two_week_backfill_on_fixtures_exports_every_stage_final(
         exported(tmp_path),
         RunLogExport.model_validate_json((stages.export_dir() / "run_log.json").read_text()),
     ):
-        assert_every_stage_final(doc, RUNS)
-        first = {a.stage: a for a in next(r for r in doc.runs if r.run_id == RUNS[0]).stages}
-        assert first["persist_state"].status is StageStatus.SUCCESS
-        assert first["release_lock"].status is StageStatus.SUCCESS
+        range_id = f"backfill-range-{WEEKS[0]}-{WEEKS[-1]}-1"
+        assert_every_stage_final(doc, [range_id])
+        for run in doc.runs:
+            assert all(a.ended_at is not None for a in run.stages)
