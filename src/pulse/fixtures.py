@@ -1533,7 +1533,7 @@ class Marts:
                 history = [values[(w, node_id, kpi)] for w in WEEKS[max(0, i - 12) : i + 1]]
                 trailing = [h for h in history if h is not None]
                 delta = None if value is None or prior is None else round(value - prior, 4)
-                pct = None if delta is None or not prior else round(delta / prior, 4)
+                pct = None if delta is None or not prior else delta / prior  # unrounded (#310)
                 rank = peers = None
                 if r["parent_id"] is not None and value is not None:
                     peer_values = [values.get((week, s, kpi)) for s in siblings]
