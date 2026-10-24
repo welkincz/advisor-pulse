@@ -97,6 +97,7 @@ from pulse.contracts.sources import (
     TeradataPortfolioAssignment,
 )
 from pulse.fiscal import quarter_bounds, week_fiscal_quarter_id, week_sunday, weeks_in_quarter
+from pulse.narrative.prompt import fmt, fmt_share
 from pulse.reference import org
 
 FIXTURES_DIR = Path(__file__).resolve().parents[2] / "fixtures"
@@ -1930,14 +1931,7 @@ def pipeline_graph() -> PipelineGraph:
 
 
 def _fmt(kpi: KpiCode, value: float) -> str:
-    if kpi in {
-        KpiCode.SHOW_RATE,
-        KpiCode.APPT_CONV,
-        KpiCode.CALL_TO_APPT,
-        KpiCode.NO_SHOW_RATE,
-    }:
-        return f"{value:.1%}"
-    return f"{value:g}" if value == int(value) else f"{value:.1f}"
+    return fmt(kpi, value)  # the narrative's formatter, which writes numbers as the site does
 
 
 class _FactBook:
@@ -2015,7 +2009,7 @@ def narratives(report: list[dict[str, Any]], generated_at: datetime) -> Narrativ
             move = f"held at {_fmt(KpiCode.ACT_PER_ADV, v)}"
         else:
             move = (
-                f"{'rose' if pct > 0 else 'fell'} {abs(pct):.1%} week over week to "
+                f"{'rose' if pct > 0 else 'fell'} {fmt_share(pct)} week over week to "
                 f"{_fmt(KpiCode.ACT_PER_ADV, v)}"
             )
         headline = (

@@ -27,7 +27,7 @@
           ]
         },
         {
-          "text": "Eastern Ontario trails its peers on activities per advisor at 10.2.",
+          "text": "Eastern Ontario trails its peers on activities per advisor at 10.3.",
           "fact_ids": [
             "F6"
           ]
@@ -36,7 +36,7 @@
       "watchlist": [
         {
           "node_id": "EON",
-          "reason": "Fewest activities per advisor under Ontario (10.2).",
+          "reason": "Fewest activities per advisor under Ontario (10.3).",
           "fact_ids": [
             "F6"
           ]
@@ -124,7 +124,7 @@
     {
       "node_id": "QC",
       "level": "REGION",
-      "headline": "Quebec: activities per advisor rose 40.0% week over week to 14.",
+      "headline": "Quebec: activities per advisor rose 40.0% week over week to 14.0.",
       "bullets": [
         {
           "text": "Outbound calls 35, from 29 the week before.",
@@ -225,7 +225,7 @@
           ]
         },
         {
-          "text": "King & Bay Branch trails its peers on activities per advisor at 8.",
+          "text": "King & Bay Branch trails its peers on activities per advisor at 8.0.",
           "fact_ids": [
             "F5"
           ]
@@ -234,7 +234,7 @@
       "watchlist": [
         {
           "node_id": "BR-0101",
-          "reason": "Fewest activities per advisor under GTA (8).",
+          "reason": "Fewest activities per advisor under GTA (8.0).",
           "fact_ids": [
             "F5"
           ]
@@ -322,7 +322,7 @@
     {
       "node_id": "EON",
       "level": "DISTRICT",
-      "headline": "Eastern Ontario: activities per advisor fell 8.5% week over week to 10.2.",
+      "headline": "Eastern Ontario: activities per advisor fell 8.5% week over week to 10.3.",
       "bullets": [
         {
           "text": "Outbound calls 28, from 32 the week before.",
@@ -343,7 +343,7 @@
           ]
         },
         {
-          "text": "Centretown Branch trails its peers on activities per advisor at 8.",
+          "text": "Centretown Branch trails its peers on activities per advisor at 8.0.",
           "fact_ids": [
             "F6"
           ]
@@ -352,7 +352,7 @@
       "watchlist": [
         {
           "node_id": "BR-0202",
-          "reason": "Fewest activities per advisor under Eastern Ontario (8).",
+          "reason": "Fewest activities per advisor under Eastern Ontario (8.0).",
           "fact_ids": [
             "F6"
           ]
@@ -440,7 +440,7 @@
     {
       "node_id": "MTL",
       "level": "DISTRICT",
-      "headline": "Activities per advisor rose 40.0% week over week to 14.",
+      "headline": "Activities per advisor rose 40.0% week over week to 14.0.",
       "bullets": [
         {
           "text": "Outbound calls 35, from 29 the week before.",

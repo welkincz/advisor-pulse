@@ -47,7 +47,6 @@ LOWER_IS_BETTER = frozenset({KpiCode.NO_SHOW_RATE, KpiCode.LATE_RATE, KpiCode.QU
 # averages with one decimal even when whole.
 BATCH_RATE_KPIS = frozenset({KpiCode.LATE_RATE, KpiCode.QUAR_RATE})
 AVERAGE_KPIS = frozenset({KpiCode.ACT_PER_ADV, KpiCode.AVG_MEET_MIN})
-LEVEL_BELOW = 0.0005  # under this share a change is level: ±0.0%
 
 SYSTEM = """\
 You write the weekly activity summary for one node (region or district) of Maplecrest Bank, \
@@ -154,9 +153,3 @@ def fmt(kpi: KpiCode, value: float) -> str:
 def fmt_share(share: float) -> str:
     """An unsigned change as the site writes its size (formatChange without the sign)."""
     return f"{_fixed(abs(share * 100), 1)}%"
-
-
-def fmt_change(share: float) -> str:
-    """A signed change as the site writes it (formatChange in web/src/data/kpi.ts)."""
-    sign = "±" if abs(share) < LEVEL_BELOW else "+" if share > 0 else "−"
-    return f"{sign}{fmt_share(share)}"
