@@ -16,6 +16,11 @@ on:
         required: true
         default: false
         type: boolean
+      benchmark_only:
+        description: Measure a local-only rebuild without remote state or deployment
+        required: false
+        default: false
+        type: boolean
       budget_minutes:
         description: Stop cleanly between weeks after this many minutes and continue in a new run
         required: false
@@ -27,7 +32,7 @@ permissions:
   actions: write  # a run that hits its time budget dispatches the next one
 
 concurrency:
-  group: weekly
+  group: ${{ inputs.benchmark_only && format('backfill-benchmark-{0}', github.ref) || 'weekly' }}
   cancel-in-progress: false
 
 jobs:
@@ -61,7 +66,7 @@ jobs:
       - name: Check Claude subscription token
         id: narrative
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.benchmark_only != true && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
         run: |
           if [[ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]]; then
             echo 'available=true' >> "$GITHUB_OUTPUT"
@@ -80,19 +85,22 @@ jobs:
           FROM_WEEK: ${{ inputs.from }}
           TO_WEEK: ${{ inputs.to }}
           REBUILD: ${{ inputs.rebuild }}
+          BENCHMARK_ONLY: ${{ inputs.benchmark_only }}
           BUDGET_MINUTES: ${{ inputs.budget_minutes || '320' }}
           PULSE_DATA_DIR: data
           PULSE_NARRATIVE_BACKEND: claude-code
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.benchmark_only != true && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          R2_ACCESS_KEY_ID: ${{ inputs.benchmark_only != true && secrets.R2_ACCESS_KEY_ID || '' }}
+          R2_SECRET_ACCESS_KEY: ${{ inputs.benchmark_only != true && secrets.R2_SECRET_ACCESS_KEY || '' }}
+          R2_BUCKET: ${{ inputs.benchmark_only != true && secrets.R2_BUCKET || '' }}
+          R2_ENDPOINT_URL: ${{ inputs.benchmark_only != true && secrets.R2_ENDPOINT_URL || '' }}
         run: |
           args=(--from "$FROM_WEEK" --to "$TO_WEEK" --budget-minutes "$BUDGET_MINUTES")
           args+=(--resume-file "$RUNNER_TEMP/resume_week")
           if [[ "$REBUILD" == "true" ]]; then args+=(--rebuild); fi
+          started=$SECONDS
           uv run pulse backfill "${args[@]}"
+          echo "Backfill $FROM_WEEK..$TO_WEEK: $((SECONDS - started)) seconds (benchmark-only=$BENCHMARK_ONLY)." >> "$GITHUB_STEP_SUMMARY"
           if [[ -s "$RUNNER_TEMP/resume_week" ]]; then
             echo "next=$(cat "$RUNNER_TEMP/resume_week")" >> "$GITHUB_OUTPUT"
           fi
@@ -100,7 +108,7 @@ jobs:
       # Optional, as in weekly.yml: the recap video of the last week backfilled. A failed render
       # warns and the site ships without it.
       - name: Render weekly recap video
-        if: steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next == ''
+        if: inputs.benchmark_only != true && steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next == ''
         run: |
           if ! (pnpm -C video install --frozen-lockfile && make video); then
             echo "::warning::The recap video did not render; the site ships without it."
@@ -111,7 +119,7 @@ jobs:
       # Optional: the dbt docs read the warehouse this run just built (fixtures when there is
       # none). A failed build warns and the site ships without /lineage/.
       - name: Build dbt docs lineage
-        if: steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next == ''
+        if: inputs.benchmark_only != true && steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next == ''
         env:
           PULSE_DATA_DIR: data
         run: |
@@ -125,11 +133,11 @@ jobs:
       # so the public site never shows a half-rebuilt history.
       - name: Build backfilled site
         id: build_site
-        if: steps.backfill_run.outputs.next == ''
+        if: inputs.benchmark_only != true && steps.backfill_run.outputs.next == ''
         run: pnpm -C web build
 
       - name: Continue in a new run
-        if: steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next != ''
+        if: inputs.benchmark_only != true && steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next != ''
         env:
           GH_TOKEN: ${{ github.token }}
           NEXT_WEEK: ${{ steps.backfill_run.outputs.next }}
@@ -141,7 +149,7 @@ jobs:
           echo "Stopped on the time budget; continuing from $NEXT_WEEK in a new run." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy to Cloudflare Pages
-        if: always() && steps.backfill_run.outputs.next == ''
+        if: always() && inputs.benchmark_only != true && steps.backfill_run.outputs.next == ''
         uses: ./.github/actions/pages-deploy
         with:
           run-outcome: ${{ steps.backfill_run.outcome }}

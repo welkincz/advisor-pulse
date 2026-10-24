@@ -26,6 +26,7 @@ def run_week(
     data_dir: Path,
     run_type: RunType = RunType.MANUAL,
     dry_run: bool = False,
+    id_scope: str | None = None,
     stages: Sequence[Stage] = WEEKLY_STAGES,
     clock: Clock | None = None,
     echo: Callable[[str], None] = print,
@@ -51,7 +52,7 @@ def run_week(
     # warehouse is empty, so the ids persisted to R2 keep run_ids unique across runners.
     from pulse.state import STATE
 
-    run_id = new_run_id(run_type, iso_week, existing | STATE.known_run_ids())
+    run_id = new_run_id(run_type, id_scope or iso_week, existing | STATE.known_run_ids())
 
     runner = Runner(
         stages,

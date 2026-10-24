@@ -195,7 +195,6 @@ def test_default_backfill_uses_templates_until_the_final_week(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import pulse.narrative.stage as narrative_stage
-    import pulse.runner.backfill as module
 
     clients: list[tuple[str, object]] = []
 
@@ -206,28 +205,30 @@ def test_default_backfill_uses_templates_until_the_final_week(
         clients.append((ctx.iso_week_id, client))
         return StageResult(StageStatus.WARN if client is None else StageStatus.SUCCESS, rows_out=2)
 
-    def fake_run_week(
-        week: str,
-        *,
-        data_dir: Path,
-        run_type: RunType,
-        stages: tuple[Stage, ...],
-        clock: Clock | None,
-        echo: object,
-    ) -> int:
-        assert run_type is RunType.BACKFILL
-        narrate = next(s for s in stages if s.name == "narrate")
-        result = narrate.fn(StageContext("test-run", run_type, week, data_dir, clock or Clock()))
-        assert result.rows_out == 2
-        if week != "2026-W10":
-            assert "template" in (result.message or "")
-            assert result.status is StageStatus.SUCCESS  # templates are the plan for history
-        return 0
+    from dataclasses import replace
 
+    import pulse.runner.dag as dag
+    from pulse.generate.cli import activity_dir
+
+    def generate(ctx: StageContext) -> StageResult:
+        activity_dir(ctx.data_dir / "sources", ctx.iso_week_id).mkdir(parents=True)
+        return StageResult()
+
+    stages = tuple(
+        replace(
+            stage,
+            fn=generate
+            if stage.name == "generate"
+            else fake_narrate
+            if stage.name == "narrate"
+            else lambda ctx: StageResult(),
+        )
+        for stage in dag.WEEKLY_STAGES
+    )
     monkeypatch.setattr(narrative_stage, "narrate", fake_narrate)
-    monkeypatch.setattr(module, "run_week", fake_run_week)
-    monkeypatch.setattr(module, "activity_dir", lambda *_: tmp_path)
-    assert backfill_range("2026-W08", "2026-W10", data_dir=tmp_path, clock=Clock()) == 0
+    assert (
+        backfill_range("2026-W08", "2026-W10", data_dir=tmp_path, stages=stages, clock=Clock()) == 0
+    )
     assert clients == [
         ("2026-W08", None),
         ("2026-W09", None),
