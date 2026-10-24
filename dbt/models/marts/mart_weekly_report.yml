@@ -9,9 +9,10 @@ models:
       QUAR_RATE are national only, from int_ingest_weekly. Week-over-week fields compare
       with the previous ISO week of the same node and KPI. rank_in_parent is a dense rank
       among siblings (1 = best, ascending for NO_SHOW_RATE, LATE_RATE and QUAR_RATE).
-      flag is ANOMALY when |z| > 2 against the 13 weeks before (at least 8 non-null)
+      flag is ANOMALY when |z| > 3 against the 13 weeks before (at least 8 non-null)
       (for the smooth rolling PRTF_CONTACT_12M: when the week's move is |z| > 2 against
-      the moves of the 13 weeks before and at least half a point); otherwise UP, DOWN or FLAT (|wow_pct| < 1% or no prior value).
+      the moves of the 13 weeks before and at least 0.2 points); otherwise UP, DOWN or FLAT
+      (|wow_pct| < 1% or no prior value). Thresholds from the backtest in ADR 0006.
     data_tests:
       - expression_is_true:
           arguments:
@@ -219,8 +220,8 @@ unit_tests:
     description: >
       Portfolio contacted (12 months) is a rolling rate, so it moves smoothly: here it
       slides about 0.05 points a week. W10 dips 0.13 points: |z| ≈ 2.4 against the level of
-      the 9 weeks before, because a slide drifts from its own mean, but a move under half a
-      point, so it stays FLAT; a level rule would call it ANOMALY. W11 drops 1.4 points in
+      the 9 weeks before, because a slide drifts from its own mean, but a move under a
+      fifth of a point, so it stays FLAT; a level rule would call it ANOMALY. W11 drops 1.4 points in
       a week, far outside its usual weekly move, so ANOMALY. Every other KPI is FLAT.
     model: mart_weekly_report
     given:

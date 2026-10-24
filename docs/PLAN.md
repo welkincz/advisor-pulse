@@ -418,6 +418,8 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 | Late-arriving rate (DQ) | `LATE_RATE` | late rows ÷ rows loaded in batch | Operational KPI |
 | Quarantine rate (DQ) | `QUAR_RATE` | quarantined ÷ rows read in batch | Operational KPI |
 
+**Flags (`mart_weekly_report.flag`).** `ANOMALY` when a measure is more than **3** standard deviations from the 13 weeks before it (at least 8 of them non-null). `PRTF_CONTACT_12M` is a smooth rolling rate, so for it the week's move has to be unusual instead: more than 2 standard deviations from the 13 moves before it, and at least **0.2 points**. Otherwise `UP` or `DOWN` when the week moved 1% or more, else `FLAT`. `UP` and `DOWN` describe the week and are not alerts. The thresholds were 2 standard deviations and half a point until the backtest against the generator's ground truth (#300, ADR 0006) tuned them on one seed and confirmed them on another; `make backtest` reruns it.
+
 ---
 
 ## 8. Data-quality rules

@@ -8,12 +8,13 @@
 --   rank_in_parent    dense rank among nodes with the same parent, 1 = best; lower is
 --                     better for NO_SHOW_RATE, LATE_RATE and QUAR_RATE. peer_count
 --                     counts those nodes. Both are null at national level or for a null value
---   flag              ANOMALY when the value is more than 2 standard deviations from the
+--   flag              ANOMALY when the value is more than 3 standard deviations from the
 --                     13 weeks before it (with at least 8 of them non-null); for the
 --                     smooth PRTF_CONTACT_12M, when the week's move (wow_delta) is more
 --                     than 2 standard deviations from the moves of the 13 weeks before and
---                     at least half a point; else UP or DOWN when WoW moved 1% or more,
---                     else FLAT
+--                     at least 0.2 points; else UP or DOWN when WoW moved 1% or more,
+--                     else FLAT. The thresholds come from the backtest against the
+--                     generator's ground truth (ADR 0006, `make backtest`)
 with org as (
     select * from {{ ref('mart_org_weekly') }}
 ),
@@ -178,17 +179,17 @@ select
         when value is not null
             and baseline_weeks >= 8
             and baseline_sd > 0
-            and abs(value - baseline_avg) / baseline_sd > 2
+            and abs(value - baseline_avg) / baseline_sd > 3
             and kpi_code <> 'PRTF_CONTACT_12M'
             then 'ANOMALY'
         -- A rolling 12-month rate moves smoothly, so a steady slide sits "2 sd" from the
         -- weeks before every week. Judge its weekly move against its usual weekly move
-        -- instead, and only a move of half a point or more.
+        -- instead, and only a move of 0.2 points or more.
         when kpi_code = 'PRTF_CONTACT_12M'
             and move_weeks >= 8
             and move_sd > 0
             and abs(wow_delta - move_avg) / move_sd > 2
-            and abs(wow_delta) >= 0.005
+            and abs(wow_delta) >= 0.002
             then 'ANOMALY'
         when wow_pct is null or abs(wow_pct) < 0.01 then 'FLAT'
         when wow_pct > 0 then 'UP'
