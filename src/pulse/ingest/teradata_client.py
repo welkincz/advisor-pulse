@@ -23,7 +23,7 @@ from pulse.contracts.sources import TeradataClient
 from pulse.ingest import meta
 from pulse.ingest.validate import SchemaDriftError, validate_rows
 from pulse.runner.stage import StageResult
-from pulse.warehouse import transaction
+from pulse.warehouse import insert_contracts, transaction
 
 _COLUMNS = column_names(TeradataClient)
 
@@ -131,11 +131,7 @@ def _insert_rows(
     warehouse.execute("DELETE FROM raw.teradata__clnt WHERE _batch_id = ?", [batch_id])
     if not rows:
         return
-    names = column_names(RawTeradataClient)
-    columns = ", ".join(f'"{name}"' for name in names)
-    markers = ", ".join("?" for _ in names)
-    values = [list(row.model_dump(by_alias=True, mode="python").values()) for row in rows]
-    warehouse.executemany(f"INSERT INTO raw.teradata__clnt ({columns}) VALUES ({markers})", values)
+    insert_contracts(warehouse, "raw.teradata__clnt", RawTeradataClient, rows)
 
 
 def _load_file(

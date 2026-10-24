@@ -33,7 +33,7 @@ from pulse.contracts.sources import (
     TeradataPortfolioAssignment,
 )
 from pulse.ingest import meta
-from pulse.warehouse import transaction
+from pulse.warehouse import insert_contracts, transaction
 
 logger = logging.getLogger(__name__)
 
@@ -107,12 +107,7 @@ def _insert_rows(
     con.execute(f"DELETE FROM {table.raw_name} WHERE _batch_id = ?", [batch_id])
     if not rows:
         return
-    columns = column_names(table.raw_model)
-    quoted = ", ".join(f'"{name}"' for name in columns)
-    marks = ", ".join("?" for _ in columns)
-    sql = f"INSERT INTO {table.raw_name} ({quoted}) VALUES ({marks})"
-    values = [list(row.model_dump(by_alias=True, mode="python").values()) for row in rows]
-    con.executemany(sql, values)
+    insert_contracts(con, table.raw_name, table.raw_model, rows)
 
 
 def load_teradata_hr(
