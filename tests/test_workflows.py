@@ -31,7 +31,14 @@ def action_step(step_id: str) -> dict[str, Any]:
 def test_weekly_and_backfill_share_the_state_lock_and_failure_artifacts() -> None:
     for name in ("weekly.yml", "backfill.yml"):
         workflow = load(name)
-        assert workflow["concurrency"] == {"group": "weekly", "cancel-in-progress": "false"}
+        expected_group = (
+            "weekly"
+            if name == "weekly.yml"
+            else (
+                "${{ inputs.benchmark_only && format('backfill-benchmark-{0}', github.ref) || 'weekly' }}"
+            )
+        )
+        assert workflow["concurrency"] == {"group": expected_group, "cancel-in-progress": "false"}
         steps = workflow["jobs"]["run"]["steps"]
         assert any("uv run pulse" in step.get("run", "") for step in steps)
         assert any(
@@ -63,9 +70,12 @@ def test_backfill_that_stops_on_its_budget_continues_without_deploying() -> None
     run = steps["Backfill selected weeks"]["run"]
     assert '--budget-minutes "$BUDGET_MINUTES"' in run
     assert 'echo "next=' in run
-    assert steps["Build backfilled site"]["if"] == "steps.backfill_run.outputs.next == ''"
+    assert steps["Build backfilled site"]["if"] == (
+        "inputs.benchmark_only != true && steps.backfill_run.outputs.next == ''"
+    )
     cont = steps["Continue in a new run"]
     assert cont["if"] == (
+        "inputs.benchmark_only != true && "
         "steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next != ''"
     )
     assert "gh workflow run backfill.yml" in cont["run"]
@@ -119,7 +129,9 @@ def test_workflows_call_the_shared_pages_action(name: str, run_id: str) -> None:
     steps = workflow["jobs"]["run"]["steps"]
     deploy = next(step for step in steps if step.get("uses") == "./.github/actions/pages-deploy")
     assert deploy["if"] == (
-        "always() && steps.backfill_run.outputs.next == ''" if chained else "always()"
+        "always() && inputs.benchmark_only != true && steps.backfill_run.outputs.next == ''"
+        if chained
+        else "always()"
     )
     assert deploy["with"]["run-outcome"] == f"${{{{ steps.{run_id}.outcome }}}}"
     assert deploy["with"]["build-outcome"] == "${{ steps.build_site.outcome }}"
@@ -294,6 +306,7 @@ def test_deploys_render_the_recap_video_before_the_site_and_ship_without_it_on_f
         (
             "backfill.yml",
             "Build backfilled site",
+            "inputs.benchmark_only != true && "
             "steps.backfill_run.outcome == 'success' && steps.backfill_run.outputs.next == ''",
         ),
     )
@@ -416,3 +429,21 @@ def test_every_run_records_the_same_runner_profile() -> None:
     for job in ("python", "dbt"):
         runs = [step.get("run", "") for step in ci[job]["steps"]]
         assert "uv run python scripts/runner_profile.py" in runs
+
+
+def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
+    workflow = load("backfill.yml")
+    assert workflow["on"]["workflow_dispatch"]["inputs"]["benchmark_only"]["default"] == "false"
+    steps = {s.get("name"): s for s in workflow["jobs"]["run"]["steps"]}
+    env = steps["Backfill selected weeks"]["env"]
+    for key in (
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET",
+        "R2_ENDPOINT_URL",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+    ):
+        assert env[key].startswith("${{ inputs.benchmark_only != true && ")
+        assert env[key].endswith(" || '' }}")
+    for name in ("Build backfilled site", "Continue in a new run", "Deploy to Cloudflare Pages"):
+        assert "inputs.benchmark_only != true" in steps[name]["if"]
