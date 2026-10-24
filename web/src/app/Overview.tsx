@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TrendChart } from '../components/charts/TrendChart'
-import { Delta, Explain, Section, SeriesCsvButton, Term, WeekStepper } from '../components/primitives'
-import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, formatWow, happened, leadFor, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
+import { Delta, Explain, Section, SeriesCsvButton, SeriesTable, Term, WeekStepper } from '../components/primitives'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, happened, leadFor, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
 import type { Manifest } from '../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../data/usual'
@@ -124,17 +124,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
         <span><i className="hero-key-flag" aria-hidden="true" /><Term {...TERMS.anomaly} /></span>
         <SeriesCsvButton rows={series} filename={`advisor-pulse_CA_${code}.csv`} />
       </p>
-      <details className="figure-table hero-table">
-        <summary>Show the numbers</summary>
-        <div className="hero-table-scroll" tabIndex={0} role="region" aria-label={`${KPI_LABELS[code]} by week`}>
-          <table><thead><tr><th scope="col">Week</th><th scope="col" className="num">Value</th><th scope="col" className="num">Usual</th><th scope="col" className="num">WoW</th><th scope="col">Flag</th></tr></thead>
-            <tbody>{[...series].reverse().map((r) => r && <tr key={r.iso_week_id} aria-current={r.iso_week_id === week ? 'true' : undefined}>
-              <th scope="row">{r.iso_week_id}</th><td className="num">{formatKpi(code, r.value)}</td>
-              <td className="num">{settled.has(r.iso_week_id) ? formatKpi(code, r.trailing_13w_avg) : '–'}</td>
-              <td className="num">{formatWow(r.wow_pct).replace(' WoW', '')}</td><td>{r.flag === 'ANOMALY' ? 'Anomaly' : ''}</td>
-            </tr>)}</tbody></table>
-        </div>
-      </details>
+      <SeriesTable rows={series} code={code} week={week} settled={settled} label={`${KPI_LABELS[code]} by week`} />
       </div>
     </section>
 

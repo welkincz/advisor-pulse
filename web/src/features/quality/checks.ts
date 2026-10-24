@@ -30,7 +30,9 @@ const TITLES: Record<string, string> = {
   DQ033: 'Defects caught',
 }
 
-const pct = (share: number, digits = 2) => `${(share * 100).toFixed(digits)}%`
+/** A share of a batch as the data quality page writes it: two decimals, since most rates are under 1%. */
+export const formatShare = (share: number, digits = 2) => `${(share * 100).toFixed(digits)}%`
+const pct = formatShare
 
 /** Read a run check for display. Messages differ between runs, so every parse has a fallback. */
 export function readCheck(check: RunCheck, context: RunContext = {}): CheckReading {

@@ -198,7 +198,35 @@ Rules for agents:
   (`endLabel`, and give the grid `right: 72` so labels are not clipped at 375 px).
 - Start bar charts at zero. Line charts may start near the data range.
 - Do not label every point. Label the latest value or the one the reading talks about.
-- Rates are shown as percentages with one decimal; counts as integers.
+- Rates are shown as percentages with one decimal (batch data-quality rates: two); counts as integers.
+
+### Every number agrees (#305)
+
+A figure is written once and shown many times: the sentence, the KPI card, the chart tooltip,
+"Show the numbers", the CSV, the map's list and card, the narrative's cited facts and the data
+quality page. They must agree, and a test checks that they do, not care.
+
+- **One formatter per kind of figure.** A measure's value goes through `formatKpi`, a change
+  (week over week, or a gap from usual) through `formatChange` (`data/kpi.ts`), a share of a batch
+  on the data quality page through `formatShare` (`features/quality/checks.ts`). No view rounds,
+  adds a sign or picks its own decimals. Batch data-quality rates (late-arriving, quarantine) keep
+  two decimals everywhere, so the overview and the data quality page read 0.03% alike.
+- **One source per figure.** Views read the export's row; they never recompute a value the
+  export already holds. The CSV carries the export's numbers unrounded.
+- **Changes tie to their values.** `wow_pct` must equal `value / prior_week_value − 1` to its stored
+  precision (four places). A change that sits exactly on a rounding tie may show either neighbour.
+- **Model text is the exception.** The narrative's headline and bullets are written by the model
+  and checked by the narrative validator at publish time; its cited facts are rows of the report
+  and must match them exactly.
+
+`web/tests/audit.spec.ts` enforces this. For one week and one node per level (the overview, the
+first region with a narrative, its first district, branch and advisor, `/map` and `/quality`) it
+reads every figure for every measure off the page and compares it with the export, read
+separately with DuckDB and formatted with the app's own formatters. It runs in CI on the
+fixtures; `make web-audit-latest` runs it on the latest published weekly export
+(`EXPORTS=dir` to use one you have, `WEEK=…` for an earlier week). Hooks it reads: `data-kpi`,
+`data-node`, `data-row`, `data-step`, `data-week` and `data-fact`. A new view that shows a figure adds itself
+to the audit.
 
 ### Map list and cards (#211)
 

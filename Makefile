@@ -139,6 +139,10 @@ dbt-build-ci: ## dbt build against fixtures (ARGS='-s model')
 	$(DBT) seed $(DBT_DIRS) --target ci
 	$(DBT) build $(DBT_DIRS) --target ci --indirect-selection=buildable $(ARGS)
 
+.PHONY: crosscheck-kpi
+crosscheck-kpi: ## Recompute the lead KPI from the raw extracts and compare it with the marts (PULSE_DATA_DIR)
+	$(RUN) python scripts/crosscheck_kpi.py --data-dir "$${PULSE_DATA_DIR:-data}"
+
 .PHONY: dbt-docs
 dbt-docs: ## dbt docs generate + serve (local warehouse)
 	$(DBT) docs generate $(DBT_DIRS)
@@ -158,6 +162,11 @@ web-dev: ## Vite dev server on fixtures (an Ontario and Quebec slice)
 web-dev-latest: ## Vite dev server on the latest published weekly export: every region, every week (needs gh)
 	scripts/fetch_latest_export.sh data/web-latest
 	cd web && PULSE_FIXTURES_DIR=$(CURDIR)/data/web-latest pnpm dev
+
+.PHONY: web-audit-latest
+web-audit-latest: ## Cross-view number audit on the latest weekly export (EXPORTS=dir skips the download; WEEK=2026-W41 audits an earlier week; needs gh)
+	$(if $(EXPORTS),,scripts/fetch_latest_export.sh data/web-latest)
+	cd web && PULSE_AUDIT_EXPORTS=$(abspath $(or $(EXPORTS),data/web-latest)) $(if $(filter-out last,$(WEEK)),PULSE_AUDIT_WEEK=$(WEEK)) pnpm exec playwright test tests/audit.spec.ts --reporter=line
 
 .PHONY: web-check
 web-check: ## Web lint + typecheck + unit tests + build (+ smoke)

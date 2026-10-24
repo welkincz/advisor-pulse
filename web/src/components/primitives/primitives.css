@@ -126,3 +126,7 @@
 /* A figure that explains itself on hover, without the dotted underline a word gets. */
 .term-quiet { cursor: help; }
 .term-quiet:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+.hero-table { margin-top: var(--space-3); }
+.hero-table-scroll { max-height: 20rem; overflow: auto; }
+.hero-table-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.hero-table tr[aria-current='true'] th, .hero-table tr[aria-current='true'] td { background: var(--field); font-weight: var(--weight-strong); }
