@@ -41,6 +41,7 @@ from pulse.generate.activity import (
     default_story_districts,
     is_drifter,
     story_factor,
+    story_step,
 )
 from pulse.generate.advisors import AssignmentRow
 from pulse.generate.clients import ClientBatch
@@ -71,7 +72,7 @@ class Story:
     kpis: tuple[str, ...]  # the measures it moves directly
     related_kpis: tuple[str, ...]  # measures it moves slowly or a little
     start_week: str  # the first week the generator's change is in the data
-    full_week: str  # the week the change reaches full size
+    full_week: str | None  # None when an advisor's volume exposure never reaches full size
     end_week: str  # the last week a flag can still be credited to it
     effect: float
     scored: bool
@@ -111,8 +112,12 @@ def _advisor_stories(
             else last + timedelta(days=6)
         )
         first = _first_weekday_after(max(start, changed) - timedelta(days=1))
-        if first <= until:
-            effect = story_factor(districts[branch], default_story_districts(org), 7) - 1
+        last_workday = until
+        while last_workday.weekday() >= 5:
+            last_workday -= timedelta(days=1)
+        if first <= last_workday:
+            attained = story_step(_monday(last_workday))
+            effect = story_factor(districts[branch], default_story_districts(org), attained) - 1
             if effect:
                 events.append(
                     Story(
@@ -123,7 +128,7 @@ def _advisor_stories(
                         kpis=VOLUME_KPIS,
                         related_kpis=DRIFT_KPIS,
                         start_week=iso_week(first),
-                        full_week=iso_week(max(first, min(full, until))),
+                        full_week=iso_week(max(first, full)) if attained == 7 else None,
                         end_week=iso_week(until),
                         effect=round(effect, 4),
                         scored=False,
@@ -292,6 +297,11 @@ def ground_truth(
     """Every injected behaviour change, from the seed and the generator's own functions."""
     stories = _volume_stories(org, assignments) + _drift_stories(org, seed, clients, portfolios)
     stories += _advisor_stories(org, assignments, seed, last)
+    # Planned future events are not missed detections in an earlier report; likewise,
+    # events whose entire detection window precedes this history cannot be assessed.
+    stories = [
+        s for s in stories if s.start_week <= iso_week(last) and s.end_week >= iso_week(first)
+    ]
     stories.sort(key=lambda s: (s.story, TRUTH_LEVELS.index(s.level), s.node_id, s.start_week))
     return GroundTruth(
         seed=seed, stories=tuple(stories), calendar_weeks=calendar_weeks(first, last)
