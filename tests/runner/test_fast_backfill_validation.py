@@ -223,8 +223,15 @@ def test_fixture_marts_exports_and_weekly_checks_match_legacy(tmp_path, monkeypa
                     writer.writerow(row)
             return StageResult()
         sources = ctx.data_dir / "sources"
-        shutil.copytree(fixture / "sources/teradata", sources / "teradata", dirs_exist_ok=True)
+        teradata = sources / "teradata"
+        teradata.mkdir(parents=True, exist_ok=True)
+        if not (teradata / "edw.sqlite").exists():
+            shutil.copy2(fixture / "sources/teradata/edw.sqlite", teradata / "edw.sqlite")
         part = activity_dir(Path("snowflake"), ctx.iso_week_id).name
+        cutoff = part.removeprefix("extract_date=").replace("-", "")
+        for delta in (fixture / "sources/teradata").glob("client_*.csv"):
+            if delta.stem.removeprefix("client_") <= cutoff:
+                shutil.copy2(delta, teradata / delta.name)
         source = fixture / "sources/snowflake/activity" / part
         target = sources / "snowflake/activity" / part
         shutil.copytree(source, target, dirs_exist_ok=True)
