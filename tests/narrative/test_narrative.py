@@ -288,7 +288,7 @@ def test_stage_reads_the_mart_and_export_picks_up_the_file(tmp_path: Path) -> No
     assert len(client.calls) == 5
 
     published = load_narratives(tmp_path)  # what the export stage reads
-    assert list(published) == [WEEK]
+    assert sorted(published) == ["2026-W37", "2026-W38", "2026-W39", WEEK]
     assert [n.node_id for n in published[WEEK].narratives] == ["ON", "QC", "EON", "GTA", "MTL"]
 
 
@@ -339,3 +339,109 @@ def test_the_lead_kpi_heads_the_narrative_once_it_has_a_value(
     assert "83.0%" in narrative.headline
     assert any(b.text.startswith("Activities per advisor") for b in narrative.bullets)
     assert "Headline KPI: Portfolio contacted (12 months)" in user_message(node)
+
+
+def test_late_restatement_refreshes_templates_but_preserves_past_model_bytes(tmp_path, report):
+    from dataclasses import replace
+
+    _warehouse_with_report(tmp_path)
+    with connect(tmp_path / WAREHOUSE_FILE) as con:
+        con.execute("delete from marts.mart_weekly_report where iso_week_id = '2026-W40'")
+    previous = replace(ctx(tmp_path), iso_week_id="2026-W39")
+    narrate(previous, client_factory=lambda: None)
+    path = tmp_path / "narratives/2026-W39.json"
+    doc = NarrativeFile.model_validate_json(path.read_text())
+    model = narrate_node(
+        build_facts(report, "ON", "2026-W39"), FakeClient(), ResponseCache(tmp_path)
+    ).narrative
+    model = model.model_copy(update={"prompt_version": "historical-v0", "fallback": True})
+    doc.narratives = [model if n.node_id == "ON" else n for n in doc.narratives]
+    path.write_text(doc.model_dump_json(indent=2))
+    original = model.model_dump_json().encode()
+    with connect(tmp_path / WAREHOUSE_FILE) as con:
+        con.execute(
+            f"insert into marts.mart_weekly_report select * from read_parquet('{REPORT_PARQUET}') "
+            "where iso_week_id='2026-W40'"
+        )
+        con.execute(
+            "update marts.mart_weekly_report set value=value+10 "
+            "where iso_week_id='2026-W39' and kpi_code='ACT_PER_ADV'"
+        )
+    narrate(ctx(tmp_path), client_factory=lambda: None)
+    refreshed = NarrativeFile.model_validate_json(path.read_text())
+    assert (
+        next(n for n in refreshed.narratives if n.node_id == "ON").model_dump_json().encode()
+        == original
+    )
+    qc = next(n for n in refreshed.narratives if n.node_id == "QC")
+    expected = next(
+        r.value
+        for r in report
+        if r.node_id == "QC" and r.iso_week_id == "2026-W39" and r.kpi_code == KpiCode.ACT_PER_ADV
+    )
+    assert next(
+        f.value
+        for f in qc.facts_used
+        if f.node_id == "QC" and f.kpi_code == KpiCode.ACT_PER_ADV and f.iso_week_id == "2026-W39"
+    ) == round(expected + 10, 4)
+    narrate(
+        previous, client_factory=lambda: pytest.fail("a historical week must not request a model")
+    )
+    assert (
+        next(
+            n
+            for n in NarrativeFile.model_validate_json(path.read_text()).narratives
+            if n.node_id == "ON"
+        )
+        .model_dump_json()
+        .encode()
+        == original
+    )
+
+
+def test_refresh_window_is_26_calendar_weeks_and_old_files_stay_untouched(tmp_path, report):
+    import pyarrow as pa
+
+    from pulse.contracts import arrow_schema
+    from pulse.narrative.facts import weeks_back
+
+    rows = [
+        r.model_copy(update={"iso_week_id": week})
+        for week in [*weeks_back(WEEK, 38), WEEK]
+        for r in report
+        if r.iso_week_id == WEEK
+    ]
+    source = tmp_path / "report.parquet"
+    pq.write_table(
+        pa.Table.from_pylist(
+            [r.model_dump(mode="python") for r in rows], schema=arrow_schema(WeeklyReport)
+        ),
+        source,
+    )
+    with connect(tmp_path / WAREHOUSE_FILE) as con:
+        con.execute("create schema marts")
+        con.execute(
+            f"create table marts.mart_weekly_report as select * from read_parquet('{source}')"
+        )
+    old = tmp_path / "narratives" / f"{weeks_back(WEEK, 26)[0]}.json"
+    old.parent.mkdir()
+    old.write_text(
+        NarrativeFile(iso_week_id=old.stem, generated_at=T0, narratives=[]).model_dump_json()
+    )
+    original = old.read_bytes()
+    narrate(ctx(tmp_path), client_factory=lambda: None)
+    assert old.read_bytes() == original
+    assert sorted(p.stem for p in old.parent.glob("*.json") if p != old) == [
+        *weeks_back(WEEK, 25),
+        WEEK,
+    ]
+
+
+def test_corrupt_existing_narrative_is_not_overwritten(report, tmp_path):
+    path = tmp_path / f"{WEEK}.json"
+    path.write_bytes(b"corrupt retained record")
+    client = FakeClient()
+    with pytest.raises(ValueError):
+        write_narratives(report, WEEK, tmp_path, client, ctx(tmp_path), templates_only=True)
+    assert path.read_bytes() == b"corrupt retained record"
+    assert not client.calls

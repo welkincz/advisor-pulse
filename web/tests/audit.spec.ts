@@ -114,6 +114,15 @@ async function auditNarrative(page: Page, ledger: Ledger, where: string, node: s
   await expect(panel).toBeVisible({ timeout: 30_000 })
   for (const summary of await panel.locator('details.narrative-facts summary').all()) await summary.click()
   const facts = new Map(narrative.facts_used.map((f) => [f.fact_id, f]))
+  const ids = new Set([...narrative.bullets, ...(narrative.watchlist ?? [])].flatMap((b) => b.fact_ids))
+  const changedIds = new Set([...ids].filter((id) => {
+    const f = facts.get(id), r = f && truth.row(f.node_id, f.kpi_code, f.iso_week_id)
+    return f && r && [formatKpi(f.kpi_code, f.value) !== formatKpi(f.kpi_code, r.value), formatKpi(f.kpi_code, f.prior_week_value) !== formatKpi(f.kpi_code, r.prior_week_value), formatWow(f.wow_pct) !== formatWow(r.wow_pct), String(f.rank_in_parent ?? '–') !== String(r.rank_in_parent ?? '–')].some(Boolean)
+  }))
+  for (const id of ids) ledger.ok(`${where} cited ${id} exposed`, await panel.locator(`[data-fact="${id}"]`).count() > 0, 'every bullet/watchlist fact must be inspectable')
+  const notice = panel.locator('.narrative-restatement')
+  if (changedIds.size) ledger.same(`${where} restatement notice`, await notice.textContent(), `Written by the ${truth.week} weekly run. Late-arriving activity has since changed ${changedIds.size} of the figures it cites.`)
+  else ledger.ok(`${where} unchanged narrative`, await notice.count() === 0, 'display-equivalent differences must not show a notice')
   for (const item of await panel.locator('[data-fact]').all()) {
     const id = (await item.getAttribute('data-fact'))!
     const fact = facts.get(id)
@@ -121,18 +130,25 @@ async function auditNarrative(page: Page, ledger: Ledger, where: string, node: s
     if (!fact) { ledger.fail(at, 'is cited but not among the facts used'); continue }
     const row = truth.row(fact.node_id, fact.kpi_code, fact.iso_week_id)
     if (!row) { ledger.fail(at, `${fact.node_id} ${fact.kpi_code} ${fact.iso_week_id} is not in the report`); continue }
-    // Facts are rounded to four places on the way to the model; the report keeps more.
-    for (const field of ['value', 'prior_week_value', 'wow_pct'] as const) {
-      const a = fact[field] ?? null
-      const b = row[field] ?? null
-      ledger.ok(`${at} ${field}`, a === b || (a != null && b != null && Math.abs(a - b) <= 0.00005 + 1e-9), `cites ${a}, the report has ${b}`)
+    const display = (f: typeof fact | typeof row) => [formatKpi(f.kpi_code, f.value), formatKpi(f.kpi_code, f.prior_week_value), formatWow(f.wow_pct), String(f.rank_in_parent ?? '–')]
+    const before = display(fact), now = display(row)
+    const changed = before.some((v, i) => v !== now[i])
+    ledger.ok(`${at} restatement policy`, !changed || (narrative.model != null && truth.week < truth.manifest.latest_week), 'templates and latest model narratives must match current displayed facts')
+    if (changed) {
+      ledger.ok(`${at} notice`, await panel.locator('.narrative-restatement').isVisible(), 'restated fact must be disclosed')
+      ledger.same(`${at} marker`, await item.locator('xpath=ancestor::li[1]').getAttribute('data-restated'), 'true')
     }
-    ledger.same(`${at} value`, await item.locator('dd .figure-num').textContent(), formatKpi(fact.kpi_code, row.value))
+    for (const [i, field] of ['value', 'prior_week_value', 'wow_pct', 'rank_in_parent'].entries()) {
+      const current = item.locator(`[data-field="${field}"]`)
+      if (before[i] !== now[i]) ledger.same(`${at} ${field} now`, await current.textContent(), `now ${now[i]}`)
+      else ledger.ok(`${at} ${field} unchanged`, await current.count() === 0, 'unchanged displayed figure must not be marked')
+    }
+    ledger.same(`${at} cited value`, await item.locator('dd .figure-num').textContent(), before[0])
     const context = await item.locator('.narrative-fact-context').allTextContents()
     ledger.same(`${at} node and week`, context[0], `${fact.node_id}, ${fact.iso_week_id}`)
-    if (row.prior_week_value != null) ledger.same(`${at} prior week`, context.find((t) => t.startsWith('Prior week')), `Prior week: ${formatKpi(fact.kpi_code, row.prior_week_value)}`)
-    if (row.wow_pct != null) ledger.same(`${at} change`, context.find((t) => t.endsWith('WoW')), formatWow(row.wow_pct))
-    if (fact.rank_in_parent != null && fact.peer_count != null) ledger.same(`${at} rank`, context.find((t) => t.startsWith('Rank')), `Rank ${row.rank_in_parent} of ${row.peer_count}`)
+    if (fact.prior_week_value != null) ledger.same(`${at} cited prior`, context.find((t) => t.startsWith('Prior week')), `Prior week: ${before[1]}`)
+    if (fact.wow_pct != null) ledger.same(`${at} cited change`, context.find((t) => t.endsWith('WoW')), before[2])
+    if (fact.rank_in_parent != null) ledger.same(`${at} cited rank`, context.find((t) => t.startsWith('Rank')), `Rank ${fact.rank_in_parent} of ${fact.peer_count}`)
   }
 }
 

@@ -22,3 +22,7 @@
 .narrative-watchlist { border-top: 1px solid var(--rule); padding-top: var(--space-4); }
 .narrative-watchlist h4 { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
 .narrative-watchlist li { margin: var(--space-2) 0; overflow-wrap: anywhere; }
+
+.narrative-restatement { margin: 0; }
+.narrative-restated { color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-strong); }
+.narrative-now { color: var(--ink); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }

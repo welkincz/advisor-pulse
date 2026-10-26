@@ -488,6 +488,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 - **Output (structured):** `{headline, bullets[{text, fact_ids[]}], watchlist[{node_id, reason, fact_ids[]}]}`.
 - **Guardrails:** every number in the text must match a cited fact (tolerance-based rounding). No advice or speculation about individuals beyond the data. Prompt version pinned.
 - **Fallback:** a deterministic template ("Activities per advisor rose 4.2% WoW to 31.5…").
+- **Restatements:** on every run, rebuild templates (`model: null`) for the latest 26 exported weeks from current facts, retaining model records in the same files. Past model narratives are never regenerated, even after late rows, prompt changes or model changes. The browser flags changed cited figures at shared display precision and shows their current values.
 - **Cache:** keyed by `sha256(prompt_version + model + facts)`; reruns cost nothing.
 - **Eval:** 10 frozen fixture weeks, with pytest assertions on validator pass rate and banned phrases. The live model is called only by `make narrative-eval` / the `live` test, never in normal CI.
 - **Backends:** `api` uses `ANTHROPIC_API_KEY`. `claude-code` runs the `claude` CLI with no tools, MCP servers, settings or session, in an empty working directory, and removes `ANTHROPIC_API_KEY` from its environment so it never bills the API; locally it uses the logged-in account, in CI `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`). With neither a key nor the CLI, the stage writes template narratives and warns.
