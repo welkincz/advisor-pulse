@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import boto3
+from boto3.exceptions import RetriesExceededError
+from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -19,6 +21,7 @@ if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 
 DEFAULT_PREFIX = "state"
+DOWNLOAD_WORKERS = 16
 _TRANSIENT_CODES = {"SlowDown", "Throttling", "ThrottlingException", "RequestTimeout"}
 
 
@@ -89,6 +92,7 @@ class ObjectStore:
                 request_checksum_calculation="when_required",
                 response_checksum_validation="when_required",
                 retries={"mode": "standard", "max_attempts": 3},
+                max_pool_connections=DOWNLOAD_WORKERS,
             ),
         )
         return cls(client, config.bucket)
@@ -194,15 +198,25 @@ class ObjectStore:
         self.download(key, path)
         return True
 
-    def download(self, key: str, path: Path) -> None:
+    def download(self, key: str, path: Path, *, parallel: bool = False) -> None:
         """Download beside ``path``, then rename into place: a failure never leaves half a file."""
         path.parent.mkdir(parents=True, exist_ok=True)
         partial = path.with_name(path.name + ".partial")
+        # Small files already run in StateSync's pool; avoid a nested pool for each.
+        config = TransferConfig(
+            multipart_threshold=16 << 20,
+            multipart_chunksize=16 << 20,
+            max_concurrency=DOWNLOAD_WORKERS,
+            use_threads=parallel,
+            preferred_transfer_client="classic",
+        )
         try:
-            self.client.download_file(self.bucket, self._key(key), str(partial))
-        except (ClientError, BotoCoreError) as exc:
-            partial.unlink(missing_ok=True)
-            if _transient(exc):
+            self.client.download_file(self.bucket, self._key(key), str(partial), Config=config)
+            partial.replace(path)
+        except Exception as exc:
+            # Managed transfers wrap exhausted stream retries outside BotoCoreError.
+            if isinstance(exc, RetriesExceededError) or _transient(exc):
                 raise RetryableError(f"R2 download of {key} failed: {exc}") from exc
-            raise
-        partial.replace(path)
+            raise RuntimeError(f"R2 download of {key} failed: {exc}") from exc
+        finally:
+            partial.unlink(missing_ok=True)

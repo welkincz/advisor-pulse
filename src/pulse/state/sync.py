@@ -22,6 +22,7 @@ import logging
 import shutil
 import uuid
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -31,7 +32,7 @@ from pulse.contracts.meta import RunLogRow
 from pulse.generate.advisors import REPORT_START
 from pulse.runner.stage import RetryableError, StageContext, StageResult
 from pulse.state import lock
-from pulse.state.store import ObjectStore
+from pulse.state.store import DOWNLOAD_WORKERS, ObjectStore
 from pulse.warehouse import WAREHOUSE_FILE
 
 log = logging.getLogger(__name__)
@@ -223,18 +224,22 @@ class StateSync:
         # Only what differs is downloaded: a fresh runner fetches everything, while the next
         # week of a backfill on the same runner already holds what it persisted (#206).
         sources = store.etags(f"{SOURCES_DIR}/")
-        fetched = sum(
-            store.download_if_changed(key, ctx.data_dir / key, etag)
-            for key, etag in sorted(sources.items())
-        )
         narratives = store.etags(f"{NARRATIVES_DIR}/")
-        for key, etag in sorted(narratives.items()):
-            fetched += store.download_if_changed(key, ctx.data_dir / key, etag)
+        files = sorted(sources.items()) + sorted(narratives.items())
+
+        def download(item: tuple[str, str]) -> bool:
+            key, etag = item
+            return store.download_if_changed(key, ctx.data_dir / key, etag)
+
+        # Full restore: filtering history here could make a later prune unsafe. The
+        # context waits for every worker, including on failure, before the lock releases.
+        with ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as pool:
+            fetched = sum(pool.map(download, files))
         warehouse = "kept the local" if self._warehouse_is_current(store, ctx.data_dir) else ""
         if not warehouse:
             # A WAL left by the local file would be replayed onto the restored one.
             (ctx.data_dir / f"{WAREHOUSE_FILE}.wal").unlink(missing_ok=True)
-            store.download(WAREHOUSE_FILE, ctx.data_dir / WAREHOUSE_FILE)
+            store.download(WAREHOUSE_FILE, ctx.data_dir / WAREHOUSE_FILE, parallel=True)
             warehouse = "restored"
         finished = self._apply_tails(store, ctx)
         return StageResult(

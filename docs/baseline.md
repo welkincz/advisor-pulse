@@ -122,6 +122,29 @@ Run 40364746899 re-ran 2026-W43 on the rebuilt state, so generate and ingest fou
 - **A new week** adds about 27 s of generation, 5 s of ingest (2026-W43 read 172,443 rows, loaded 15,263 and quarantined 57) and, with the model, about 9 minutes of narration: 27 Claude calls, one per region and district.
 - **Restore is the largest cost.** Each run starts on a fresh runner and downloads the warehouse plus about 1,200 source and narrative files from R2. It took 3.5 to 4 minutes for the weekly runs of 2026-W42 and 8 minutes now. #304's target of a weekly run under a minute starts there.
 
+**Parallel restore (#354), local measurement (2026-10-26).** Restore now uses 16
+workers for all source and narrative files, then a 16-worker managed ranged download
+for the warehouse (16 MiB chunks). The previous code serialized files, although
+boto3 already downloaded the warehouse in parallel using its SDK defaults. MD5
+skips, warehouse markers, stream/request retries and atomic replacement remain;
+the full source/narrative history is restored before persist can run.
+
+Reproduce with `uv run python tests/state/benchmark_restore.py`. On an Apple M4 Max,
+macOS 26.6.2, Python 3.12.11, boto3 1.43.113 and moto 5.2.4, the in-process moto store
+held 910 sources (64 KiB each), 280 narratives (4 KiB each) and a 1 GiB warehouse.
+Fresh-directory restores took **10.834 s before / 6.163 s after (1.76×)**; SHA-256
+matched the seeded bytes for every one of the 1,191 files in both destinations.
+Seeding and hash verification are outside the timed restore. These are synthetic
+payloads with no network latency; the local ratio does not predict R2 performance.
+With `--latency-ms 10` (an artificial 10 ms delay per S3 request), the same check
+took 40.544 s before / 6.365 s after (6.37×). This is a latency model, not an R2
+measurement; all 1,191 file hashes matched again.
+
+- [ ] After the first weekly run with #354, compare its `restore_state` duration
+  and `runner_profile.json` with run 40364746899; verify the **under 90 s** target
+  and add the Actions run link and measured stage times here. The 480 s baseline
+  above remains the last verified Actions result until then.
+
 **Comparing timings.** Every weekly and backfill run writes `runner_profile.json` into its artifact, and every CI python and dbt job prints the same fields: CPU model and count, `nproc`, runner image, Python, dbt-core, dbt-duckdb and DuckDB versions, threads and the commit (#336). Compare stage times only when the profiles match. #335 found a 49% dbt slowdown that came from the runner, not the code; to check a code change, rerun both commits on one machine.
 
 ## Export sizes (site after 2026-W43)

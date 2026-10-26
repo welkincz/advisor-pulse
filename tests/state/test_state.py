@@ -566,3 +566,210 @@ def test_backfill_cold_restore_leaves_requested_range_to_the_caller(store, tmp_p
     assert result.status is StageStatus.SUCCESS
     assert "requested range" in result.message
     assert sync.release(ctx(tmp_path)).status is StageStatus.SUCCESS
+
+
+# ── Parallel restore (#354) ────────────────────────────────────────────────
+
+
+def test_parallel_restore_matches_sequential_and_preserves_remote(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from threading import Barrier, Lock
+
+    from boto3.s3.transfer import TransferConfig
+
+    seed_remote(store, tmp_path)
+    for i in range(32):
+        store.put(f"sources/history/{i}.csv", bytes(range(256)) + str(i).encode())
+        store.put(f"narratives/cache/{i}.json", f'{{"cached": {i}}}'.encode())
+    keys = {**store.etags("sources/"), **store.etags("narratives/")}
+    before = {key: store.get(key) for key in keys}
+    sequential = tmp_path / "sequential"
+    for key in [WAREHOUSE_FILE, *sorted(keys)]:
+        dest = sequential / key
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        store.client.download_file(
+            BUCKET, store._key(key), str(dest), Config=TransferConfig(use_threads=False)
+        )
+
+    # Deterministic overlap proof: the first 16 calls must all be in flight together.
+    barrier, guard = Barrier(16, timeout=5), Lock()
+    active = peak = calls = 0
+    download = store.download_if_changed
+
+    def overlapping(key: str, path: Path, etag: str) -> bool:
+        nonlocal active, peak, calls
+        with guard:
+            active += 1
+            calls += 1
+            first_wave = calls <= 16
+            peak = max(peak, active)
+        try:
+            if first_wave:
+                barrier.wait()
+            return download(key, path, etag)
+        finally:
+            with guard:
+                active -= 1
+
+    monkeypatch.setattr(store, "download_if_changed", overlapping)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "parallel")
+    restored = sync.restore(c)
+    assert restored.status is StageStatus.SUCCESS
+    assert peak == 16
+    assert calls == len(keys)
+    assert f"({len(keys)} downloaded)" in (restored.message or "")
+    for key in [WAREHOUSE_FILE, *keys]:
+        assert (c.data_dir / key).read_bytes() == (sequential / key).read_bytes(), key
+    assert sync.persist(c).status is StageStatus.SUCCESS
+    assert {key: store.get(key) for key in keys} == before
+    assert set(store.etags("sources/")) | set(store.etags("narratives/")) == set(keys)
+    sync.release(c)
+
+
+def test_warehouse_download_uses_ranges(store: ObjectStore, tmp_path: Path) -> None:
+    from threading import Barrier
+
+    content = bytes(range(256)) * (129 * 1024)  # 32.25 MiB: at least three 16 MiB ranges
+    store.put(WAREHOUSE_FILE, content)
+    ranges: list[str] = []
+    barrier = Barrier(3, timeout=5)
+
+    def ranged(params: dict[str, object], **_: object) -> None:
+        ranges.append(str(params.get("Range")))
+        barrier.wait()
+
+    store.client.meta.events.register("before-parameter-build.s3.GetObject", ranged)
+    dest = tmp_path / WAREHOUSE_FILE
+    store.download(WAREHOUSE_FILE, dest, parallel=True)
+    assert len(ranges) == 3
+    assert all(value.startswith("bytes=") for value in ranges)
+    assert dest.read_bytes() == content
+    assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
+
+
+@pytest.mark.parametrize("key", ["sources/broken.csv", "narratives/broken.json", WAREHOUSE_FILE])
+@pytest.mark.parametrize("permanent", [False, True])
+def test_stream_retry_and_failed_restore_never_persists(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str, permanent: bool
+) -> None:
+    from io import BytesIO
+    from unittest.mock import Mock
+
+    from botocore.exceptions import ReadTimeoutError
+    from botocore.response import StreamingBody
+
+    seed_remote(store, tmp_path)
+    if key != WAREHOUSE_FILE:
+        store.put(key, b"synthetic data" * 1024)
+    remote = {k: store.get(k) for k in store.etags("")}
+    attempts = 0
+    get_object = store.client.get_object
+
+    class Interrupted(BytesIO):
+        def read(self, size: int = -1) -> bytes:
+            if self.tell():
+                raise ReadTimeoutError(endpoint_url="https://synthetic.invalid")
+            return super().read(min(size, 1024))
+
+    def flaky(**kwargs):
+        nonlocal attempts
+        response = get_object(**kwargs)
+        if kwargs["Key"] == store._key(key):
+            attempts += 1
+            if permanent or attempts == 1:
+                body = response["Body"]
+                content = body.read()
+                body.close()
+                response["Body"] = StreamingBody(Interrupted(content), len(content))
+        return response
+
+    monkeypatch.setattr(store.client, "get_object", flaky)
+    sync = sync_for(store)
+    persist = Mock(wraps=sync.persist)
+    monkeypatch.setattr(sync, "persist", persist)
+    monkeypatch.setattr(pulse.state, "STATE", sync)
+    data_dir = tmp_path / "run"
+    out: list[str] = []
+    code = run_week(
+        WEEK,
+        data_dir=data_dir,
+        run_type=RunType.WEEKLY,
+        stages=state_stages(),
+        clock=Clock(),
+        echo=out.append,
+    )
+    assert code == int(permanent), out
+    assert attempts == (15 if permanent else 2)  # five stream attempts × three stage attempts
+    assert not list(data_dir.rglob("*.partial*"))
+    if permanent:
+        # WarehouseSink creates a local warehouse to record the failed run itself.
+        if key != WAREHOUSE_FILE:
+            assert not (data_dir / key).exists()
+        assert any(key in line and "FAILED" in line for line in out)
+        persist.assert_not_called()
+    else:
+        persist.assert_called_once()
+    assert lock.holder(store) is None
+    # The failed restore may only have acquired/released its lock; remote state is untouched.
+    if permanent:
+        monkeypatch.setattr(store.client, "get_object", get_object)
+        assert {k: store.get(k) for k in store.etags("")} == remote
+
+
+def test_download_rename_failure_cleans_partial_and_keeps_target(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store.put("sources/a.csv", b"new")
+    dest = tmp_path / "a.csv"
+    dest.write_bytes(b"old")
+    replace = Path.replace
+
+    def fail_partial(path: Path, target: Path) -> Path:
+        if path == dest.with_name("a.csv.partial"):
+            raise OSError("simulated rename failure")
+        return replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_partial)
+    with pytest.raises(RuntimeError, match=r"sources/a\.csv.*simulated rename failure"):
+        store.download("sources/a.csv", dest)
+    assert dest.read_bytes() == b"old"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["a.csv"]
+
+
+def test_missing_download_names_key_and_keeps_existing_file(
+    store: ObjectStore, tmp_path: Path
+) -> None:
+    dest = tmp_path / "a.csv"
+    dest.write_bytes(b"existing")
+    with pytest.raises(RuntimeError, match=r"sources/missing\.csv"):
+        store.download("sources/missing.csv", dest)
+    assert dest.read_bytes() == b"existing"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["a.csv"]
+
+
+def test_failed_warehouse_range_is_atomic(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from botocore.exceptions import ReadTimeoutError
+
+    store.put(WAREHOUSE_FILE, bytes(range(256)) * (129 * 1024))
+    dest = tmp_path / WAREHOUSE_FILE
+    dest.write_bytes(b"existing warehouse")
+    get_object = store.client.get_object
+    failures = 0
+
+    def flaky(**kwargs):
+        nonlocal failures
+        if str(kwargs.get("Range", "")).startswith("bytes=16777216-"):
+            failures += 1
+            raise ReadTimeoutError(endpoint_url="https://synthetic.invalid")
+        return get_object(**kwargs)
+
+    monkeypatch.setattr(store.client, "get_object", flaky)
+    with pytest.raises(RetryableError, match=WAREHOUSE_FILE):
+        store.download(WAREHOUSE_FILE, dest, parallel=True)
+    assert failures == 5
+    assert dest.read_bytes() == b"existing warehouse"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
