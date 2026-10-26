@@ -65,7 +65,7 @@ def backfill_range(
 ) -> int:
     """Ingest in week order; build, check and publish the complete range at the end.
 
-    A budgeted run checkpoints raw state every eight weeks and before a clean stop. A
+    A budgeted run checkpoints raw state under projected budget pressure and before a clean stop. A
     continuation restores pending week/run IDs and defect manifests before finishing all
     checks. Small custom DAGs retain weekly execution for focused stage callers/tests.
     """
@@ -268,6 +268,7 @@ def _fast_backfill(
                 budget is not None
                 and (index + 1) % CHECKPOINT_WEEKS == 0
                 and index + 1 < len(weeks)
+                and clock.now() - started + longest * (len(weeks) - index - 1) * 1.25 > budget
             ):
                 checkpoint = replace(by_name["persist_state"], name="checkpoint_state")
                 if execute(outer, [checkpoint]) is StageStatus.FAILED:
