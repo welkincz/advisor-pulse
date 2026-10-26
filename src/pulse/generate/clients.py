@@ -131,6 +131,11 @@ def generate_clients(
         for p in placements.values()
     }
 
+    district_by_branch = {branch: p.district.district_code for branch, p in placements.items()}
+    district_by_portfolio = {
+        p.portfolio_id: district_by_branch[p.branch_id] for p in portfolios.master
+    }
+
     def make_client(
         client_id: str,
         owner: AdvisorAssignment,
@@ -214,9 +219,6 @@ def generate_clients(
             for client_id in rng.sample(clients, len(clients) // (len(donors) + 1)):
                 move(client_id, portfolio_id, day, "REBALANCED")
 
-    def district(branch_id: str) -> str:
-        return placements[branch_id].district.district_code
-
     scheduled: dict[date, list[str]] = defaultdict(list)
     protected: set[str] = set()
     next_number = client_count + 1
@@ -250,6 +252,12 @@ def generate_clients(
             if (holder := portfolio_holders[p.portfolio_id]) in owner_by_id
         ]
 
+        # Preserve master order within each district: rng.choice must see exactly the
+        # same candidates in the same order as filtering the full list for every move.
+        district_portfolios: dict[str, list[tuple[str, AdvisorAssignment]]] = defaultdict(list)
+        for portfolio_id, owner in active_portfolios:
+            district_portfolios[district_by_portfolio[portfolio_id]].append((portfolio_id, owner))
+
         if offset % QUARTER_DAYS == 0:
             count = _count_at_rate(len(active_ids), REASSIGN_RATE, rng)
             chosen = rng.sample(active_ids, min(len(active_ids), count))
@@ -273,9 +281,8 @@ def generate_clients(
             before = current[client_id]
             alternatives = [
                 (p, o)
-                for p, o in active_portfolios
+                for p, o in district_portfolios[district_by_branch[before.primary_branch_id]]
                 if p != before.portfolio_id
-                and district(by_portfolio[p].branch_id) == district(before.primary_branch_id)
             ]
             if alternatives:
                 portfolio_id, _ = rng.choice(alternatives)
