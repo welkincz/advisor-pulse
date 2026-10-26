@@ -120,3 +120,18 @@ it('withholds unchecked narrative text and retries failed current facts', async 
   await act(async () => container.querySelector('button')!.click())
   await until(() => container.textContent!.includes('Ontario: activities per advisor'))
 })
+
+it('shows an unavailable check with retry when a cited row is missing', async () => {
+  const data = fixtureData(), original = data.weeklyReportHistory.bind(data)
+  let missing = true
+  data.weeklyReportHistory = async (...args) => (await original(...args)).filter((r) =>
+    !missing || r.node_id !== 'ON' || r.iso_week_id !== '2026-W40' || r.kpi_code !== 'CALLS_OUT')
+  await act(async () => root.render(<DataProvider data={data}><NarrativePanel week="2026-W40" nodeId="ON" /></DataProvider>))
+  await until(() => container.textContent!.includes('We could not load the current cited figures'))
+  expect(container.querySelector('[role="status"]')).not.toBeNull()
+  expect(container.querySelector('.narrative-panel')).toBeNull()
+  expect(container.textContent).toContain('Last weekly run:')
+  missing = false
+  await act(async () => container.querySelector('button')!.click())
+  await until(() => container.textContent!.includes('Ontario: activities per advisor'))
+})

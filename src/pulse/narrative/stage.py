@@ -77,7 +77,7 @@ def write_narratives(
         if node_id in retained
         else narrate_node(
             build_facts(own[node_id] + children[node_id], node_id, week),
-            None if templates_only or node_id in existing else client,
+            None if templates_only else client,
             cache,
         )
         for node_id, _ in nodes
@@ -88,7 +88,7 @@ def write_narratives(
     )
     doc = NarrativeFile(
         iso_week_id=week,
-        generated_at=old.generated_at if old and retained else ctx.clock.now(),
+        generated_at=old.generated_at if old and narratives == old.narratives else ctx.clock.now(),
         narratives=narratives,
     )
     if doc != old:
@@ -104,9 +104,7 @@ def write_narratives(
         )
 
     total = len(outcomes)
-    fell_back = [
-        o for o in outcomes if o.narrative.fallback and o.narrative.node_id not in existing
-    ]
+    fell_back = [o for o in outcomes if o.narrative.fallback and not o.cached]
     hits = sum(o.cached for o in outcomes)
     if client is None and retained:
         return StageResult(

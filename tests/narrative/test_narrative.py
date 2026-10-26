@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import os
 import random
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -31,8 +32,11 @@ LIVE_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 
 class Clock:
+    def __init__(self, now: datetime = T0):
+        self.instant = now
+
     def now(self) -> datetime:
-        return T0
+        return self.instant
 
     def sleep(self, seconds: float) -> None:
         pass
@@ -447,13 +451,73 @@ def test_corrupt_existing_narrative_is_not_overwritten(report, tmp_path):
     assert not client.calls
 
 
-def test_existing_latest_templates_stay_templates_with_a_configured_backend(tmp_path):
+@pytest.mark.parametrize("mixed", [False, True])
+def test_unchanged_runs_keep_every_file_and_restatement_changes_only_affected_week(
+    tmp_path, report, mixed
+):
     _warehouse_with_report(tmp_path)
     narrate(ctx(tmp_path), client_factory=lambda: None)
-    client = FakeClient()
-    narrate(ctx(tmp_path), client_factory=lambda: client)
-    assert not client.calls
-    assert all(n.model is None for n in load_narratives(tmp_path)[WEEK].narratives)
+    path = tmp_path / "narratives" / f"{WEEK}.json"
+    if mixed:
+        doc = NarrativeFile.model_validate_json(path.read_text())
+        doc.narratives[0] = narrate_node(
+            build_facts(report, "ON", WEEK), FakeClient(), ResponseCache(tmp_path / "cache")
+        ).narrative
+        path.write_text(doc.model_dump_json(indent=2) + "\n")
+    before = {p.name: p.read_bytes() for p in path.parent.glob("*.json")}
+    later = replace(ctx(tmp_path), clock=Clock(T0 + timedelta(days=1)))
+    narrate(later, client_factory=lambda: None)
+    assert {p.name: p.read_bytes() for p in path.parent.glob("*.json")} == before
+
+    with connect(tmp_path / WAREHOUSE_FILE) as con:
+        con.execute(
+            "update marts.mart_weekly_report set value=value+10 "
+            "where iso_week_id='2026-W40' and node_id='QC' and kpi_code='CALLS_OUT'"
+        )
+    changed = replace(ctx(tmp_path), clock=Clock(T0 + timedelta(days=2)))
+    narrate(changed, client_factory=lambda: None)
+    assert [p.name for p in path.parent.glob("*.json") if p.read_bytes() != before[p.name]] == [
+        f"{WEEK}.json"
+    ]
+    after = NarrativeFile.model_validate_json(path.read_text())
+    assert after.generated_at == T0 + timedelta(days=2)
+    assert next(
+        f.value
+        for n in after.narratives
+        if n.node_id == "QC"
+        for f in n.facts_used
+        if f.node_id == "QC" and f.iso_week_id == WEEK and f.kpi_code == KpiCode.CALLS_OUT
+    ) == next(
+        r.value + 10
+        for r in report
+        if r.node_id == "QC" and r.iso_week_id == WEEK and r.kpi_code == KpiCode.CALLS_OUT
+    )
+    if mixed:
+        assert after.narratives[0] == doc.narratives[0]
+
+
+@pytest.mark.parametrize("retry_fails", [False, True])
+def test_latest_retries_only_the_failed_model_node(tmp_path, retry_fails):
+    class PartialClient(FakeClient):
+        def complete(self, user):
+            if user.startswith("Node: QC "):
+                raise TimeoutError("QC unavailable")
+            return super().complete(user)
+
+    _warehouse_with_report(tmp_path)
+    assert narrate(ctx(tmp_path), client_factory=PartialClient).status is StageStatus.WARN
+    before = {n.node_id: n for n in load_narratives(tmp_path)[WEEK].narratives}
+    assert before["QC"].model is None
+    assert all(n.model is not None for key, n in before.items() if key != "QC")
+    client = FakeClient(error=TimeoutError("still unavailable") if retry_fails else None)
+    result = narrate(ctx(tmp_path), client_factory=lambda: client)
+    after = {n.node_id: n for n in load_narratives(tmp_path)[WEEK].narratives}
+    assert len(client.calls) == 1 and client.calls[0].startswith("Node: QC ")
+    assert {key: n for key, n in after.items() if key != "QC"} == {
+        key: n for key, n in before.items() if key != "QC"
+    }
+    assert (after["QC"].model is None) is retry_fails
+    assert result.status is (StageStatus.WARN if retry_fails else StageStatus.SUCCESS)
 
 
 def test_history_refresh_does_not_preempt_a_new_latest_model(tmp_path):
