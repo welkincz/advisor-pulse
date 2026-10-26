@@ -95,12 +95,19 @@ def generate_clients(
     start_date: date = DEFAULT_START,
     weeks: int = 104,
     portfolio_batch: PortfolioBatch | None = None,
+    retain_from: date | None = None,
 ) -> ClientBatch:
     """Return the CLNT snapshot (as of the day before ``start_date``) and every daily change."""
     if not 1 <= client_count < 100_000_000:
         raise ValueError("client_count must be between 1 and 99999999")
     if weeks < 1:
         raise ValueError("weeks must be positive")
+    # Earlier changes still consume the same RNG draws and update the same books, but
+    # their versions need not survive when the caller only exports a later date range.
+    if retain_from is not None and not start_date <= retain_from < start_date + timedelta(
+        weeks=weeks
+    ):
+        raise ValueError("retain_from must be within the generated horizon")
     snapshot_day = start_date - timedelta(days=1)
     initial_owners = _book_owners(advisors, snapshot_day)
     if not initial_owners:
@@ -136,6 +143,16 @@ def generate_clients(
         p.portfolio_id: district_by_branch[p.branch_id] for p in portfolios.master
     }
 
+    segments = list(Segment)
+    segment_weights = [60, 85, 95, 100]  # Exact cumulative form of [60, 25, 10, 5].
+    history_dates = [snapshot_day - timedelta(days=i) for i in range(3653)]
+    timestamps: dict[date, datetime] = {}
+
+    def timestamp(day: date) -> datetime:
+        if day not in timestamps:
+            timestamps[day] = _ts(day)
+        return timestamps[day]
+
     def make_client(
         client_id: str,
         owner: AdvisorAssignment,
@@ -151,12 +168,12 @@ def generate_clients(
             CLNT_ID=client_id,
             CLNT_SINCE_DT=since,
             BRTH_YR=rng.randint(1940, 1995),
-            SEG_CD=rng.choices(list(Segment), weights=[60, 25, 10, 5])[0],
+            SEG_CD=rng.choices(segments, cum_weights=segment_weights)[0],
             PSTL_CD=postal,
             PROV_CD=fsa_province(fsa),
             PRIM_BRNCH_ID=branch_id,
             STAT_CD=ClientStatus.ACTIVE,
-            LAST_UPD_TS=_ts(updated),
+            LAST_UPD_TS=timestamp(updated),
             PRTF_ID=portfolio_id,
         )
 
@@ -172,8 +189,9 @@ def generate_clients(
         active_ids.append(client.client_id)
 
     for number in range(1, client_count + 1):
-        since = snapshot_day - timedelta(days=rng.randrange(3653))
-        updated = since + timedelta(days=rng.randrange((snapshot_day - since).days + 1))
+        age = rng.randrange(3653)
+        since = history_dates[age]
+        updated = history_dates[age - rng.randrange(age + 1)]
         owner = rng.choice(initial_owners)
         # The row names its owner as of LAST_UPD_TS, so that is no earlier than the
         # owner's current assignment.
@@ -187,17 +205,24 @@ def generate_clients(
 
     def move(client_id: str, portfolio_id: str, day: date, kind: ChangeKind) -> None:
         before = current[client_id]
-        after = before.model_copy(
-            update={
-                "primary_branch_id": by_portfolio[portfolio_id].branch_id,
-                "portfolio_id": portfolio_id,
-                "last_updated_ts": _ts(day),
-            }
-        )
-        book[before.portfolio_id].discard(client_id)
+        old_portfolio = before.portfolio_id
+        update = {
+            "primary_branch_id": by_portfolio[portfolio_id].branch_id,
+            "portfolio_id": portfolio_id,
+            "last_updated_ts": timestamp(day),
+        }
+        if retain_from is not None and day < retain_from:
+            # These rows are private working state until the boundary snapshot below.
+            # Like model_copy(update=...), updates use already validated field values.
+            before.__dict__.update(update)
+            after = before
+        else:
+            after = before.model_copy(update=update)
+        book[old_portfolio].discard(client_id)
         book[portfolio_id].add(client_id)
         current[client_id] = after
-        changes.append(ClientChange(day, kind, before, after))
+        if retain_from is None or day >= retain_from:
+            changes.append(ClientChange(day, kind, before, after))
 
     def rebalance(portfolio_id: str, day: date, owners: dict[str, AdvisorAssignment]) -> None:
         """Give a newly opened portfolio an even share of its branch's clients.
@@ -225,6 +250,8 @@ def generate_clients(
     total_days = weeks * 7
     for offset in range(total_days):
         day = start_date + timedelta(days=offset)
+        if day == retain_from:
+            snapshot = tuple(current.values())
         owners = _book_owners(advisors, day)
         if not owners:
             raise ValueError(f"no active advisor on {day.isoformat()}")
@@ -275,7 +302,8 @@ def generate_clients(
             next_number += 1
             activate(client)
             new_today.add(client.client_id)
-            changes.append(ClientChange(day, "NEW", None, client))
+            if retain_from is None or day >= retain_from:
+                changes.append(ClientChange(day, "NEW", None, client))
 
         for client_id in scheduled.pop(day, []):
             before = current[client_id]
@@ -296,11 +324,12 @@ def generate_clients(
                 client_id = rng.choice(active_ids)
             before = current[client_id]
             after = before.model_copy(
-                update={"status_code": ClientStatus.CLOSED, "last_updated_ts": _ts(day)}
+                update={"status_code": ClientStatus.CLOSED, "last_updated_ts": timestamp(day)}
             )
             current[client_id] = after
             book[before.portfolio_id].discard(client_id)
-            changes.append(ClientChange(day, "CLOSED", before, after))
+            if retain_from is None or day >= retain_from:
+                changes.append(ClientChange(day, "CLOSED", before, after))
             index = active_position.pop(client_id)
             last = active_ids.pop()
             if index < len(active_ids):

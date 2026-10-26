@@ -3,6 +3,7 @@
 import hashlib
 import json
 from collections import Counter
+from datetime import date, timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -61,3 +62,51 @@ def test_district_lookup_work_depends_on_branches_not_reassignments() -> None:
     batch = generate_clients(probe, assignment_ranges(roster), seed=19, client_count=4000, weeks=26)
     assert any(c.kind == "REASSIGNED" for c in batch.changes)
     assert sum(reads.values()) <= 4 * len(placements)
+
+
+@pytest.mark.parametrize("seed", [7, 20261013])
+def test_compact_history_preserves_boundary_and_every_retained_version(seed: int) -> None:
+    boundary = date(2026, 10, 12)
+    sizes = Sizes(advisors=120, clients=4000)
+    full = build_world(seed, sizes, "2026-W42")
+    compact = build_world(seed, sizes, "2026-W42", retain_from=boundary)
+    state = {c.client_id: c for c in full.clients.snapshot}
+    for change in full.clients.changes:
+        if change.day < boundary:
+            state[change.after.client_id] = change.after
+    assert compact.clients.snapshot == tuple(state.values())
+    assert compact.clients.changes == tuple(c for c in full.clients.changes if c.day >= boundary)
+    assert compact.clients.final() == full.clients.final()
+    from pulse.generate.books import client_pools_by_day
+
+    days = [boundary + timedelta(days=i) for i in range(5)]
+    assert client_pools_by_day(compact.clients, days) == client_pools_by_day(full.clients, days)
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("fails", [False, True])
+def test_generation_restores_callers_gc_state(monkeypatch, tmp_path, enabled, fails) -> None:
+    import gc
+
+    from pulse.generate import cli
+
+    original = gc.isenabled()
+    (gc.enable if enabled else gc.disable)()
+
+    def world(*args, **kwargs):
+        assert not gc.isenabled()
+        if fails:
+            raise ValueError("synthetic failure")
+        return object()
+
+    monkeypatch.setattr(cli, "build_world", world)
+    monkeypatch.setattr(cli, "generate_week", lambda *a, **k: None)
+    try:
+        if fails:
+            with pytest.raises(ValueError, match="synthetic failure"):
+                cli.generate_weeks(tmp_path, ["2026-W42"], seed=7)
+        else:
+            assert cli.generate_weeks(tmp_path, ["2026-W42"], seed=7, echo=lambda _: None) == 0
+        assert gc.isenabled() == enabled
+    finally:
+        (gc.enable if original else gc.disable)()
