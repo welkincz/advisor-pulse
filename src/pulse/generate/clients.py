@@ -98,7 +98,11 @@ def generate_clients(
     retain_from: date | None = None,
     retain_through: date | None = None,
 ) -> ClientBatch:
-    """Return the CLNT snapshot (as of the day before ``start_date``) and every daily change."""
+    """Return a snapshot and daily changes, optionally retaining only a date range.
+
+    The snapshot precedes ``retain_from`` (``start_date`` by default); retained changes
+    end at ``retain_through``. Quarter scheduling always uses the full ``weeks`` horizon.
+    """
     if not 1 <= client_count < 100_000_000:
         raise ValueError("client_count must be between 1 and 99999999")
     if weeks < 1:
