@@ -7,7 +7,7 @@ models:
       the credited branch and its additive parts, so the weekly marts rebuild every ratio
       from summed parts. Event kinds: `completed` (by activity date), `scheduled`
       (appointments and reviews, by SCHEDULED_TS), `booked` (by CREATED_TS), `advisor`
-      (an active advisor at week start, not a branch manager) and `portfolio` (an active
+      (one advisor with a non-manager employment range overlapping the week) and `portfolio` (an active
       client in a known portfolio at week end, credited to the holder and the transit branch).
     data_tests:
       - expression_is_true:
@@ -25,7 +25,7 @@ models:
         description: The advisor; null for activity whose advisor has no history on that date (DQ012).
         data_type: varchar
       - name: branch_id
-        description: Credited branch (activity events), the advisor's branch at week start (advisor events) or the transit branch (portfolio events).
+        description: Credited branch (activity events), the first non-manager branch overlapping the week (advisor events) or the transit branch (portfolio events).
         data_type: varchar
         data_tests: [not_null]
       - name: event_kind

@@ -13,6 +13,7 @@ import importlib.util
 import os
 import random
 import shutil
+import sqlite3
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -173,3 +174,36 @@ def test_twelve_months_back_clamps_to_the_end_of_february() -> None:
     assert crosscheck.months_back(date(2028, 2, 29), 12) == date(2027, 2, 28)
     assert crosscheck.months_back(date(2026, 10, 4), 12) == date(2025, 10, 4)
     assert crosscheck.months_back(date(2025, 3, 31), 1) == date(2025, 2, 28)
+
+
+def test_midweek_hire_holder_is_on_the_independent_roster(tmp_path: Path) -> None:
+    """Moving a fixture hire to Wednesday must retain its Sunday portfolio parts."""
+    sources = tmp_path / "sources"
+    shutil.copytree(FIXTURES, sources)
+    with sqlite3.connect(sources / "teradata" / "edw.sqlite") as con:
+        con.execute("delete from ADVSR_ASGN where ADVSR_ID='ADV-10017' and RSN_CD<>'HIRE'")
+        con.execute("update ADVSR_ASGN set EFF_DT='2026-09-30' where ADVSR_ID='ADV-10017'")
+        con.execute("update PRTF_ASGN set EFF_DT='2026-09-30' where PRTF_ID='PRT-010017'")
+    expected = crosscheck.compute(sources)
+    # PRT-010017 has 14 active fixture clients, 13 contacted by Sunday.
+    assert expected.advisor[("2026-W40", "ADV-10017")] == [14, 13]
+    assert ("2026-W40", "ADV-10017") not in expected.off_roster
+
+
+def test_independent_roster_requires_rows_even_without_portfolios(
+    tmp_path: Path, fixture_run: Path
+) -> None:
+    sources = tmp_path / "sources"
+    shutil.copytree(FIXTURES, sources)
+    with sqlite3.connect(sources / "teradata" / "edw.sqlite") as con:
+        con.execute(
+            "insert into ADVSR_ASGN values"
+            " ('ASG-99999999', 'ADV-99999', 'BR-0101', 'ADVSR',"
+            " '2026-09-30', 'HIRE', '2026-09-30 13:00:00')"
+        )
+    expected = crosscheck.compute(sources)
+    assert expected.advisor[("2026-W40", "ADV-99999")] == [0, 0]
+    marts = crosscheck.read_marts(fixture_run / "warehouse.duckdb")
+    report = crosscheck.compare(expected, marts)
+    assert not report.ok
+    assert "ADV-99999" in report.first["mart_advisor_weekly"]
