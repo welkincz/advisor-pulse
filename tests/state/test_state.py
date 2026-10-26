@@ -555,3 +555,14 @@ def test_a_corrupt_marker_falls_back_to_downloading(store: ObjectStore, tmp_path
         assert result.status is StageStatus.SUCCESS
         assert "restored warehouse.duckdb" in (result.message or "")
         sync.release(ctx(data_dir, f"backfill-{len(broken)}"))
+
+
+def test_backfill_cold_restore_leaves_requested_range_to_the_caller(store, tmp_path):
+    def forbidden(ctx, weeks):
+        pytest.fail("backfill restore must not run legacy weekly dbt builds")
+
+    sync = sync_for(store, rebuild=forbidden)
+    result = sync.restore(ctx(tmp_path), rebuild_missing=False)
+    assert result.status is StageStatus.SUCCESS
+    assert "requested range" in result.message
+    assert sync.release(ctx(tmp_path)).status is StageStatus.SUCCESS
