@@ -107,9 +107,9 @@ def test_failed_periodic_or_stop_persist_never_writes_resume(tmp_path, budget, f
     assert ("release_lock", "SUCCESS") in logs
 
 
-def test_projection_uses_longest_week_instead_of_last_week(tmp_path):
+def test_projection_uses_longest_steady_week_instead_of_last_week(tmp_path):
     def seconds(week):
-        return 1800 if week == "2024-W41" else 600
+        return 1800 if week == "2024-W42" else 600
 
     code, snapshots, resume, _, _ = scenario(tmp_path, budget=250, week_seconds=seconds)
     assert code == 0
@@ -126,3 +126,41 @@ def test_overrunning_last_week_does_not_duplicate_final_persist(tmp_path):
     assert snapshots == [8]
     assert not resume.exists()
     assert not any(stage == "checkpoint_state" for stage, _ in logs)
+
+
+def production_week_seconds(week):
+    index = (week_start(week) - week_start("2024-W41")).days // 7
+    return 160 if index == 0 else 25 + 10 * (index - 1) / 105
+
+
+def test_warmup_is_not_projected_over_remaining_production_weeks(tmp_path):
+    code, snapshots, resume, logs, _ = scenario(
+        tmp_path, count=107, budget=320, week_seconds=production_week_seconds, persist_seconds=60
+    )
+    assert code == 0
+    assert snapshots == [107]
+    assert not resume.exists()
+    assert not any(stage == "checkpoint_state" for stage, _ in logs)
+
+
+def test_production_shape_under_pressure_still_checkpoints_and_stops(tmp_path):
+    code, snapshots, resume, logs, _ = scenario(
+        tmp_path, count=107, budget=60, week_seconds=production_week_seconds, persist_seconds=60
+    )
+    assert code == 0
+    assert len(snapshots) > 1
+    assert snapshots[-1] < 107
+    expected = iso_week(week_start("2024-W41") + timedelta(weeks=snapshots[-1]))
+    assert resume.read_text() == f"{expected}\n"
+    assert ("dbt_build", "SKIPPED") in logs
+    assert ("export", "SKIPPED") in logs
+    assert ("release_lock", "SUCCESS") in logs
+
+
+def test_first_week_remains_fallback_until_a_steady_week_is_observed(tmp_path):
+    code, snapshots, resume, _, _ = scenario(
+        tmp_path, count=3, budget=3, week_seconds=production_week_seconds
+    )
+    assert code == 0
+    assert snapshots == [1]
+    assert resume.read_text() == "2024-W42\n"
