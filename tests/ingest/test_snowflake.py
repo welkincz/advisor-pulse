@@ -12,11 +12,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from pulse.contracts import column_names
 from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import LoadStatus, StageStatus
+from pulse.contracts.raw import RawSnowflakeActivity
 from pulse.ingest import meta
 from pulse.ingest.snowflake import load_snowflake_activity
-from pulse.warehouse import connect, init_warehouse
+from pulse.warehouse import connect, init_warehouse, insert_contracts
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 LOADED_AT = datetime(2026, 10, 5, 12, tzinfo=UTC)
@@ -199,3 +201,32 @@ def test_schema_drift_fails_one_file_but_later_files_continue(
     statuses = [entry.status for entry in meta.get_manifest(warehouse)]
     assert statuses.count(LoadStatus.FAILED) == 1
     assert statuses.count(LoadStatus.LOADED) == 4
+
+
+def test_bulk_insert_stores_exactly_what_row_by_row_inserts_stored(
+    warehouse: duckdb.DuckDBPyConnection, sources: Path
+) -> None:
+    """The Arrow batch (#347) keeps every value and type, nulls and time zones included."""
+
+    _load(warehouse, sources)
+    names = column_names(RawSnowflakeActivity)
+    quoted = ", ".join(f'"{n}"' for n in names)
+    stored = warehouse.execute(f"SELECT {quoted} FROM raw.snowflake__activity").fetchall()
+    rows = [RawSnowflakeActivity.model_validate(dict(zip(names, r, strict=True))) for r in stored]
+    assert any(None in r for r in stored)  # the fixture exercises nullable columns
+
+    warehouse.execute("CREATE TABLE raw.by_row AS SELECT * FROM raw.snowflake__activity LIMIT 0")
+    warehouse.executemany(
+        f"INSERT INTO raw.by_row ({quoted}) VALUES ({', '.join('?' for _ in names)})",
+        [list(r.model_dump(by_alias=True, mode="python").values()) for r in rows],
+    )
+    warehouse.execute("CREATE TABLE raw.bulk AS SELECT * FROM raw.snowflake__activity LIMIT 0")
+    insert_contracts(warehouse, "raw.bulk", RawSnowflakeActivity, rows)
+
+    for a, b in (("by_row", "bulk"), ("bulk", "by_row")):
+        diff = warehouse.execute(
+            f"SELECT count(*) FROM (SELECT * FROM raw.{a} EXCEPT ALL SELECT * FROM raw.{b})"
+        ).fetchone()[0]
+        assert diff == 0
+    assert warehouse.execute("SELECT count(*) FROM raw.bulk").fetchone()[0] == len(rows)
+    insert_contracts(warehouse, "raw.bulk", RawSnowflakeActivity, [])  # no rows, no error

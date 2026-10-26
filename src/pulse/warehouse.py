@@ -7,14 +7,15 @@ a contract change shows up as a DDL change and is caught by the DESCRIBE test.
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
 
-from pulse.contracts import Contract, duckdb_columns
+from pulse.contracts import Contract, arrow_schema, column_names, duckdb_columns
 from pulse.contracts.meta import CheckResult, LoadManifest, RejectedRow, RunLogRow, Watermark
 from pulse.contracts.raw import (
     RawSnowflakeActivity,
@@ -148,3 +149,25 @@ def transaction(con: duckdb.DuckDBPyConnection) -> Iterator[duckdb.DuckDBPyConne
         con.execute("ROLLBACK")
         raise
     con.execute("COMMIT")
+
+
+def insert_contracts(
+    con: duckdb.DuckDBPyConnection, table: str, model: type[Contract], rows: Sequence[Contract]
+) -> None:
+    """Append contract rows to ``table`` as one Arrow batch.
+
+    ``executemany`` converts row by row, and for every row DuckDB's Python binding probes for
+    pandas; with pandas absent each probe is a failed, uncached import, about 1 ms a row (#347).
+    """
+    if not rows:
+        return
+    batch = pa.Table.from_pylist(
+        [row.model_dump(by_alias=True, mode="python") for row in rows],
+        schema=arrow_schema(model),
+    )
+    names = ", ".join(_quote(name) for name in column_names(model))
+    con.register("_insert_batch", batch)
+    try:
+        con.execute(f"INSERT INTO {table} ({names}) SELECT {names} FROM _insert_batch")
+    finally:
+        con.unregister("_insert_batch")

@@ -399,3 +399,20 @@ def test_recap_check_notes_a_deploy_without_the_video(tmp_path: Path) -> None:
     stdout, summary = _check_recap(dist, "", tmp_path)
     assert "::warning::" in stdout
     assert "not checked" in summary
+
+
+def test_every_run_records_the_same_runner_profile() -> None:
+    """Timings are only comparable with the machine and versions beside them (#336)."""
+    for name in ("weekly.yml", "backfill.yml"):
+        steps = load(name)["jobs"]["run"]["steps"]
+        names = [step.get("name", "") for step in steps]
+        profile = names.index("Record runner profile")
+        assert profile < next(i for i, s in enumerate(steps) if "uv run pulse" in s.get("run", ""))
+        assert "--out data/artifacts/runner_profile.json" in steps[profile]["run"]
+        upload = next(s for s in steps if s.get("name") == "Upload run artifacts")
+        assert upload["if"] == "always()"
+        assert "data/artifacts/runner_profile.json" in upload["with"]["path"]
+    ci = load("ci.yml")["jobs"]
+    for job in ("python", "dbt"):
+        runs = [step.get("run", "") for step in ci[job]["steps"]]
+        assert "uv run python scripts/runner_profile.py" in runs
