@@ -520,7 +520,8 @@ def test_fresh_runner_restores_budget_checkpoint_and_weekly_defects(tmp_path, mo
             (w, StageStatus.SUCCESS.value) for w in ("2026-W37", "2026-W38", "2026-W39", "2026-W40")
         ]
         assert not store.exists("lock.json")
-        # Failure after a periodic checkpoint must leave remote data at that checkpoint.
+        # Forecast at week2 is 20 + 2 * 10 * 1.25 = 45 > 44 minutes.
+        # Failure after that pressure-gated checkpoint leaves remote state unchanged.
         monkeypatch.setattr(module, "CHECKPOINT_WEEKS", 2)
         failing_week = "2026-W44"
         fresh()
@@ -531,7 +532,7 @@ def test_fresh_runner_restores_budget_checkpoint_and_weekly_defects(tmp_path, mo
                 data_dir=tmp_path / "failed",
                 stages=stages,
                 clock=clock,
-                budget=timedelta(minutes=100),
+                budget=timedelta(minutes=44),
             )
             == 1
         )

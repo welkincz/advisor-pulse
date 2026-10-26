@@ -79,6 +79,27 @@ From the local reproduction's `warehouse.duckdb`.
 
 ## Duration
 
+### Budget-aware checkpoints (#350)
+
+The previous policy persisted every eight ingested weeks whenever a budget was set. The new policy keeps that cadence as a throttle, but persists only when `elapsed + remaining_weeks × longest_week × 1.25 > budget`. Exact equality skips the periodic upload. Once week 2 completes, both remaining-range and next-week forecasts use the longest completed week from week 2 onward. Week 1 can contain a one-off warm-up year and is used only as a fallback until that steady-week observation exists. Prior checkpoint uploads count toward elapsed time; future upload costs are not estimated. Stop-time persistence remains unconditional after a clean budget stop.
+
+A local deterministic comparison ran the real runner from base `e71a946` and implementation `9c50b2b`, with the same `scenario` helper in `tests/runner/test_checkpoint_budget.py`. Stage callbacks advance an injected clock; persistence records the number of pending weeks. No remote object store or model backend is used. **These are invocation counts under simulated durations, not measured production latency or a forecast of production savings.**
+
+| Scenario | Weeks; budget; simulated weekly / persist cost | Periodic checkpoints before → after | Total persist calls before → after |
+|---|---|---:|---:|
+| Ample budget | 107; 320 min; 30 s / 60 s | 13 → 0 | 14 → 1 |
+| Forecast equals budget at week 8 | 16; 180 min; 600 s / 60 s | 1 → 0 | 2 → 1 |
+| Budget pressure and clean stop | 16 requested; 100 min; 600 s / 60 s | 1 → 1 | 2 → 2 |
+| No budget | 107; none; 30 s / 60 s | 0 → 0 | 1 → 1 |
+| Production-shaped warm-up | 107; 320 min; first 160 s, then linear 25–35 s / 60 s | 13 → 0 | 14 → 1 |
+| Same warm-up under pressure | 107 requested; 60 min; same curve / 60 s | 11 → 8 | 12 → 9 |
+
+The ample-budget persist callbacks observe pending-week counts `[8,16,24,32,40,48,56,64,72,80,88,96,104,107]` before, and `[107]` after. The uniform pressure case preserves `[8,9]` and the same resume week, `2024-W50`; neither leg builds or exports before continuation. Counts come from callback invocations, since repeated `checkpoint_state` attempts share the existing run-log key.
+
+The previously submitted budget-gated implementation (`9c7a81f`) still uploaded at week 8 with the production-shaped 320-minute budget: `[8,107]`. The corrected implementation retains only `[107]`. At 60 minutes it persists at weeks `[40,48,56,64,72,80,88,96,100]`, stopping after week 100 with resume week `2026-W37`. These additional scenarios reproduce the review finding and retain stop-time persistence.
+
+Regression coverage includes exact-fit forecasts, a slow earlier steady week, the first-week fallback, a one-off warm-up year, an unexpectedly slow final week, periodic and stop-time persistence failures, and the existing #346 fixture equality/fresh-runner recovery checks. The periodic-failure fixture now uses a 44-minute budget (forecast 45) instead of 100, so it still exercises a checkpoint under the new policy. `docs/PLAN.md` §9 records the updated checkpoint rule; publication and resume consistency rules are unchanged.
+
 ### The rebuild on GitHub Actions
 
 | | Wall time | Weeks |
