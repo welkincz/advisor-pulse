@@ -445,3 +445,26 @@ def test_corrupt_existing_narrative_is_not_overwritten(report, tmp_path):
         write_narratives(report, WEEK, tmp_path, client, ctx(tmp_path), templates_only=True)
     assert path.read_bytes() == b"corrupt retained record"
     assert not client.calls
+
+
+def test_existing_latest_templates_stay_templates_with_a_configured_backend(tmp_path):
+    _warehouse_with_report(tmp_path)
+    narrate(ctx(tmp_path), client_factory=lambda: None)
+    client = FakeClient()
+    narrate(ctx(tmp_path), client_factory=lambda: client)
+    assert not client.calls
+    assert all(n.model is None for n in load_narratives(tmp_path)[WEEK].narratives)
+
+
+def test_history_refresh_does_not_preempt_a_new_latest_model(tmp_path):
+    from dataclasses import replace
+
+    _warehouse_with_report(tmp_path)
+    narrate(
+        replace(ctx(tmp_path), iso_week_id="2026-W39"),
+        client_factory=lambda: pytest.fail("historical provider"),
+    )
+    assert not (tmp_path / "narratives" / f"{WEEK}.json").exists()
+    client = FakeClient()
+    narrate(ctx(tmp_path), client_factory=lambda: client)
+    assert len(client.calls) == 5

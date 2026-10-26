@@ -62,7 +62,8 @@ def write_narratives(
         return StageResult(StageStatus.SKIPPED, message=f"No region or district rows for {week}.")
     path = out_dir / f"{week}.json"
     old = NarrativeFile.model_validate_json(path.read_text()) if path.exists() else None
-    retained = {n.node_id: n for n in old.narratives if n.model is not None} if old else {}
+    existing = {n.node_id: n for n in old.narratives} if old else {}
+    retained = {key: n for key, n in existing.items() if n.model is not None}
     # Index once: each node needs its own history and only its current children.
     own: dict[str, list[WeeklyReport]] = defaultdict(list)
     children: dict[str | None, list[WeeklyReport]] = defaultdict(list)
@@ -76,7 +77,7 @@ def write_narratives(
         if node_id in retained
         else narrate_node(
             build_facts(own[node_id] + children[node_id], node_id, week),
-            None if templates_only else client,
+            None if templates_only or node_id in existing else client,
             cache,
         )
         for node_id, _ in nodes
@@ -103,7 +104,9 @@ def write_narratives(
         )
 
     total = len(outcomes)
-    fell_back = [o for o in outcomes if o.narrative.fallback]
+    fell_back = [
+        o for o in outcomes if o.narrative.fallback and o.narrative.node_id not in existing
+    ]
     hits = sum(o.cached for o in outcomes)
     if client is None and retained:
         return StageResult(
@@ -151,7 +154,8 @@ def narrate(ctx: StageContext, client_factory: ClientFactory = client_from_env) 
         con.close()
     out = ctx.data_dir / NARRATIVES_DIR
     for week in weeks:
-        if week != ctx.iso_week_id:
+        # A missing latest file still needs its first model opportunity at that week's run.
+        if week != ctx.iso_week_id and (week < latest or (out / f"{week}.json").exists()):
             write_narratives(report, week, out, None, ctx, templates_only=True)
     historical = ctx.iso_week_id < latest
     return write_narratives(
