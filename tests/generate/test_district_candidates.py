@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import pytest
 
 from pulse.generate.advisors import assignment_ranges, generate_advisors
-from pulse.generate.cli import Sizes, build_world
+from pulse.generate.cli import Sizes, build_world, clients_as_of
 from pulse.generate.clients import generate_clients
 from pulse.reference import BranchPlacement, OrgReference, org
 
@@ -65,8 +65,10 @@ def test_district_lookup_work_depends_on_branches_not_reassignments() -> None:
 
 
 @pytest.mark.parametrize("seed", [7, 20261013])
-def test_compact_history_preserves_boundary_and_every_retained_version(seed: int) -> None:
-    boundary = date(2026, 10, 12)
+@pytest.mark.parametrize("boundary", [date(2023, 10, 9), date(2026, 10, 12)])
+def test_compact_history_preserves_boundary_and_every_retained_version(
+    seed: int, boundary: date
+) -> None:
     sizes = Sizes(advisors=120, clients=4000)
     full = build_world(seed, sizes, "2026-W42")
     compact = build_world(seed, sizes, "2026-W42", retain_from=boundary)
@@ -75,8 +77,11 @@ def test_compact_history_preserves_boundary_and_every_retained_version(seed: int
         if change.day < boundary:
             state[change.after.client_id] = change.after
     assert compact.clients.snapshot == tuple(state.values())
-    assert compact.clients.changes == tuple(c for c in full.clients.changes if c.day >= boundary)
-    assert compact.clients.final() == full.clients.final()
+    end = date(2026, 10, 18)
+    assert compact.clients.changes == tuple(
+        c for c in full.clients.changes if boundary <= c.day <= end
+    )
+    assert compact.clients.final() == clients_as_of(full.clients, end)
     from pulse.generate.books import client_pools_by_day
 
     days = [boundary + timedelta(days=i) for i in range(5)]
@@ -110,3 +115,15 @@ def test_generation_restores_callers_gc_state(monkeypatch, tmp_path, enabled, fa
         assert gc.isenabled() == enabled
     finally:
         (gc.enable if original else gc.disable)()
+
+
+def test_unchanged_days_reuse_the_same_active_roster(monkeypatch) -> None:
+    from pulse.generate import clients
+
+    roster = generate_advisors(org(), seed=19, advisor_count=120, weeks=26)
+    ranges = assignment_ranges(roster)
+    probe = Mock(wraps=clients._book_owners)
+    monkeypatch.setattr(clients, "_book_owners", probe)
+    clients.generate_clients(org(), ranges, seed=19, client_count=4000, weeks=26)
+    transitions = {day for row in ranges for day in row[3:] if day is not None}
+    assert probe.call_count <= len(transitions) + 2

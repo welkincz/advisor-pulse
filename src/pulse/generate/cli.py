@@ -137,6 +137,7 @@ def build_world(seed: int, sizes: Sizes, through: str, *, retain_from: date | No
         weeks=weeks,
         portfolio_batch=portfolios,
         retain_from=retain_from,
+        retain_through=week_start(through) + timedelta(days=6) if retain_from is not None else None,
     )
     return World(roster, clients, portfolios)
 

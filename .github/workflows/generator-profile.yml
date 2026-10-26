@@ -44,4 +44,5 @@ jobs:
           path: |
             generator-profile.json
             generator-profile.md
+            generator-profile.*.pstats
             runner-profile.json

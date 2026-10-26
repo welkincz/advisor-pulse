@@ -96,6 +96,7 @@ def generate_clients(
     weeks: int = 104,
     portfolio_batch: PortfolioBatch | None = None,
     retain_from: date | None = None,
+    retain_through: date | None = None,
 ) -> ClientBatch:
     """Return the CLNT snapshot (as of the day before ``start_date``) and every daily change."""
     if not 1 <= client_count < 100_000_000:
@@ -129,6 +130,9 @@ def generate_clients(
     for event in portfolios.assignments:
         if event.effective_date >= start_date:
             holder_events[event.effective_date].append(event)
+    portfolios_by_branch: dict[str, list[str]] = defaultdict(list)
+    for portfolio in portfolios.master:
+        portfolios_by_branch[portfolio.branch_id].append(portfolio.portfolio_id)
     placements = {p.branch.branch_id: p for p in org.placements()}
     for advisor_id, branch_id, _, valid_from, valid_to in advisors:
         if branch_id not in placements or (valid_to is not None and valid_to <= valid_from):
@@ -206,6 +210,11 @@ def generate_clients(
     def move(client_id: str, portfolio_id: str, day: date, kind: ChangeKind) -> None:
         before = current[client_id]
         old_portfolio = before.portfolio_id
+        if retain_from is not None and day < retain_from and old_portfolio == portfolio_id:
+            # Holder changes retain the book, and align the branch to its transit.
+            before.__dict__["primary_branch_id"] = by_portfolio[portfolio_id].branch_id
+            before.__dict__["last_updated_ts"] = timestamp(day)
+            return
         update = {
             "primary_branch_id": by_portfolio[portfolio_id].branch_id,
             "portfolio_id": portfolio_id,
@@ -233,11 +242,8 @@ def generate_clients(
         transit = by_portfolio[portfolio_id].branch_id
         donors = sorted(
             (p, h)
-            for p, h in portfolio_holders.items()
-            if p != portfolio_id
-            and h is not None
-            and h in owners
-            and by_portfolio[p].branch_id == transit
+            for p in portfolios_by_branch[transit]
+            if p != portfolio_id and (h := portfolio_holders[p]) is not None and h in owners
         )
         for donor, _ in donors:
             clients = sorted(c for c in book[donor] if c not in protected)
@@ -248,15 +254,23 @@ def generate_clients(
     protected: set[str] = set()
     next_number = client_count + 1
     total_days = weeks * 7
-    for offset in range(total_days):
+    roster_days = {day for row in advisors for day in row[3:] if day is not None} | {start_date}
+    owner_by_id: dict[str, AdvisorAssignment] = {}
+    # Keep total_days for quarter scheduling: shortening the last quarter would change
+    # its RNG draws. Only stop replay after the final day the caller will consume.
+    replay_days = (
+        total_days
+        if retain_through is None
+        else min(total_days, (retain_through - start_date).days + 1)
+    )
+    for offset in range(replay_days):
         day = start_date + timedelta(days=offset)
         if day == retain_from:
             snapshot = tuple(current.values())
-        owners = _book_owners(advisors, day)
-        if not owners:
+        if day in roster_days:
+            owner_by_id = {owner[0]: owner for owner in _book_owners(advisors, day)}
+        if not owner_by_id:
             raise ValueError(f"no active advisor on {day.isoformat()}")
-
-        owner_by_id = {owner[0]: owner for owner in owners}
         for event in holder_events.get(day, []):
             if event.advisor_id not in owner_by_id:
                 raise ValueError(f"{event.advisor_id} cannot hold a portfolio on {day}")
@@ -273,17 +287,20 @@ def generate_clients(
             for client_id in sorted(book[event.portfolio_id]):
                 move(client_id, event.portfolio_id, day, kind)
 
-        active_portfolios = [
-            (p.portfolio_id, owner_by_id[holder])
-            for p in portfolios.master
-            if (holder := portfolio_holders[p.portfolio_id]) in owner_by_id
-        ]
+        if day in roster_days or day in holder_events:
+            active_portfolios = [
+                (p.portfolio_id, owner_by_id[holder])
+                for p in portfolios.master
+                if (holder := portfolio_holders[p.portfolio_id]) in owner_by_id
+            ]
 
-        # Preserve master order within each district: rng.choice must see exactly the
-        # same candidates in the same order as filtering the full list for every move.
-        district_portfolios: dict[str, list[tuple[str, AdvisorAssignment]]] = defaultdict(list)
-        for portfolio_id, owner in active_portfolios:
-            district_portfolios[district_by_portfolio[portfolio_id]].append((portfolio_id, owner))
+            # Preserve master order within each district: rng.choice must see exactly the
+            # same candidates in the same order as filtering the full list for every move.
+            district_portfolios: dict[str, list[tuple[str, AdvisorAssignment]]] = defaultdict(list)
+            for portfolio_id, owner in active_portfolios:
+                district_portfolios[district_by_portfolio[portfolio_id]].append(
+                    (portfolio_id, owner)
+                )
 
         if offset % QUARTER_DAYS == 0:
             count = _count_at_rate(len(active_ids), REASSIGN_RATE, rng)
