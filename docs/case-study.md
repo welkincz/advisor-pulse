@@ -25,7 +25,7 @@ The source data never arrives clean:
 
 The project rebuilds that situation on synthetic data and solves it the way I would want it solved at work. Loads are incremental and idempotent. History is explicit. Every check ties back to a known ground truth.
 
-The lead question is what share of active clients in each portfolio heard from an advisor in the last 12 months. Nationally it rises gradually, from 82.9% in the first reported week to 86.4% in 2026-W42. The useful exceptions are in the detail: some branches and advisors lose ground while the nation improves. The report helps a manager find them; it does not claim that contact alone measures client outcomes.
+The lead question is what share of active clients in each portfolio heard from an advisor in the last 12 months. Nationally it rises gradually, from 82.9% in the first reported week to 86.5% in 2026-W43. The useful exceptions are in the detail: some branches and advisors lose ground while the nation improves. The report helps a manager find them; it does not claim that contact alone measures client outcomes.
 
 ## Architecture
 
@@ -69,21 +69,21 @@ GitHub Actions runs the whole pipeline every Monday through one Python runner, w
 
 The generator injects realistic defects and writes a manifest of every one. The pipeline has to handle each defect as designed, and the reconciliation check (DQ033) compares the manifest with what actually happened, week by week.
 
-This table covers the latest rebuild, 106 weeks of history:
+This table covers the latest rebuild, 107 weeks of history:
 
 | Defect | Handling | Injected |
 |---|---|---:|
-| Null activity id | Quarantine (DQ001) | 2,960 |
-| Invalid enum | Quarantine (DQ002) | 1,476 |
-| Duration out of range | Quarantine (DQ003) | 1,474 |
-| Exact duplicates | Dedupe (DQ010) | 20,541 |
-| Resent updates | Dedupe, latest version wins (DQ010) | 42,352 |
-| Dirty postal codes | Normalize (DQ011) | 23,069 |
-| Unknown advisor | Map to an unknown member (DQ012) | 4,430 |
-| Late-arriving activity | Keep, flagged | 58,824 |
+| Null activity id | Quarantine (DQ001) | 2,989 |
+| Invalid enum | Quarantine (DQ002) | 1,490 |
+| Duration out of range | Quarantine (DQ003) | 1,488 |
+| Exact duplicates | Dedupe (DQ010) | 20,742 |
+| Resent updates | Dedupe, latest version wins (DQ010) | 42,765 |
+| Dirty postal codes | Normalize (DQ011) | 23,092 |
+| Unknown advisor | Map to an unknown member (DQ012) | 4,473 |
+| Late-arriving activity | Keep, flagged | 59,398 |
 
-- **Reconciliation:** DQ033 passed in all 106 runs, with nothing missing and nothing unexpected.
-- **Quarantine:** the three quarantine defects add up to 5,910 rows, exactly the size of the quarantine table.
+- **Reconciliation:** DQ033 passed in all 107 weeks, with nothing missing and nothing unexpected.
+- **Quarantine:** the three quarantine defects add up to 5,967 rows, exactly the size of the quarantine table.
 - **Volume:** the volume check warned on 8 weeks and failed on none. All 8 were the first weeks, without enough history yet. An earlier version also warned on holidays and small dips; the check now compares each week with a business-calendar expectation and ignores changes under 5%.
 - **The lead KPI, computed twice:** a separate Python script recomputes the 12-month contacted rate from the raw extracts, sharing no code with dbt or ingest, and must match the marts for every portfolio, advisor and org node in every week, in CI and on a full-size run.
 
@@ -93,16 +93,14 @@ The full numbers are in [baseline.md](https://github.com/welkincz/advisor-pulse/
 
 | | |
 |---|---:|
-| Weeks of history | 106 (2024-W41 to 2026-W42), after a one-year warm-up |
-| Activity rows read | 2,271,225 |
-| Activity rows after dedupe and quarantine | 2,202,422 |
-| Full rebuild on GitHub Actions | 6 h 22 min, in two runs |
-| One weekly run | about 4 minutes; 11 minutes with model narratives |
-| Published site data | 10.5 MB (budget 20 MB) |
+| Weeks of history | 107 (2024-W41 to 2026-W43), after a one-year warm-up |
+| Activity rows read | 2,286,280 |
+| Activity rows after dedupe and quarantine | 2,216,806 |
+| Full rebuild on GitHub Actions | 1 h 18 min, in one run (was 6 h 22 min) |
+| One weekly run | about 10 minutes, 8 of them restoring state; plus about 9 minutes of model narratives |
+| Published site data | 11.3 MB (budget 20 MB) |
 
-Without the model, a week spends most of its time in dbt (about 110 s). Writing the 27 narratives with Claude adds about 7 minutes.
-
-The rebuild is slow because each week replays the whole pipeline, a full dbt build and a warehouse save, so every added week costs more than the last. The fix runs those steps once per rebuild instead of once per week ([#275](https://github.com/welkincz/advisor-pulse/issues/275)).
+A rebuild used to replay the whole pipeline for every week. It now ingests the weeks in order, then builds, checks and publishes once ([#275](https://github.com/welkincz/advisor-pulse/issues/275)). Most of what remains is the generator. A weekly run spends most of its time downloading state to a fresh runner.
 
 ## Failure handling
 
@@ -142,4 +140,4 @@ The parts I would keep: deriving history from events, idempotent batches, reconc
 - The data is synthetic, and so are the defects.
 - The report is weekly, by design.
 - Advisors and clients are generated. Only the geography (public FSA boundaries) is real.
-- The narratives for the 105 historical weeks are templates. Only weeks run with a model backend get model-written text.
+- The narratives for the 106 historical weeks are templates. Only weeks run with a model backend get model-written text.

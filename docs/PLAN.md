@@ -193,7 +193,7 @@ Every active client belongs to one **portfolio**: a group of clients that one ad
 
 The report leads with **portfolio contacted (12 months)**: of the clients in a portfolio, the share who heard from an advisor at least once in the last twelve months. An advisor whose portfolio holds 100 clients, 90 of them contacted in the last year, scores 90%. Any advisor's contact counts, so a handed-over portfolio keeps the credit for its previous holder's calls. Activities per advisor stays as the secondary KPI. Terms are neutral on purpose (§1 of AGENTS.md).
 
-Scale (default config): 10 regions · 17 districts · ~120 branches · ~900 advisors · ~150k clients · ~15k activities/week · 106 reported weeks after a one-year warm-up (~2.3M activity rows read).
+Scale (default config): 10 regions · 17 districts · ~120 branches · ~900 advisors · ~150k clients · ~15k activities/week · two years of reported weeks after a one-year warm-up (~2.3M activity rows read).
 Each branch sits in a real FSA (public geography only). Client postal codes use a real FSA in the branch's area plus a random LDU.
 
 ### Activity types
