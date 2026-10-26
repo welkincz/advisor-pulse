@@ -4,8 +4,8 @@ models:
   - name: mart_advisor_weekly
     description: >
       Advisor × ISO week KPI parts (PLAN.md §6.8, §7), exported as advisor_weekly.parquet.
-      One row per active advisor and week: employed at week start and not a branch
-      manager. Activity counts toward the advisor wherever it was logged; activity with an
+      One row per advisor with a non-manager employment range overlapping the week,
+      including midweek hires and terminations. Activity counts toward the advisor wherever it was logged; activity with an
       unknown advisor (DQ012) is left out here and credited to its branch in mart_org_weekly.
       Built from int_kpi_events.
     data_tests:
@@ -25,7 +25,7 @@ models:
         data_type: varchar
         data_tests: [not_null]
       - name: branch_id
-        description: The advisor's branch at week start (as-of branch for the week). References dim_org.
+        description: The first non-manager branch overlapping the week (week-start branch for incumbents). References dim_org.
         data_type: varchar
         data_tests:
           - not_null

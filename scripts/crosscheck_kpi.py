@@ -42,9 +42,10 @@ R11 Window completeness: a week has a rate only when week end − 12 months is o
 R12 Reported weeks: from the first week with a complete window that is not after the last
     completed-activity week (or, failing that, the first completed-activity week), through
     the last week with any activity. Warm-up weeks before that feed the window only.
-R13 Advisor rows exist for advisors on the roster at week start: their latest ADVSR_ASGN
-    event on or before Monday (two on one day: the larger ASGN_ID) is not TERM, and the role
-    is not BR_MGR. Holders off the roster still count at their portfolios' branch.
+R13 Advisor rows exist when a non-TERM, non-BR_MGR ADVSR_ASGN range overlaps any day of
+    the week, including midweek hires and terminations. Two events on one day: the larger
+    ASGN_ID wins. Multiple ranges count once. Holders off the roster still count at their
+    portfolios' transit branch.
 
 Usage: python scripts/crosscheck_kpi.py --data-dir data   (exit 1 on any mismatch, 2 when
 the warehouse is missing). CI's dbt job runs it on the fixture warehouse with
@@ -479,6 +480,16 @@ def as_of[T](timeline: tuple[list[date], list[T]] | None, day: date) -> T | None
     return payloads[index - 1] if index else None
 
 
+def on_weekly_roster(timeline: tuple[list[date], list[tuple[str, ...]]] | None, week: str) -> bool:
+    """R13: at least one day in the week has an employed non-manager assignment."""
+    monday, sunday = week_bounds(week)
+    for offset in range((sunday - monday).days + 1):
+        event = as_of(timeline, monday + timedelta(days=offset))
+        if event is not None and event[1] != "TERM" and event[0] != "BR_MGR":
+            return True
+    return False
+
+
 def load_org(reference: Path) -> dict[str, tuple[str, str]]:
     """Branch → (district, region), from reference/org.yaml."""
     org = yaml.safe_load((reference / "org.yaml").read_text())
@@ -527,7 +538,7 @@ def compute(sources: Path, reference: Path = ROOT / "reference") -> Expected:
 
     portfolio: dict[tuple[str, str], tuple[str, str, Parts]] = {}
     for week in weeks:
-        monday, sunday = week_bounds(week)
+        _, sunday = week_bounds(week)
         cutoff_ts = week_end_cutoff(sunday)
         window_start = months_back(sunday, WINDOW_MONTHS)
         for client, (starts, versions) in clients.items():
@@ -550,12 +561,14 @@ def compute(sources: Path, reference: Path = ROOT / "reference") -> Expected:
             entry[2][1] += int(contacted)
 
     advisor: dict[tuple[str, str], Parts] = defaultdict(lambda: [0, 0])
+    for week in weeks:
+        for advisor_id, timeline in roster.items():
+            if on_weekly_roster(timeline, week):
+                advisor[(week, advisor_id)] = [0, 0]
     off_roster: dict[tuple[str, str], Parts] = defaultdict(lambda: [0, 0])
     nodes: dict[tuple[str, str, str], Parts] = defaultdict(lambda: [0, 0])
     for (week, _), (holder_id, transit, parts) in portfolio.items():
-        monday, _ = week_bounds(week)
-        event = as_of(roster.get(holder_id), monday)
-        on_roster = event is not None and event[1] != "TERM" and event[0] != "BR_MGR"
+        on_roster = on_weekly_roster(roster.get(holder_id), week)
         target = advisor if on_roster else off_roster
         _add(target[(week, holder_id)], parts)
         if transit not in org:
@@ -719,11 +732,15 @@ def compare(expected: Expected, marts: Marts) -> Report:
 
     for advisor_key in sorted(set(expected.advisor) | set(marts.advisor)):
         week, advisor_id = advisor_key
+        if advisor_key not in expected.advisor:
+            report.miss(
+                "mart_advisor_weekly",
+                f"{week} advisor {advisor_id}: mart row outside the independent roster (R13)",
+            )
+            continue
         mine = expected.advisor.get(advisor_key, zero)
         found_advisor = marts.advisor.get(advisor_key)
         found = found_advisor
-        if found is None and mine == zero:
-            continue
         if found is None and week not in marts.weeks:
             continue  # reported as a week mismatch already
         _check(
@@ -789,7 +806,7 @@ def summarize(expected: Expected, marts: Marts, report: Report) -> list[str]:
         clients = sum(parts[0] for parts in expected.off_roster.values())
         lines.append(
             f"Note: {len(expected.off_roster)} holder-weeks ({clients} client-weeks) belong to"
-            " advisors off the roster (branch manager or not employed at week start); they"
+            " advisors off the roster (no non-manager employment during the week); they"
             " have no advisor row and count at their portfolios' branch only (R13)."
         )
     for week in (expected.weeks[:1] + expected.weeks[-1:]) if expected.weeks else []:

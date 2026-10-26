@@ -1,5 +1,5 @@
 -- Advisor × week KPI parts (PLAN.md §6.8, §7). One row per active advisor and week:
--- employed at week start and not a branch manager. Activity by any branch counts toward
+-- a non-manager employment range overlaps the week. Activity by any branch counts toward
 -- the advisor; activity with an unknown advisor (DQ012) is excluded here and credited to
 -- its branch in mart_org_weekly.
 with events as (
