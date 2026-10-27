@@ -20,6 +20,7 @@ runner's checks.
 
 from __future__ import annotations
 
+import gc
 import math
 import os
 import re
@@ -124,7 +125,7 @@ def horizon_weeks(iso_week_id: str) -> int:
     return math.ceil(needed / HORIZON_STEP_WEEKS) * HORIZON_STEP_WEEKS
 
 
-def build_world(seed: int, sizes: Sizes, through: str) -> World:
+def build_world(seed: int, sizes: Sizes, through: str, *, retain_from: date | None = None) -> World:
     weeks = horizon_weeks(through)
     roster = generate_advisors(org(), seed=seed, advisor_count=sizes.advisors, weeks=weeks)
     portfolios = generate_portfolios(assignment_ranges(roster), seed=seed, start_date=DEFAULT_START)
@@ -135,6 +136,8 @@ def build_world(seed: int, sizes: Sizes, through: str) -> World:
         client_count=sizes.clients,
         weeks=weeks,
         portfolio_batch=portfolios,
+        retain_from=retain_from,
+        retain_through=week_start(through) + timedelta(days=6) if retain_from is not None else None,
     )
     return World(roster, clients, portfolios)
 
@@ -281,13 +284,26 @@ def generate_weeks(
     """Generate ``weeks`` in order; one world serves them all. Returns weeks written."""
     if not weeks:
         return 0
-    world = build_world(seed, sizes or Sizes(), max(weeks))
-    written = 0
-    for week in weeks:
-        manifest = generate_week(data_dir, week, seed=seed, world=world)
-        if manifest is None:
-            echo(f"{week}: already generated; left unchanged.")
-            continue
-        written += 1
-        echo(f"{week}: generated with {len(manifest.defects)} recorded defects.")
-    return written
+    # The generated graph is acyclic. Defer repeated cyclic scans while it grows;
+    # reference counting still frees temporaries. Always restore the caller's setting.
+    enabled = gc.isenabled()
+    if enabled:
+        gc.disable()
+    try:
+        first = week_start(min(weeks))
+        retain_from = first
+        if not (data_dir / SOURCES_DIR / EDW).exists():
+            retain_from = max(DEFAULT_START, first - timedelta(weeks=WARM_UP_WEEKS))
+        world = build_world(seed, sizes or Sizes(), max(weeks), retain_from=retain_from)
+        written = 0
+        for week in weeks:
+            manifest = generate_week(data_dir, week, seed=seed, world=world)
+            if manifest is None:
+                echo(f"{week}: already generated; left unchanged.")
+                continue
+            written += 1
+            echo(f"{week}: generated with {len(manifest.defects)} recorded defects.")
+        return written
+    finally:
+        if enabled:
+            gc.enable()

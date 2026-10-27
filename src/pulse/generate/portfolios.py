@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from functools import cache
 
 from pulse.contracts.enums import PortfolioAssignmentReason, Role
 from pulse.contracts.sources import TeradataPortfolio, TeradataPortfolioAssignment
@@ -91,11 +92,18 @@ def generate_portfolios(
             # whenever a TERM date fell on a week end.
             changes.append((last[4], owner, PortfolioAssignmentReason.HANDOVER, None))
 
-    def on_roster(advisor: str, day: date, branch: str | None = None) -> bool:
-        return any(
-            (branch is None or b == branch) and start <= day and (end is None or day < end)
-            for _, b, _, start, end in by_advisor[advisor]
-        )
+    @cache
+    def roster_on(day: date) -> tuple[dict[str, set[str]], set[str]]:
+        # Several portfolios can change holders on one day. Index the same roster once,
+        # then retain the original sorted candidate order for every successor decision.
+        branches: dict[str, set[str]] = defaultdict(set)
+        active: set[str] = set()
+        for advisor, ranges in by_advisor.items():
+            for _, branch, _, start, end in ranges:
+                if start <= day and (end is None or day < end):
+                    branches[branch].add(advisor)
+                    active.add(advisor)
+        return branches, active
 
     opened_on_transfer = 0
     for day, outgoing, reason, destination in sorted(changes, key=lambda c: c[:3]):
@@ -103,10 +111,10 @@ def generate_portfolios(
             if holder != outgoing:
                 continue
             transit = by_portfolio[portfolio_id].branch_id
-            others = sorted(a for a in by_advisor if a != outgoing)
-            candidates = [a for a in others if on_roster(a, day, transit)] or [
-                a for a in others if on_roster(a, day)
-            ]
+            branches, active = roster_on(day)
+            candidates = sorted(branches.get(transit, set()) - {outgoing}) or sorted(
+                active - {outgoing}
+            )
             if not candidates:
                 raise ValueError(f"no portfolio handover advisor at {transit} on {day}")
             # The book goes to the colleague holding the fewest portfolios, as a branch would

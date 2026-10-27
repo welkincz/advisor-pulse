@@ -104,6 +104,33 @@ Run 40262960502, 03:12 to 04:31 UTC: **1 h 18 min** in one run, of which 76.3 mi
 - **#347** inserts raw rows as one Arrow batch. Row-by-row `executemany` probed for pandas on every row, at about 1.3 ms a row.
 - **What is left** is mostly the generator, about 80% of a rebuild (#349), and the checkpoints that #350 removes.
 
+### Generator speed-up (#349, 2026-10-26)
+
+The 1 h 18 min rebuild above predates this change. The comparison below is a separate, automatic branch-push measurement: [run 40269471066](https://github.com/welkincz/advisor-pulse/actions/runs/40269471066), base `e71a946`, implementation `a79a691`. Both versions run in the same job: Ubuntu 26.04 image `20261023.163.3`, AMD EPYC 9V74, 4 available CPUs, Python 3.12.15. Earlier jobs used a different CPU; their timings are not mixed into this comparison.
+
+Default seed `20261013`, 900 advisors, 150,000 clients; generate 2026-W42 from identical 2026-W41 state. Each trial starts a fresh Python process. The initial 52-week history load is setup and excluded; building the world and writing the new week are timed. Three trials per version alternate order. **All 72 resulting files match byte for byte**, including SQLite and defect manifests, in every timed and profiled trial.
+
+| Unprofiled weekly seconds | Before | After |
+|---|---:|---:|
+| Median | 16.986 | 3.758 |
+| Maximum | 17.170 | 3.831 |
+
+Separate `cProfile` trials; cumulative rows overlap and include instrumentation overhead:
+
+| Function | Before (s) | After (s) |
+|---|---:|---:|
+| `generate_weeks` | 33.520 | 7.182 |
+| `build_world` | 29.755 | 4.475 |
+| `generate_clients` | 28.693 | 4.088 |
+| `generate_portfolios` | 0.763 | 0.105 |
+| `generate_week` | 3.762 | 2.706 |
+
+The old client loop called `district` 83,701,968 times. Ordered district pools remove those calls. Portfolio handovers replace 667,926 `on_roster` calls with 39 indexed event dates. Client replay keeps the original quarter scheduling bounds and random draws through the requested Sunday, retains versions only for the required range, and reuses immutable dates and segment weights. Cyclic GC scans are deferred within the batch call, with the caller's setting restored on success or error; reference counting remains active. Seeds, sizes, story calibration and contracts are unchanged.
+
+**Full local rebuild:** `2024-W41..2026-W42 --rebuild`, default seed/scale, separate empty data/export directories, Apple M4 Max, Python 3.12.11, dbt 4 threads, DuckDB 14 threads, templates only, no remote state. Main `e71a946`: **1169.516 s (19.49 min)**; `a79a691`: **532.343 s (8.87 min)**. These are single local trials, not a new Actions total. All **1009 source/defect files** match byte for byte; the final pipeline completed all 106 weeks, and all 14 marts have identical row counts and content hashes. Its WARN result is expected: early DQ031 baselines are pending and the latest narrative uses a template. The latest Actions rebuild remains the 1 h 18 min figure above; a post-merge remote rebuild is the owner's decision.
+
+The measurement job uploads JSON hashes/timings, raw `.pstats` and `runner-profile.json`. The temporary helper is preserved in the [measurement commit](https://github.com/welkincz/advisor-pulse/blob/a79a691/scripts/profile_generation.py), outside the final production diff. In a worktree at that commit, reproduce the weekly comparison with `uv run python scripts/profile_generation.py --base e71a946 --out data/generator-profile.json`. `tests/generate/test_incremental.py` is unchanged; full-history digests from pre-optimization main, retained-history equivalence, roster work bounds and GC restoration have regression coverage.
+
 ### One weekly run
 
 Run 40364746899 re-ran 2026-W43 on the rebuilt state, so generate and ingest found nothing new and the narratives came from the cache:
