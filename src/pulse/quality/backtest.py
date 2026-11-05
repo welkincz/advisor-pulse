@@ -20,6 +20,10 @@ count as false alarms. Precision is direct matches over ALL flags, recall is the
 of scored stories with at least one hit, and lag runs from a story's first changed week.
 Calendar flags remain false alarms. Operational KPIs are included, but without injected
 rate-change stories their recall is unassessed; their alerts count as unmatched.
+
+``calendar_adjusted`` evaluates a candidate that the mart does not ship (ADR 0007): the
+``ANOMALY`` rule compares volume KPIs after dividing each week by the business calendar's
+expectation, in the week judged and in its baseline. The other rules do not change.
 """
 
 from __future__ import annotations
@@ -32,10 +36,13 @@ from pathlib import Path
 
 import duckdb
 
+from pulse.business_calendar import week_factor
 from pulse.generate.truth import LEVELS, GroundTruth, Story
 from pulse.warehouse import WAREHOUSE_FILE
 
 RULES = ("ANOMALY", "PRTF_MOVE", "DOWN", "UP")
+# Counts that scale with working days. Rates and averages have no such expectation.
+CALENDAR_KPIS = ("ACT_PER_ADV", "CALLS_OUT", "APPT_BOOKED", "CLIENTS_CONTACTED")
 
 
 @dataclass(frozen=True)
@@ -47,6 +54,7 @@ class Thresholds:
     prtf_z: float = 2.0
     prtf_min_move: float = 0.002
     wow_pct: float = 0.01
+    calendar_adjusted: bool = False
 
 
 SHIPPED = Thresholds()
@@ -82,9 +90,14 @@ with weeks as (
     select iso_week_id, min(week_start) as week_start from marts.dim_date group by 1
 ),
 report as (
-    select r.*, weeks.week_start
+    select
+        r.*,
+        weeks.week_start,
+        case when r.kpi_code in ({calendar_kpis}) then r.value / calendar.factor else r.value end
+            as adjusted_value
     from marts.mart_weekly_report as r
     inner join weeks using (iso_week_id)
+    inner join backtest_calendar as calendar using (iso_week_id)
 ),
 values_before as (
     select
@@ -92,6 +105,8 @@ values_before as (
         avg(value) over before_13w as baseline_avg,
         stddev_samp(value) over before_13w as baseline_sd,
         count(value) over before_13w as baseline_weeks,
+        avg(adjusted_value) over before_13w as adjusted_avg,
+        stddev_samp(adjusted_value) over before_13w as adjusted_sd,
         avg(wow_delta) over before_13w as move_avg,
         stddev_samp(wow_delta) over before_13w as move_sd,
         count(wow_delta) over before_13w as move_weeks
@@ -106,13 +121,21 @@ select * from values_before
 """
 
 # The mart's CASE with parameters ($z, $min_weeks, $prtf_z, $prtf_move, $wow), plus each
-# flag's rule and the direction it points.
+# flag's rule and the direction it points. $calendar picks the ANOMALY rule's series.
 _FLAGS = """
+with judged as (
+    select
+        *,
+        case when $calendar then adjusted_value else value end as judged_value,
+        case when $calendar then adjusted_avg else baseline_avg end as judged_avg,
+        case when $calendar then adjusted_sd else baseline_sd end as judged_sd
+    from backtest_report
+)
 select
     iso_week_id, week_start, level, node_id, kpi_code, flag as mart_flag,
     case
-        when value is not null and baseline_weeks >= $min_weeks and baseline_sd > 0
-            and abs(value - baseline_avg) / baseline_sd > $z
+        when value is not null and baseline_weeks >= $min_weeks and judged_sd > 0
+            and abs(judged_value - judged_avg) / judged_sd > $z
             and kpi_code <> 'PRTF_CONTACT_12M'
             then 'ANOMALY'
         when kpi_code = 'PRTF_CONTACT_12M' and move_weeks >= $min_weeks and move_sd > 0
@@ -126,15 +149,21 @@ select
     case
         when kpi_code = 'PRTF_CONTACT_12M' then
             case when wow_delta - move_avg >= 0 then 'UP' else 'DOWN' end
-        else case when value - baseline_avg >= 0 then 'UP' else 'DOWN' end
+        else case when judged_value - judged_avg >= 0 then 'UP' else 'DOWN' end
     end as anomaly_direction
-from backtest_report
+from judged
 """
 
 
 def _connect(data_dir: Path) -> duckdb.DuckDBPyConnection:
     con = duckdb.connect(str(data_dir / WAREHOUSE_FILE), read_only=True)
-    con.execute(_PREPARE)
+    con.execute("create temp table backtest_calendar (iso_week_id varchar, factor double)")
+    weeks = con.execute("select distinct iso_week_id from marts.dim_date").fetchall()
+    con.executemany(
+        "insert into backtest_calendar values (?, ?)", [(w, week_factor(w)) for (w,) in weeks]
+    )
+    kpis = ", ".join(f"'{kpi}'" for kpi in CALENDAR_KPIS)
+    con.execute(_PREPARE.replace("{calendar_kpis}", kpis))
     return con
 
 
@@ -145,6 +174,7 @@ def _flag_rows(con: duckdb.DuckDBPyConnection, t: Thresholds) -> list[tuple[obje
         "prtf_z": t.prtf_z,
         "prtf_move": t.prtf_min_move,
         "wow": t.wow_pct,
+        "calendar": t.calendar_adjusted,
     }
     return con.execute(_FLAGS, params).fetchall()
 

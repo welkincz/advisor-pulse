@@ -9,6 +9,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from pulse.business_calendar import week_factor
 from pulse.generate.truth import GroundTruth, Story
 from pulse.quality import backtest
 from pulse.quality.backtest import PREVIOUS, SHIPPED, flags, mismatches, score
@@ -152,3 +153,57 @@ def test_tuned_policy_does_not_alert_between_two_and_three_sigma(tmp_path: Path)
     assert mismatches(con) == 0
     assert flags(con, backtest.PROPOSED)[-1].rule == "UP"
     assert flags(con, PREVIOUS)[-1].rule == "ANOMALY"
+
+
+def _summer_warehouse(
+    tmp_path: Path, kpi: str, *, spike: bool = False
+) -> duckdb.DuckDBPyConnection:
+    """A steady summer ending in Labour Day week, or in a real jump in an ordinary week."""
+    path = tmp_path / WAREHOUSE_FILE
+    con = duckdb.connect(str(path))
+    con.execute("create schema marts")
+    con.execute("create table marts.dim_date (iso_week_id varchar, week_start date)")
+    con.execute(
+        "create table marts.mart_weekly_report (iso_week_id varchar, level varchar,"
+        " node_id varchar, kpi_code varchar, value double, wow_delta double,"
+        " wow_pct double, flag varchar)"
+    )
+    wobble = [100.0, 101, 99, 100, 102, 98, 100, 101, 100]  # 2026-W28 to W36, no holiday
+    series = [*wobble[:-1], 120.0] if spike else wobble
+    for i, ordinary in enumerate([*series, *([] if spike else [100.0])]):
+        monday = date(2026, 7, 6) + timedelta(weeks=i)
+        iso = monday.isocalendar()
+        week = f"{iso.year}-W{iso.week:02d}"
+        value = ordinary * week_factor(week)
+        con.execute("insert into marts.dim_date values (?, ?)", [week, monday])
+        con.execute(
+            "insert into marts.mart_weekly_report values (?, 'NATIONAL', 'CA', ?, ?, 0, 0, 'FLAT')",
+            [week, kpi, value],
+        )
+    con.close()
+    return backtest._connect(tmp_path)
+
+
+def test_calendar_adjustment_clears_a_holiday_week_the_raw_rule_flags(tmp_path: Path) -> None:
+    con = _summer_warehouse(tmp_path, "CALLS_OUT")
+    adjusted = replace(SHIPPED, calendar_adjusted=True)
+    assert [f.week for f in flags(con, SHIPPED) if f.rule == "ANOMALY"] == ["2026-W37"]
+    assert [f for f in flags(con, adjusted) if f.rule == "ANOMALY"] == []
+
+
+def test_calendar_adjustment_leaves_a_real_break_flagged(tmp_path: Path) -> None:
+    con = _summer_warehouse(tmp_path, "CALLS_OUT", spike=True)
+    adjusted = replace(SHIPPED, calendar_adjusted=True)
+    assert [f.week for f in flags(con, adjusted) if f.rule == "ANOMALY"] == ["2026-W36"]
+
+
+def test_calendar_adjustment_does_not_touch_rates(tmp_path: Path) -> None:
+    con = _summer_warehouse(tmp_path, "SHOW_RATE")
+    adjusted = replace(SHIPPED, calendar_adjusted=True)
+    assert flags(con, adjusted) == flags(con, SHIPPED)
+
+
+def test_the_candidate_does_not_change_the_shipped_comparison(tmp_path: Path) -> None:
+    con = _warehouse(tmp_path, MART_FLAGS)
+    assert SHIPPED.calendar_adjusted is False
+    assert mismatches(con) == 0
