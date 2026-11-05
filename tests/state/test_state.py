@@ -7,6 +7,7 @@ from itertools import count
 from pathlib import Path
 
 import boto3
+import duckdb
 import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
@@ -18,7 +19,7 @@ from pulse.runner import WEEKLY_STAGES, RetryableError, Stage, StageContext, Sta
 from pulse.runner.command import run_week
 from pulse.state import StateSync, lock, weeks_between
 from pulse.state.store import ObjectStore, R2Config
-from pulse.warehouse import WAREHOUSE_FILE, connect, init_warehouse
+from pulse.warehouse import WAREHOUSE_FILE, connect, init_warehouse, slim_warehouse
 
 BUCKET = "pulse-state"
 WEEK = "2026-W40"
@@ -773,3 +774,90 @@ def test_failed_warehouse_range_is_atomic(
     assert failures == 5
     assert dest.read_bytes() == b"existing warehouse"
     assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
+
+
+# ── Slim warehouse (#304) ──────────────────────────────────────────────────
+
+
+def _warehouse_with_a_rebuilt_table(path: Path) -> None:
+    con = connect(path)
+    init_warehouse(con)
+    con.execute("create schema if not exists marts")
+    con.execute("create schema if not exists intermediate")
+    con.execute("create table marts.keep as select range as id from range(10)")
+    con.execute("create view marts.keep_view as select id + 1 as next_id from marts.keep")
+    con.execute("create table intermediate.rebuilt as select range as id from range(2000000)")
+    con.close()
+
+
+def test_slim_warehouse_keeps_everything_but_what_dbt_rebuilds(tmp_path: Path) -> None:
+    path = tmp_path / WAREHOUSE_FILE
+    _warehouse_with_a_rebuilt_table(path)
+    before = path.stat().st_size
+    con = connect(path)
+    tables = con.execute(
+        "select schema_name, table_name from duckdb_tables() "
+        "where schema_name <> 'intermediate' order by 1, 2"
+    ).fetchall()
+    con.close()
+
+    slim_warehouse(path)
+
+    assert path.stat().st_size < before
+    assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
+    con = connect(path)
+    assert (
+        con.execute("select schema_name, table_name from duckdb_tables() order by 1, 2").fetchall()
+        == tables
+    )
+    assert con.execute("select sum(next_id) from marts.keep_view").fetchone() == (55,)
+    con.close()
+
+
+def test_a_failed_slim_leaves_the_warehouse_and_no_partial_file(tmp_path: Path) -> None:
+    path = tmp_path / WAREHOUSE_FILE
+    path.write_bytes(b"not a database")
+    with pytest.raises(duckdb.Error):
+        slim_warehouse(path)
+    assert path.read_bytes() == b"not a database"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
+
+
+def test_persist_uploads_the_slim_warehouse_and_a_restore_skips_it_on_the_same_runner(
+    store: ObjectStore, tmp_path: Path
+) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "run")
+    assert sync.restore(c).status is StageStatus.SUCCESS
+    _warehouse_with_a_rebuilt_table(c.data_dir / WAREHOUSE_FILE)
+    assert sync.persist(c).status is StageStatus.SUCCESS
+    sync.release(c)
+
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    store.download(WAREHOUSE_FILE, fresh / WAREHOUSE_FILE)
+    con = connect(fresh / WAREHOUSE_FILE)
+    assert con.execute(
+        "select count(*) from duckdb_tables() where schema_name = 'intermediate'"
+    ).fetchone() == (0,)
+    assert con.execute("select count(*) from marts.keep").fetchone() == (10,)
+    con.close()
+    assert "kept the local" in (sync_for(store).restore(c).message or "")
+
+
+def test_persist_still_uploads_when_slimming_fails(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "run")
+    assert sync.restore(c).status is StageStatus.SUCCESS
+
+    def broken(path: Path) -> None:
+        raise duckdb.IOException("disk full")
+
+    monkeypatch.setattr("pulse.state.sync.slim_warehouse", broken)
+    assert sync.persist(c).status is StageStatus.SUCCESS
+    assert store.etag(WAREHOUSE_FILE)
+    sync.release(c)

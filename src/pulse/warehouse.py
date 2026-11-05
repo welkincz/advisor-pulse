@@ -28,6 +28,7 @@ from pulse.contracts.raw import (
 )
 
 SCHEMAS = ("raw", "meta", "quarantine")
+DBT_REBUILT_SCHEMA = "intermediate"
 WAREHOUSE_FILE = "warehouse.duckdb"
 
 
@@ -171,3 +172,35 @@ def insert_contracts(
         con.execute(f"INSERT INTO {table} ({names}) SELECT {names} FROM _insert_batch")
     finally:
         con.unregister("_insert_batch")
+
+
+def slim_warehouse(path: Path) -> None:
+    """Rewrite the file without what dbt rebuilds on every run, so R2 holds less (#304).
+
+    The intermediate tables are about three quarters of the file, and ``dbt build`` replaces
+    them before anything reads them. Raw rows, marts, quarantine and the run log stay.
+    Atomic: a failure leaves the original in place.
+    """
+    slim = path.with_name(path.name + ".slim")
+    slim.unlink(missing_ok=True)
+    con = duckdb.connect()
+    try:
+        con.execute(f"attach '{path}' as source_db (read_only)")
+        con.execute(f"attach '{slim}' as slim_db")
+        con.execute("copy from database source_db to slim_db (schema)")
+        tables = con.execute(
+            "select schema_name, table_name from duckdb_tables() where database_name = 'slim_db'"
+        ).fetchall()
+        for schema, table in tables:
+            name = f'"{schema}"."{table}"'
+            if schema == DBT_REBUILT_SCHEMA:
+                con.execute(f"drop table slim_db.{name}")
+            else:
+                con.execute(f"insert into slim_db.{name} select * from source_db.{name}")
+        con.execute("detach slim_db")
+        con.execute("detach source_db")
+        slim.replace(path)
+        path.with_name(path.name + ".wal").unlink(missing_ok=True)
+    finally:
+        con.close()
+        slim.unlink(missing_ok=True)

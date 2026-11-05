@@ -3,7 +3,8 @@
 R2 layout under ``state/``: ``warehouse.duckdb``, ``sources/<file>`` mirroring
 ``$PULSE_DATA_DIR/sources``, ``narratives/<file>`` mirroring the published weekly narratives and
 their model-response cache (so history accrues and a rerun of a week costs no model calls), and
-``lock.json``. Persist uploads sources before the warehouse:
+``lock.json``. The warehouse is uploaded without the tables dbt rebuilds on every run (#304).
+Persist uploads sources before the warehouse:
 if it stops halfway, R2 holds sources the warehouse has not loaded yet, which the next ingest
 picks up. The reverse (a warehouse that saw files R2 lacks) cannot happen.
 
@@ -27,13 +28,15 @@ from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import duckdb
+
 from pulse.contracts.enums import RunType, StageStatus
 from pulse.contracts.meta import RunLogRow
 from pulse.generate.advisors import REPORT_START
 from pulse.runner.stage import RetryableError, StageContext, StageResult
 from pulse.state import lock
 from pulse.state.store import DOWNLOAD_WORKERS, ObjectStore
-from pulse.warehouse import WAREHOUSE_FILE
+from pulse.warehouse import WAREHOUSE_FILE, slim_warehouse
 
 log = logging.getLogger(__name__)
 
@@ -353,6 +356,10 @@ class StateSync:
             # ingested by the next week; they come from an older generator and break its joins.
             pruned = f", removed {self._prune(store, ctx.data_dir, SOURCES_DIR)} stale sources"
             self._fresh.discard(ctx.run_id)
+        try:
+            slim_warehouse(ctx.data_dir / WAREHOUSE_FILE)
+        except duckdb.Error as exc:  # costs a larger upload, never the checked week
+            log.warning("Warehouse not slimmed: %s", exc)
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
         stat = (ctx.data_dir / WAREHOUSE_FILE).stat()
         (ctx.data_dir / WAREHOUSE_MARKER).write_text(
