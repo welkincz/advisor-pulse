@@ -167,10 +167,24 @@ With `--latency-ms 10` (an artificial 10 ms delay per S3 request), the same chec
 took 40.544 s before / 6.365 s after (6.37×). This is a latency model, not an R2
 measurement; all 1,191 file hashes matched again.
 
-- [ ] After the first weekly run with #354, compare its `restore_state` duration
-  and `runner_profile.json` with run 40364746899; verify the **under 90 s** target
-  and add the Actions run link and measured stage times here. The 480 s baseline
-  above remains the last verified Actions result until then.
+**First weekly run with #354:** [run 41520054553](https://github.com/welkincz/advisor-pulse/actions/runs/41520054553), 2026-W44, code `229dd7e`. **`restore_state` took 52.2 s, down from 480 s**, under #354's 90 s target. The runners differ (AMD EPYC 9V45 here, compare `runner_profile.json`), so not all of that gap is the code.
+
+| Stage | Seconds |
+|---|---:|
+| `restore_state` | 52.2 |
+| `generate` | 3.4 |
+| `ingest` | 3.7 |
+| `dbt_build` | 83.0 |
+| `checks` | 0.7 |
+| `narrate` | 86.4 |
+| `export` | 4.6 |
+| `persist_state` | 34.0 |
+| `release_lock` | 0.7 |
+| **Total** | **269.3** |
+
+Narrate is not a normal figure here: the model credential was rejected, so all 27 narratives fell back to templates after one failed call each. With the model it takes about 9 minutes. Outside narrate the stages take 183 s.
+
+**Slimmer persisted warehouse (#304).** The warehouse is 1.3 GB, and about three quarters of it is intermediate tables that `dbt build` replaces on every run. Persist now uploads it without them: 1,304 MB → 340 MB, in 3.6 s on an Apple M4 Max. Running 2026-W43 on a full and a slim copy gave identical table lists and identical contents in every marts, intermediate, raw, quarantine and reference table, apart from the load timestamps `_loaded_at` and `detected_at`. The effect on R2 restore and persist times is not measured yet.
 
 **Comparing timings.** Every weekly and backfill run writes `runner_profile.json` into its artifact, and every CI python and dbt job prints the same fields: CPU model and count, `nproc`, runner image, Python, dbt-core, dbt-duckdb and DuckDB versions, threads and the commit (#336). Compare stage times only when the profiles match. #335 found a 49% dbt slowdown that came from the runner, not the code; to check a code change, rerun both commits on one machine.
 
