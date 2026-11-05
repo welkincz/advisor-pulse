@@ -302,7 +302,9 @@ def test_stage_reads_the_mart_and_export_picks_up_the_file(tmp_path: Path) -> No
     assert len(client.calls) == 5
 
     again = narrate(ctx(tmp_path), client_factory=lambda: client)
-    assert again.message == "5 narratives validated (5 from cache)."
+    assert again.message == (
+        "5 narratives validated (5 from cache). Grader: 5 of 5 narratives pass."
+    )
     assert len(client.calls) == 5
 
     published = load_narratives(tmp_path)  # what the export stage reads
