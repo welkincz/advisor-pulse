@@ -1,0 +1,68 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "GTA's portfolio contacted (12 months) ranks first among its 4 peers this week at 86.9%."
+   },
+   {
+    "fact_ids": [
+     "F4",
+     "F2"
+    ],
+    "text": "GTA appointments booked fell 15.2% to 308, and activities per advisor fell 9.7% to 15.8, ranking third of 4 peers."
+   },
+   {
+    "fact_ids": [
+     "F15"
+    ],
+    "text": "BR-0102 portfolio contacted rose 0.7% to 82.5%, ranking 17th of 22 branches."
+   },
+   {
+    "fact_ids": [
+     "F72",
+     "F64"
+    ],
+    "text": "Activities per advisor fell 30.3% to 11.5 at BR-0116 and fell 15.5% to 13.7 at BR-0114."
+   },
+   {
+    "fact_ids": [
+     "F75",
+     "F76"
+    ],
+    "text": "BR-0117 portfolio contacted fell 0.8% to 82.3%, and its activities per advisor fell 19.6% to 14.3."
+   }
+  ],
+  "headline": "GTA portfolio contacted (12 months) slipped 0.1% this week to 86.9%.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F72"
+    ],
+    "node_id": "BR-0116",
+    "reason": "Activities per advisor fell 30.3% to 11.5, the sharpest drop among flagged branches."
+   },
+   {
+    "fact_ids": [
+     "F75",
+     "F76"
+    ],
+    "node_id": "BR-0117",
+    "reason": "Portfolio contacted fell 0.8% to 82.3% and activities per advisor fell 19.6% to 14.3."
+   },
+   {
+    "fact_ids": [
+     "F64"
+    ],
+    "node_id": "BR-0114",
+    "reason": "Activities per advisor fell 15.5% to 13.7, ranking 17th of 22 branches."
+   }
+  ]
+ },
+ "expected_pass": false,
+ "model": "claude-sonnet-5-5",
+ "note": "The model's first answer leaves a flagged child off the watchlist; the grader's action rule catches it.",
+ "source": "model"
+}

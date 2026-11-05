@@ -13,7 +13,7 @@ from typing import Any
 from pulse.contracts.enums import KpiCode
 from pulse.narrative.facts import NodeFacts
 
-PROMPT_VERSION = "narrative-v4"
+PROMPT_VERSION = "narrative-v5"
 DEFAULT_MODEL = "claude-opus-5-5"
 MAX_TOKENS = 1500
 
@@ -65,8 +65,14 @@ explain causes, give advice, or speculate about individual people.
 - Say "weekly" or "this week", never "live" or "real-time".
 - The headline states only the current node's headline KPI change named below. Do not \
 mention or describe other KPIs in the headline; put them in bullets.
-- headline: one sentence, at most 120 characters. bullets: 2 to 5. watchlist: 0 to 3 \
-child nodes that trail their peers, using child node_ids from the facts."""
+- headline: one sentence, at most 120 characters, naming the headline KPI as written below. \
+bullets: 2 to 5, the first citing the headline KPI's fact. watchlist: 0 to 3 child nodes that \
+trail their peers, using child node_ids from the facts.
+- Each bullet is one plain sentence of at most 40 words making one point about at most two \
+KPIs. No hype words.
+- A change that rounds to 0.0% is written as "held steady", with no change figure.
+- Mention every fact listed as flagged, citing its ID. Every child with a flagged fact goes on \
+the watchlist."""
 
 RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -129,10 +135,11 @@ def user_message(node: NodeFacts) -> str:
         if headline is not None
         else f"Headline KPI: {lead.value} unavailable; use a neutral headline."
     )
+    flagged = ", ".join(node.anomalies) or "none"
     return (
         f"Node: {node.node_id} ({node.node_name}), level {node.level.value}, "
         f"week {node.iso_week_id}.\n{focus} Other KPIs belong in bullets, never in the headline."
-        f"\nChildren: {children}.\nFacts:\n{facts_json(node)}"
+        f"\nChildren: {children}.\nFlagged this week: {flagged}.\nFacts:\n{facts_json(node)}"
     )
 
 
