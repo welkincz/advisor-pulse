@@ -12,6 +12,7 @@ import yaml
 
 from pulse.contracts.enums import CheckStatus, StageStatus
 from pulse.contracts.exports import RunLogExport
+from pulse.narrative.client import AuthenticationError
 from pulse.runner import alert
 from pulse.runner.alert import sync_alert
 from pulse.runner.dag import WEEKLY_STAGES
@@ -162,6 +163,53 @@ def test_failed_workflow_without_run_log_still_opens_an_actionable_issue() -> No
     assert github.issue is not None
     assert "| Workflow | setup or post-run step | FAILED |" in str(github.issue["body"])
     assert RUN_URL in str(github.issue["body"])
+
+
+def _narrate_warned(message: str) -> RunLogExport:
+    log = _run_log(failed=False)
+    run = log.runs[0]
+    stages = [
+        stage.model_copy(update={"status": StageStatus.WARN, "message": message})
+        if stage.stage == "narrate"
+        else stage
+        for stage in run.stages
+    ]
+    return log.model_copy(update={"runs": [run.model_copy(update={"stages": stages})]})
+
+
+def test_rejected_model_credential_opens_the_alert_and_recovery_closes_it() -> None:
+    github = FakeGitHub()
+    payloads: list[dict[str, str]] = []
+    rejected = (
+        f"27 of 27 narratives fell back to the template ({SECRET}; {alert.CREDENTIAL_REASON})."
+    )
+
+    sync_alert(_narrate_warned(rejected), github, RUN_URL, webhook=payloads.append)
+
+    assert github.issue is not None
+    body = str(github.issue["body"])
+    assert "| Stage | narrate | MODEL CREDENTIAL REJECTED |" in body
+    assert SECRET not in str(github.issue)
+    assert payloads[0]["status"] == "WARN"
+
+    sync_alert(_narrate_warned(rejected), github, RUN_URL)
+    assert (github.created, github.issue["state"]) == (1, "open")
+
+    sync_alert(_run_log(failed=False), github, RUN_URL)
+    assert github.issue["state"] == "closed"
+
+
+def test_other_narrative_warnings_do_not_open_the_alert() -> None:
+    github = FakeGitHub()
+    message = "2 of 27 narratives fell back to the template (API error: TimeoutError)."
+
+    sync_alert(_narrate_warned(message), github, RUN_URL)
+
+    assert github.created == 0
+
+
+def test_alert_reason_names_the_narrative_error() -> None:
+    assert f"API error: {AuthenticationError.__name__}" == alert.CREDENTIAL_REASON
 
 
 def test_alert_body_and_webhook_omit_free_text_that_may_contain_secrets() -> None:

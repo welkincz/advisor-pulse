@@ -24,6 +24,9 @@ TITLE = "[Pipeline alert] Weekly report failed"
 Webhook = Callable[[dict[str, str]], None]
 # This allowlist keeps arbitrary run-log text out of a public issue. Keep it in
 # sync with the weekly DAG; the test below verifies the names against that DAG.
+# Must match the name of pulse.narrative.client.AuthenticationError. This script runs
+# without project dependencies, so a test checks the two stay in step.
+CREDENTIAL_REASON = "API error: AuthenticationError"
 STAGE_NAMES = frozenset(
     {
         "restore_state",
@@ -113,6 +116,17 @@ class RestGitHubIssues:
         self._request("PATCH", f"/issues/{number}", {"state": "closed"})
 
 
+def _credential_rejected(run: RunSummary | None) -> bool:
+    """The report still publishes, but every model narrative falls back until someone acts."""
+    if run is None:
+        return False
+    narrate = [s for s in run.stages if s.stage == "narrate"]
+    if not narrate:
+        return False
+    latest = max(narrate, key=lambda stage: stage.attempt)
+    return latest.status == "WARN" and CREDENTIAL_REASON in (getattr(latest, "message", None) or "")
+
+
 def _failed_rows(run: RunSummary | None, *, workflow_failed: bool) -> list[str]:
     rows = ["| Kind | Name | Status |", "| --- | --- | --- |"]
     if run is not None:
@@ -130,6 +144,8 @@ def _failed_rows(run: RunSummary | None, *, workflow_failed: bool) -> list[str]:
                     check.check_id if re.fullmatch(r"DQ\d{3}", check.check_id) else "unknown check"
                 )
                 rows.append(f"| Check | {check_id} | FAIL |")
+        if _credential_rejected(run):
+            rows.append("| Stage | narrate | MODEL CREDENTIAL REJECTED |")
     if len(rows) == 2 and workflow_failed:
         rows.append("| Workflow | setup or post-run step | FAILED |")
     return rows
@@ -163,7 +179,7 @@ def sync_alert(
     if run is None and not workflow_failed:
         return
     failed = workflow_failed or (run is not None and run.status == "FAILED")
-    if failed:
+    if failed or _credential_rejected(run):
         github.ensure_label()
         body = _body(run, run_url, workflow_failed=workflow_failed)
         number = github.open_alert()
@@ -171,7 +187,7 @@ def sync_alert(
             github.create_issue(TITLE, body)
         else:
             github.update_issue(number, body)
-        status = "FAILED"
+        status = "FAILED" if failed else "WARN"
     elif run is not None and run.status in {"SUCCESS", "WARN"}:
         number = github.open_alert()
         if number is None:
