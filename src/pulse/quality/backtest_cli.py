@@ -179,6 +179,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("data_dirs", nargs="+", type=Path, help="Built data dirs; first tunes.")
     parser.add_argument("--tune", action="store_true", help="Search the grid on the first.")
+    parser.add_argument(
+        "--calendar", action="store_true", help="Also score the calendar-adjusted baseline."
+    )
     parser.add_argument("--json", type=Path, help="Write every score here as JSON.")
     parser.add_argument("--web", type=Path, help="Write the /quality page's TS module here.")
     parser.add_argument("--advisors", type=int, default=Sizes().advisors)
@@ -196,6 +199,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 1
     candidates = {"before": PREVIOUS, "shipped": SHIPPED}
+    if args.calendar:
+        candidates["calendar adjusted"] = replace(SHIPPED, calendar_adjusted=True)
     if args.tune:
         candidates["tuned on the first seed"] = tune(warehouses[0])
     seeds = [w.truth.seed for w in warehouses]
