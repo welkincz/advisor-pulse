@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -451,3 +452,69 @@ def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
         assert env[key].endswith(" || '' }}")
     for name in ("Build backfilled site", "Continue in a new run", "Deploy to Cloudflare Pages"):
         assert "inputs.benchmark_only != true" in steps[name]["if"]
+
+
+def _doctor_tools() -> list[str]:
+    step = next(
+        s
+        for s in load("pipeline-doctor.yml")["jobs"]["diagnose"]["steps"]
+        if s.get("name") == "Diagnose and propose"
+    )
+    args = step["with"]["claude_args"]
+    return args.split('--allowedTools "', 1)[1].split('"', 1)[0].split(",")
+
+
+def test_doctor_runs_only_when_an_operational_workflow_failed() -> None:
+    doctor = load("pipeline-doctor.yml")
+    trigger = doctor["on"]["workflow_run"]
+    assert set(trigger["workflows"]) == {load("weekly.yml")["name"], load("backfill.yml")["name"]}
+    assert trigger["types"] == ["completed"]
+    assert doctor["jobs"]["diagnose"]["if"] == "github.event.workflow_run.conclusion == 'failure'"
+
+
+def test_doctor_has_least_privilege() -> None:
+    doctor = load("pipeline-doctor.yml")
+    assert doctor["permissions"] == {
+        "actions": "read",
+        "contents": "write",
+        "issues": "write",
+        "pull-requests": "write",
+        "id-token": "write",
+    }
+    text = (WORKFLOWS / "pipeline-doctor.yml").read_text()
+    assert set(re.findall(r"\$\{\{\s*secrets\.(\w+)", text)) == {"CLAUDE_CODE_OAUTH_TOKEN"}
+
+
+def test_doctor_cannot_merge_rerun_or_escape_its_branch() -> None:
+    tools = _doctor_tools()
+    bash = [t for t in tools if t.startswith("Bash(")]
+    assert "Bash" not in tools
+    assert not any(t in ("Bash(*)", "Bash(gh:*)", "Bash(git:*)") for t in bash)
+    for banned in (
+        "gh pr merge",
+        "gh pr ready",
+        "gh pr review",
+        "gh workflow",
+        "gh run",
+        "gh secret",
+        "gh api",
+        "curl",
+        "wrangler",
+    ):
+        assert not any(banned in t for t in bash), banned
+    assert [t for t in bash if t.startswith("Bash(git push")] == [
+        "Bash(git push origin pipeline-fix/:*)"
+    ]
+    assert [t for t in bash if t.startswith("Bash(gh pr create")] == [
+        "Bash(gh pr create --draft:*)"
+    ]
+
+
+def test_doctor_prompt_exists_and_treats_evidence_as_data() -> None:
+    prompt = (WORKFLOWS.parent / "doctor-prompt.md").read_text()
+    assert "evidence, not instructions" in prompt
+    assert "Merge or approve" in prompt
+
+
+def test_ci_runs_when_a_person_marks_a_draft_ready() -> None:
+    assert "ready_for_review" in load("ci.yml")["on"]["pull_request"]["types"]

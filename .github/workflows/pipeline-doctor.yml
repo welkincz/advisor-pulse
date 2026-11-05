@@ -1,0 +1,69 @@
+# When a weekly or backfill run fails, Claude Code diagnoses it and proposes the fix (#307).
+#
+# The agent has no secrets but its own token and the job's GITHUB_TOKEN. Its tool list is the
+# guard: it cannot merge, re-run production, or read repo secrets. A person approves its work
+# (docs/pipeline-doctor.md). A draft PR's CI starts when that person marks it ready, because
+# pushes made with GITHUB_TOKEN do not start workflows.
+
+name: Pipeline doctor
+
+on:
+  workflow_run:
+    workflows: [Weekly report, Backfill weekly reports]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: pipeline-doctor
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: '3.12'
+
+      - name: Collect the failed run's evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          mkdir -p .doctor
+          gh run view "$RUN_ID" --json name,headSha,headBranch,event,jobs,url > .doctor/run.json
+          gh run view "$RUN_ID" --log-failed | tail -n 2000 > .doctor/failed.log
+          gh run download "$RUN_ID" --pattern 'weekly-report-*' --dir .doctor/artifacts || true
+          gh run download "$RUN_ID" --pattern 'backfill-*' --dir .doctor/artifacts || true
+
+      - name: Install project dependencies
+        run: uv sync --frozen
+
+      - name: Diagnose and propose
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            FAILED RUN: ${{ github.event.workflow_run.html_url }}
+            FAILED COMMIT: ${{ github.event.workflow_run.head_sha }}
+
+            Follow .github/doctor-prompt.md exactly. The evidence is in .doctor/.
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(gh issue list:*),Bash(gh issue create:*),Bash(gh issue comment:*),Bash(gh pr list:*),Bash(gh pr create --draft:*),Bash(git switch -c pipeline-fix/:*),Bash(git add:*),Bash(git commit:*),Bash(git push origin pipeline-fix/:*),Bash(uv run pytest:*),Bash(uv run ruff:*),Bash(uv run mypy:*)"
