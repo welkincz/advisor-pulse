@@ -3,11 +3,15 @@
     uv run python tests/narrative/eval/run_eval.py            # offline: recorded answers
     uv run python tests/narrative/eval/run_eval.py --live     # call the model (needs key)
     uv run python tests/narrative/eval/run_eval.py --live --record   # and save the answers
-    uv run python tests/narrative/eval/run_eval.py --freeze   # rebuild cases.json
+    uv run python tests/narrative/eval/run_eval.py --freeze PATH  # rebuild cases.json
+
+``--freeze`` reads a full-scale weekly_report.parquet (``scripts/fetch_latest_export.sh``): the
+fixtures hold too little history for the lead KPI, and these two weeks carry flagged nodes.
 
 Properties per case: the answer fits the contract and cites only known facts (``contract``),
 every number matches a cited fact with the right sign (``grounded``), no banned phrase
-(``phrases``), and the headline's lead direction agrees with the headline KPI (``direction``).
+(``phrases``), the headline's lead direction agrees with the headline KPI (``direction``), and
+the editor's rules pass (``graded``, pulse.narrative.grade).
 The live mode scores the model's *first* answer, before any regeneration.
 """
 
@@ -20,18 +24,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pulse.contracts.enums import OrgLevel
+from pulse.contracts.enums import KpiCode, OrgLevel
 from pulse.contracts.exports import NarrativeFact, WeeklyReport
 from pulse.narrative.facts import HEADLINE_KPI, NodeFacts, build_facts, narrated_nodes
 from pulse.narrative.generate import UnusableResponse, to_narrative
+from pulse.narrative.grade import grade
 from pulse.narrative.prompt import user_message
 from pulse.narrative.validate import validate
 
 HERE = Path(__file__).parent
 CASES = HERE / "cases.json"
 RECORDED = HERE / "recorded"
-WEEKS = ("2026-W39", "2026-W40")
-PROPERTIES = ("contract", "grounded", "phrases", "direction")
+WEEKS = ("2026-W38", "2026-W42")
+NODES = frozenset({"ON", "QC", "EON", "GTA", "MTL"})
+PROPERTIES = ("contract", "grounded", "phrases", "direction", "graded")
 _UP = ("rose", "up ", "increase", "grew", "higher", "climbed")
 _DOWN = ("fell", "down ", "decrease", "dropped", "declined", "lower")
 
@@ -49,7 +55,8 @@ def _direction(node: NodeFacts) -> str:
         None,
     )
     pct = lead.wow_pct if lead else None
-    if pct is None or abs(pct) < 0.01:
+    # Flat as the site would show it: the 12-month rate moves by tenths of a percent.
+    if pct is None or abs(pct) < 0.0005:
         return "flat"
     return "up" if pct > 0 else "down"
 
@@ -61,6 +68,8 @@ def freeze(report_parquet: Path) -> None:
     cases = []
     for week in WEEKS:
         for node_id, _ in narrated_nodes(report, week):
+            if node_id not in NODES:
+                continue
             node = build_facts(report, node_id, week)
             cases.append(
                 {
@@ -72,6 +81,8 @@ def freeze(report_parquet: Path) -> None:
                     "children": node.children,
                     "direction": _direction(node),
                     "facts": [f.model_dump(mode="json") for f in node.facts],
+                    "headline_kpi": node.headline_kpi.value,
+                    "anomalies": list(node.anomalies),
                 }
             )
     CASES.write_text(json.dumps(cases, indent=1, sort_keys=True) + "\n", encoding="utf-8")
@@ -88,6 +99,8 @@ def load_cases() -> list[Case]:
             iso_week_id=c["iso_week_id"],
             children=dict(c["children"]),
             facts=tuple(NarrativeFact.model_validate(f) for f in c["facts"]),
+            headline_kpi=KpiCode(c["headline_kpi"]),
+            anomalies=tuple(c["anomalies"]),
         )
         out.append(Case(c["case_id"], node, c["direction"]))
     return out
@@ -112,6 +125,7 @@ def score(case: Case, answer: dict[str, Any], model: str = "recorded") -> dict[s
         "grounded": not any(p.kind != "banned" for p in problems),
         "phrases": not any(p.kind == "banned" for p in problems),
         "direction": direction,
+        "graded": grade(narrative, case.node).passed,
     }
 
 
@@ -153,11 +167,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--live", action="store_true", help="call the model instead of recordings")
     parser.add_argument("--record", action="store_true", help="with --live: save the answers")
-    parser.add_argument("--freeze", action="store_true", help="rebuild cases.json from fixtures")
+    parser.add_argument(
+        "--freeze", type=Path, metavar="PARQUET", help="rebuild cases.json from a weekly report"
+    )
     args = parser.parse_args(argv)
 
     if args.freeze:
-        freeze(HERE.parents[2] / "fixtures" / "exports" / "weekly_report.parquet")
+        freeze(args.freeze)
         return 0
 
     rows: list[tuple[str, dict[str, bool]]] = []

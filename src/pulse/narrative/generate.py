@@ -25,8 +25,9 @@ class UnusableResponse(ValueError):
 
 
 def cache_key(model: str, node: NodeFacts, prompt_version: str = PROMPT_VERSION) -> str:
-    """sha256(prompt_version + model + facts), as PLAN.md §11 specifies."""
-    return hashlib.sha256(f"{prompt_version}\n{model}\n{facts_json(node)}".encode()).hexdigest()
+    """sha256(prompt_version + model + facts), as PLAN.md §11 specifies; flags are facts too."""
+    source = f"{prompt_version}\n{model}\n{facts_json(node)}\n{','.join(node.anomalies)}"
+    return hashlib.sha256(source.encode()).hexdigest()
 
 
 class ResponseCache:

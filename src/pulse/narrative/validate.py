@@ -18,9 +18,9 @@ from pulse.contracts.exports import NarrativeFact, NodeNarrative
 from pulse.narrative.prompt import RATE_KPIS
 
 # Tokens that contain digits but are names, not claims: ISO weeks, branch and fact IDs,
-# advisor IDs, and the "13-week" / "12 weeks" window wording.
+# advisor IDs, and the "13-week" / "12 weeks" / "12 months" window wording.
 _NOT_CLAIMS = re.compile(
-    r"\b\d{4}-W\d{2}\b|\b[A-Z]{2,}-\d+\b|\bF\d+\b|\b1[23][- ]weeks?\b|\b1[23]w\b",
+    r"\b\d{4}-W\d{2}\b|\b[A-Z]{2,}-\d+\b|\bF\d+\b|\b1[23][- ]weeks?\b|\b1[23]w\b|\b12[- ]months?\b",
     re.IGNORECASE,
 )
 _NUMBER = re.compile(r"(?<![\w.])(\d+(?:,\d{3})*(?:\.\d+)?)(\s?%| percentage points?| pp\b)?")

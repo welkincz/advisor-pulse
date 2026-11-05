@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { RunCheck, RunSummary } from '../../data/generated/run_log'
-import { INGEST_SKIPPED, INGEST_SKIPPED_SHORT, ingestSkip, qualitySentence, readCheck } from './checks'
+import { graderSentence, INGEST_SKIPPED, INGEST_SKIPPED_SHORT, ingestSkip, qualitySentence, readCheck } from './checks'
 
 const check = (check_id: string, observed: number | null, expected: string, message: string, status: RunCheck['status'] = 'PASS') =>
   ({ check_id, observed, expected, message, status, severity: 'WARN' }) as RunCheck
@@ -87,4 +87,11 @@ it('names a failed check and, separately, a stage that warned', () => {
 it('reads the latest attempt of a retried stage', () => {
   const r = run(passing, [stage('dbt_build', 'FAILED', { message: '1 failed' }), stage('dbt_build', 'SUCCESS', { attempt: 2 })])
   expect(qualitySentence(r)).toBe('All 4 run checks passed for 2026-W42.')
+})
+
+it('reads the narrative grader from the narrate stage, and says nothing when it did not run', () => {
+  const graded = run(passing, [stage('narrate', 'SUCCESS', { message: '27 narratives validated (0 from cache). Grader: 25 of 27 narratives pass.' })])
+  expect(graderSentence(graded)).toBe('The narrative grader passed 25 of 27 narratives in this run.')
+  expect(graderSentence(run(passing, [stage('narrate', 'WARN', { message: 'No model backend configured: wrote 27 template narratives.' })]))).toBeNull()
+  expect(graderSentence(run(passing, []))).toBeNull()
 })
