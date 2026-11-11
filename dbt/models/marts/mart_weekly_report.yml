@@ -383,7 +383,12 @@ unit_tests:
       adjusted, so the same 20% fall is ANOMALY, and so is NO_SHOW_RATE. Every other KPI
       is FLAT.
     model: mart_weekly_report
+    overrides:
+      macros:
+        is_incremental: false  # the full build; tests/dbt covers the incremental one
     given:
+      - input: ref('int_contact_window')  # read only by an incremental run
+        rows: []
       - input: ref('mart_org_weekly')
         rows:
           - {iso_week_id: '2026-W01', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 100, show_rate: 0.8}
