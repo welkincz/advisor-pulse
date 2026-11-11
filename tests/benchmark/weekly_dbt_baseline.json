@@ -5,33 +5,33 @@
   },
   "weeks": "2026-W33..2026-W40 then 2026-W41",
   "full_build": {
-    "elapsed_s": 9.28,
-    "models_s": 7.24
+    "elapsed_s": 21.47,
+    "models_s": 18.22
   },
   "weekly_build": [
     {
-      "elapsed_s": 6.94,
-      "models_s": 4.45
+      "elapsed_s": 14.89,
+      "models_s": 10.35
     },
     {
-      "elapsed_s": 6.64,
-      "models_s": 4.59
+      "elapsed_s": 15.68,
+      "models_s": 10.98
     },
     {
-      "elapsed_s": 6.69,
-      "models_s": 4.65
+      "elapsed_s": 15.74,
+      "models_s": 11.21
     }
   ],
   "slowest_weekly_models_s": {
-    "int_kpi_events": 0.6,
-    "int_client_book_weekly": 0.55,
-    "fct_activity": 0.54,
-    "int_activity_enriched": 0.51,
-    "int_client_contact_12m": 0.22,
-    "int_ingest_weekly": 0.17,
-    "dim_client": 0.14,
-    "mart_geo_weekly": 0.13
+    "int_kpi_events": 1.4,
+    "int_activity_enriched": 1.18,
+    "int_client_book_weekly": 1.13,
+    "fct_activity": 1.09,
+    "int_client_contact_12m": 0.8,
+    "dim_client": 0.43,
+    "mart_geo_weekly": 0.43,
+    "mart_org_quarterly": 0.37
   },
-  "calibration_s": 0.246,
-  "ratio": 18.063
+  "calibration_s": 0.525,
+  "ratio": 19.711
 }
