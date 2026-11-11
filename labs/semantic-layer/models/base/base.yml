@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: sem_kpi_events
+    description: KPI events from int_kpi_events with week_start and the 12-month window guard.
+    columns:
+      - name: kpi_event_id
+        description: Surrogate key for the event (row number over every column, so the same on every build).
+        data_tests: [unique, not_null]
+      - name: branch_id
+        description: Branch the event is credited to (PLAN.md §7 attribution).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('sem_org')
+                field: branch_id
+      - name: week_start
+        description: Monday of the ISO week the event counts in.
+        data_tests: [not_null]
+  - name: sem_org
+    description: Org hierarchy (branch, district, region) from dim_org.
+    columns:
+      - name: branch_id
+        description: Branch natural key.
+        data_tests: [unique, not_null]
+  - name: metricflow_time_spine
+    description: Daily time spine for MetricFlow.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        description: Calendar day.
+        granularity: day
