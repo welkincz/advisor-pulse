@@ -242,9 +242,12 @@ def test_cli_exit_codes(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert guard.main(["secrets", str(clean)]) == 1
 
 
-def test_parse_numstat_reads_every_path() -> None:
+def test_parse_numstat_reads_every_path_and_marks_binaries() -> None:
     raw = "1\t1\tsrc/a b.py\0" + "-\t-\tsrc/b.bin\0"
-    assert guard.parse_numstat(raw) == ["src/a b.py", "src/b.bin"]
+    assert guard.parse_numstat(raw) == [
+        guard.Stat("src/a b.py", False),
+        guard.Stat("src/b.bin", True),
+    ]
     assert guard.parse_numstat("") == []
     with pytest.raises(ValueError):
         guard.parse_numstat("garbage\0")
@@ -306,3 +309,16 @@ def test_sanitize_truncates_on_a_line_and_closes_a_fence() -> None:
     assert body.endswith("\n```")
     assert all(line in text.splitlines() for line in body.splitlines())
     assert guard.sanitize("short\n", 60) == "short\n"
+
+
+def test_patch_check_rejects_binary_files(repo: Path) -> None:
+    (repo / "tests").mkdir()
+    (repo / "tests/fixture.pkl").write_bytes(b"\x80\x04\x95\x00\x00cos\nsystem\n")
+    found = guard.patch_violations(_diff(repo), cwd=repo)
+    assert found == ["tests/fixture.pkl: binary file"]
+
+
+def test_patch_check_rejects_an_oversized_patch(tmp_path: Path) -> None:
+    patch = tmp_path / "fix.diff"
+    patch.write_text("x" * (guard.MAX_PATCH_BYTES + 1))
+    assert guard.patch_violations(patch, cwd=tmp_path)[0].startswith("patch is ")

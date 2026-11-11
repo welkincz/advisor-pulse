@@ -61,6 +61,7 @@ TESTS_ONLY_BASENAMES = frozenset({"conftest.py"})
 # Symlinks and submodules can point a harmless-looking path somewhere else.
 DENIED_MODES = {"120000": "symlink", "160000": "submodule"}
 BRANCH_PREFIX = "pipeline-fix/"
+MAX_PATCH_BYTES = 1_000_000
 SECRET_PATTERNS = (
     re.compile(r"sk-ant-[A-Za-z0-9_-]{8,}"),
     re.compile(r"\bgh[opsur]_[A-Za-z0-9]{20,}"),
@@ -152,31 +153,32 @@ def git_changes(base: str, cwd: Path | None = None) -> list[Change]:
     return parse_raw(out)
 
 
-def parse_numstat(output: str) -> list[str]:
-    """Every path in `git apply --numstat -z`, both sides of a rename included."""
-    fields = output.split("\0")
-    paths: list[str] = []
-    i = 0
-    while i < len(fields):
-        field = fields[i]
-        i += 1
+@dataclass(frozen=True)
+class Stat:
+    """One entry of `git apply --numstat -z`."""
+
+    path: str
+    binary: bool
+
+
+def parse_numstat(output: str) -> list[Stat]:
+    """Every entry in `git apply --numstat -z`; `-` counts mark a binary file."""
+    stats: list[Stat] = []
+    for field in output.split("\0"):
         if not field:
             continue
-        stats = field.split("\t", 2)
-        if len(stats) != 3:
+        added, deleted, path = [*field.split("\t", 2), "", ""][:3]
+        if not path:
             raise ValueError(f"unexpected git apply --numstat entry: {field!r}")
-        if stats[2]:
-            paths.append(stats[2])
-        else:  # a rename or copy: the old and new paths follow as two fields
-            if i + 1 >= len(fields):
-                raise ValueError("truncated rename in git apply --numstat output")
-            paths.extend(fields[i : i + 2])
-            i += 2
-    return paths
+        stats.append(Stat(path, added == "-" and deleted == "-"))
+    return stats
 
 
 def patch_violations(patch: Path, cwd: Path | None = None) -> list[str]:
     """Reasons to reject a patch file, read by `git apply` without applying it."""
+    size = patch.stat().st_size
+    if size > MAX_PATCH_BYTES:
+        return [f"patch is {size} bytes, more than {MAX_PATCH_BYTES}"]
 
     def apply(*flags: str) -> str:
         return subprocess.run(
@@ -187,9 +189,10 @@ def patch_violations(patch: Path, cwd: Path | None = None) -> list[str]:
             text=True,
         ).stdout
 
-    found = violations(
-        Change("100644", "100644", "M", p) for p in parse_numstat(apply("--numstat", "-z"))
-    )
+    stats = parse_numstat(apply("--numstat", "-z"))
+    found = violations(Change("100644", "100644", "M", s.path) for s in stats)
+    # A reviewer cannot read a binary file, and a fixture such as a pickle can run code.
+    found += [f"{s.path}: binary file" for s in stats if s.binary]
     for line in apply("--summary").splitlines():
         # The doctor writes its patch with --no-renames, so a rename or copy means tampering,
         # and `git apply --numstat` would list only its new path.
