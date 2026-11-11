@@ -29,12 +29,14 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
+import yaml
 
 from pulse.contracts.enums import RunType, StageStatus
 from pulse.contracts.meta import RunLogRow
 from pulse.generate.advisors import REPORT_START
 from pulse.runner.stage import RetryableError, StageContext, StageResult
 from pulse.state import lock
+from pulse.state.rebuilt import rebuilt_tables
 from pulse.state.store import DOWNLOAD_WORKERS, ObjectStore
 from pulse.warehouse import WAREHOUSE_FILE, slim_warehouse
 
@@ -357,8 +359,9 @@ class StateSync:
             pruned = f", removed {self._prune(store, ctx.data_dir, SOURCES_DIR)} stale sources"
             self._fresh.discard(ctx.run_id)
         try:
-            slim_warehouse(ctx.data_dir / WAREHOUSE_FILE)
-        except duckdb.Error as exc:  # costs a larger upload, never the checked week
+            slim_warehouse(ctx.data_dir / WAREHOUSE_FILE, rebuilt_tables(ctx.data_dir))
+        except (duckdb.Error, OSError, ValueError, yaml.YAMLError) as exc:
+            # Costs a larger upload, never the checked week.
             log.warning("Warehouse not slimmed: %s", exc)
         store.upload(ctx.data_dir / WAREHOUSE_FILE, WAREHOUSE_FILE)
         stat = (ctx.data_dir / WAREHOUSE_FILE).stat()
