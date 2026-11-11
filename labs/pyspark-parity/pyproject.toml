@@ -1,0 +1,18 @@
+[project]
+name = "pulse-lab-pyspark-parity"
+version = "0.1.0"
+description = "Local-mode PySpark rebuild of the branch-level 12-month portfolio-contacted KPI, checked against the dbt mart on fixtures."
+requires-python = ">=3.12,<3.13"
+# Isolated from the root project on purpose: none of this is in the root pyproject.toml or uv.lock.
+dependencies = [
+    "pyspark==4.0.1",
+    "duckdb>=1.1",
+    "pytest>=8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

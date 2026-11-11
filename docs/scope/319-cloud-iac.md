@@ -1,6 +1,6 @@
 # Out of scope: AWS, Azure, GCP and infrastructure as code
 
-- Status: Decided by the owner, 2026-11-11
+- Status: Decided by the owner, 2026-11-11 ([decision on #319](https://github.com/welkincz/advisor-pulse/issues/319#issuecomment-6804403241))
 - Issue: #319 (gap found by #299)
 
 ## Decision
@@ -10,9 +10,9 @@ similar IaC tool. The reviewer map keeps this competency graded **weak**.
 
 ## Why
 
-- **It needs paid cloud accounts.** A real demonstration means an account, billing, IAM
-  roles and resources that stay up. This is a public portfolio project with no cloud budget,
-  and a free-tier sketch would show the syntax, not the operations.
+- **It needs cloud accounts (often paid beyond free tiers).** A real demonstration means an
+  account, billing, IAM roles and resources that stay up. This is a public portfolio project
+  with no cloud budget, and a free-tier sketch would show the syntax, not the operations.
 - **It does not serve the report.** The weekly batch runs on GitHub Actions, keeps state in
   Cloudflare R2 and deploys a static site to Cloudflare Pages. Moving those to another cloud,
   or wrapping them in IaC, would add moving parts without changing a single number.
