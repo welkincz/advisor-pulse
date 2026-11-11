@@ -26,9 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No dependency caches in a job that holds deploy secrets: a cache written by any other
+      # job on main (such as the pipeline doctor's) would be restored here (#307).
       - uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true
+          enable-cache: false
           python-version: '3.12'
 
       - uses: pnpm/action-setup@v4
@@ -38,8 +40,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install project dependencies
         run: |

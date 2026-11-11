@@ -458,18 +458,25 @@ def _doctor() -> dict:
     return load("pipeline-doctor.yml")
 
 
+def _doctor_text() -> str:
+    return (WORKFLOWS / "pipeline-doctor.yml").read_text()
+
+
 def _doctor_steps(job: str) -> dict[str, dict[str, Any]]:
     steps = _doctor()["jobs"][job]["steps"]
-    return {s.get("name") or s["uses"]: s for s in steps}
+    return {s.get("name") or s["uses"].split("@")[0]: s for s in steps}
 
 
-def _agent_step() -> dict[str, Any]:
-    return _doctor_steps("diagnose")["Diagnose and propose"]
+def _step_order(job: str) -> list[str]:
+    return list(_doctor_steps(job))
+
+
+def _agent_run() -> str:
+    return " ".join(_doctor_steps("diagnose")["Diagnose and propose"]["run"].split())
 
 
 def _agent_tools(flag: str) -> list[str]:
-    args = _agent_step()["with"]["claude_args"]
-    return args.split(f'{flag} "', 1)[1].split('"', 1)[0].split(",")
+    return _agent_run().split(f'{flag} "', 1)[1].split('"', 1)[0].split(",")
 
 
 def test_doctor_runs_only_for_failed_runs_of_main_in_this_repo() -> None:
@@ -483,9 +490,8 @@ def test_doctor_runs_only_for_failed_runs_of_main_in_this_repo() -> None:
         "&& github.event.workflow_run.head_branch == 'main' "
         "&& github.event.workflow_run.head_repository.full_name == github.repository"
     )
-    checkout = _doctor_steps("diagnose")["actions/checkout@v4"]["with"]
-    assert checkout["ref"] == "main"
-    assert "head_sha" not in str(checkout)
+    checkout = _doctor_steps("diagnose")["actions/checkout"]["with"]
+    assert checkout["ref"] == "refs/heads/main"
 
 
 def test_doctor_keeps_every_diagnosis() -> None:
@@ -493,6 +499,8 @@ def test_doctor_keeps_every_diagnosis() -> None:
     assert "workflow_run.id" in concurrency["group"]
     assert "workflow_run.run_attempt" in concurrency["group"]
     assert concurrency["cancel-in-progress"] == "false"
+    names = re.findall(r"name: (pipeline-doctor-.+)", _doctor_text())
+    assert set(names) == {"pipeline-doctor-${{ github.run_id }}-${{ github.run_attempt }}"}
 
 
 def test_doctor_splits_privileges_between_agent_and_fixed_jobs() -> None:
@@ -502,77 +510,139 @@ def test_doctor_splits_privileges_between_agent_and_fixed_jobs() -> None:
     assert jobs["diagnose"]["permissions"] == {"contents": "read", "actions": "read"}
     assert jobs["report"]["permissions"] == {"contents": "read", "issues": "write"}
     assert jobs["propose"]["permissions"] == {"contents": "write", "pull-requests": "write"}
-    text = (WORKFLOWS / "pipeline-doctor.yml").read_text()
+    text = _doctor_text()
     assert "id-token" not in text
     assert set(re.findall(r"\$\{\{\s*secrets\.(\w+)", text)) == {"CLAUDE_CODE_OAUTH_TOKEN"}
-    # Only the agent job runs Claude; the jobs that can write run fixed steps.
     for job in ("report", "propose"):
-        assert "claude-code-action" not in str(jobs[job])
+        assert "claude" not in json.dumps(jobs[job]["steps"]).lower().replace("claude.com", "")
 
 
-def test_doctor_agent_job_holds_no_write_credential() -> None:
+def test_doctor_pins_every_action_to_a_commit() -> None:
+    uses = re.findall(r"uses: (\S+)(.*)", _doctor_text())
+    assert uses
+    for ref, comment in uses:
+        assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), ref
+        assert re.fullmatch(r" # v\d+\.\d+\.\d+", comment), ref
+    assert "claude-code-action" not in _doctor_text()
+
+
+def test_doctor_saves_no_cache_and_secret_jobs_restore_none() -> None:
+    text = _doctor_text()
+    assert "actions/cache" not in text
+    assert not re.search(r"^\s+cache(-dependency-path)?:", text, re.MULTILINE)
+    assert _doctor_steps("diagnose")["astral-sh/setup-uv"]["with"]["enable-cache"] == "false"
+    for name in ("weekly.yml", "backfill.yml"):
+        steps = {s.get("uses", "").split("@")[0]: s for s in load(name)["jobs"]["run"]["steps"]}
+        assert steps["astral-sh/setup-uv"]["with"]["enable-cache"] == "false", name
+        assert "cache" not in steps["actions/setup-node"]["with"], name
+        assert "actions/cache" not in (WORKFLOWS / name).read_text(), name
+
+
+def test_doctor_agent_runs_as_an_unprivileged_user_without_a_github_token() -> None:
     steps = _doctor_steps("diagnose")
-    assert steps["actions/checkout@v4"]["with"]["persist-credentials"] == "false"
-    agent = _agent_step()
-    # The action needs a token; the job's read-only one, never an OIDC app token.
-    assert agent["with"]["github_token"] == "${{ github.token }}"
-    assert agent["env"]["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"] == "1"
+    assert steps["actions/checkout"]["with"]["persist-credentials"] == "false"
+    prepare = steps["Prepare the unprivileged agent user"]["run"]
+    assert "useradd --create-home --shell /bin/bash doctor" in prepare
+    assert "chmod 700 /home/runner" in prepare
+    assert "--exclude=.git" in prepare
+    assert "sudo -u doctor sudo -n true" in prepare
+    agent = steps["Diagnose and propose"]
+    assert set(agent["env"]) == {"CLAUDE_CODE_OAUTH_TOKEN", "REPO", "RUN_URL", "FAILED_SHA"}
+    run = _agent_run()
+    assert "sudo -u doctor -H --preserve-env=CLAUDE_CODE_OAUTH_TOKEN --" in run
+    assert "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1" in run
+    assert "GH_TOKEN" not in run and "GITHUB_TOKEN" not in run and "github.token" not in run
+    stop = steps["Stop the agent user"]
+    assert stop["if"] == "always()" and "pkill -KILL -u doctor" in stop["run"]
 
 
 def test_doctor_agent_cannot_push_comment_or_leave_its_paths() -> None:
     allowed = _agent_tools("--allowedTools")
     bash = [t for t in allowed if t.startswith("Bash")]
-    assert "Bash" not in allowed
-    assert not any(t.startswith(("Bash(git push", "Bash(git commit", "Bash(gh")) for t in bash)
-    assert not any(t in ("Bash(*)", "Bash(git:*)") for t in bash)
-    assert not any(word in t for t in bash for word in ("curl", "wget", "wrangler", "switch"))
-    assert "Edit" not in allowed and "Write" not in allowed
-    repo_writes = {t for t in allowed if t.startswith(("Edit(", "Write(")) and "temp" not in t}
-    paths = ("src", "tests", "dbt", "scripts")
-    assert repo_writes == {f"{tool}({path}/**)" for tool in ("Edit", "Write") for path in paths}
+    assert bash == ["Bash(uv run pytest:*)", "Bash(uv run ruff:*)", "Bash(uv run mypy:*)"]
+    # Claude Code applies path rules to file writes through Edit(...) only.
+    assert not any(t.startswith("Write") for t in allowed)
+    assert "Edit" not in allowed
+    edits = {t for t in allowed if t.startswith("Edit(")}
+    assert edits == {f"Edit({p}/**)" for p in ("src", "tests", "dbt", "scripts")} | {
+        "Edit(//home/doctor/out/**)"
+    }
     denied = _agent_tools("--disallowedTools")
-    for rule in (
-        "Edit(.git/**)",
-        "Write(.git/**)",
-        "Edit(.github/**)",
-        "Write(.github/**)",
-        "Bash(git push:*)",
-        "Bash(gh:*)",
-        "Read(//proc/**)",
-    ):
+    for rule in ("Edit(.github/**)", "Bash(git:*)", "Bash(gh:*)", "Read(//proc/**)", "WebFetch"):
         assert rule in denied, rule
 
 
 def test_doctor_keeps_evidence_outside_the_checkout() -> None:
     collect = _doctor_steps("diagnose")["Collect the failed run's evidence"]["run"]
     assert 'EVIDENCE="$RUNNER_TEMP/doctor/evidence"' in collect
-    assert ".doctor" not in (WORKFLOWS / "pipeline-doctor.yml").read_text()
+    assert ".doctor" not in _doctor_text()
     assert "-name dist" in collect
 
 
-def test_doctor_pushes_only_through_the_guard() -> None:
+def test_doctor_diagnose_steps_run_in_a_safe_order() -> None:
+    assert _step_order("diagnose") == [
+        "actions/checkout",
+        "astral-sh/setup-uv",
+        "Collect the failed run's evidence",
+        "Prepare the unprivileged agent user",
+        "Install Claude Code and the project for the agent user",
+        "Diagnose and propose",
+        "Stop the agent user",
+        "Package the proposed fix",
+        "actions/upload-artifact",
+    ]
+    package = _doctor_steps("diagnose")["Package the proposed fix"]["run"]
+    assert "realpath" in package and "--no-specials" in package and "--exclude=.git" in package
+    assert "--no-renames" in package
+
+
+def test_doctor_checks_the_patch_before_applying_and_pushes_only_after() -> None:
+    assert _step_order("propose") == [
+        "actions/checkout",
+        "Keep main's guard",
+        "actions/download-artifact",
+        "Skip when a fix for this failure is already open",
+        "Check and apply the patch",
+        "Push the fix branch and open a draft PR",
+    ]
     steps = _doctor_steps("propose")
+    assert steps["actions/checkout"]["with"]["persist-credentials"] == "false"
+    assert "GH_TOKEN" not in _doctor()["jobs"]["propose"]["env"]
     keep = steps["Keep main's guard"]["run"]
     assert 'cp scripts/pipeline_fix_guard.py "$RUNNER_TEMP/guard.py"' in keep
-    apply = steps["Apply and check the patch"]["run"]
-    assert apply.index(" am ") < apply.index('guard.py" paths --base origin/main')
-    assert 'guard.py" branch "$RUN_ID" "$RUN_ATTEMPT"' in apply
-    assert 'guard.py" secrets' in apply
-    push = steps["Push the fix branch and open a draft PR"]["run"]
-    pushes = [line.strip() for line in push.splitlines() if "git push" in line]
+    apply = steps["Check and apply the patch"]["run"]
+    order = [
+        'guard.py" branch "$RUN_ID" "$RUN_ATTEMPT"',
+        'guard.py" secrets "$patch"',
+        'guard.py" patch "$patch"',
+        "apply --index",
+        'guard.py" paths --base origin/main',
+    ]
+    assert [apply.index(part) for part in order] == sorted(apply.index(part) for part in order)
+    assert "python3 -I" in apply
+    push = steps["Push the fix branch and open a draft PR"]
+    assert "GH_TOKEN" in push["env"]
+    pushes = [line.strip() for line in push["run"].splitlines() if "git push" in line]
     assert pushes == ['git push origin "HEAD:refs/heads/pipeline-fix/${RUN_ID}-${RUN_ATTEMPT}"']
-    assert "--force" not in push and " -f " not in push and "+HEAD" not in push
-    assert "gh pr create --draft" in push
+    assert "--force" not in push["run"] and "+HEAD" not in push["run"]
+    assert "gh auth setup-git" in push["run"] and "gh pr create --draft" in push["run"]
     for banned in ("gh pr merge", "gh pr ready", "gh pr review", "gh workflow", "gh run rerun"):
-        assert banned not in (WORKFLOWS / "pipeline-doctor.yml").read_text(), banned
+        assert banned not in _doctor_text(), banned
 
 
-def test_doctor_opens_one_fix_per_failure() -> None:
-    propose = _doctor()["jobs"]["propose"]
-    assert "failing_jobs" in propose["env"]["MARKER"]
+def test_doctor_sanitises_agent_text_and_owns_the_marker() -> None:
+    post = _doctor_steps("report")["Post the diagnosis on the alert issue"]["run"]
+    assert "python3 -I scripts/pipeline_fix_guard.py secrets" in post
+    assert "python3 -I scripts/pipeline_fix_guard.py sanitize" in post
+    assert _doctor_steps("report")["actions/checkout"]["with"]["sparse-checkout"] == (
+        "scripts/pipeline_fix_guard.py"
+    )
+    push = _doctor_steps("propose")["Push the fix branch and open a draft PR"]["run"]
+    assert push.index('echo "$MARKER"') < push.index("sanitize")
     skip = _doctor_steps("propose")["Skip when a fix for this failure is already open"]["run"]
-    assert "pipeline-fix/" in skip and "env.MARKER" in skip
-    for name in ("Apply and check the patch", "Push the fix branch and open a draft PR"):
+    assert "startswith(env.MARKER)" in skip
+    assert "failing_jobs" in _doctor()["jobs"]["propose"]["env"]["MARKER"]
+    for name in ("Check and apply the patch", "Push the fix branch and open a draft PR"):
         assert _doctor_steps("propose")[name]["if"] == "steps.open.outputs.existing == ''"
 
 
