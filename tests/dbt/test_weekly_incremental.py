@@ -8,9 +8,10 @@ second run of the same week must change nothing, and the run must really be incr
 
 The rebuild floor is the earlier of "four weeks before the newest week" and "the earliest
 day of any row loaded since the last stamped build" (dbt/macros/weekly_incremental.sql), so
-with no lookback at all the runner still catches the late rows; a plain ``dbt build``
-without the runner's stamps does not, which shows the comparison can fail. A table stamped
-with another definition, or holding a week no longer reported, is rebuilt in full.
+with no lookback at all the runner still catches the late rows, and a watermark that hides
+them shows the comparison can fail. A table stamped with another definition (except
+fct_activity, which warns), one never stamped, or one holding a week no longer reported is
+rebuilt in full.
 """
 
 from __future__ import annotations
@@ -225,24 +226,38 @@ def test_rows_loaded_since_the_last_build_set_the_floor_without_any_lookback(
     assert stamped == _hashes(data_dir, models)
 
 
-def test_without_the_runner_and_its_stamps_a_short_lookback_misses_late_rows(
-    built_through_w39: Path, tmp_path: Path
-) -> None:
-    """The comparison can fail: plain dbt has no stamp to read, so no lookback means the
-    late rows' weeks stay stale. The late-row test warns about exactly these rows."""
-    data_dir = _with_w40(built_through_w39, tmp_path)
+def _restamp(data_dir: Path, loaded_through: str | None) -> None:
+    """Rewrite every stamp's watermark, keeping its fingerprint (None removes the stamp)."""
     con = connect(data_dir / WAREHOUSE_FILE)
     try:
-        for (schema, table), _ in refresh.read_stamps(con).items():
-            if schema in {"intermediate", "marts"}:
+        for (schema, table), fingerprint in refresh.read_stamps(con).items():
+            if fingerprint is None:
+                continue
+            if loaded_through is None:
                 con.execute(f'comment on table "{schema}"."{table}" is null')
+            else:
+                stamp = json.dumps(
+                    {refresh.STAMP_KEY: fingerprint, "loaded_through": loaded_through}
+                )
+                con.execute(f'comment on table "{schema}"."{table}" is \'{stamp}\'')
     finally:
         con.close()
-    _plain_dbt(data_dir, *NO_LOOKBACK)
-    models = _incremental(data_dir, "plain-target")
+
+
+def test_a_watermark_that_hides_the_late_rows_breaks_the_match(
+    built_through_w39: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The comparison can fail: with no lookback and a watermark later than W40's load,
+    nothing points back at the late rows, so their weeks stay stale. The late-row test
+    warns about exactly these rows."""
+    data_dir = _with_w40(built_through_w39, tmp_path)
+    _restamp(data_dir, "2099-01-01T00:00:00+00:00")
+    _build(data_dir, *NO_LOOKBACK)
+    models = _incremental(data_dir)
+    assert _floors(data_dir)["mart_org_weekly"] == "2026-W39"
     short = _hashes(data_dir, models)
 
-    _plain_dbt(data_dir, "--full-refresh")
+    _full_refresh(data_dir, monkeypatch)
     full = _hashes(data_dir, models)
     assert short["mart_org_weekly"] != full["mart_org_weekly"]
     assert short["int_kpi_events"] != full["int_kpi_events"]
@@ -258,6 +273,23 @@ def test_without_the_runner_and_its_stamps_a_short_lookback_misses_late_rows(
     proc = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, check=False)
     assert proc.returncode == 0, proc.stdout[-3000:]
     assert "WARN" in proc.stdout and "assert_late_rows_within_lookback" in proc.stdout
+
+
+def test_plain_dbt_rebuilds_tables_the_runner_never_stamped(
+    built_through_w39: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Outside the runner (a lab, a manual `dbt run` on a copy) nothing says which rows are
+    new, so an unstamped replace_from table rebuilds from the start and stays correct."""
+    data_dir = _with_w40(built_through_w39, tmp_path)
+    _restamp(data_dir, None)
+    _plain_dbt(data_dir, *NO_LOOKBACK)
+    models = _incremental(data_dir, "plain-target")
+    floors = _floors(data_dir, "plain-target")
+    assert all(floors[n] == "" for n in models if n != "fct_activity"), floors
+    plain = _hashes(data_dir, models)
+
+    _plain_dbt(data_dir, "--full-refresh")
+    assert _hashes(data_dir, models) == plain
 
 
 def test_a_changed_definition_rebuilds_that_model_in_full_and_only_that(

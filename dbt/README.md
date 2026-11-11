@@ -78,9 +78,10 @@ contact window, KPI events and the weekly and quarterly marts).
 - **Forcing a full rebuild:** `pulse run --full-refresh`, or the weekly workflow's
   `full_refresh` input; both set `PULSE_DBT_FULL_REFRESH=1` for that run. A `--rebuild`
   backfill starts from an empty warehouse, so it builds everything in full too.
-- A plain `dbt build` outside the runner reads no stamps: it falls back to the four-week
-  lookback, and it never notices a changed definition. Use `--full-refresh` there after
-  changing a model.
+- A plain `dbt build` outside the runner never drops a table for a changed definition. On a
+  table the runner stamped it uses the stamp's floor; on one it never stamped (a copy of
+  the CI warehouse, a lab) nothing says which rows are new, so it rebuilds from the start.
+  Use `--full-refresh` there after changing a model.
 - `on_schema_change='fail'` stays: a changed column list changes the fingerprint, so the
   table is rebuilt before dbt compares schemas. A mismatch that still reaches dbt is
   unexpected and should stop the run.

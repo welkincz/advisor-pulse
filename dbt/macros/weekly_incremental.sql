@@ -19,7 +19,8 @@
         assignment, advisor termination, a portfolio master's first assignment; a branch
         master row reaches all of history). So a past-range backfill or a row later than the lookback rebuilds
         from its own week. assert_late_rows_within_lookback warns when that happens;
-    or '' (everything) when the model is empty, or when `reported_weeks_only` and its
+    or '' (everything) when the model is empty, when the runner never stamped it (a plain
+        `dbt build` therefore rebuilds in full), or when `reported_weeks_only` and its
         first week is no longer reported: a history without the warm-up year starts its
         report later once it reaches a full year (int_contact_window).
     Config `replace_key` names the key (default iso_week_id); with fiscal_quarter_id the
@@ -43,7 +44,7 @@
         -- The runner stamps each incremental table after a build with the newest raw
         -- `_loaded_at` that build saw (pulse.runner.refresh). Rows loaded since then may
         -- touch any week: a past-range backfill, history extended earlier, a row later
-        -- than the lookback. Without a stamp (plain `dbt build`) only the lookback applies.
+        -- than the lookback. Without a stamp the floor is '' (see the select below).
         stamp as (
             select try_cast(json_extract_string(comment, '$.loaded_through') as timestamptz)
                 as loaded_through
@@ -101,22 +102,25 @@
             having count(*) > 0
         )
 
-        select
+        select case
+            -- Never stamped by the runner (a plain `dbt build`, or a table from before
+            -- #304): nothing says which rows are new, so rebuild everything.
+            when (select loaded_through from stamp) is null then ''
             {%- if config.get('reported_weeks_only', false) %}
-            case when (select first_week from horizon) < (
+            when (select first_week from horizon) < (
                 select min(iso_week_id) from {{ ref('int_contact_window') }} where is_reported
-            ) then '' else
+            ) then ''
             {%- endif %}
             {%- if quarterly %}
-            coalesce((
+            else coalesce((
                 select min(dim_date.week_fiscal_quarter_id)
                 from {{ ref('dim_date') }} as dim_date
                 inner join floor_week using (iso_week_id)
             ), '')
             {%- else %}
-            coalesce((select iso_week_id from floor_week), '')
+            else coalesce((select iso_week_id from floor_week), '')
             {%- endif %}
-            {%- if config.get('reported_weeks_only', false) %} end{% endif %}
+        end
     {%- endset -%}
     {#- A literal, so DuckDB prunes by it while scanning: the same value in the model's
         filter and in the strategy's delete, which runs before anything changes. -#}
