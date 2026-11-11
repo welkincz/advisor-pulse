@@ -1,0 +1,14 @@
+# Local only, no secrets. Paths resolve from labs/semantic-layer (run.py sets them).
+semantic_layer_lab:
+  target: lab
+  outputs:
+    lab:
+      type: duckdb
+      path: "{{ env_var('SEMANTIC_LAB_DB', 'target/semantic_lab.duckdb') }}"
+      threads: 4
+      settings:
+        TimeZone: UTC
+      attach:
+        - path: "{{ env_var('PULSE_CI_WAREHOUSE', '../../data/ci/warehouse.duckdb') }}"
+          alias: pulse
+          read_only: true

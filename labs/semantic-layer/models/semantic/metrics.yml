@@ -1,0 +1,76 @@
+version: 2
+
+# PLAN.md §7 KPIs. Codes in labels match the KPI table.
+metrics:
+  # Lead KPI: PRTF_CONTACT_12M. Null (no row) for weeks without a full 12-month window.
+  - name: portfolio_contacted_rate_12m
+    label: Portfolio contacted, 12 months (PRTF_CONTACT_12M)
+    description: Contacted portfolio clients ÷ portfolio clients at week end, full windows only.
+    type: ratio
+    type_params:
+      numerator:
+        name: portfolio_contacted_12m
+        filter: "{{ Dimension('kpi_event__is_window_complete') }} = true"
+      denominator:
+        name: portfolio_clients
+        filter: "{{ Dimension('kpi_event__is_window_complete') }} = true"
+  - name: portfolio_contacted_12m
+    label: Portfolio clients contacted in 12 months (PRTF_CONTACT_12M numerator)
+    type: simple
+    type_params:
+      measure: portfolio_contacted_12m
+  - name: portfolio_clients
+    label: Portfolio clients at week end (PRTF_CONTACT_12M denominator)
+    type: simple
+    type_params:
+      measure: portfolio_clients
+
+  - name: activities_per_advisor
+    label: Activities per advisor (ACT_PER_ADV)
+    type: ratio
+    type_params:
+      numerator: activities_completed
+      denominator: active_advisors
+  - name: activities_completed
+    label: Completed activities
+    type: simple
+    type_params:
+      measure: activities_completed
+  - name: active_advisors
+    label: Active advisors
+    type: simple
+    type_params:
+      measure: active_advisors
+
+  - name: show_rate
+    label: Show rate (SHOW_RATE)
+    type: ratio
+    type_params:
+      numerator: appointments_held
+      denominator: appointments_held_or_no_show
+  - name: appointments_held
+    label: Appointments held
+    type: simple
+    type_params:
+      measure: appointments_held
+  - name: appointments_held_or_no_show
+    label: Appointments held or no-show
+    type: simple
+    type_params:
+      measure: appointments_held_or_no_show
+  - name: no_shows
+    label: No-shows
+    type: simple
+    type_params:
+      measure: no_shows
+
+  - name: calls_out
+    label: Outbound calls (CALLS_OUT)
+    type: simple
+    type_params:
+      measure: calls_out
+  - name: clients_contacted
+    label: Unique clients contacted (CLIENTS_CONTACTED)
+    type: simple
+    type_params:
+      measure: clients_contacted
