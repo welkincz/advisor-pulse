@@ -80,7 +80,7 @@
      "limit": "R2/Pages are implemented; AWS/Azure/GCP platform operations and IaC are not.", "gap_issue": 319},
     {"name": "Managed cloud warehouses", "tags": ["snowflake", "bigquery", "redshift", "warehouse"], "strength": "missing",
      "evidence": [],
-     "limit": "The Snowflake-labelled source is local Parquet; DuckDB does not prove Snowflake/BigQuery/Redshift operations.", "gap_issue": 320},
+     "limit": "Deliberately excluded ([decision](scope/320-managed-warehouses.md)): DuckDB runs the pipeline and the browser by design; the Snowflake-labelled source is local Parquet. Snowflake/BigQuery/Redshift would need a paid account and are not demonstrated. A separate lab would be the honest test.", "gap_issue": 320},
     {"name": "Spark and managed lakehouse", "tags": ["spark", "pyspark", "databricks", "medallion", "delta_lake"], "strength": "missing",
      "evidence": [],
      "limit": "No Spark/Databricks runtime, distributed tuning or Delta implementation.", "gap_issue": 321},
