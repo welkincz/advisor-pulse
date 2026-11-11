@@ -10,11 +10,11 @@ ADR 0006 found that most national anomaly false alarms fall in or just after cal
 
 ## What was tried
 
-`Thresholds(calendar_adjusted=True)` changes one rule, in the backtest only. For the four KPIs that scale with working days (activities per advisor, outbound calls, appointments booked, clients contacted), the `ANOMALY` rule compares `value / week_factor` with the 13 weeks before it, adjusted the same way. Rates, averages, `PRTF_MOVE`, UP and DOWN are unchanged, and `z` stays at 3. `mart_weekly_report` is not changed, and the check that the backtest reproduces the mart still runs at the shipped rule.
+`Thresholds(calendar_adjusted=True)` changes one rule, in the backtest only. For the four KPIs that scale with working days (activities per advisor, outbound calls, appointments booked, clients contacted), the `ANOMALY` rule compares `value / week_factor` with the 13 weeks before it, adjusted the same way. Rates, averages, `PRTF_MOVE`, UP and DOWN are unchanged, and `z` stays at 3. At evaluation time `mart_weekly_report` was not changed, and the check that the backtest reproduces the mart still ran at the then-shipped raw rule.
 
 ## Results
 
-Two full histories, 2024-W41 to 2026-W42, default scale, built from `229dd7e`. Nothing was tuned on either seed, so both are out-of-sample for this candidate. Every rule and level is in [the results](0007-calendar-baseline-results.json). Each cell is shipped → adjusted.
+Two full histories, 2024-W41 to 2026-W42, default scale, built from `229dd7e`. Nothing was tuned on either seed, so both are out-of-sample for this candidate. Every rule and level is in [the results](0007-calendar-baseline-results.json). Each cell is raw → adjusted (the rule shipped at the time → this candidate).
 
 | Level | Seed | Stories caught | Median lag (wk) | Precision | False / 100 node-weeks | False alarms in calendar weeks |
 |---|---|---|---|---|---|---|
@@ -58,3 +58,5 @@ Build each seed as in ADR 0006, without `R2_*` set (10.6 minutes each on an Appl
 ```bash
 make backtest BACKTEST_DIRS="/tmp/pulse-20261013/data /tmp/pulse-424242/data" ARGS="--raw --json out.json"
 ```
+
+The committed [results](0007-calendar-baseline-results.json) were written before the rule shipped, at `229dd7e`, by the old `--calendar` flag. Their labels follow that run: `shipped` is the raw rule and `calendar adjusted` the candidate. The `--raw` command above writes the same comparison with today's labels: `shipped` is the adjusted rule and `raw baseline` the previous one. On warehouses built after `229dd7e`, its national cells differ from the committed file by the two false alarms per seed noted under Decision.
