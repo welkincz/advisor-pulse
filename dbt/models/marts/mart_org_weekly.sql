@@ -2,6 +2,14 @@
 -- int_kpi_events: national, region, district and branch. Counts are summed, distinct
 -- clients are counted at each level, and every ratio is computed after the roll-up from
 -- its summed numerator and denominator, never by averaging child ratios.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+-- depends_on: {{ ref('dim_date') }}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    reported_weeks_only=true,
+) }}
 with events as (
     select
         events.*,
@@ -9,6 +17,7 @@ with events as (
         org.region_code
     from {{ ref('int_kpi_events') }} as events
     inner join {{ ref('dim_org') }} as org on org.branch_id = events.branch_id
+    {% if is_incremental() %}where events.iso_week_id >= {{ incremental_floor() }}{% endif %}
 ),
 
 rolled as (

@@ -68,6 +68,8 @@ jobs:
               - 'uv.lock'
               - 'Makefile'
               - '.github/workflows/ci.yml'
+              - 'scripts/bench_weekly_dbt.py'
+              - 'tests/benchmark/**'
             web:
               - 'web/**'
               - 'contracts/schemas/**'
@@ -155,6 +157,40 @@ jobs:
 
       - name: Static dbt docs build within budget (CI fixtures)
         run: DBT_TARGET=ci make dbt-docs-static
+
+  dbt-bench:
+    name: dbt weekly benchmark
+    needs: changes
+    # The outside judge for #304: a weekly dbt build on a scaled world, within 20% of the
+    # committed baseline (tests/benchmark/weekly_dbt_baseline.json), normalized by a fixed
+    # DuckDB workload timed on the same runner. About two minutes; same gate as dbt.
+    if: needs.changes.outputs.dbt == 'true' && needs.changes.outputs.dbt_ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Record runner profile
+        run: uv run python scripts/runner_profile.py
+
+      - name: Weekly dbt build within budget (scaled world)
+        run: uv run python scripts/bench_weekly_dbt.py --out data/bench/weekly_dbt.json
+
+      - name: Upload benchmark result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-weekly-benchmark
+          path: data/bench/weekly_dbt.json
+          if-no-files-found: ignore
 
   web:
     name: web

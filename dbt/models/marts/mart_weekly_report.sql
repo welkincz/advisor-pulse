@@ -20,8 +20,24 @@
 --                     DOWN when WoW moved 1% or more (on the unadjusted value), else
 --                     FLAT. The thresholds come from the backtest against the
 --                     generator's ground truth (ADR 0006, `make backtest`)
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+-- depends_on: {{ ref('int_contact_window') }}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    reported_weeks_only=true,
+) }}
 with org as (
     select * from {{ ref('mart_org_weekly') }}
+    {% if is_incremental() %}
+    -- The windows below look back 13 weeks, and their moves one week more: read 16.
+    where iso_week_id >= (
+        select strftime(min(week_start) - 112, '%G-W%V')
+        from {{ ref('dim_date') }}
+        where iso_week_id >= {{ incremental_floor() }}
+    )
+    {% endif %}
 ),
 
 -- per_working_day: a count that scales with the week's working days, so the ANOMALY rule
@@ -211,3 +227,6 @@ select
         else 'DOWN'
     end as flag
 from moves
+{% if is_incremental() %}
+where iso_week_id >= {{ incremental_floor() }}
+{% endif %}

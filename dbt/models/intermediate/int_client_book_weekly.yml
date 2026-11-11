@@ -94,6 +94,9 @@ unit_tests:
       earlier W36 predates that version and its later W40 has no activity;
       neither may invent a book week. W39 has only cancelled activity and retains its book.
     model: int_client_book_weekly
+    overrides:
+      macros:
+        is_incremental: false  # the full build; tests/dbt covers the incremental one
     given:
       - input: source('raw', 'teradata__clnt')
         rows:

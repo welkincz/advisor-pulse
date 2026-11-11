@@ -427,7 +427,7 @@ def test_every_run_records_the_same_runner_profile() -> None:
         assert upload["if"] == "always()"
         assert "data/artifacts/runner_profile.json" in upload["with"]["path"]
     ci = load("ci.yml")["jobs"]
-    for job in ("python", "dbt"):
+    for job in ("python", "dbt", "dbt-bench"):
         runs = [step.get("run", "") for step in ci[job]["steps"]]
         assert "uv run python scripts/runner_profile.py" in runs
 
@@ -451,3 +451,16 @@ def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
         assert env[key].endswith(" || '' }}")
     for name in ("Build backfilled site", "Continue in a new run", "Deploy to Cloudflare Pages"):
         assert "inputs.benchmark_only != true" in steps[name]["if"]
+
+
+def test_ci_benchmarks_the_weekly_dbt_build_against_its_baseline() -> None:
+    """#304's outside judge: a dbt change runs the scaled benchmark, which fails over budget."""
+    ci = load("ci.yml")["jobs"]
+    bench = ci["dbt-bench"]
+    assert bench["if"] == ci["dbt"]["if"]
+    runs = [step.get("run", "") for step in bench["steps"]]
+    assert any(r.startswith("uv run python scripts/bench_weekly_dbt.py") for r in runs)
+    assert "--record" not in " ".join(runs)
+    filters = ci["changes"]["steps"][1]["with"]["filters"]
+    assert "scripts/bench_weekly_dbt.py" in filters
+    assert "tests/benchmark/**" in filters

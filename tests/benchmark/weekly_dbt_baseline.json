@@ -1,0 +1,37 @@
+{
+  "sizes": {
+    "advisors": 360,
+    "clients": 60000
+  },
+  "weeks": "2026-W33..2026-W40 then 2026-W41",
+  "full_build": {
+    "elapsed_s": 9.28,
+    "models_s": 7.24
+  },
+  "weekly_build": [
+    {
+      "elapsed_s": 6.94,
+      "models_s": 4.45
+    },
+    {
+      "elapsed_s": 6.64,
+      "models_s": 4.59
+    },
+    {
+      "elapsed_s": 6.69,
+      "models_s": 4.65
+    }
+  ],
+  "slowest_weekly_models_s": {
+    "int_kpi_events": 0.6,
+    "int_client_book_weekly": 0.55,
+    "fct_activity": 0.54,
+    "int_activity_enriched": 0.51,
+    "int_client_contact_12m": 0.22,
+    "int_ingest_weekly": 0.17,
+    "dim_client": 0.14,
+    "mart_geo_weekly": 0.13
+  },
+  "calibration_s": 0.246,
+  "ratio": 18.063
+}

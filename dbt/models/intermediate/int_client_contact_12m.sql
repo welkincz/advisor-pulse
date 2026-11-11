@@ -1,6 +1,10 @@
 -- The lead KPI's building block (PLAN.md §7, PRTF_CONTACT_12M): one row per active client
 -- in a known portfolio at week end, with the last completed contact by ANY advisor on or
 -- before that day. An ASOF join finds it in one pass instead of scanning a year per week.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+-- depends_on: {{ ref('dim_date') }}
+{{ config(materialized='incremental', incremental_strategy='replace_from', on_schema_change='fail') }}
+
 with contacts as (
     select distinct activity.client_id, activity.activity_date
     from {{ ref('int_activity_enriched') }} as activity
@@ -14,6 +18,9 @@ book as (
     select client_id, iso_week_id, week_end, portfolio_id, primary_advisor_id, transit_branch_id
     from {{ ref('int_client_book_weekly') }}
     where is_active and transit_branch_id is not null
+    {% if is_incremental() %}
+        and iso_week_id >= {{ incremental_floor() }}
+    {% endif %}
 )
 
 select

@@ -189,6 +189,44 @@ Narrate is not a normal figure here: the model credential was rejected, so all 2
 
 **Comparing timings.** Every weekly and backfill run writes `runner_profile.json` into its artifact, and every CI python and dbt job prints the same fields: CPU model and count, `nproc`, runner image, Python, dbt-core, dbt-duckdb and DuckDB versions, threads and the commit (#336). Compare stage times only when the profiles match. #335 found a 49% dbt slowdown that came from the runner, not the code; to check a code change, rerun both commits on one machine.
 
+### Incremental weekly models (#304)
+
+Before this change every weekly `dbt build` rebuilt two years of client × week history. Now the 12-month contact window and the weekly marts are incremental: a run rebuilds the last 4 weeks before the newest one it holds, plus the new week, and keeps the rest (`dbt/macros/weekly_incremental.sql`). The quarterly mart rebuilds the quarters those weeks fall in.
+
+- **Incremental models:** `int_client_book_weekly`, `int_client_contact_12m`, `int_kpi_events`, `mart_org_weekly`, `mart_advisor_weekly`, `mart_portfolio_weekly`, `mart_geo_weekly`, `mart_weekly_report` and `mart_org_quarterly`. The marts keep `contract: {enforced: true}`.
+- **Why 4 weeks:** late rows arrive at most 3 weeks late, and a booking counts in the week it was made, at most a week before the visit. Client, portfolio and HR changes take effect from their own date. `fct_activity` uses the same 28 days.
+
+**Local measurement (Apple M4 Max, not Actions), 2026-11-11.** Full-size state: `backfill --from 2024-W41 --to 2026-W44 --rebuild`, default seed and scale, no R2, templates only. Then one weekly run of 2026-W45 from a copy of that state, once with `main` (`229dd7e`) and once with this change:
+
+| | `main` | Incremental |
+|---|---:|---:|
+| `dbt_build` stage (run log) | 41.7 s | 14.3 s |
+| dbt elapsed (`run_results.json`) | 37.2 s | 10.5 s |
+| Sum of model times | 53.2 s | 7.7 s |
+| Sum of test times | 26.9 s | 24.7 s |
+| Whole weekly run, no R2 | 51.9 s | 24.6 s |
+
+The ten slowest models of the `main` weekly build, in seconds (dbt runs four at a time):
+
+| Model | `main` | Incremental |
+|---|---:|---:|
+| `int_client_book_weekly` | 17.43 | 0.54 |
+| `mart_org_quarterly` | 6.91 | 0.22 |
+| `mart_advisor_weekly` | 6.76 | 0.10 |
+| `mart_geo_weekly` | 6.72 | 0.19 |
+| `int_client_contact_12m` | 2.70 | 0.38 |
+| `mart_portfolio_weekly` | 2.52 | 0.15 |
+| `int_kpi_events` | 2.08 | 1.49 |
+| `fct_activity` | 2.08 | 1.77 |
+| `mart_org_weekly` | 1.60 | 0.16 |
+| `mart_weekly_report` | 1.06 | 0.08 |
+
+- **Same tables:** after the incremental W45 run, all 22 intermediate and mart tables match the `main` full build row for row (count and an order-free row hash). A second run of the same week changes none of them. A `--full-refresh` gives the same nine incremental tables; only `fct_activity` differs, the owner-approved exception noted in its model (#275).
+- **What is left:** tests are now most of the build. About 20 of them read `stg_activity`, a view that deduplicates 2.3 million rows each time, and three read the 25-million-row client book.
+- **Proof in CI:** `tests/dbt/test_weekly_incremental.py` builds the fixtures through W39, loads the W40 extract with its late rows, and requires every model with the `replace_from` strategy to equal a full refresh, a rerun to change nothing, and the delete to start at a week. With no lookback, the same check fails.
+- **Budget in CI:** the `dbt weekly benchmark` job (`scripts/bench_weekly_dbt.py`) builds a 40% world (360 advisors, 60,000 clients, warm-up year plus 2026-W33 to W40), loads W41 and times the weekly build, best of three. It divides the models' time by a fixed DuckDB workload timed on the same runner, and fails when that ratio is more than 20% above `tests/benchmark/weekly_dbt_baseline.json`. Locally it takes about 70 s; the 40% world's full build sums 7.2 s of model time against 4.5 s for a weekly one.
+- [ ] On Actions: record the benchmark baseline from the first CI run of this change, then compare the first weekly run's `dbt_build` with the 83.0 s of run 41520054553. The 60 s weekly and 10 min rebuild targets are not met until an Actions run shows them.
+
 ## Export sizes (site after 2026-W43)
 
 From the built site in the artifact of run 40364746899; the bytes match `manifest.json`.
