@@ -566,3 +566,42 @@ def test_the_run_log_carries_the_grade_and_a_low_score_warns(tmp_path: Path) -> 
     result = narrate(ctx(other), client_factory=Ungraded)
     assert result.status is StageStatus.WARN
     assert "Grader: 0 of 5 narratives pass." in (result.message or "")
+
+
+def test_kept_narratives_whose_facts_moved_are_kept_and_not_graded(tmp_path, report):
+    class PartialClient(FakeClient):
+        def complete(self, user):
+            if user.startswith("Node: QC "):
+                raise TimeoutError("QC unavailable")
+            return super().complete(user)
+
+    write_narratives(report, WEEK, tmp_path, PartialClient(), ctx(tmp_path))
+    # Late rows empty every kept node: building its facts now would raise.
+    emptied = [
+        r if "QC" in (r.node_id, r.parent_id) else r.model_copy(update={"value": None})
+        for r in report
+    ]
+    with pytest.raises(ValueError, match="no non-null KPI values"):
+        build_facts(emptied, "ON", WEEK)
+    client = FakeClient()
+    result = write_narratives(emptied, WEEK, tmp_path, client, ctx(tmp_path))
+    assert [c.split(" ", 2)[1] for c in client.calls] == ["QC"]
+    assert result.status is StageStatus.SUCCESS
+    assert "Grader: 1 of 1 narratives pass." in (result.message or "")
+
+
+def test_a_kept_narrative_is_graded_only_while_its_facts_hold(tmp_path, report):
+    write_narratives(report, WEEK, tmp_path, FakeClient(), ctx(tmp_path))
+    again = write_narratives(report, WEEK, tmp_path, FakeClient(), ctx(tmp_path))
+    assert "Grader: 5 of 5 narratives pass." in (again.message or "")
+    # A late row moves one of ON's facts: ON stays kept but is no longer graded.
+    late = [
+        r.model_copy(update={"value": r.value + 1})
+        if (r.iso_week_id, r.node_id) == (WEEK, "ON") and r.value is not None
+        else r
+        for r in report
+    ]
+    client = FakeClient()
+    moved = write_narratives(late, WEEK, tmp_path, client, ctx(tmp_path))
+    assert client.calls == []
+    assert "Grader: 4 of 4 narratives pass." in (moved.message or "")

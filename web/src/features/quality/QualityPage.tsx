@@ -50,6 +50,7 @@ export function QualityPage() {
   const lastWeek = weeks.at(-1)
   const latestRun = runLog.status === 'ready' ? runLog.data.runs.find((r) => r.run_type === 'WEEKLY') ?? runLog.data.runs[0] : undefined
   const alreadyLoaded = latestRun ? ingestSkip(latestRun)?.alreadyLoaded ?? false : false
+  const grader = latestRun ? graderSentence(latestRun) : null
 
   const stacks = useMemo(() => HANDLING.map((group) => ({
     key: group.key, label: group.label, color: group.color,
@@ -65,7 +66,7 @@ export function QualityPage() {
 
   return <main className="quality">
     <h1>Data quality</h1>
-    <p className="intro">{latestRun ? qualitySentence(latestRun) : 'Rule coverage, weekly defect rates and the checks from the last recorded run.'}{latestRun && graderSentence(latestRun) ? ` ${graderSentence(latestRun)}` : ''}</p>
+    <p className="intro">{latestRun ? qualitySentence(latestRun) : 'Rule coverage, weekly defect rates and the checks from the last recorded run.'}{grader ? ` ${grader}` : ''}</p>
 
     <Section id="quality-checks" title="This run's checks" lede={latestRun ? <>The {latestRun.run_type.toLowerCase()} run for {latestRun.iso_week_id}: <QualityMark status={latestRun.status} /></> : 'The checks the runner applies after every load.'}>
       {runLog.status === 'loading' && <p aria-busy="true">Loading run checks…</p>}

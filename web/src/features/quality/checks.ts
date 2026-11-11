@@ -123,7 +123,6 @@ function stagePhrase(stage: StageAttempt): string {
   return message && message.length <= 70 ? `${word} ${verb} (${message.charAt(0).toLowerCase()}${message.slice(1)})` : `${word} ${verb}`
 }
 
-/** One sentence about the run's checks, any stage that warned or failed, and the rows it held back. */
 /** The narrative grader's last result, as the narrate stage logs it; null when it did not run. */
 export function graderSentence(run: RunSummary): string | null {
   const narrate = latestStages(run).find((s) => s.stage === 'narrate')
@@ -131,6 +130,7 @@ export function graderSentence(run: RunSummary): string | null {
   return found ? `The narrative grader passed ${found[1]} of ${found[2]} narratives in this run.` : null
 }
 
+/** One sentence about the run's checks, any stage that warned or failed, and the rows it held back. */
 export function qualitySentence(run: RunSummary): string {
   const passed = run.checks.filter((c) => c.status === 'PASS').length
   const total = run.checks.length
