@@ -182,6 +182,36 @@
       "default": null,
       "title": "Show Rate"
     },
+    "stale_9m_rise_13w": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Branch rows only: stale_9m_share minus its value 13 reported weeks earlier, as a fraction (0.011 = 1.1 points). Null without that earlier week.",
+      "title": "Stale 9M Rise 13W"
+    },
+    "stale_9m_share": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Branch rows only: share of the portfolio clients with no contact in 9+ months. A secondary indicator, not a forecast; null when the lead KPI is.",
+      "title": "Stale 9M Share"
+    },
     "unique_clients_contacted": {
       "minimum": 0,
       "title": "Unique Clients Contacted",

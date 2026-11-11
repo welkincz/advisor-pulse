@@ -6,6 +6,9 @@ Each signal is known at week t. The target is the branch's rate falling by at le
 points by t+13. Thresholds are fitted on the first warehouse's weeks up to --split, then scored
 without refitting on its later weeks and on the second warehouse, a seed the fit never saw.
 The naive baseline is the rate's own fall over the 13 weeks before t. Read-only.
+
+stale_9m and stale_9m_rise_13w ship as mart_org_weekly.stale_9m_share and stale_9m_rise_13w
+(ADR 0009); tests/integration/test_stale_book.py keeps the two definitions in step.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # ADR 0009 — A leading indicator of portfolio coverage slipping
 
-- Status: Proposed. A shipped measure needs a contract change, so it waits for the owner's OK.
+- Status: Accepted. The owner approved shipping the measure and its contract change on 2026-11-11.
 - Date: 2026-11-05
 - Issue: #302
 
@@ -43,7 +43,11 @@ The baseline and the best signal, on the held-out seed. [Every signal and sample
 
 ## Recommendation
 
-Add **stale share (9+ months)** and its 13-week change as a secondary measure at branch level, and describe it as "more of this book is about to fall out of the window". Don't present it as a forecast or add it to the flag rule. Shipping needs new contract columns and dbt tests, so nothing ships here.
+Add **stale share (9+ months)** and its 13-week change as a secondary measure at branch level, and describe it as "more of this book is about to fall out of the window". Don't present it as a forecast or add it to the flag rule.
+
+## Decision
+
+Shipped as `stale_9m_share` and `stale_9m_rise_13w` on the branch rows of `mart_org_weekly` (PLAN.md §6.8, §7), shown as one line under a branch's measures on the drill page. It has no KPI code, so it stays out of the weekly report, its flags and the narrative. `tests/integration/test_stale_book.py` checks that the mart and this script agree on every branch-week the script scores.
 
 ## How to reproduce
 

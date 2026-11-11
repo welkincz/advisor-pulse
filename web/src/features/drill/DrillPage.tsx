@@ -15,6 +15,7 @@ import { KpiBoard, boardRows } from '../overview/KpiBoard'
 import { measuresSentence, nodeHeadline } from '../overview/headline'
 import { QuarterPanel } from '../quarters/QuarterPanel'
 import { ChildMultiples } from './ChildMultiples'
+import { StaleBook } from './StaleBook'
 import { type DrillPath, LEVEL_LABEL, crumbs, drillPath, resolveWeek, weekQuery } from './path'
 import { navigateWithTransition } from './transition'
 import './drill.css'
@@ -131,6 +132,7 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, lead, ch
     </section>
     <Section id="kpis" title={`${name}, week ${week}`} lede="Hover or focus a measure for what it means; click to plot it." revealOrder={0}>
       {history.status === 'loading' && !rows.size ? <p aria-busy="true">Loading the KPIs…</p> : <KpiBoard rows={rows} selected={code} onSelect={setKpi} only={ORG_KPIS} />}
+      {path.level === 'BRANCH' && <StaleBook branchId={path.nodeId} week={week} />}
     </Section>
     {childLabel && path.childSegment !== 'a' && <Section id="children" title={`${childLabel} in ${name}`} lede={`${KPI_LABELS[code]}, last ${childWeeks.length} weeks, best first. The dashed line is ${name}.`}>
       {children.status === 'loading' && <p aria-busy="true">Loading the {childLabel.toLowerCase()}…</p>}

@@ -366,7 +366,7 @@ Incremental (`delete+insert`, 28-day lookback for late arrivals).
 
 **mart_advisor_weekly** (advisor × week): `iso_week_id`, `advisor_id`, `branch_id`, `district_code`, `region_code`, `activities_completed`, `calls_out`, `calls_in`, `appointments_booked`, `appointments_held`, `no_shows`, `conversions`, `unique_clients_contacted`, `avg_meeting_duration_min`, `portfolio_clients`, `portfolio_contacted_12m`, `portfolio_contacted_rate_12m`.
 
-**mart_org_weekly** (node × week, all levels via `GROUPING SETS`): `iso_week_id`, `level` (`NATIONAL`, `REGION`, `DISTRICT`, `BRANCH`), `node_id` (`CA` for national), `node_name`, `parent_id` (null for national), `active_advisors`, the same measures as advisor weekly, plus `activities_per_advisor`, `show_rate`, `conversion_rate`, `call_to_appt_rate`.
+**mart_org_weekly** (node × week, all levels via `GROUPING SETS`): `iso_week_id`, `level` (`NATIONAL`, `REGION`, `DISTRICT`, `BRANCH`), `node_id` (`CA` for national), `node_name`, `parent_id` (null for national), `active_advisors`, the same measures as advisor weekly, plus `activities_per_advisor`, `show_rate`, `conversion_rate`, `call_to_appt_rate`. Branch rows also carry `stale_9m_share` and `stale_9m_rise_13w` (§7, ADR 0009); other levels leave them null.
 
 **mart_weekly_report** (long format, BI- and LLM-friendly): `iso_week_id`, `level`, `node_id`, `node_name`, `parent_id`, `kpi_code`, `value`, `prior_week_value`, `wow_delta`, `wow_pct`, `trailing_13w_avg`, `rank_in_parent`, `peer_count`, `flag` (`UP`, `DOWN`, `FLAT`, `ANOMALY`).
 
@@ -415,6 +415,7 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 | Unique clients contacted | `CLIENTS_CONTACTED` | distinct clients with ≥1 completed contact activity in week | |
 | Avg meeting duration | `AVG_MEET_MIN` | mean `duration_min` for completed `APPOINTMENT` + `REVIEW` | |
 | No-show rate | `NO_SHOW_RATE` | 1 − show rate | |
+| No contact in 9+ months (secondary, branch only) | — (columns `stale_9m_share`, `stale_9m_rise_13w`) | the branch's portfolio clients (the `PRTF_CONTACT_12M` denominator) with no completed contact activity by any advisor in `(week_end − 9 months, week_end]` ÷ those clients; the rise is that share minus its value 13 reported weeks earlier | Not a KPI code, not in the report or its flags, and not a forecast: those clients leave the 12-month window within 3 months unless someone reaches them. In the backtest the 13-week rise separated branches whose rate later fell better than the rate's own trend (ADR 0009). Null when `PRTF_CONTACT_12M` is null; the rise is null without the earlier week. `scripts/leading_indicator.py` uses the same definition |
 | Late-arriving rate (DQ) | `LATE_RATE` | late rows ÷ rows loaded in batch | Operational KPI |
 | Quarantine rate (DQ) | `QUAR_RATE` | quarantined ÷ rows read in batch | Operational KPI |
 
