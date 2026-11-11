@@ -1,0 +1,17 @@
+# Lab-only dbt project (#322). It reads the main project's fixture warehouse read-only
+# (attached as `pulse` in profiles.yml) and never changes dbt/dbt_project.yml.
+name: semantic_layer_lab
+version: "0.1.0"
+config-version: 2
+profile: semantic_layer_lab
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+target-path: target
+clean-targets: [target]
+
+models:
+  semantic_layer_lab:
+    +materialized: table
+    secure:
+      +materialized: view

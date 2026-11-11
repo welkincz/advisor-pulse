@@ -8,7 +8,9 @@ same SQL can try other thresholds without rebuilding dbt.
 Three rules, each at every level of the report:
 
 - ``ANOMALY``: a measure more than ``z`` standard deviations from its 13 weeks before
-  (every KPI except the rolling 12-month rate);
+  (every KPI except the rolling 12-month rate). The four counts that scale with working
+  days are judged after dividing each week by the business calendar's expected volume
+  (``dim_date.week_factor``, ADR 0007);
 - ``PRTF_MOVE``: for ``PRTF_CONTACT_12M``, a weekly move more than ``prtf_z`` standard
   deviations from the 13 moves before and at least ``prtf_min_move``;
 - ``DOWN`` / ``UP``: separate week-on-week labels when a measure moved ``wow_pct`` or more.
@@ -20,6 +22,9 @@ count as false alarms. Precision is direct matches over ALL flags, recall is the
 of scored stories with at least one hit, and lag runs from a story's first changed week.
 Calendar flags remain false alarms. Operational KPIs are included, but without injected
 rate-change stories their recall is unassessed; their alerts count as unmatched.
+
+``calendar_adjusted=False`` re-runs the raw ``ANOMALY`` rule that shipped before ADR 0007,
+for comparison: the counts are judged as they are, so holiday weeks look abnormal.
 """
 
 from __future__ import annotations
@@ -36,6 +41,9 @@ from pulse.generate.truth import LEVELS, GroundTruth, Story
 from pulse.warehouse import WAREHOUSE_FILE
 
 RULES = ("ANOMALY", "PRTF_MOVE", "DOWN", "UP")
+# Counts that scale with working days (per_working_day in mart_weekly_report). Rates and
+# averages have no such expectation.
+CALENDAR_KPIS = ("ACT_PER_ADV", "CALLS_OUT", "APPT_BOOKED", "CLIENTS_CONTACTED")
 
 
 @dataclass(frozen=True)
@@ -47,12 +55,15 @@ class Thresholds:
     prtf_z: float = 2.0
     prtf_min_move: float = 0.002
     wow_pct: float = 0.01
+    calendar_adjusted: bool = True
 
 
 SHIPPED = Thresholds()
 PROPOSED = Thresholds(z=3.0, prtf_min_move=0.002)
-# The thresholds before the backtest tuned them (ADR 0006).
-PREVIOUS = Thresholds(z=2.0, prtf_min_move=0.005)
+# The thresholds before the backtest tuned them (ADR 0006), with the raw baseline.
+PREVIOUS = Thresholds(z=2.0, prtf_min_move=0.005, calendar_adjusted=False)
+# The tuned thresholds before the calendar adjustment (ADR 0007).
+RAW = Thresholds(calendar_adjusted=False)
 
 
 @dataclass(frozen=True)
@@ -79,10 +90,16 @@ class Score:
 _PREPARE = """
 create or replace temp table backtest_report as
 with weeks as (
-    select iso_week_id, min(week_start) as week_start from marts.dim_date group by 1
+    select iso_week_id, min(week_start) as week_start, any_value(week_factor) as week_factor
+    from marts.dim_date
+    group by 1
 ),
 report as (
-    select r.*, weeks.week_start
+    select
+        r.*,
+        weeks.week_start,
+        case when r.kpi_code in ({calendar_kpis}) then r.value / weeks.week_factor else r.value end
+            as adjusted_value
     from marts.mart_weekly_report as r
     inner join weeks using (iso_week_id)
 ),
@@ -92,6 +109,8 @@ values_before as (
         avg(value) over before_13w as baseline_avg,
         stddev_samp(value) over before_13w as baseline_sd,
         count(value) over before_13w as baseline_weeks,
+        avg(adjusted_value) over before_13w as adjusted_avg,
+        stddev_samp(adjusted_value) over before_13w as adjusted_sd,
         avg(wow_delta) over before_13w as move_avg,
         stddev_samp(wow_delta) over before_13w as move_sd,
         count(wow_delta) over before_13w as move_weeks
@@ -106,13 +125,21 @@ select * from values_before
 """
 
 # The mart's CASE with parameters ($z, $min_weeks, $prtf_z, $prtf_move, $wow), plus each
-# flag's rule and the direction it points.
+# flag's rule and the direction it points. $calendar picks the ANOMALY rule's series.
 _FLAGS = """
+with judged as (
+    select
+        *,
+        case when $calendar then adjusted_value else value end as judged_value,
+        case when $calendar then adjusted_avg else baseline_avg end as judged_avg,
+        case when $calendar then adjusted_sd else baseline_sd end as judged_sd
+    from backtest_report
+)
 select
     iso_week_id, week_start, level, node_id, kpi_code, flag as mart_flag,
     case
-        when value is not null and baseline_weeks >= $min_weeks and baseline_sd > 0
-            and abs(value - baseline_avg) / baseline_sd > $z
+        when value is not null and baseline_weeks >= $min_weeks and judged_sd > 0
+            and abs(judged_value - judged_avg) / judged_sd > $z
             and kpi_code <> 'PRTF_CONTACT_12M'
             then 'ANOMALY'
         when kpi_code = 'PRTF_CONTACT_12M' and move_weeks >= $min_weeks and move_sd > 0
@@ -126,15 +153,16 @@ select
     case
         when kpi_code = 'PRTF_CONTACT_12M' then
             case when wow_delta - move_avg >= 0 then 'UP' else 'DOWN' end
-        else case when value - baseline_avg >= 0 then 'UP' else 'DOWN' end
+        else case when judged_value - judged_avg >= 0 then 'UP' else 'DOWN' end
     end as anomaly_direction
-from backtest_report
+from judged
 """
 
 
 def _connect(data_dir: Path) -> duckdb.DuckDBPyConnection:
     con = duckdb.connect(str(data_dir / WAREHOUSE_FILE), read_only=True)
-    con.execute(_PREPARE)
+    kpis = ", ".join(f"'{kpi}'" for kpi in CALENDAR_KPIS)
+    con.execute(_PREPARE.replace("{calendar_kpis}", kpis))
     return con
 
 
@@ -145,6 +173,7 @@ def _flag_rows(con: duckdb.DuckDBPyConnection, t: Thresholds) -> list[tuple[obje
         "prtf_z": t.prtf_z,
         "prtf_move": t.prtf_min_move,
         "wow": t.wow_pct,
+        "calendar": t.calendar_adjusted,
     }
     return con.execute(_FLAGS, params).fetchall()
 

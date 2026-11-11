@@ -1,0 +1,19 @@
+version: 2
+
+seeds:
+  - name: viewer_scope
+    description: >
+      ILLUSTRATION ONLY. Synthetic viewer personas and the org node each one may read.
+      Not users, not roles, not deployed permissions.
+    columns:
+      - name: viewer_id
+        description: Synthetic persona id.
+        data_tests: [unique, not_null]
+      - name: scope_level
+        description: NATIONAL, REGION, DISTRICT or BRANCH.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['NATIONAL', 'REGION', 'DISTRICT', 'BRANCH']
+      - name: scope_value
+        description: CA, a region code, a district code or a branch id.

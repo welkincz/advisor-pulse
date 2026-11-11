@@ -9,30 +9,37 @@
 --                     better for NO_SHOW_RATE, LATE_RATE and QUAR_RATE. peer_count
 --                     counts those nodes. Both are null at national level or for a null value
 --   flag              ANOMALY when the value is more than 3 standard deviations from the
---                     13 weeks before it (with at least 8 of them non-null); for the
---                     smooth PRTF_CONTACT_12M, when the week's move (wow_delta) is more
---                     than 2 standard deviations from the moves of the 13 weeks before and
---                     at least 0.2 points; else UP or DOWN when WoW moved 1% or more,
---                     else FLAT. The thresholds come from the backtest against the
+--                     13 weeks before it (with at least 8 of them non-null). The four
+--                     KPIs that scale with working days (ACT_PER_ADV, CALLS_OUT,
+--                     APPT_BOOKED, CLIENTS_CONTACTED) are first divided by the week's
+--                     business-calendar factor (dim_date.week_factor), in the week and in
+--                     its baseline, so a holiday week is not an anomaly for being short
+--                     (ADR 0007). For the smooth PRTF_CONTACT_12M, ANOMALY when the
+--                     week's move (wow_delta) is more than 2 standard deviations from the
+--                     moves of the 13 weeks before and at least 0.2 points; else UP or
+--                     DOWN when WoW moved 1% or more (on the unadjusted value), else
+--                     FLAT. The thresholds come from the backtest against the
 --                     generator's ground truth (ADR 0006, `make backtest`)
 with org as (
     select * from {{ ref('mart_org_weekly') }}
 ),
 
-kpis (kpi_code, lower_is_better) as (
+-- per_working_day: a count that scales with the week's working days, so the ANOMALY rule
+-- judges it after dividing by the business calendar's week_factor.
+kpis (kpi_code, lower_is_better, per_working_day) as (
     values
-        ('PRTF_CONTACT_12M', false),
-        ('ACT_PER_ADV', false),
-        ('CALLS_OUT', false),
-        ('APPT_BOOKED', false),
-        ('CALL_TO_APPT', false),
-        ('SHOW_RATE', false),
-        ('APPT_CONV', false),
-        ('CLIENTS_CONTACTED', false),
-        ('AVG_MEET_MIN', false),
-        ('NO_SHOW_RATE', true),
-        ('LATE_RATE', true),
-        ('QUAR_RATE', true)
+        ('PRTF_CONTACT_12M', false, false),
+        ('ACT_PER_ADV', false, true),
+        ('CALLS_OUT', false, true),
+        ('APPT_BOOKED', false, true),
+        ('CALL_TO_APPT', false, false),
+        ('SHOW_RATE', false, false),
+        ('APPT_CONV', false, false),
+        ('CLIENTS_CONTACTED', false, true),
+        ('AVG_MEET_MIN', false, false),
+        ('NO_SHOW_RATE', true, false),
+        ('LATE_RATE', true, false),
+        ('QUAR_RATE', true, false)
 ),
 
 org_values as (
@@ -83,13 +90,19 @@ ops_values as (
 ),
 
 weeks as (
-    select iso_week_id, min(week_start) as week_start
+    select iso_week_id, min(week_start) as week_start, any_value(week_factor) as week_factor
     from {{ ref('dim_date') }}
     group by iso_week_id
 ),
 
 report_values as (
-    select all_values.*, weeks.week_start, kpis.lower_is_better
+    select
+        all_values.*,
+        weeks.week_start,
+        kpis.lower_is_better,
+        -- The series the ANOMALY rule judges (ADR 0007).
+        case when kpis.per_working_day then all_values.value / weeks.week_factor
+            else all_values.value end as judged_value
     from (select * from org_values union all select * from ops_values) as all_values
     inner join weeks using (iso_week_id)
     inner join kpis using (kpi_code)
@@ -100,9 +113,9 @@ windowed as (
         current_week.*,
         prior_week.value as prior_week_value,
         avg(current_week.value) over trailing_13w as trailing_13w_avg,
-        avg(current_week.value) over before_13w as baseline_avg,
-        stddev_samp(current_week.value) over before_13w as baseline_sd,
-        count(current_week.value) over before_13w as baseline_weeks,
+        avg(current_week.judged_value) over before_13w as baseline_avg,
+        stddev_samp(current_week.judged_value) over before_13w as baseline_sd,
+        count(current_week.judged_value) over before_13w as baseline_weeks,
         count(*) over siblings as peer_count,
         case
             when current_week.parent_id is not null and current_week.value is not null
@@ -178,10 +191,10 @@ select
     cast(rank_in_parent as bigint) as rank_in_parent,
     cast(case when rank_in_parent is not null then peer_count end as bigint) as peer_count,
     case
-        when value is not null
+        when judged_value is not null
             and baseline_weeks >= 8
             and baseline_sd > 0
-            and abs(value - baseline_avg) / baseline_sd > 3
+            and abs(judged_value - baseline_avg) / baseline_sd > 3
             and kpi_code <> 'PRTF_CONTACT_12M'
             then 'ANOMALY'
         -- A rolling 12-month rate moves smoothly, so a steady slide sits "2 sd" from the

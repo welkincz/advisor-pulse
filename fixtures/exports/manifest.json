@@ -12,9 +12,9 @@
   "files": [
     {
       "name": "org_weekly.parquet",
-      "sha256": "d09c7fbb552f6dc1d44c36d420737288e385a5acbee843f1f1b8ac0a75de9868",
+      "sha256": "572427b1ea4c750eac33f70310107b46e38deb4ea0111e3d7bd229dd11173ae1",
       "rows": 48,
-      "bytes": 9467
+      "bytes": 9935
     },
     {
       "name": "org_quarterly.parquet",

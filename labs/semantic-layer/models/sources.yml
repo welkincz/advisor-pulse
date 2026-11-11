@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: pulse_intermediate
+    description: Main project's fixture warehouse (`make dbt-build-ci`), attached read-only.
+    database: pulse
+    schema: intermediate
+    tables:
+      - name: int_kpi_events
+      - name: int_contact_window
+  - name: pulse_marts
+    database: pulse
+    schema: marts
+    tables:
+      - name: dim_org
+      - name: dim_date
+      - name: mart_org_weekly

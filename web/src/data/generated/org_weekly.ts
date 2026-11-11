@@ -36,6 +36,14 @@ export type PortfolioContacted12M = number;
  */
 export type PortfolioContactedRate12M = number | null;
 export type ShowRate = number | null;
+/**
+ * Branch rows only: stale_9m_share minus its value 13 reported weeks earlier, as a fraction (0.011 = 1.1 points). Null without that earlier week.
+ */
+export type Stale9MRise13W = number | null;
+/**
+ * Branch rows only: share of the portfolio clients with no contact in 9+ months. A secondary indicator, not a forecast; null when the lead KPI is.
+ */
+export type Stale9MShare = number | null;
 export type UniqueClientsContacted = number;
 
 /**
@@ -63,5 +71,7 @@ export interface OrgWeekly {
   portfolio_contacted_12m: PortfolioContacted12M;
   portfolio_contacted_rate_12m?: PortfolioContactedRate12M;
   show_rate?: ShowRate;
+  stale_9m_rise_13w?: Stale9MRise13W;
+  stale_9m_share?: Stale9MShare;
   unique_clients_contacted: UniqueClientsContacted;
 }
