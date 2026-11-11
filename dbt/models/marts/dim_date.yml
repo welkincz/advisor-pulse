@@ -7,7 +7,8 @@ models:
       `YYYY-Www`; every weekly mart joins on `iso_week_id`. Dates are America/Toronto
       business dates (PLAN.md §6). The fiscal year starts on 1 November, as at Canadian
       banks: FY26 is 2025-11-01 to 2026-10-31, Q1 Nov–Jan … Q4 Aug–Oct. A week is reported
-      in the fiscal quarter that holds its Sunday (`week_fiscal_quarter_id`).
+      in the fiscal quarter that holds its Sunday (`week_fiscal_quarter_id`). `week_factor`
+      is the business calendar's expected volume for the day's ISO week.
     config:
       contract:
         enforced: true
@@ -120,4 +121,13 @@ models:
       - name: week_fiscal_quarter_id
         description: The fiscal quarter this day's ISO week is reported in, the one holding the week's Sunday.
         data_type: varchar
+        data_tests: [not_null]
+      - name: week_factor
+        description: >
+          Expected volume of the day's ISO week relative to an ordinary week, from the
+          `business_week` seed (`pulse.business_calendar.week_factor`, as used by the
+          generator and DQ031): below 1 in a statutory-holiday week, above 1 in February.
+          `mart_weekly_report` divides the working-day KPIs by it before the ANOMALY rule.
+          Null outside the seed's range, which the not_null test catches.
+        data_type: double
         data_tests: [not_null]

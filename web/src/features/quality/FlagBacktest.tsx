@@ -20,7 +20,7 @@ export function backtestSentence(rows: readonly Row[] = FLAG_BACKTEST.rows): str
 
 export function FlagBacktest() {
   return <Section id="quality-flags" title="How well the flags work" lede={backtestSentence()}>
-    <p className="quality-muted">Precision counts direct story matches among all flags; recall counts the larger injected stories. These synthetic histories do not establish accuracy at a real bank. Ordinary activity anomalies remain noisy.</p>
+    <p className="quality-muted">Activity counts are judged after allowing for the business calendar, so holiday weeks and February are compared like for like. Precision counts direct story matches among all flags; recall counts the larger injected stories. These synthetic histories do not establish accuracy at a real bank. Ordinary activity anomalies remain noisy.</p>
     <div className="quality-scroll" tabIndex={0} role="region" aria-label="Flag backtest results, scrollable">
       <table className="quality-table flag-backtest">
         <caption className="flag-backtest-caption">Benchmark histories: 2024-W41 to 2026-W42. Scored against the generator&rsquo;s ground truth. Thresholds tuned on seed {FLAG_BACKTEST.tunedSeed}, confirmed on seed {FLAG_BACKTEST.heldOutSeed}.</caption>
