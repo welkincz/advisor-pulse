@@ -153,6 +153,8 @@ def reconcile(source: Iterable[Row], target: Iterable[Row], spec: Spec) -> Repor
 
 
 def _index(rows: Iterable[Row], keys: tuple[str, ...]) -> tuple[dict[Key, Row], list[Key], int]:
+    # A duplicate key keeps only its last row for the cell compare; the duplicate itself is
+    # listed in the report and fails it, so the earlier rows are reported, not compared.
     index: dict[Key, Row] = {}
     dups: list[Key] = []
     count = 0

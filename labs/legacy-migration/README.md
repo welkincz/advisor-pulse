@@ -21,7 +21,8 @@ uv run --project labs/legacy-migration pytest labs/legacy-migration
 
 Flags: `--strict` compares without the tolerance and sentinel decisions (it shows the quirks);
 `--inject-mismatch` adds 1 to one legacy count first. Exit 0 = parity, 1 = any difference,
-2 = warehouse missing. The lab has its own `pyproject.toml` and `uv.lock` (DuckDB, pytest); the
+2 = warehouse missing. `--warehouse` defaults to `data/ci/warehouse.duckdb` under the repo
+root, so the command works from any directory. The lab has its own `pyproject.toml` and `uv.lock` (DuckDB, pytest); the
 root project does not depend on it, and `make check` does not run it.
 
 ## What the harness checks
@@ -88,8 +89,9 @@ PARITY FAIL  keys=(iso_week_id, branch_id)
 Five repeated default runs: 0.11–0.15 s wall per command including `uv run` start-up; the legacy
 script itself took 0.032–0.046 s.
 
-Tests (`9 passed in 0.16s`): five harness unit tests on hand-made rows (exact key and column of
-an injected mismatch, missing/extra/duplicate keys, tolerance edge, sentinel) and four on the
+Tests (`11 passed in 1.50s`): five harness unit tests on hand-made rows (exact key and column of
+an injected mismatch, missing/extra/duplicate keys, tolerance edge, sentinel), two CLI tests (the
+default warehouse resolves from any CWD; a path containing `'` attaches), and four on the
 fixture warehouse (parity after D1–D3, quirks found under `--strict`, the injected mismatch
 reported as `(2026-W39, BR-0201) activities_completed`, and no key joins without D1). The
 warehouse tests skip when `data/ci/warehouse.duckdb` is absent.

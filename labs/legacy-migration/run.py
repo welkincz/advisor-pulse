@@ -1,10 +1,11 @@
 """Run the legacy branch report and reconcile it with the dbt mart (#324 lab).
 
     uv run --project labs/legacy-migration python labs/legacy-migration/run.py \
-        --warehouse data/ci/warehouse.duckdb [--strict] [--inject-mismatch]
+        [--warehouse PATH] [--strict] [--inject-mismatch]
 
 --strict           compare without the tolerance/sentinel decisions (shows quirks Q2, Q3)
 --inject-mismatch  add 1 to one legacy count before comparing (the harness must catch it)
+--warehouse defaults to <repo root>/data/ci/warehouse.duckdb, whatever the CWD.
 Exit 0 on parity, 1 on any difference, 2 when the warehouse is missing.
 """
 
@@ -22,6 +23,8 @@ from parity import Report, SourceMapping, reconcile
 LAB = Path(__file__).resolve().parent
 LEGACY_SQL = LAB / "legacy" / "branch_contact_report.sql"
 MAPPING = LAB / "mapping.toml"
+# Resolved against the repo root (labs/legacy-migration -> ../..), so the CLI works from any CWD.
+DEFAULT_WAREHOUSE = LAB.parents[1] / "data" / "ci" / "warehouse.duckdb"
 INJECT = {"RPT_WK_ID": "2026-W39", "BRNCH_CD": "0201", "column": "ACT_CNT"}
 
 TARGET_SQL = """
@@ -40,7 +43,8 @@ def _rows(con: duckdb.DuckDBPyConnection, sql: str) -> list[dict[str, Any]]:
 
 def connect(warehouse: Path) -> duckdb.DuckDBPyConnection:
     con = duckdb.connect()
-    con.execute(f"attach '{warehouse}' as wh (read_only)")
+    path = str(warehouse).replace("'", "''")  # SQL string literal: double any single quote
+    con.execute(f"attach '{path}' as wh (read_only)")
     con.execute("set TimeZone = 'UTC'")
     return con
 
@@ -83,7 +87,7 @@ def parity(
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--warehouse", type=Path, default=Path("data/ci/warehouse.duckdb"))
+    ap.add_argument("--warehouse", type=Path, default=DEFAULT_WAREHOUSE)
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--inject-mismatch", action="store_true")
     args = ap.parse_args(argv)

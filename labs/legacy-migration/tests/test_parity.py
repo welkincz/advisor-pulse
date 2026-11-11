@@ -93,3 +93,25 @@ def test_without_the_key_decision_every_key_fails_to_join() -> None:
     report = reconcile(raw_keys.apply(run.run_legacy(con)), run.read_target(con), raw_keys.spec())
     assert len(report.missing_in_source) == len(report.extra_in_source) == 24
     assert report.compared_cells == 0
+
+
+def test_default_warehouse_resolves_against_the_repo_root_not_the_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert run.DEFAULT_WAREHOUSE == WAREHOUSE
+    monkeypatch.chdir(tmp_path)
+    code = run.main([])
+    if WAREHOUSE.exists():
+        assert code == 0, capsys.readouterr()
+    else:
+        assert code == 2
+        assert str(WAREHOUSE) in capsys.readouterr().err
+
+
+def test_a_warehouse_path_with_a_quote_is_attached(tmp_path: Path) -> None:
+    import duckdb
+
+    odd = tmp_path / "it's" / "wh.duckdb"
+    odd.parent.mkdir()
+    duckdb.connect(str(odd)).close()
+    run.connect(odd).execute("select 1").fetchall()
