@@ -1,0 +1,20 @@
+[project]
+name = "open-table-lab"
+version = "0.1.0"
+description = "Local Apache Iceberg lab on Advisor Pulse fixtures. Synthetic data, single machine."
+requires-python = ">=3.12,<3.13"
+# Isolated from the root project: these never enter the root pyproject.toml or uv.lock.
+dependencies = [
+    "pyiceberg[sql-sqlite,pyarrow]>=0.9",
+    "duckdb>=1.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib -ra"

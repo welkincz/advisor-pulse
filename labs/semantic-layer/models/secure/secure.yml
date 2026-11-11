@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: secure_kpi_events
+    description: >
+      ILLUSTRATION ONLY, not deployed permissions. sem_kpi_events filtered to the org node
+      that the session variable `pulse_viewer` may read (viewer_scope seed). Unset or
+      unknown viewer returns no rows.

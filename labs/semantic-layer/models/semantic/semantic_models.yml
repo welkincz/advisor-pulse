@@ -1,0 +1,65 @@
+version: 2
+
+# Semantic models over the main project's KPI events (PLAN.md §7). Measures are the
+# additive parts; ratios live in metrics.yml and are rebuilt from summed parts at every
+# grain, the same rule mart_org_weekly follows.
+semantic_models:
+  - name: kpi_events
+    description: One row per KPI event (completed, scheduled, booked, advisor, portfolio).
+    model: ref('sem_kpi_events')
+    defaults:
+      agg_time_dimension: week_start
+    entities:
+      - name: kpi_event
+        type: primary
+        expr: kpi_event_id
+      - name: branch
+        type: foreign
+        expr: branch_id
+    dimensions:
+      - name: week_start
+        type: time
+        type_params:
+          time_granularity: day
+      - name: event_kind
+        type: categorical
+      - name: is_window_complete
+        type: categorical
+    measures:
+      - name: activities_completed
+        agg: sum
+      - name: active_advisors
+        agg: sum
+      - name: calls_out
+        agg: sum
+      - name: appointments_held
+        agg: sum
+      - name: no_shows
+        agg: sum
+      - name: appointments_held_or_no_show
+        description: Show-rate denominator; cancelled appointments are excluded upstream.
+        agg: sum
+        expr: appointments_held + no_shows
+      - name: clients_contacted
+        description: Distinct clients, counted at the query grain and never summed.
+        agg: count_distinct
+        expr: contacted_client_id
+      - name: portfolio_clients
+        agg: sum
+      - name: portfolio_contacted_12m
+        agg: sum
+
+  - name: org
+    description: Branch → district → region hierarchy.
+    model: ref('sem_org')
+    entities:
+      - name: branch
+        type: primary
+        expr: branch_id
+    dimensions:
+      - name: branch_name
+        type: categorical
+      - name: district_code
+        type: categorical
+      - name: region_code
+        type: categorical

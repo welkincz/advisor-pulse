@@ -1,0 +1,20 @@
+[project]
+name = "semantic-layer-lab"
+version = "0.1.0"
+description = "Local MetricFlow semantic layer over Advisor Pulse fixture marts. Synthetic data, single machine."
+requires-python = ">=3.12,<3.13"
+# Isolated from the root project: these never enter the root pyproject.toml or uv.lock.
+dependencies = [
+    "dbt-metricflow[dbt-duckdb]>=0.8",
+    "duckdb>=1.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib -ra"

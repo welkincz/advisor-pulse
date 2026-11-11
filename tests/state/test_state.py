@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime, timedelta
@@ -7,6 +8,7 @@ from itertools import count
 from pathlib import Path
 
 import boto3
+import duckdb
 import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
@@ -17,8 +19,9 @@ from pulse.ingest import meta
 from pulse.runner import WEEKLY_STAGES, RetryableError, Stage, StageContext, StageResult
 from pulse.runner.command import run_week
 from pulse.state import StateSync, lock, weeks_between
+from pulse.state.rebuilt import DBT_DIR, MANIFEST, rebuilt_tables
 from pulse.state.store import ObjectStore, R2Config
-from pulse.warehouse import WAREHOUSE_FILE, connect, init_warehouse
+from pulse.warehouse import WAREHOUSE_FILE, connect, init_warehouse, slim_warehouse
 
 BUCKET = "pulse-state"
 WEEK = "2026-W40"
@@ -773,3 +776,151 @@ def test_failed_warehouse_range_is_atomic(
     assert failures == 5
     assert dest.read_bytes() == b"existing warehouse"
     assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
+
+
+# ── Slim warehouse (#304) ──────────────────────────────────────────────────
+
+
+def _warehouse_with_a_rebuilt_table(path: Path) -> None:
+    con = connect(path)
+    init_warehouse(con)
+    con.execute("create schema if not exists marts")
+    con.execute("create schema if not exists intermediate")
+    con.execute("create table marts.keep as select range as id from range(10)")
+    con.execute("create view marts.keep_view as select id + 1 as next_id from marts.keep")
+    con.execute(
+        "create table intermediate.int_kpi_events as select range as id from range(2000000)"
+    )
+    con.execute("create table intermediate.int_incremental as select range as id from range(5)")
+    con.close()
+
+
+def test_slim_warehouse_keeps_everything_but_what_dbt_rebuilds(tmp_path: Path) -> None:
+    path = tmp_path / WAREHOUSE_FILE
+    _warehouse_with_a_rebuilt_table(path)
+    before = path.stat().st_size
+    con = connect(path)
+    tables = con.execute(
+        "select schema_name, table_name from duckdb_tables() "
+        "where table_name <> 'int_kpi_events' order by 1, 2"
+    ).fetchall()
+    con.close()
+
+    slim_warehouse(path, {"int_kpi_events"})
+
+    assert path.stat().st_size < before
+    assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
+    con = connect(path)
+    assert (
+        con.execute("select schema_name, table_name from duckdb_tables() order by 1, 2").fetchall()
+        == tables
+    )
+    assert con.execute("select sum(next_id) from marts.keep_view").fetchone() == (55,)
+    con.close()
+
+
+def test_a_failed_slim_leaves_the_warehouse_and_no_partial_file(tmp_path: Path) -> None:
+    path = tmp_path / WAREHOUSE_FILE
+    path.write_bytes(b"not a database")
+    with pytest.raises(duckdb.Error):
+        slim_warehouse(path, {"int_kpi_events"})
+    assert path.read_bytes() == b"not a database"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
+
+
+def test_persist_uploads_the_slim_warehouse_and_a_restore_skips_it_on_the_same_runner(
+    store: ObjectStore, tmp_path: Path
+) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "run")
+    assert sync.restore(c).status is StageStatus.SUCCESS
+    _warehouse_with_a_rebuilt_table(c.data_dir / WAREHOUSE_FILE)
+    assert sync.persist(c).status is StageStatus.SUCCESS
+    sync.release(c)
+
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    store.download(WAREHOUSE_FILE, fresh / WAREHOUSE_FILE)
+    con = connect(fresh / WAREHOUSE_FILE)
+    # Only the model dbt rebuilds as a plain table is gone; an unknown table stays.
+    assert con.execute(
+        "select table_name from duckdb_tables() where schema_name = 'intermediate'"
+    ).fetchall() == [("int_incremental",)]
+    assert con.execute("select count(*) from marts.keep").fetchone() == (10,)
+    con.close()
+    assert "kept the local" in (sync_for(store).restore(c).message or "")
+
+
+def test_persist_still_uploads_when_slimming_fails(
+    store: ObjectStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed_remote(store, tmp_path)
+    sync = sync_for(store)
+    c = ctx(tmp_path / "run")
+    assert sync.restore(c).status is StageStatus.SUCCESS
+
+    def broken(path: Path, rebuilt: object) -> None:
+        raise duckdb.IOException("disk full")
+
+    monkeypatch.setattr("pulse.state.sync.slim_warehouse", broken)
+    assert sync.persist(c).status is StageStatus.SUCCESS
+    assert store.etag(WAREHOUSE_FILE)
+    sync.release(c)
+
+
+def _dbt_project(root: Path, sql: dict[str, str], yml: str = "") -> Path:
+    folder = root / "models" / "intermediate"
+    folder.mkdir(parents=True)
+    (root / "dbt_project.yml").write_text(
+        "models:\n  advisor_pulse:\n    intermediate:\n      +materialized: table\n"
+    )
+    for name, body in sql.items():
+        (folder / f"{name}.sql").write_text(body)
+    if yml:
+        (folder / "int_models.yml").write_text(yml)
+    return root
+
+
+def test_the_repo_models_are_read_without_a_manifest(tmp_path: Path) -> None:
+    models = {p.stem for p in (DBT_DIR / "models" / "intermediate").glob("*.sql")}
+    rebuilt = rebuilt_tables(tmp_path)
+    assert "int_kpi_events" in rebuilt and rebuilt <= models
+
+
+def test_an_incremental_model_is_never_dropped(tmp_path: Path) -> None:
+    dbt_dir = _dbt_project(
+        tmp_path / "dbt",
+        {
+            "int_plain": "select 1 as id",
+            "int_by_config": "{{\n  config(\n    materialized='incremental',\n"
+            "    unique_key='id'\n  )\n}}\nselect 1 as id",
+            "int_by_yml": "select 1 as id",
+        },
+        "models:\n  - name: int_by_yml\n    config:\n      materialized: incremental\n",
+    )
+    assert rebuilt_tables(tmp_path / "data", dbt_dir) == {"int_plain"}
+
+
+def test_the_manifest_can_keep_a_model_the_files_call_a_table(tmp_path: Path) -> None:
+    dbt_dir = _dbt_project(tmp_path / "dbt", {"int_a": "select 1", "int_b": "select 1"})
+    manifest = tmp_path / "data" / MANIFEST
+    manifest.parent.mkdir(parents=True)
+    nodes = {
+        f"model.advisor_pulse.{name}": {
+            "resource_type": "model",
+            "name": name,
+            "alias": name,
+            "schema": "intermediate",
+            "config": {"schema": "intermediate", "materialized": materialized},
+        }
+        for name, materialized in (("int_a", "table"), ("int_b", "incremental"))
+    }
+    manifest.write_text(json.dumps({"nodes": nodes}))
+    assert rebuilt_tables(tmp_path / "data", dbt_dir) == {"int_a"}
+    # The manifest alone still decides when the model files are not shipped.
+    assert rebuilt_tables(tmp_path / "data", tmp_path / "missing") == {"int_a"}
+
+
+def test_with_no_source_nothing_is_dropped(tmp_path: Path) -> None:
+    assert rebuilt_tables(tmp_path / "data", tmp_path / "missing") == frozenset()

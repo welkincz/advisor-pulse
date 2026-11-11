@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { happened, verdict } from './glossary'
+import { CALENDAR_ADJUSTED, happened, verdict } from './glossary'
 
 describe('happened', () => {
   it('says how the week compares with last week and with usual, judged by the good direction', () => {
     expect(happened({ code: 'ACT_PER_ADV', value: 15.7, wow: -0.118, usual: 17.37, flag: true, better: 'higher' })).toEqual([
       'Down 11.8% on last week.',
       '9.6% below usual (17.4): worse than a normal week.',
-      'Flagged as an anomaly: further from the 13 weeks before than this area normally moves.',
+      'Flagged as an anomaly: after allowing for holidays and the February lift, further from the 13 weeks before than this area normally moves.',
     ])
   })
 
@@ -25,6 +25,15 @@ describe('happened', () => {
       'Flagged as an anomaly: further from the 13 weeks before than this area normally moves.',
     ])
     expect(happened({ code: 'CALL_TO_APPT', value: 0.08201, usual: 0.082, better: 'higher' })).toEqual(['Level with usual (8.2%).'])
+  })
+
+  it('names the calendar allowance on the flag for exactly the four adjusted counts', () => {
+    const adjusted = ['ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CLIENTS_CONTACTED'] as const
+    for (const code of adjusted) {
+      expect(happened({ code, value: 10, flag: true, better: 'higher' }).at(-1)).toMatch(/^Flagged as an anomaly: after allowing for holidays/)
+    }
+    expect([...CALENDAR_ADJUSTED].sort()).toEqual([...adjusted].sort())
+    expect(happened({ code: 'SHOW_RATE', value: 0.5, flag: true, better: 'higher' }).at(-1)).not.toMatch(/holidays/)
   })
 
   it('says when there is no usual yet', () => {
