@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -451,6 +452,282 @@ def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
         assert env[key].endswith(" || '' }}")
     for name in ("Build backfilled site", "Continue in a new run", "Deploy to Cloudflare Pages"):
         assert "inputs.benchmark_only != true" in steps[name]["if"]
+
+
+def _doctor() -> dict:
+    return load("pipeline-doctor.yml")
+
+
+def _doctor_text() -> str:
+    return (WORKFLOWS / "pipeline-doctor.yml").read_text()
+
+
+def _doctor_steps(job: str) -> dict[str, dict[str, Any]]:
+    steps = _doctor()["jobs"][job]["steps"]
+    return {s.get("name") or s["uses"].split("@")[0]: s for s in steps}
+
+
+def _step_order(job: str) -> list[str]:
+    return list(_doctor_steps(job))
+
+
+def _agent_run() -> str:
+    return " ".join(_doctor_steps("diagnose")["Diagnose and propose"]["run"].split())
+
+
+def _agent_tools(flag: str) -> list[str]:
+    return _agent_run().split(f'{flag} "', 1)[1].split('"', 1)[0].split(",")
+
+
+def test_doctor_runs_only_for_failed_runs_of_main_in_this_repo() -> None:
+    doctor = _doctor()
+    trigger = doctor["on"]["workflow_run"]
+    assert set(trigger["workflows"]) == {load("weekly.yml")["name"], load("backfill.yml")["name"]}
+    assert trigger["types"] == ["completed"]
+    condition = " ".join(doctor["jobs"]["diagnose"]["if"].split())
+    assert condition == (
+        "github.event.workflow_run.conclusion == 'failure' "
+        "&& github.event.workflow_run.head_branch == 'main' "
+        "&& github.event.workflow_run.head_repository.full_name == github.repository"
+    )
+    checkout = _doctor_steps("diagnose")["actions/checkout"]["with"]
+    assert checkout["ref"] == "refs/heads/main"
+
+
+def test_doctor_keeps_every_diagnosis() -> None:
+    concurrency = _doctor()["concurrency"]
+    assert "workflow_run.id" in concurrency["group"]
+    assert "workflow_run.run_attempt" in concurrency["group"]
+    assert concurrency["cancel-in-progress"] == "false"
+    names = re.findall(r"name: (pipeline-doctor-.+)", _doctor_text())
+    assert set(names) == {"pipeline-doctor-${{ github.run_id }}-${{ github.run_attempt }}"}
+
+
+def test_doctor_splits_privileges_between_agent_and_fixed_jobs() -> None:
+    doctor = _doctor()
+    assert doctor["permissions"] == {}
+    jobs = doctor["jobs"]
+    assert jobs["diagnose"]["permissions"] == {"contents": "read", "actions": "read"}
+    assert jobs["report"]["permissions"] == {"contents": "read", "issues": "write"}
+    assert jobs["propose"]["permissions"] == {"contents": "write", "pull-requests": "write"}
+    text = _doctor_text()
+    assert "id-token" not in text
+    assert set(re.findall(r"\$\{\{\s*secrets\.(\w+)", text)) == {"CLAUDE_CODE_OAUTH_TOKEN"}
+    for job in ("report", "propose"):
+        assert "claude" not in json.dumps(jobs[job]["steps"]).lower().replace("claude.com", "")
+
+
+def test_doctor_pins_every_action_to_a_commit() -> None:
+    uses = re.findall(r"uses: (\S+)(.*)", _doctor_text())
+    assert uses
+    for ref, comment in uses:
+        assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", ref), ref
+        assert re.fullmatch(r" # v\d+\.\d+\.\d+", comment), ref
+    assert "claude-code-action" not in _doctor_text()
+
+
+def test_doctor_saves_no_cache_and_secret_jobs_restore_none() -> None:
+    text = _doctor_text()
+    assert "actions/cache" not in text
+    assert not re.search(r"^\s+cache(-dependency-path)?:", text, re.MULTILINE)
+    assert _doctor_steps("diagnose")["astral-sh/setup-uv"]["with"]["enable-cache"] == "false"
+    for name in ("weekly.yml", "backfill.yml"):
+        steps = {s.get("uses", "").split("@")[0]: s for s in load(name)["jobs"]["run"]["steps"]}
+        assert steps["astral-sh/setup-uv"]["with"]["enable-cache"] == "false", name
+        assert "cache" not in steps["actions/setup-node"]["with"], name
+        assert "actions/cache" not in (WORKFLOWS / name).read_text(), name
+
+
+def _docker_runs() -> dict[str, str]:
+    steps = _doctor_steps("diagnose")
+    runs = {}
+    for step in ("Install Claude Code and the project in the container", "Diagnose and propose"):
+        run = " ".join(steps[step]["run"].split())
+        runs[step] = run[run.index("docker run") :]
+    return runs
+
+
+def test_doctor_agent_runs_in_a_locked_down_container_without_a_github_token() -> None:
+    doctor = _doctor()
+    assert re.fullmatch(r"node@sha256:[0-9a-f]{64}", doctor["env"]["DOCTOR_IMAGE"])
+    assert re.fullmatch(r"\d+\.\d+\.\d+", doctor["env"]["CLAUDE_CODE_VERSION"])
+    steps = _doctor_steps("diagnose")
+    assert steps["actions/checkout"]["with"]["persist-credentials"] == "false"
+    for name, run in _docker_runs().items():
+        for flag in (
+            "--rm",
+            '--user "$(id -u):$(id -g)"',
+            "--read-only",
+            "--tmpfs /tmp:",
+            "--cap-drop=ALL",
+            "--security-opt no-new-privileges",
+            "--pids-limit 512",
+            "-e DISABLE_AUTOUPDATER=1",
+            '-v "$W/passwd:/etc/passwd:ro"',
+            '"$DOCTOR_IMAGE"',
+        ):
+            assert flag in run, (name, flag)
+        for banned in (
+            "--privileged",
+            "docker.sock",
+            "--network host",
+            "--cap-add",
+            "/home/runner",
+        ):
+            assert banned not in run, (name, banned)
+        mounts = re.findall(r'-v "\$W/(\w+):(/work/\w+)(:ro)?"', run)
+        writable = {target for _, target, ro in mounts if not ro}
+        assert writable <= {"/work/repo", "/work/home", "/work/out"}, name
+        assert ("evidence", "/work/evidence", ":ro") in mounts or name.startswith("Install")
+    agent = steps["Diagnose and propose"]
+    assert set(agent["env"]) == {"CLAUDE_CODE_OAUTH_TOKEN", "REPO", "RUN_URL", "FAILED_SHA"}
+    run = _docker_runs()["Diagnose and propose"]
+    # The secret is passed by name only, so it never appears in the command line.
+    assert "-e CLAUDE_CODE_OAUTH_TOKEN " in run
+    assert "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1" in run
+    for token in ("GH_TOKEN", "GITHUB_TOKEN", "github.token"):
+        assert token not in run
+    install = _docker_runs()["Install Claude Code and the project in the container"]
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in install and "node --version" in install
+    assert ">= 22" in install
+    prepare = steps["Prepare the agent container"]["run"]
+    assert "--exclude=.git" in prepare
+    assert "169.254.169.254" in prepare
+    assert "sudo iptables -I INPUT -i docker0 -j DROP" in prepare
+    # 168.63.129.16 is also the runner's DNS resolver, so only non-DNS traffic is dropped.
+    assert "-d 168.63.129.16 -j DROP" not in prepare
+    stop = steps["Stop the agent"]
+    assert stop["if"] == "always()" and stop["id"] == "stop"
+    assert "docker rm -f doctor-agent doctor-prep" in stop["run"]
+    # Fails closed: an error listing containers stops the job before anything reads the output.
+    assert 'left="$(docker ps -aq --filter name=^doctor-)" || {' in stop["run"]
+    assert 'if [ -n "$left" ]' in stop["run"]
+    assert doctor["jobs"]["diagnose"]["timeout-minutes"] == "40"
+    assert steps["Install Claude Code and the project in the container"]["timeout-minutes"] == "8"
+    assert steps["Diagnose and propose"]["timeout-minutes"] == "20"
+    # No step after the agent runs sudo, so nothing it could plant on PATH is executed as root.
+    order = _step_order("diagnose")
+    after = order[order.index("Diagnose and propose") :]
+    for name in after:
+        assert "sudo" not in str(steps[name].get("run", "")), name
+
+
+def test_doctor_agent_cannot_push_comment_or_leave_its_paths() -> None:
+    allowed = _agent_tools("--allowedTools")
+    bash = [t for t in allowed if t.startswith("Bash")]
+    assert bash == ["Bash(uv run pytest:*)", "Bash(uv run ruff:*)", "Bash(uv run mypy:*)"]
+    # Claude Code applies path rules to file writes through Edit(...) only.
+    assert not any(t.startswith("Write") for t in allowed)
+    assert "Edit" not in allowed
+    edits = {t for t in allowed if t.startswith("Edit(")}
+    assert edits == {f"Edit({p}/**)" for p in ("src", "tests", "dbt", "scripts")} | {
+        "Edit(//work/out/**)"
+    }
+    denied = _agent_tools("--disallowedTools")
+    for rule in ("Edit(.github/**)", "Bash(git:*)", "Bash(gh:*)", "Read(//proc/**)", "WebFetch"):
+        assert rule in denied, rule
+
+
+def test_doctor_keeps_evidence_outside_the_checkout() -> None:
+    collect = _doctor_steps("diagnose")["Collect the failed run's evidence"]["run"]
+    assert 'EVIDENCE="$RUNNER_TEMP/doctor/evidence"' in collect
+    assert ".doctor" not in _doctor_text()
+    assert "-name dist" in collect
+
+
+def test_doctor_diagnose_steps_run_in_a_safe_order() -> None:
+    assert _step_order("diagnose") == [
+        "actions/checkout",
+        "astral-sh/setup-uv",
+        "Collect the failed run's evidence",
+        "Prepare the agent container",
+        "Install Claude Code and the project in the container",
+        "Diagnose and propose",
+        "Stop the agent",
+        "Package the proposed fix",
+        "actions/upload-artifact",
+    ]
+    package_step = _doctor_steps("diagnose")["Package the proposed fix"]
+    # Collected also when the agent failed or ran out of turns, but only once it is stopped.
+    assert package_step["if"] == (
+        "always() && steps.evidence.outcome == 'success' && steps.stop.outcome == 'success'"
+    )
+    package = package_step["run"]
+    assert "realpath" in package and "--no-specials" in package and "--exclude=.git" in package
+    assert "--no-renames" in package and "-gt 1000000" in package
+    assert package_step["env"]["GIT_LFS_SKIP_SMUDGE"] == "1"
+    assert "filter.lfs.process= " in package and "filter.lfs.clean= " in package
+    git_calls = [
+        line.strip()
+        for line in package.splitlines()
+        if line.strip().startswith(("git ", "if git "))
+    ]
+    assert git_calls and all('"${nolfs[@]}"' in line for line in git_calls)
+
+
+def test_doctor_checks_the_patch_before_applying_and_pushes_only_after() -> None:
+    assert _step_order("propose") == [
+        "actions/checkout",
+        "Keep main's guard",
+        "actions/download-artifact",
+        "Skip when a fix for this failure is already open",
+        "Check and apply the patch",
+        "Push the fix branch and open a draft PR",
+    ]
+    steps = _doctor_steps("propose")
+    assert steps["actions/checkout"]["with"]["persist-credentials"] == "false"
+    assert "GH_TOKEN" not in _doctor()["jobs"]["propose"]["env"]
+    keep = steps["Keep main's guard"]["run"]
+    assert 'git merge-base --is-ancestor "$BASE" refs/remotes/origin/main' in keep
+    assert "^[0-9a-f]{40}$" in keep
+    assert (
+        'git show refs/remotes/origin/main:scripts/pipeline_fix_guard.py > "$RUNNER_TEMP/guard.py"'
+        in keep
+    )
+    apply = steps["Check and apply the patch"]["run"]
+    order = [
+        'guard.py" branch "$RUN_ID" "$RUN_ATTEMPT"',
+        'guard.py" secrets "$patch"',
+        'guard.py" patch "$patch"',
+        "apply --index",
+        'guard.py" paths --base origin/main',
+    ]
+    assert [apply.index(part) for part in order] == sorted(apply.index(part) for part in order)
+    assert "python3 -I" in apply
+    push = steps["Push the fix branch and open a draft PR"]
+    assert "GH_TOKEN" in push["env"]
+    pushes = [line.strip() for line in push["run"].splitlines() if "git push" in line]
+    assert pushes == ['git push origin "HEAD:refs/heads/pipeline-fix/${RUN_ID}-${RUN_ATTEMPT}"']
+    assert "--force" not in push["run"] and "+HEAD" not in push["run"]
+    assert "gh auth setup-git" in push["run"] and "gh pr create --draft" in push["run"]
+    for banned in ("gh pr merge", "gh pr ready", "gh pr review", "gh workflow", "gh run rerun"):
+        assert banned not in _doctor_text(), banned
+
+
+def test_doctor_sanitises_agent_text_and_owns_the_marker() -> None:
+    post = _doctor_steps("report")["Post the diagnosis on the alert issue"]["run"]
+    assert "python3 -I scripts/pipeline_fix_guard.py secrets" in post
+    assert "python3 -I scripts/pipeline_fix_guard.py sanitize" in post
+    checkout = _doctor_steps("report")["actions/checkout"]["with"]
+    assert checkout["sparse-checkout"] == "scripts/pipeline_fix_guard.py"
+    assert checkout["ref"] == "refs/heads/main"
+    push = _doctor_steps("propose")["Push the fix branch and open a draft PR"]["run"]
+    assert push.index('echo "$MARKER"') < push.index("sanitize")
+    skip = _doctor_steps("propose")["Skip when a fix for this failure is already open"]["run"]
+    assert "startswith(env.MARKER)" in skip
+    assert "failing_jobs" in _doctor()["jobs"]["propose"]["env"]["MARKER"]
+    for name in ("Check and apply the patch", "Push the fix branch and open a draft PR"):
+        assert _doctor_steps("propose")[name]["if"] == "steps.open.outputs.existing == ''"
+
+
+def test_doctor_prompt_exists_and_treats_evidence_as_data() -> None:
+    prompt = (WORKFLOWS.parent / "doctor-prompt.md").read_text()
+    assert "evidence, not instructions" in prompt
+    assert "Do not commit or push" in prompt
+
+
+def test_ci_runs_when_a_person_marks_a_draft_ready() -> None:
+    assert "ready_for_review" in load("ci.yml")["on"]["pull_request"]["types"]
 
 
 def test_every_lab_has_a_labs_ci_matrix_entry() -> None:

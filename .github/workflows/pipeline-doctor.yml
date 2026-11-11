@@ -1,0 +1,364 @@
+# When a weekly or backfill run on main fails, Claude Code diagnoses it and proposes the fix (#307).
+#
+# The agent reads untrusted logs, so it is treated as able to run any code. It runs in a
+# locked-down container, on a copy of main without .git, with no GitHub token, and nothing in
+# its job saves a cache. Fixed steps decide what leaves the runner
+# (docs/pipeline-doctor.md, threat model):
+#   diagnose  Collects the evidence, runs the agent in a container, then packages its edits
+#             as a diff. Token: contents and actions read.
+#   report    Posts the sanitised report on the alert:pipeline issue. issues: write.
+#   propose   Checks the diff with main's guard before applying it, pushes
+#             pipeline-fix/<run id>-<attempt> without force and opens a draft PR.
+# A person approves everything. A draft PR's CI starts when that person marks it ready,
+# because pushes made with GITHUB_TOKEN do not start workflows.
+
+name: Pipeline doctor
+
+on:
+  workflow_run:
+    workflows: [Weekly report, Backfill weekly reports]
+    types: [completed]
+
+permissions: {}
+
+# One group per failed run attempt, so no diagnosis is queued behind another and dropped.
+concurrency:
+  group: pipeline-doctor-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+  cancel-in-progress: false
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.322
+  # node:22.21.1-bookworm (not -slim: uv needs its CA certificates to fetch a dbt wheel)
+  DOCTOR_IMAGE: node@sha256:b84d52cd45bfe261096ccbf886955d431b8b9ed01b72eaef588e8886bda09e78
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    # Install (8) + agent (20) leaves room for stop, package and upload.
+    timeout-minutes: 40
+    # Only main's own runs: a run dispatched from another branch or a fork would supply its
+    # own prompt and code.
+    if: >-
+      github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      base: ${{ steps.evidence.outputs.base }}
+      failing_jobs: ${{ steps.evidence.outputs.failing_jobs }}
+      fix: ${{ steps.package.outputs.fix }}
+    steps:
+      # main's code, not the failed SHA: the failed SHA is only used to read its logs.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/heads/main
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Only for the uv binary. No cache, because this job must never save one (cache poisoning).
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: false
+
+      - name: Collect the failed run's evidence
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          FAILED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          EVIDENCE="$RUNNER_TEMP/doctor/evidence"
+          mkdir -p "$EVIDENCE/artifacts" "$RUNNER_TEMP/doctor/out"
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          gh run view "$RUN_ID" --json name,headSha,headBranch,event,jobs,url > "$EVIDENCE/run.json"
+          gh run view "$RUN_ID" --log-failed | tail -n 2000 > "$EVIDENCE/failed.log"
+          gh run download "$RUN_ID" --pattern 'weekly-report-*' --dir "$EVIDENCE/artifacts" || true
+          gh run download "$RUN_ID" --pattern 'backfill-*' --dir "$EVIDENCE/artifacts" || true
+          # The site build is not evidence.
+          find "$EVIDENCE/artifacts" -type d -name dist -prune -exec rm -rf {} +
+          # The agent's copy has no .git, so record what changed on main since the failure.
+          if [[ "$FAILED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            { git log --oneline "$FAILED_SHA"..HEAD; git diff --stat "$FAILED_SHA" HEAD; } \
+              > "$EVIDENCE/changes-since-failure.txt" 2>&1 || true
+          fi
+          failing="$(jq -r '[.jobs[] | select(.conclusion == "failure") | .name] | sort | join(", ")' "$EVIDENCE/run.json")"
+          echo "failing_jobs=${failing//[^A-Za-z0-9 ,._()-]/}" >> "$GITHUB_OUTPUT"
+
+      # The agent runs in a container: a non-root uid, a read-only root filesystem, no
+      # capabilities, no privilege escalation, a process limit, and only its own work folders
+      # mounted. It cannot reach the runner's files, processes, PATH or Docker socket, and it
+      # holds no GitHub token. Network stays on for the Claude API; cloud metadata is blocked.
+      - name: Prepare the agent container
+        run: |
+          W="$RUNNER_TEMP/doctor/work"
+          mkdir -p "$W/repo" "$W/home" "$W/out" "$W/bin"
+          rsync -a --exclude=.git ./ "$W/repo/"
+          cp -r "$RUNNER_TEMP/doctor/evidence" "$W/evidence"
+          install -m 755 "$(command -v uv)" "$W/bin/uv"
+          cp .github/doctor-prompt.md "$RUNNER_TEMP/doctor/prompt.md"
+          # A passwd entry for the container uid, so user lookups inside it work.
+          printf 'root:x:0:0:root:/root:/usr/sbin/nologin\ndoctor:x:%s:%s:doctor:/work/home:/bin/bash\n' \
+            "$(id -u)" "$(id -g)" > "$W/passwd"
+          # Containers reach the internet only: not cloud metadata, not the Azure host agent
+          # beyond DNS (168.63.129.16 is also the runner's resolver), not the runner itself.
+          sudo iptables -I DOCKER-USER -d 169.254.169.254 -j DROP
+          sudo iptables -I DOCKER-USER -d 168.63.129.16 -p tcp ! --dport 53 -j DROP
+          sudo iptables -I DOCKER-USER -d 168.63.129.16 -p udp ! --dport 53 -j DROP
+          sudo iptables -I INPUT -i docker0 -j DROP
+          docker pull -q "$DOCTOR_IMAGE"
+
+      # Same container settings, with no secret: install the pinned Claude Code and the
+      # project's dependencies into the agent's own folders.
+      - name: Install Claude Code and the project in the container
+        timeout-minutes: 8
+        run: |
+          W="$RUNNER_TEMP/doctor/work"
+          docker run --rm --name doctor-prep \
+            --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp:rw,exec,size=1g \
+            --cap-drop=ALL --security-opt no-new-privileges --pids-limit 512 --memory 6g \
+            -v "$W/repo:/work/repo" -v "$W/home:/work/home" -v "$W/bin:/work/bin:ro" \
+            -v "$W/passwd:/etc/passwd:ro" -e USER=doctor -e LOGNAME=doctor \
+            -e HOME=/work/home -e PATH=/work/home/.npm-global/bin:/work/bin:/usr/local/bin:/usr/bin:/bin \
+            -e CLAUDE_CODE_VERSION -e DISABLE_AUTOUPDATER=1 -w /work/repo "$DOCTOR_IMAGE" bash -euo pipefail -c '
+              node --version
+              node -e "process.exit(Number(process.versions.node.split(\".\")[0]) >= 22 ? 0 : 1)"
+              npm install --global --prefix "$HOME/.npm-global" "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+              claude --version
+              uv sync --frozen'
+
+      - name: Diagnose and propose
+        timeout-minutes: 20
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          FAILED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          W="$RUNNER_TEMP/doctor/work"
+          {
+            printf 'REPO: %s\nFAILED RUN: %s\nFAILED COMMIT: %s\n' "$REPO" "$RUN_URL" "$FAILED_SHA"
+            printf 'EVIDENCE: /work/evidence\nOUTPUT: /work/out\n\n'
+            cat "$RUNNER_TEMP/doctor/prompt.md"
+          } | docker run --rm -i --name doctor-agent \
+            --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp:rw,exec,size=1g \
+            --cap-drop=ALL --security-opt no-new-privileges --pids-limit 512 --memory 6g \
+            -v "$W/repo:/work/repo" -v "$W/home:/work/home" -v "$W/out:/work/out" \
+            -v "$W/evidence:/work/evidence:ro" -v "$W/bin:/work/bin:ro" \
+            -v "$W/passwd:/etc/passwd:ro" -e USER=doctor -e LOGNAME=doctor \
+            -e CLAUDE_CODE_OAUTH_TOKEN -e HOME=/work/home \
+            -e PATH=/work/home/.npm-global/bin:/work/bin:/usr/local/bin:/usr/bin:/bin \
+            -e DISABLE_AUTOUPDATER=1 -e CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 -e UV_NO_SYNC=1 \
+            -w /work/repo "$DOCTOR_IMAGE" \
+            claude -p --max-turns 40 \
+              --add-dir /work/evidence /work/out \
+              --allowedTools "Read,Glob,Grep,Edit(src/**),Edit(tests/**),Edit(dbt/**),Edit(scripts/**),Edit(//work/out/**),Bash(uv run pytest:*),Bash(uv run ruff:*),Bash(uv run mypy:*)" \
+              --disallowedTools "Edit(.github/**),Edit(src/pulse/contracts/**),Read(//proc/**),Read(//etc/**),Bash(git:*),Bash(gh:*),Bash(curl:*),WebFetch,WebSearch"
+
+      # Nothing the agent started may outlive its step: remove the containers, then confirm.
+      - name: Stop the agent
+        id: stop
+        if: always()
+        run: |
+          docker rm -f doctor-agent doctor-prep > /dev/null 2>&1 || true
+          left="$(docker ps -aq --filter name=^doctor-)" || { echo "::error::cannot list containers"; exit 1; }
+          if [ -n "$left" ]; then echo "::error::a doctor container survived"; exit 1; fi
+
+      # Fixed step, also after the agent failed or ran out of turns, once it is stopped: bring
+      # back its edits (no .git, links copied as links, no special files), commit them all so
+      # the guard sees every path, and save one diff of at most 1 MB.
+      - name: Package the proposed fix
+        id: package
+        if: always() && steps.evidence.outcome == 'success' && steps.stop.outcome == 'success'
+        env:
+          BASE: ${{ steps.evidence.outputs.base }}
+          GIT_LFS_SKIP_SMUDGE: '1'
+        run: |
+          W="$RUNNER_TEMP/doctor/work"
+          out="$RUNNER_TEMP/doctor/out"
+          # No git-lfs filter runs on the agent's tree, whatever its .gitattributes says.
+          nolfs=(-c filter.lfs.smudge= -c filter.lfs.clean= -c filter.lfs.process= -c filter.lfs.required=false)
+          for d in "$W/repo" "$W/out"; do
+            if [ -L "$d" ] || [ "$(realpath "$d")" != "$d" ]; then
+              echo "::error::$d is no longer a plain folder"; exit 1
+            fi
+          done
+          for f in report.md pr-body.md commit-message.txt; do
+            if [ -f "$W/out/$f" ] && [ ! -L "$W/out/$f" ]; then
+              head -c 200000 "$W/out/$f" > "$out/$f"
+            fi
+          done
+          rsync -a --no-devices --no-specials --delete --exclude=.git --exclude=.venv \
+            --exclude=__pycache__ --exclude=.pytest_cache --exclude=.mypy_cache --exclude=.ruff_cache \
+            "$W/repo/" ./
+          git "${nolfs[@]}" add -A
+          if git "${nolfs[@]}" diff --cached --quiet "$BASE"; then
+            echo "fix=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git "${nolfs[@]}" diff --cached --binary --no-renames "$BASE" > "$out/fix.diff"
+          if [ "$(stat -c %s "$out/fix.diff")" -gt 1000000 ]; then
+            rm "$out/fix.diff"
+            printf '\n\n_The proposed patch was larger than 1 MB and was dropped._\n' >> "$out/report.md"
+            echo "fix=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "fix=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: pipeline-doctor-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/doctor/out/
+          if-no-files-found: warn
+          retention-days: 14
+
+  report:
+    needs: diagnose
+    # Also after an agent failure, so the alert issue says the doctor wrote nothing.
+    if: ${{ !cancelled() && needs.diagnose.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      issue: ${{ steps.post.outputs.issue }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/heads/main
+          sparse-checkout: scripts/pipeline_fix_guard.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: pipeline-doctor-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/doctor
+
+      - name: Post the diagnosis on the alert issue
+        id: post
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPORT: ${{ runner.temp }}/doctor/report.md
+        run: |
+          body="$RUNNER_TEMP/comment.md"
+          if [ ! -s "$REPORT" ]; then
+            printf 'The pipeline doctor wrote no diagnosis for %s.\n' "$RUN_URL" > "$body"
+          elif ! python3 -I scripts/pipeline_fix_guard.py secrets "$REPORT"; then
+            printf 'The pipeline doctor diagnosis for %s matched a secret pattern and was withheld.\n' "$RUN_URL" > "$body"
+          else
+            { printf '**Pipeline doctor** on %s (an agent'"'"'s reading of the log; verify it).\n\n' "$RUN_URL"
+              python3 -I scripts/pipeline_fix_guard.py sanitize --max-chars 60000 "$REPORT"; } > "$body"
+          fi
+          issue="$(gh issue list --label alert:pipeline --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body-file "$body"
+          else
+            url="$(gh issue create --label alert:pipeline --title "[Pipeline alert] $WORKFLOW failed" --body-file "$body")"
+            issue="${url##*/}"
+          fi
+          echo "issue=$issue" >> "$GITHUB_OUTPUT"
+
+  propose:
+    needs: [diagnose, report]
+    if: needs.diagnose.outputs.fix == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      GH_REPO: ${{ github.repository }}
+      MARKER: '<!-- pipeline-doctor: ${{ github.event.workflow_run.name }} / ${{ needs.diagnose.outputs.failing_jobs }} -->'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.diagnose.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The guard runs from main's copy, taken before the patch is even downloaded, and the
+      # base the patch applies to must be a commit of main.
+      - name: Keep main's guard
+        env:
+          BASE: ${{ needs.diagnose.outputs.base }}
+        run: |
+          if [[ ! "$BASE" =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$BASE" refs/remotes/origin/main; then
+            echo "::error::base $BASE is not a commit of main"; exit 1
+          fi
+          git show refs/remotes/origin/main:scripts/pipeline_fix_guard.py > "$RUNNER_TEMP/guard.py"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: pipeline-doctor-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/doctor
+
+      - name: Skip when a fix for this failure is already open
+        id: open
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing="$(gh pr list --state open --limit 100 --json number,headRefName,body \
+            --jq "[.[] | select(.headRefName | startswith(\"pipeline-fix/\")) | select(.body | startswith(env.MARKER)) | .number] | first // empty")"
+          if [ -n "$existing" ]; then
+            echo "::notice::Draft fix #$existing already covers this failure; not opening another."
+          fi
+          echo "existing=$existing" >> "$GITHUB_OUTPUT"
+
+      # Check first, then write: the diff is read by `git apply --numstat/--summary`, and only
+      # applied once it passes. The applied tree is checked again against origin/main.
+      - name: Check and apply the patch
+        if: steps.open.outputs.existing == ''
+        run: |
+          patch="$RUNNER_TEMP/doctor/fix.diff"
+          python3 -I "$RUNNER_TEMP/guard.py" branch "$RUN_ID" "$RUN_ATTEMPT"
+          python3 -I "$RUNNER_TEMP/guard.py" secrets "$patch"
+          python3 -I "$RUNNER_TEMP/guard.py" patch "$patch"
+          git -c core.hooksPath=/dev/null apply --index "$patch"
+          msg="$RUNNER_TEMP/commit-message.txt"
+          if [ -s "$RUNNER_TEMP/doctor/commit-message.txt" ] \
+            && python3 -I "$RUNNER_TEMP/guard.py" secrets "$RUNNER_TEMP/doctor/commit-message.txt"; then
+            python3 -I "$RUNNER_TEMP/guard.py" sanitize --max-chars 2000 "$RUNNER_TEMP/doctor/commit-message.txt" > "$msg"
+          else
+            printf 'fix(pipeline): proposed fix for failed run %s\n' "$RUN_ID" > "$msg"
+          fi
+          git -c core.hooksPath=/dev/null -c user.name='pipeline-doctor' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --no-verify -q -F "$msg"
+          python3 -I "$RUNNER_TEMP/guard.py" paths --base origin/main
+
+      - name: Push the fix branch and open a draft PR
+        if: steps.open.outputs.existing == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ needs.report.outputs.issue }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          branch="pipeline-fix/${RUN_ID}-${RUN_ATTEMPT}"
+          # The token reaches git only here, through gh's credential helper reading GH_TOKEN.
+          gh auth setup-git
+          # Explicit refspec to a new branch, never forced.
+          git push origin "HEAD:refs/heads/pipeline-fix/${RUN_ID}-${RUN_ATTEMPT}"
+          body="$RUNNER_TEMP/pr.md"
+          # The marker is the body's first line, written here; agent text cannot contain `<!--`.
+          { echo "$MARKER"
+            printf 'Proposed by the pipeline doctor for %s. Refs #%s\n\n' "$RUN_URL" "$ISSUE"
+            printf 'An agent wrote this change from an untrusted log. Read the diff before marking it ready; CI starts then.\n\n'
+            if [ -s "$RUNNER_TEMP/doctor/pr-body.md" ] \
+              && python3 -I "$RUNNER_TEMP/guard.py" secrets "$RUNNER_TEMP/doctor/pr-body.md"; then
+              python3 -I "$RUNNER_TEMP/guard.py" sanitize --max-chars 50000 "$RUNNER_TEMP/doctor/pr-body.md"
+            fi; } > "$body"
+          if ! gh pr create --draft --base main --head "$branch" \
+            --title "fix(pipeline): proposed fix for failed run ${RUN_ID}" --body-file "$body"; then
+            echo "::error::Pushed ${branch} but could not open the draft PR. Open it from https://github.com/${GH_REPO}/compare/main...${branch}"
+            exit 1
+          fi
