@@ -10,6 +10,7 @@ import pytest
 from pulse.narrative.client import (
     CLAUDE_CODE_MODEL,
     AnthropicClient,
+    AuthenticationError,
     ClaudeCodeClient,
     client_from_env,
 )
@@ -96,6 +97,20 @@ def test_backend_selection(tmp_path: Path) -> None:
     model_env = {"PULSE_NARRATIVE_BACKEND": "claude-code", "PATH": path}
     overridden = client_from_env({**model_env, "PULSE_NARRATIVE_MODEL": "claude-haiku-5-5"})
     assert overridden is not None and overridden.model == "claude-haiku-5-5"
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "Failed to authenticate: OAuth token revoked. Please log in again.",
+        "Invalid API key",
+        "not logged in",
+    ],
+)
+def test_rejected_credential_is_named(detail: str) -> None:
+    run = FakeRun(cli_json(is_error=True, result=detail), returncode=1)
+    with pytest.raises(AuthenticationError):
+        ClaudeCodeClient("/opt/claude", env={}, run=run).complete("facts")
 
 
 def test_missing_cli_means_template_narratives(tmp_path: Path) -> None:
