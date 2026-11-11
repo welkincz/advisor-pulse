@@ -2,12 +2,14 @@
 
 The doctor agent reads untrusted logs, so its output is checked here by fixed code before
 anything leaves the runner. Standard library only: the workflow runs a copy taken from
-`main` before the patch is applied, with `python3 -I`, so the patch cannot change the guard
-that checks it.
+`main` before the patch is downloaded, with `python3 -I`, so the patch cannot change the
+guard that checks it.
 
-    python3 -I pipeline_fix_guard.py paths --base origin/main
+    python3 -I pipeline_fix_guard.py patch fix.diff           # before applying
+    python3 -I pipeline_fix_guard.py paths --base origin/main # after applying
     python3 -I pipeline_fix_guard.py branch "$RUN_ID" "$RUN_ATTEMPT"
-    python3 -I pipeline_fix_guard.py secrets report.md fix.patch
+    python3 -I pipeline_fix_guard.py secrets report.md fix.diff
+    python3 -I pipeline_fix_guard.py sanitize --max-chars 60000 report.md
 """
 
 from __future__ import annotations
@@ -30,10 +32,32 @@ DENIED_FILES = frozenset(
         "pyproject.toml",
         "dbt/dbt_project.yml",
         "dbt/packages.yml",
+        "dbt/dependencies.yml",
         "scripts/pipeline_fix_guard.py",
     }
 )
-DENIED_SUFFIXES = (".lock",)
+DENIED_SUFFIXES = (".lock", ".pth")
+# Files that configure git, pytest, Python or dbt for the whole tree, at any depth. They can
+# hide a change from the PR's diff view (.gitattributes) or run code on import or collection.
+DENIED_BASENAMES = frozenset(
+    {
+        ".gitattributes",
+        ".gitignore",
+        ".gitmodules",
+        ".lfsconfig",
+        ".mailmap",
+        "pytest.ini",
+        "setup.cfg",
+        "setup.py",
+        "tox.ini",
+        "profiles.yml",
+        "sitecustomize.py",
+        "usercustomize.py",
+    }
+)
+# conftest.py is a legitimate test fixture file under tests/; elsewhere it would be collected
+# from code the reviewer does not expect to run.
+TESTS_ONLY_BASENAMES = frozenset({"conftest.py"})
 # Symlinks and submodules can point a harmless-looking path somewhere else.
 DENIED_MODES = {"120000": "symlink", "160000": "submodule"}
 BRANCH_PREFIX = "pipeline-fix/"
@@ -68,6 +92,10 @@ def path_violation(path: str) -> str | None:
         return "inside .git"
     if path in DENIED_FILES:
         return "protected file"
+    if parts[-1] in DENIED_BASENAMES:
+        return "configures git, Python, pytest or dbt"
+    if parts[-1] in TESTS_ONLY_BASENAMES and parts[0] != "tests":
+        return "conftest.py outside tests/"
     if path.startswith(DENIED_PREFIXES):
         return "protected directory"
     if path.endswith(DENIED_SUFFIXES):
@@ -124,6 +152,81 @@ def git_changes(base: str, cwd: Path | None = None) -> list[Change]:
     return parse_raw(out)
 
 
+def parse_numstat(output: str) -> list[str]:
+    """Every path in `git apply --numstat -z`, both sides of a rename included."""
+    fields = output.split("\0")
+    paths: list[str] = []
+    i = 0
+    while i < len(fields):
+        field = fields[i]
+        i += 1
+        if not field:
+            continue
+        stats = field.split("\t", 2)
+        if len(stats) != 3:
+            raise ValueError(f"unexpected git apply --numstat entry: {field!r}")
+        if stats[2]:
+            paths.append(stats[2])
+        else:  # a rename or copy: the old and new paths follow as two fields
+            if i + 1 >= len(fields):
+                raise ValueError("truncated rename in git apply --numstat output")
+            paths.extend(fields[i : i + 2])
+            i += 2
+    return paths
+
+
+def patch_violations(patch: Path, cwd: Path | None = None) -> list[str]:
+    """Reasons to reject a patch file, read by `git apply` without applying it."""
+
+    def apply(*flags: str) -> str:
+        return subprocess.run(
+            ["git", "apply", *flags, str(patch)],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+
+    found = violations(
+        Change("100644", "100644", "M", p) for p in parse_numstat(apply("--numstat", "-z"))
+    )
+    for line in apply("--summary").splitlines():
+        # The doctor writes its patch with --no-renames, so a rename or copy means tampering,
+        # and `git apply --numstat` would list only its new path.
+        if line.strip().startswith(("rename ", "copy ")):
+            found.append(f"{line.strip()}: rename or copy")
+        for mode, kind in DENIED_MODES.items():
+            if f" {mode} " in f" {line} ":
+                found.append(f"{line.strip()}: {kind}")
+    return found
+
+
+_MENTION = re.compile(r"@(?=[A-Za-z0-9])")
+_ISSUE_REF = re.compile(r"(#|\bGH-)(?=\d)", re.IGNORECASE)
+_ISSUE_URL = re.compile(r"github\.com/(?=[\w.-]+/[\w.-]+/(?:issues|pull|discussions)/\d)")
+ZWSP = "\u200b"
+
+
+def sanitize(text: str, max_chars: int) -> str:
+    """Agent text made safe to post: no mentions, cross-references or HTML comments.
+
+    A zero-width space breaks `@user`, `#12`, `GH-12` and issue URLs so they neither notify
+    nor backlink, and `<!--` is escaped so the text cannot hide content or forge the
+    doctor's marker. Long text is cut at a line boundary with any code fence closed.
+    """
+    text = text.replace("<!--", "&lt;!--")
+    text = _MENTION.sub("@" + ZWSP, text)
+    text = _ISSUE_REF.sub(lambda m: m.group(1) + ZWSP, text)
+    text = _ISSUE_URL.sub("github" + ZWSP + ".com/", text)
+    if len(text) <= max_chars:
+        return text
+    cut = text.rfind("\n", 0, max_chars)
+    kept = text[: cut if cut > 0 else max_chars]
+    if sum(line.lstrip().startswith("```") for line in kept.splitlines()) % 2:
+        kept += "\n```"
+    return kept + "\n\n_(truncated)_\n"
+
+
 def branch_name(run_id: str, run_attempt: str) -> str:
     """`pipeline-fix/<run id>-<attempt>`, from digits only, so no refspec can be smuggled in."""
     for label, value in (("run id", run_id), ("run attempt", run_attempt)):
@@ -145,9 +248,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     branch = sub.add_parser("branch", help="print the fix branch for a failed run")
     branch.add_argument("run_id")
     branch.add_argument("run_attempt")
+    patch = sub.add_parser("patch", help="reject a patch file before it is applied")
+    patch.add_argument("file", type=Path)
     secrets = sub.add_parser("secrets", help="reject files that contain a token")
     secrets.add_argument("files", nargs="+", type=Path)
+    clean = sub.add_parser("sanitize", help="print agent text made safe to post")
+    clean.add_argument("--max-chars", type=int, default=60000)
+    clean.add_argument("file", type=Path)
     args = parser.parse_args(argv)
+
+    if args.command == "sanitize":
+        sys.stdout.write(sanitize(args.file.read_text(errors="replace"), args.max_chars))
+        return 0
+    if args.command == "patch":
+        found = patch_violations(args.file)
+        for reason in found:
+            print(f"::error::pipeline fix rejected: {reason}", file=sys.stderr)
+        return 1 if found else 0
 
     if args.command == "paths":
         found = violations(git_changes(args.base))

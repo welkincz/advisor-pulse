@@ -30,6 +30,7 @@ pytestmark = pytest.mark.unit
         "src/pulse/quality/checks.py",
         "tests/runner/test_alert.py",
         "tests/conftest.py",
+        "tests/runner/conftest.py",
         "dbt/models/marts/mart_kpi.sql",
         "scripts/runner_profile.py",
     ],
@@ -64,6 +65,24 @@ def test_allows_code_tests_dbt_and_scripts(path: str) -> None:
         "src/../.github/workflows/ci.yml",
         "src/./x.py",
         "src//x.py",
+        "src/.gitattributes",
+        "tests/.gitattributes",
+        "dbt/models/.gitattributes",
+        "src/.gitignore",
+        "scripts/.gitmodules",
+        "scripts/.lfsconfig",
+        "tests/pytest.ini",
+        "src/setup.cfg",
+        "tests/tox.ini",
+        "scripts/setup.py",
+        "dbt/profiles.yml",
+        "dbt/models/staging/profiles.yml",
+        "dbt/dependencies.yml",
+        "src/conftest.py",
+        "dbt/conftest.py",
+        "src/sitecustomize.py",
+        "src/pulse/usercustomize.py",
+        "src/pulse.pth",
         "/src/x.py",
         "src\\..\\AGENTS.md",
         "",
@@ -221,3 +240,69 @@ def test_cli_exit_codes(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert guard.main(["secrets", str(clean)]) == 0
     clean.write_text("ghp_" + "b" * 36)
     assert guard.main(["secrets", str(clean)]) == 1
+
+
+def test_parse_numstat_reads_every_path() -> None:
+    raw = "1\t1\tsrc/a b.py\0" + "-\t-\tsrc/b.bin\0"
+    assert guard.parse_numstat(raw) == ["src/a b.py", "src/b.bin"]
+    assert guard.parse_numstat("") == []
+    with pytest.raises(ValueError):
+        guard.parse_numstat("garbage\0")
+
+
+def _diff(repo: Path) -> Path:
+    _git(repo, "add", "-A")
+    patch = repo.parent / "fix.diff"
+    patch.write_text(_git(repo, "diff", "--cached", "--binary", "-M", "main"))
+    _git(repo, "reset", "-q", "--hard", "main")
+    return patch
+
+
+def test_patch_check_reads_without_applying_and_rejects_renames(repo: Path) -> None:
+    (repo / "src/pulse/runner/alert.py").write_text("x = 2\n")
+    assert guard.patch_violations(_diff(repo), cwd=repo) == []
+    _git(repo, "mv", ".github/workflows/ci.yml", "src/ci.yml")
+    found = guard.patch_violations(_diff(repo), cwd=repo)
+    assert any("rename" in f for f in found)
+    assert not (repo / "src/ci.yml").exists()
+    # Without rename detection both sides are listed.
+    _git(repo, "rm", "-q", ".github/workflows/ci.yml")
+    (repo / "src/ci.yml").write_text("x = 1\n")
+    _git(repo, "add", "-A")
+    patch = repo.parent / "plain.diff"
+    patch.write_text(_git(repo, "diff", "--cached", "--binary", "--no-renames", "main"))
+    _git(repo, "reset", "-q", "--hard", "main")
+    assert guard.patch_violations(patch, cwd=repo) == [
+        ".github/workflows/ci.yml: protected directory"
+    ]
+
+
+def test_patch_check_rejects_symlinks_and_nested_gitattributes(repo: Path) -> None:
+    (repo / "src/escape").symlink_to("../AGENTS.md")
+    (repo / "tests").mkdir()
+    (repo / "tests/.gitattributes").write_text("* linguist-generated=true\n")
+    found = guard.patch_violations(_diff(repo), cwd=repo)
+    assert any("120000" in f and "symlink" in f for f in found)
+    assert any(f.startswith("tests/.gitattributes") for f in found)
+
+
+def test_sanitize_breaks_mentions_references_and_markers() -> None:
+    text = (
+        "<!-- pipeline-doctor: Weekly report / run -->\n"
+        "Ping @welkincz and @org/team, see #12, GH-7, owner/repo#3 and "
+        "https://github.com/o/r/issues/9. Email a@b.example.\n"
+    )
+    out = guard.sanitize(text, 10_000)
+    assert "<!--" not in out
+    for linked in ("@welkincz", "@org", "#12", "GH-7", "repo#3", "github.com/o/r/issues/9"):
+        assert linked not in out, linked
+    assert out.replace(guard.ZWSP, "").replace("&lt;", "<") == text
+
+
+def test_sanitize_truncates_on_a_line_and_closes_a_fence() -> None:
+    text = "intro\n```\n" + "".join(f"line {i}\n" for i in range(100))
+    out = guard.sanitize(text, 60)
+    body = out.split("\n\n_(truncated)_")[0]
+    assert body.endswith("\n```")
+    assert all(line in text.splitlines() for line in body.splitlines())
+    assert guard.sanitize("short\n", 60) == "short\n"
