@@ -1,0 +1,111 @@
+# Labs CI (#382): each lab under labs/ runs its own tests in its own uv project.
+# Not a required check; branch protection is a repo setting for the owner.
+
+name: Labs
+
+on:
+  pull_request:
+    paths:
+      - 'labs/**'
+      # Read by the labs: the fixture warehouse build, the root dbt project and the
+      # runner stages the Airflow lab calls.
+      - 'dbt/**'
+      - 'fixtures/**'
+      - 'src/pulse/**'
+      - 'scripts/ci_warehouse.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'Makefile'
+      - '.github/workflows/labs.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'labs/**'
+      - 'dbt/**'
+      - 'fixtures/**'
+      - 'src/pulse/**'
+      - 'scripts/ci_warehouse.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'Makefile'
+      - '.github/workflows/labs.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: labs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lab:
+    name: lab (${{ matrix.lab }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # warehouse: run `make dbt-build-ci` first (the lab reads data/ci/warehouse.duckdb).
+          # root: the tests also use the root project's environment (dbt or runner stages).
+          - lab: open-table
+            warehouse: false
+            root: false
+            java: false
+            timeout: 15
+          - lab: legacy-migration
+            warehouse: true
+            root: true
+            java: false
+            timeout: 20
+          - lab: semantic-layer
+            warehouse: true
+            root: true
+            java: false
+            timeout: 30
+          - lab: pyspark-parity
+            warehouse: true
+            root: true
+            java: true
+            timeout: 30
+          - lab: airflow
+            warehouse: false
+            root: true
+            java: false
+            timeout: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+          cache-dependency-glob: |
+            uv.lock
+            labs/${{ matrix.lab }}/uv.lock
+
+      - name: Setup Java 21 (Spark 4)
+        if: matrix.java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Sync root project
+        if: matrix.root
+        run: uv sync --frozen
+
+      - name: Build fixture warehouse
+        if: matrix.warehouse
+        run: |
+          make dbt-build-ci
+          # The lab tests skip when the warehouse is missing; fail here instead.
+          test -f data/ci/warehouse.duckdb
+
+      - name: Sync lab project
+        run: uv sync --frozen --project labs/${{ matrix.lab }}
+
+      - name: Lab tests
+        run: uv run --frozen --project labs/${{ matrix.lab }} pytest labs/${{ matrix.lab }} -ra

@@ -451,3 +451,26 @@ def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
         assert env[key].endswith(" || '' }}")
     for name in ("Build backfilled site", "Continue in a new run", "Deploy to Cloudflare Pages"):
         assert "inputs.benchmark_only != true" in steps[name]["if"]
+
+
+def test_every_lab_has_a_labs_ci_matrix_entry() -> None:
+    labs_dir = WORKFLOWS.parents[1] / "labs"
+    labs = {p.name for p in labs_dir.iterdir() if p.is_dir() and not p.name.startswith(".")}
+    workflow = load("labs.yml")
+    entries = {e["lab"]: e for e in workflow["jobs"]["lab"]["strategy"]["matrix"]["include"]}
+    assert labs and set(entries) == labs
+    for name, entry in entries.items():
+        assert (labs_dir / name / "pyproject.toml").is_file()
+        assert (labs_dir / name / "uv.lock").is_file()
+        assert entry["warehouse"] in ("true", "false")
+    steps = {s.get("name"): s for s in workflow["jobs"]["lab"]["steps"]}
+    assert steps["Lab tests"]["run"].startswith(
+        "uv run --frozen --project labs/${{ matrix.lab }} pytest labs/${{ matrix.lab }}"
+    )
+    # A change to the workflow itself must re-run it, so its own PR shows the labs passing.
+    for event in ("pull_request", "push"):
+        paths = workflow["on"][event]["paths"]
+        assert {"labs/**", ".github/workflows/labs.yml"} <= set(paths)
+    assert "workflow_dispatch" in workflow["on"]
+    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["jobs"]["lab"]["strategy"]["fail-fast"] == "false"
