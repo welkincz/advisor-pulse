@@ -1,0 +1,27 @@
+# Source-to-target mapping for the branch weekly contact report (#324 lab).
+# Source = legacy/branch_contact_report.sql output. Target = marts.mart_org_weekly, level BRANCH.
+# Every entry below is a recorded mapping decision; the README explains each one.
+
+# Join keys, built from legacy columns. D1: the legacy branch code has no "BR-" prefix (Q1).
+[keys]
+iso_week_id = "{RPT_WK_ID}"
+branch_id = "BR-{BRNCH_CD}"
+
+# Legacy column -> target column. Names only; no value changes.
+[rename]
+ACT_CNT = "activities_completed"
+CALL_OUT_CNT = "calls_out"
+CALL_IN_CNT = "calls_in"
+UNIQ_CLNT_CNT = "unique_clients_contacted"
+AVG_MTG_MIN = "avg_meeting_duration_min"
+
+# Counts must match exactly (tolerance 0 is the default for every renamed column).
+
+# D2: legacy rounds to 1 dp half-up, the mart to 2 dp (Q2). Accept a difference up to half a
+#     legacy unit; the mart's 2-dp value stays the published figure.
+# D3: legacy writes 0 where no meeting was held; the mart writes null (Q3). A legacy 0 is read
+#     as null before comparing. Caveat: the source contract allows DURATION_MIN = 0, so a real
+#     0-minute average would also be nulled; the fixtures have none (shortest meeting: 30 min).
+[columns.avg_meeting_duration_min]
+tolerance = 0.05
+source_null_sentinel = 0
