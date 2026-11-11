@@ -180,9 +180,10 @@ measurement; all 1,191 file hashes matched again.
 | `export` | 4.6 |
 | `persist_state` | 34.0 |
 | `release_lock` | 0.7 |
-| **Total** | **269.3** |
+| Stages, summed | 268.6 |
+| **Run, start to end** | **269.3** |
 
-Narrate is not a normal figure here: the model credential was rejected, so all 27 narratives fell back to templates after one failed call each. With the model it takes about 9 minutes. Outside narrate the stages take 183 s.
+Narrate is not a normal figure here: the model credential was rejected, so all 27 narratives fell back to templates after one failed call each. With the model it takes about 9 minutes. Outside narrate the stages take 182.2 s. The stage sum comes from the unrounded `duration_ms` values in `run_log.json` (268,585 ms), so the rounded rows add up to 268.7; the run's own start-to-end time (269,269 ms) is 0.7 s longer, the time between stages.
 
 **Slimmer persisted warehouse (#304).** The warehouse is 1.3 GB, and about three quarters of it is intermediate tables that `dbt build` replaces on every run. Persist now uploads it without them: 1,304 MB → 340 MB, in 3.6 s on an Apple M4 Max. Running 2026-W43 on a full and a slim copy gave identical table lists and identical contents in every marts, intermediate, raw, quarantine and reference table, apart from the load timestamps `_loaded_at` and `detected_at`. The effect on R2 restore and persist times is not measured yet.
 
