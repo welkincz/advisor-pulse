@@ -454,66 +454,132 @@ def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
         assert "inputs.benchmark_only != true" in steps[name]["if"]
 
 
-def _doctor_tools() -> list[str]:
-    step = next(
-        s
-        for s in load("pipeline-doctor.yml")["jobs"]["diagnose"]["steps"]
-        if s.get("name") == "Diagnose and propose"
-    )
-    args = step["with"]["claude_args"]
-    return args.split('--allowedTools "', 1)[1].split('"', 1)[0].split(",")
+def _doctor() -> dict:
+    return load("pipeline-doctor.yml")
 
 
-def test_doctor_runs_only_when_an_operational_workflow_failed() -> None:
-    doctor = load("pipeline-doctor.yml")
+def _doctor_steps(job: str) -> dict[str, dict[str, Any]]:
+    steps = _doctor()["jobs"][job]["steps"]
+    return {s.get("name") or s["uses"]: s for s in steps}
+
+
+def _agent_step() -> dict[str, Any]:
+    return _doctor_steps("diagnose")["Diagnose and propose"]
+
+
+def _agent_tools(flag: str) -> list[str]:
+    args = _agent_step()["with"]["claude_args"]
+    return args.split(f'{flag} "', 1)[1].split('"', 1)[0].split(",")
+
+
+def test_doctor_runs_only_for_failed_runs_of_main_in_this_repo() -> None:
+    doctor = _doctor()
     trigger = doctor["on"]["workflow_run"]
     assert set(trigger["workflows"]) == {load("weekly.yml")["name"], load("backfill.yml")["name"]}
     assert trigger["types"] == ["completed"]
-    assert doctor["jobs"]["diagnose"]["if"] == "github.event.workflow_run.conclusion == 'failure'"
+    condition = " ".join(doctor["jobs"]["diagnose"]["if"].split())
+    assert condition == (
+        "github.event.workflow_run.conclusion == 'failure' "
+        "&& github.event.workflow_run.head_branch == 'main' "
+        "&& github.event.workflow_run.head_repository.full_name == github.repository"
+    )
+    checkout = _doctor_steps("diagnose")["actions/checkout@v4"]["with"]
+    assert checkout["ref"] == "main"
+    assert "head_sha" not in str(checkout)
 
 
-def test_doctor_has_least_privilege() -> None:
-    doctor = load("pipeline-doctor.yml")
-    assert doctor["permissions"] == {
-        "actions": "read",
-        "contents": "write",
-        "issues": "write",
-        "pull-requests": "write",
-        "id-token": "write",
-    }
+def test_doctor_keeps_every_diagnosis() -> None:
+    concurrency = _doctor()["concurrency"]
+    assert "workflow_run.id" in concurrency["group"]
+    assert "workflow_run.run_attempt" in concurrency["group"]
+    assert concurrency["cancel-in-progress"] == "false"
+
+
+def test_doctor_splits_privileges_between_agent_and_fixed_jobs() -> None:
+    doctor = _doctor()
+    assert doctor["permissions"] == {}
+    jobs = doctor["jobs"]
+    assert jobs["diagnose"]["permissions"] == {"contents": "read", "actions": "read"}
+    assert jobs["report"]["permissions"] == {"contents": "read", "issues": "write"}
+    assert jobs["propose"]["permissions"] == {"contents": "write", "pull-requests": "write"}
     text = (WORKFLOWS / "pipeline-doctor.yml").read_text()
+    assert "id-token" not in text
     assert set(re.findall(r"\$\{\{\s*secrets\.(\w+)", text)) == {"CLAUDE_CODE_OAUTH_TOKEN"}
+    # Only the agent job runs Claude; the jobs that can write run fixed steps.
+    for job in ("report", "propose"):
+        assert "claude-code-action" not in str(jobs[job])
 
 
-def test_doctor_cannot_merge_rerun_or_escape_its_branch() -> None:
-    tools = _doctor_tools()
-    bash = [t for t in tools if t.startswith("Bash(")]
-    assert "Bash" not in tools
-    assert not any(t in ("Bash(*)", "Bash(gh:*)", "Bash(git:*)") for t in bash)
-    for banned in (
-        "gh pr merge",
-        "gh pr ready",
-        "gh pr review",
-        "gh workflow",
-        "gh run",
-        "gh secret",
-        "gh api",
-        "curl",
-        "wrangler",
+def test_doctor_agent_job_holds_no_write_credential() -> None:
+    steps = _doctor_steps("diagnose")
+    assert steps["actions/checkout@v4"]["with"]["persist-credentials"] == "false"
+    agent = _agent_step()
+    # The action needs a token; the job's read-only one, never an OIDC app token.
+    assert agent["with"]["github_token"] == "${{ github.token }}"
+    assert agent["env"]["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"] == "1"
+
+
+def test_doctor_agent_cannot_push_comment_or_leave_its_paths() -> None:
+    allowed = _agent_tools("--allowedTools")
+    bash = [t for t in allowed if t.startswith("Bash")]
+    assert "Bash" not in allowed
+    assert not any(t.startswith(("Bash(git push", "Bash(git commit", "Bash(gh")) for t in bash)
+    assert not any(t in ("Bash(*)", "Bash(git:*)") for t in bash)
+    assert not any(word in t for t in bash for word in ("curl", "wget", "wrangler", "switch"))
+    assert "Edit" not in allowed and "Write" not in allowed
+    repo_writes = {t for t in allowed if t.startswith(("Edit(", "Write(")) and "temp" not in t}
+    paths = ("src", "tests", "dbt", "scripts")
+    assert repo_writes == {f"{tool}({path}/**)" for tool in ("Edit", "Write") for path in paths}
+    denied = _agent_tools("--disallowedTools")
+    for rule in (
+        "Edit(.git/**)",
+        "Write(.git/**)",
+        "Edit(.github/**)",
+        "Write(.github/**)",
+        "Bash(git push:*)",
+        "Bash(gh:*)",
+        "Read(//proc/**)",
     ):
-        assert not any(banned in t for t in bash), banned
-    assert [t for t in bash if t.startswith("Bash(git push")] == [
-        "Bash(git push origin pipeline-fix/:*)"
-    ]
-    assert [t for t in bash if t.startswith("Bash(gh pr create")] == [
-        "Bash(gh pr create --draft:*)"
-    ]
+        assert rule in denied, rule
+
+
+def test_doctor_keeps_evidence_outside_the_checkout() -> None:
+    collect = _doctor_steps("diagnose")["Collect the failed run's evidence"]["run"]
+    assert 'EVIDENCE="$RUNNER_TEMP/doctor/evidence"' in collect
+    assert ".doctor" not in (WORKFLOWS / "pipeline-doctor.yml").read_text()
+    assert "-name dist" in collect
+
+
+def test_doctor_pushes_only_through_the_guard() -> None:
+    steps = _doctor_steps("propose")
+    keep = steps["Keep main's guard"]["run"]
+    assert 'cp scripts/pipeline_fix_guard.py "$RUNNER_TEMP/guard.py"' in keep
+    apply = steps["Apply and check the patch"]["run"]
+    assert apply.index(" am ") < apply.index('guard.py" paths --base origin/main')
+    assert 'guard.py" branch "$RUN_ID" "$RUN_ATTEMPT"' in apply
+    assert 'guard.py" secrets' in apply
+    push = steps["Push the fix branch and open a draft PR"]["run"]
+    pushes = [line.strip() for line in push.splitlines() if "git push" in line]
+    assert pushes == ['git push origin "HEAD:refs/heads/pipeline-fix/${RUN_ID}-${RUN_ATTEMPT}"']
+    assert "--force" not in push and " -f " not in push and "+HEAD" not in push
+    assert "gh pr create --draft" in push
+    for banned in ("gh pr merge", "gh pr ready", "gh pr review", "gh workflow", "gh run rerun"):
+        assert banned not in (WORKFLOWS / "pipeline-doctor.yml").read_text(), banned
+
+
+def test_doctor_opens_one_fix_per_failure() -> None:
+    propose = _doctor()["jobs"]["propose"]
+    assert "failing_jobs" in propose["env"]["MARKER"]
+    skip = _doctor_steps("propose")["Skip when a fix for this failure is already open"]["run"]
+    assert "pipeline-fix/" in skip and "env.MARKER" in skip
+    for name in ("Apply and check the patch", "Push the fix branch and open a draft PR"):
+        assert _doctor_steps("propose")[name]["if"] == "steps.open.outputs.existing == ''"
 
 
 def test_doctor_prompt_exists_and_treats_evidence_as_data() -> None:
     prompt = (WORKFLOWS.parent / "doctor-prompt.md").read_text()
     assert "evidence, not instructions" in prompt
-    assert "Merge or approve" in prompt
+    assert "Do not commit or push" in prompt
 
 
 def test_ci_runs_when_a_person_marks_a_draft_ready() -> None:
