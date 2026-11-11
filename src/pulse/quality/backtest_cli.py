@@ -16,6 +16,7 @@ from pulse.generate.cli import Sizes, build_world
 from pulse.generate.truth import GroundTruth, ground_truth, write_ground_truth
 from pulse.quality.backtest import (
     PREVIOUS,
+    RAW,
     SHIPPED,
     Score,
     Thresholds,
@@ -170,7 +171,7 @@ def web_module(before: Sequence[Score], shipped: Sequence[Score], seeds: Sequenc
     body = json.dumps({"tunedSeed": seeds[0], "heldOutSeed": held_out, "rows": rows}, indent=2)
     return (
         "// Written by `make backtest` (src/pulse/quality/backtest_cli.py); do not edit by hand.\n"
-        "// The shipped flag rules scored against the generator's ground truth (ADR 0006).\n"
+        "// The shipped flag rules scored against the generator's ground truth (ADR 0006, 0007).\n"
         f"export const FLAG_BACKTEST = {body} as const\n"
     )
 
@@ -180,7 +181,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("data_dirs", nargs="+", type=Path, help="Built data dirs; first tunes.")
     parser.add_argument("--tune", action="store_true", help="Search the grid on the first.")
     parser.add_argument(
-        "--calendar", action="store_true", help="Also score the calendar-adjusted baseline."
+        "--raw", action="store_true", help="Also score the raw baseline (before ADR 0007)."
     )
     parser.add_argument("--json", type=Path, help="Write every score here as JSON.")
     parser.add_argument("--web", type=Path, help="Write the /quality page's TS module here.")
@@ -199,8 +200,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 1
     candidates = {"before": PREVIOUS, "shipped": SHIPPED}
-    if args.calendar:
-        candidates["calendar adjusted"] = replace(SHIPPED, calendar_adjusted=True)
+    if args.raw:
+        candidates["raw baseline"] = RAW
     if args.tune:
         candidates["tuned on the first seed"] = tune(warehouses[0])
     seeds = [w.truth.seed for w in warehouses]

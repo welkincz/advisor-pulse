@@ -1,6 +1,6 @@
-# ADR 0007 — Evaluate a calendar-adjusted anomaly baseline
+# ADR 0007 — Calendar-adjusted anomaly baseline
 
-- Status: Proposed. The evaluation is done; changing the shipped rule waits for the owner's OK on PLAN.md §7.
+- Status: Accepted (2026-11-11, owner approved). The calendar-adjusted rule ships in `mart_weekly_report`.
 - Date: 2026-11-05
 - Issue: #332 (from #300, ADR 0006)
 
@@ -42,10 +42,19 @@ Two full histories, 2024-W41 to 2026-W42, default scale, built from `229dd7e`. N
 
 Ship it, because it removes false alarms that a manager can do nothing about, at no cost above branch level. Shipping means a week factor in `dim_date` for `mart_weekly_report`, keeping the backtest's check that it reproduces the mart, re-pinning `test_backtest_minimums.py`, and rewriting the `/quality` table. That is a PLAN.md §7 change, so it is the owner's call.
 
+## Decision
+
+Accepted by the owner on 2026-11-11. What shipped:
+
+- **One calendar.** `make seeds` writes `pulse.business_calendar.week_factor` for every ISO week in `dim_date`'s default range to the `business_week` seed, and `dim_date.week_factor` joins it (not null, tested). The generator, DQ031 and the report now read the same factors; `make seeds-check` fails if the seed drifts from the Python calendar.
+- **The mart.** `mart_weekly_report` divides `ACT_PER_ADV`, `CALLS_OUT`, `APPT_BOOKED` and `CLIENTS_CONTACTED` by the week factor before the `ANOMALY` test, in the week and its 13-week baseline. Values, `trailing_13w_avg`, `UP`/`DOWN` and the other KPIs are unchanged. A dbt unit test holds a holiday week that the raw rule would flag.
+- **The backtest.** `SHIPPED` is the adjusted rule, and the check that the backtest reproduces the mart runs at it. `--raw` scores the previous rule for comparison.
+- **Rebuilt evidence.** Both seeds rebuilt from this branch: the backtest reproduces the mart row for row, and every adjusted score in the table above is reproduced except national, where both rules raise two fewer false alarms per seed than the `229dd7e` build (adjusted national 11.32 and 8.49 per 100 node-weeks). `test_backtest_minimums.py` is re-pinned to the adjusted rule and `/quality` shows its held-out results.
+
 ## How to reproduce
 
 Build each seed as in ADR 0006, without `R2_*` set (10.6 minutes each on an Apple M4 Max), then:
 
 ```bash
-make backtest BACKTEST_DIRS="/tmp/pulse-20261013/data /tmp/pulse-424242/data" ARGS="--calendar --json out.json"
+make backtest BACKTEST_DIRS="/tmp/pulse-20261013/data /tmp/pulse-424242/data" ARGS="--raw --json out.json"
 ```

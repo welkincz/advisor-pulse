@@ -8,7 +8,9 @@ same SQL can try other thresholds without rebuilding dbt.
 Three rules, each at every level of the report:
 
 - ``ANOMALY``: a measure more than ``z`` standard deviations from its 13 weeks before
-  (every KPI except the rolling 12-month rate);
+  (every KPI except the rolling 12-month rate). The four counts that scale with working
+  days are judged after dividing each week by the business calendar's expected volume
+  (``dim_date.week_factor``, ADR 0007);
 - ``PRTF_MOVE``: for ``PRTF_CONTACT_12M``, a weekly move more than ``prtf_z`` standard
   deviations from the 13 moves before and at least ``prtf_min_move``;
 - ``DOWN`` / ``UP``: separate week-on-week labels when a measure moved ``wow_pct`` or more.
@@ -21,9 +23,8 @@ of scored stories with at least one hit, and lag runs from a story's first chang
 Calendar flags remain false alarms. Operational KPIs are included, but without injected
 rate-change stories their recall is unassessed; their alerts count as unmatched.
 
-``calendar_adjusted`` evaluates a candidate that the mart does not ship (ADR 0007): the
-``ANOMALY`` rule compares volume KPIs after dividing each week by the business calendar's
-expectation, in the week judged and in its baseline. The other rules do not change.
+``calendar_adjusted=False`` re-runs the raw ``ANOMALY`` rule that shipped before ADR 0007,
+for comparison: the counts are judged as they are, so holiday weeks look abnormal.
 """
 
 from __future__ import annotations
@@ -36,12 +37,12 @@ from pathlib import Path
 
 import duckdb
 
-from pulse.business_calendar import week_factor
 from pulse.generate.truth import LEVELS, GroundTruth, Story
 from pulse.warehouse import WAREHOUSE_FILE
 
 RULES = ("ANOMALY", "PRTF_MOVE", "DOWN", "UP")
-# Counts that scale with working days. Rates and averages have no such expectation.
+# Counts that scale with working days (per_working_day in mart_weekly_report). Rates and
+# averages have no such expectation.
 CALENDAR_KPIS = ("ACT_PER_ADV", "CALLS_OUT", "APPT_BOOKED", "CLIENTS_CONTACTED")
 
 
@@ -54,13 +55,15 @@ class Thresholds:
     prtf_z: float = 2.0
     prtf_min_move: float = 0.002
     wow_pct: float = 0.01
-    calendar_adjusted: bool = False
+    calendar_adjusted: bool = True
 
 
 SHIPPED = Thresholds()
 PROPOSED = Thresholds(z=3.0, prtf_min_move=0.002)
-# The thresholds before the backtest tuned them (ADR 0006).
-PREVIOUS = Thresholds(z=2.0, prtf_min_move=0.005)
+# The thresholds before the backtest tuned them (ADR 0006), with the raw baseline.
+PREVIOUS = Thresholds(z=2.0, prtf_min_move=0.005, calendar_adjusted=False)
+# The tuned thresholds before the calendar adjustment (ADR 0007).
+RAW = Thresholds(calendar_adjusted=False)
 
 
 @dataclass(frozen=True)
@@ -87,17 +90,18 @@ class Score:
 _PREPARE = """
 create or replace temp table backtest_report as
 with weeks as (
-    select iso_week_id, min(week_start) as week_start from marts.dim_date group by 1
+    select iso_week_id, min(week_start) as week_start, any_value(week_factor) as week_factor
+    from marts.dim_date
+    group by 1
 ),
 report as (
     select
         r.*,
         weeks.week_start,
-        case when r.kpi_code in ({calendar_kpis}) then r.value / calendar.factor else r.value end
+        case when r.kpi_code in ({calendar_kpis}) then r.value / weeks.week_factor else r.value end
             as adjusted_value
     from marts.mart_weekly_report as r
     inner join weeks using (iso_week_id)
-    inner join backtest_calendar as calendar using (iso_week_id)
 ),
 values_before as (
     select
@@ -157,11 +161,6 @@ from judged
 
 def _connect(data_dir: Path) -> duckdb.DuckDBPyConnection:
     con = duckdb.connect(str(data_dir / WAREHOUSE_FILE), read_only=True)
-    con.execute("create temp table backtest_calendar (iso_week_id varchar, factor double)")
-    weeks = con.execute("select distinct iso_week_id from marts.dim_date").fetchall()
-    con.executemany(
-        "insert into backtest_calendar values (?, ?)", [(w, week_factor(w)) for (w,) in weeks]
-    )
     kpis = ", ".join(f"'{kpi}'" for kpi in CALENDAR_KPIS)
     con.execute(_PREPARE.replace("{calendar_kpis}", kpis))
     return con

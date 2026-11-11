@@ -12,7 +12,7 @@ import pytest
 from pulse.business_calendar import week_factor
 from pulse.generate.truth import GroundTruth, Story
 from pulse.quality import backtest
-from pulse.quality.backtest import PREVIOUS, SHIPPED, flags, mismatches, score
+from pulse.quality.backtest import PREVIOUS, RAW, SHIPPED, flags, mismatches, score
 from pulse.warehouse import WAREHOUSE_FILE
 
 # The dbt unit test's series (mart_weekly_report.yml): steady near 100, then 120 in W09.
@@ -21,10 +21,13 @@ MART_FLAGS = ["FLAT", "UP", "DOWN", "UP", "UP", "DOWN", "UP", "FLAT", "ANOMALY"]
 
 
 def _warehouse(tmp_path: Path, mart_flags: list[str]) -> duckdb.DuckDBPyConnection:
+    """The series in ordinary weeks: every week_factor is 1.0."""
     path = tmp_path / WAREHOUSE_FILE
     con = duckdb.connect(str(path))
     con.execute("create schema marts")
-    con.execute("create table marts.dim_date (iso_week_id varchar, week_start date)")
+    con.execute(
+        "create table marts.dim_date (iso_week_id varchar, week_start date, week_factor double)"
+    )
     con.execute(
         "create table marts.mart_weekly_report (iso_week_id varchar, level varchar,"
         " node_id varchar, kpi_code varchar, value double, wow_delta double,"
@@ -34,7 +37,7 @@ def _warehouse(tmp_path: Path, mart_flags: list[str]) -> duckdb.DuckDBPyConnecti
     for i, (value, flag) in enumerate(zip(CALLS, mart_flags, strict=True)):
         week = f"2026-W{i + 1:02d}"
         con.execute(
-            "insert into marts.dim_date values (?, ?)",
+            "insert into marts.dim_date values (?, ?, 1.0)",
             [week, date(2025, 12, 29) + timedelta(weeks=i)],
         )
         delta = None if prior is None else value - prior
@@ -145,8 +148,8 @@ def test_operational_kpi_flags_are_included(tmp_path: Path) -> None:
 def test_tuned_policy_does_not_alert_between_two_and_three_sigma(tmp_path: Path) -> None:
     con = _warehouse(tmp_path, MART_FLAGS)
     con.execute(
-        "update backtest_report set value = 108, wow_delta = 8, wow_pct = 0.08 "
-        " , flag = 'UP' where iso_week_id = '2026-W09'"
+        "update backtest_report set value = 108, adjusted_value = 108, wow_delta = 8,"
+        " wow_pct = 0.08, flag = 'UP' where iso_week_id = '2026-W09'"
     )
     # The integrated mart uses 3 sigma. The same observation is an anomaly under
     # the previous 2-sigma rule and an ordinary UP under the tuned policy.
@@ -156,13 +159,16 @@ def test_tuned_policy_does_not_alert_between_two_and_three_sigma(tmp_path: Path)
 
 
 def _summer_warehouse(
-    tmp_path: Path, kpi: str, *, spike: bool = False
+    tmp_path: Path, kpi: str, *, spike: bool = False, holiday_flag: str = "FLAT"
 ) -> duckdb.DuckDBPyConnection:
-    """A steady summer ending in Labour Day week, or in a real jump in an ordinary week."""
+    """A steady summer ending in Labour Day week, or in a real jump in an ordinary week.
+    The mart's flags are all FLAT except ``holiday_flag`` in Labour Day week."""
     path = tmp_path / WAREHOUSE_FILE
     con = duckdb.connect(str(path))
     con.execute("create schema marts")
-    con.execute("create table marts.dim_date (iso_week_id varchar, week_start date)")
+    con.execute(
+        "create table marts.dim_date (iso_week_id varchar, week_start date, week_factor double)"
+    )
     con.execute(
         "create table marts.mart_weekly_report (iso_week_id varchar, level varchar,"
         " node_id varchar, kpi_code varchar, value double, wow_delta double,"
@@ -175,10 +181,13 @@ def _summer_warehouse(
         iso = monday.isocalendar()
         week = f"{iso.year}-W{iso.week:02d}"
         value = ordinary * week_factor(week)
-        con.execute("insert into marts.dim_date values (?, ?)", [week, monday])
+        flag = holiday_flag if week == "2026-W37" else "FLAT"
         con.execute(
-            "insert into marts.mart_weekly_report values (?, 'NATIONAL', 'CA', ?, ?, 0, 0, 'FLAT')",
-            [week, kpi, value],
+            "insert into marts.dim_date values (?, ?, ?)", [week, monday, week_factor(week)]
+        )
+        con.execute(
+            "insert into marts.mart_weekly_report values (?, 'NATIONAL', 'CA', ?, ?, 0, 0, ?)",
+            [week, kpi, value, flag],
         )
     con.close()
     return backtest._connect(tmp_path)
@@ -186,24 +195,22 @@ def _summer_warehouse(
 
 def test_calendar_adjustment_clears_a_holiday_week_the_raw_rule_flags(tmp_path: Path) -> None:
     con = _summer_warehouse(tmp_path, "CALLS_OUT")
-    adjusted = replace(SHIPPED, calendar_adjusted=True)
-    assert [f.week for f in flags(con, SHIPPED) if f.rule == "ANOMALY"] == ["2026-W37"]
-    assert [f for f in flags(con, adjusted) if f.rule == "ANOMALY"] == []
+    assert SHIPPED.calendar_adjusted
+    assert [f.week for f in flags(con, RAW) if f.rule == "ANOMALY"] == ["2026-W37"]
+    assert [f for f in flags(con, SHIPPED) if f.rule == "ANOMALY"] == []
+    assert mismatches(con) == 0
 
 
 def test_calendar_adjustment_leaves_a_real_break_flagged(tmp_path: Path) -> None:
     con = _summer_warehouse(tmp_path, "CALLS_OUT", spike=True)
-    adjusted = replace(SHIPPED, calendar_adjusted=True)
-    assert [f.week for f in flags(con, adjusted) if f.rule == "ANOMALY"] == ["2026-W36"]
+    assert [f.week for f in flags(con, SHIPPED) if f.rule == "ANOMALY"] == ["2026-W36"]
 
 
 def test_calendar_adjustment_does_not_touch_rates(tmp_path: Path) -> None:
     con = _summer_warehouse(tmp_path, "SHOW_RATE")
-    adjusted = replace(SHIPPED, calendar_adjusted=True)
-    assert flags(con, adjusted) == flags(con, SHIPPED)
+    assert flags(con, SHIPPED) == flags(con, RAW)
 
 
-def test_the_candidate_does_not_change_the_shipped_comparison(tmp_path: Path) -> None:
-    con = _warehouse(tmp_path, MART_FLAGS)
-    assert SHIPPED.calendar_adjusted is False
-    assert mismatches(con) == 0
+def test_a_mart_still_on_the_raw_rule_is_caught(tmp_path: Path) -> None:
+    con = _summer_warehouse(tmp_path, "CALLS_OUT", holiday_flag="ANOMALY")
+    assert mismatches(con) == 1
