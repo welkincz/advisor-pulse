@@ -23,7 +23,7 @@ export const KPI_PLAIN: Record<KpiCode, string> = {
 /** Terms the charts use, each with the question a reader is likely to ask about it. */
 export const TERMS = {
   usual: { title: 'Usual', text: 'The average of the last 13 weeks, this one included. It shows what a normal week looks like for this area.' },
-  anomaly: { title: 'Anomaly', text: 'A week more than three standard deviations from the 13 weeks before it: rare enough to check. Portfolio contacted moves slowly, so for it the week’s change is what has to be unusual, and 0.2 points or more.' },
+  anomaly: { title: 'Anomaly', text: 'A week more than three standard deviations from the 13 weeks before it: rare enough to check. Activity counts allow for holidays and the February lift, so a short holiday week is not an anomaly. Portfolio contacted moves slowly, so for it the week’s change is what has to be unusual, and 0.2 points or more.' },
   wow: { title: 'WoW', text: 'Week over week: the change from the week before.' },
   national: { title: 'National line', text: 'The dashed line is Canada as a whole, so you can see whether a region is just following the country.' },
   toDate: { title: 'Quarter to date', text: 'Hatched columns are quarters still running. Counts are shown as a weekly average so a part quarter compares fairly with a full one.' },
@@ -31,6 +31,9 @@ export const TERMS = {
 } as const
 
 export type Better = 'higher' | 'lower' | 'neither'
+
+/** The counts whose anomaly rule allows for the business calendar (mart_weekly_report, ADR 0007). */
+export const CALENDAR_ADJUSTED: ReadonlySet<KpiCode> = new Set<KpiCode>(['ACT_PER_ADV', 'CALLS_OUT', 'APPT_BOOKED', 'CLIENTS_CONTACTED'])
 
 const pct = (value: number) => `${Math.abs(value * 100).toFixed(1)}%`
 /**
@@ -83,6 +86,12 @@ export function happened({ code, value, wow, usual, flag, better }: Facts): stri
     lines.push(TERMS.warmUp.text)
   }
   // The flag compares with how much this area normally moves, which a small gap can still exceed.
-  if (flag) lines.push('Flagged as an anomaly: further from the 13 weeks before than this area normally moves.')
+  // For the activity counts it judges the week after the business calendar (ADR 0007), so a
+  // February week at its usual level can be flagged and a short holiday week need not be.
+  if (flag) {
+    lines.push(CALENDAR_ADJUSTED.has(code)
+      ? 'Flagged as an anomaly: after allowing for holidays and the February lift, further from the 13 weeks before than this area normally moves.'
+      : 'Flagged as an anomaly: further from the 13 weeks before than this area normally moves.')
+  }
   return lines
 }

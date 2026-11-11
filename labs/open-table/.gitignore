@@ -1,0 +1,4 @@
+.venv/
+.warehouse/
+__pycache__/
+.pytest_cache/
