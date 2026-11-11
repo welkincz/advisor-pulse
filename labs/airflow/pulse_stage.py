@@ -5,6 +5,10 @@ dependencies never meet dbt's. The stage functions are the runner's own (``WEEKL
 each attempt is recorded in ``meta.run_log`` with Airflow's try number as the attempt.
 The last stdout line is a JSON summary that the Airflow task returns as its XCom.
 
+``pulse_stage.py allocate --week W --run-type T`` instead prints a new run id for one
+Airflow DagRun, ``<type>-<week>-airflow-<n>``, numbered after the ids already in
+``meta.run_log`` the way the runner numbers its own runs (``new_run_id``).
+
 Exit code: 0 for SUCCESS, WARN or SKIPPED; 1 for FAILED (Airflow then retries or fails).
 """
 
@@ -20,11 +24,12 @@ from pulse.contracts.enums import RunType, StageStatus
 from pulse.contracts.meta import RunLogRow
 from pulse.generate import stage as generate_stage
 from pulse.generate.cli import Sizes
+from pulse.ingest import meta
 from pulse.narrative.stage import narrate
 from pulse.runner.dag import WEEKLY_STAGES
-from pulse.runner.run import WarehouseSink
+from pulse.runner.run import WarehouseSink, new_run_id
 from pulse.runner.stage import StageContext, StageFn, StageResult, SystemClock
-from pulse.warehouse import WAREHOUSE_FILE
+from pulse.warehouse import WAREHOUSE_FILE, connect, init_warehouse
 
 # The R2 state stages (restore/persist/release) are left out: the lab keeps local state.
 LAB_STAGES = ("generate", "ingest", "dbt_build", "checks", "narrate", "export")
@@ -70,11 +75,23 @@ def run(name: str, ctx: StageContext, attempt: int) -> StageResult:
     return result
 
 
+def allocate_run_id(data_dir: Path, run_type: RunType, week: str) -> str:
+    """A fresh run id per DagRun, so a re-run of a failed week is a new run in run_log.
+    Reusing one id per week would let the failed run's higher attempts outrank the re-run's."""
+    con = connect(data_dir / WAREHOUSE_FILE)
+    try:
+        init_warehouse(con)
+        existing = {r.run_id for r in meta.get_run_log(con)}
+    finally:
+        con.close()
+    return new_run_id(run_type, f"{week}-airflow", existing)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stage", choices=LAB_STAGES)
+    parser.add_argument("stage", choices=(*LAB_STAGES, "allocate"))
     parser.add_argument("--week", required=True)
-    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--run-id")
     parser.add_argument("--run-type", default=RunType.WEEKLY.value)
     parser.add_argument("--attempt", type=int, default=1)
     args = parser.parse_args(argv)
@@ -85,6 +102,12 @@ def main(argv: list[str] | None = None) -> int:
         advisors=int(os.environ.get("PULSE_LAB_ADVISORS", "60")),
         clients=int(os.environ.get("PULSE_LAB_CLIENTS", "1500")),
     )
+    if args.stage == "allocate":
+        run_id = allocate_run_id(data_dir, RunType(args.run_type), args.week)
+        print(json.dumps({"stage": "allocate", "week": args.week, "run_id": run_id}))
+        return 0
+    if args.run_id is None:
+        parser.error("--run-id is required for a stage")
     ctx = StageContext(args.run_id, RunType(args.run_type), args.week, data_dir, SystemClock())
     result = run(args.stage, ctx, args.attempt)
     summary = {

@@ -22,6 +22,7 @@ Airflow DB, and runs `airflow dags test pulse_weekly 2026-11-09T06:00:00+00:00`.
 
 | Airflow task | Runner stage | Notes |
 |---|---|---|
+| `pulse_run_id` | (run id) | A new pulse run id for each DagRun, e.g. `manual-2026-W45-airflow-2` |
 | `generate` | `generate` | 60 advisors, 1,500 clients (`PULSE_LAB_ADVISORS`, `PULSE_LAB_CLIENTS`) |
 | `ingest` | `ingest` | |
 | `dbt_build` | `dbt_build` | `dbt build` on the run's DuckDB warehouse |
@@ -37,6 +38,12 @@ Airflow DB, and runs `airflow dags test pulse_weekly 2026-11-09T06:00:00+00:00`.
   keeps its state in a local directory.
 - **Run log.** `pulse_stage.py` writes each attempt to `meta.run_log`, using Airflow's try
   number as the attempt. Retries therefore show up in `run_log.json` as well as in Airflow.
+- **One pulse run id per DagRun.** The first task numbers a new id after the ids already in
+  `meta.run_log`, as the runner does. Retries and cleared tasks in that DagRun reuse it
+  through XCom. A new DagRun for the same week gets the next number. With one id per week,
+  a re-run after a failed week would start again at try 1, the failed run's attempts 2
+  and 3 would outrank it, and the week would stay FAILED with no data exported. The tests
+  re-run a failed week and check for this.
 - **Why `run_status` exists.** Airflow decides a run's state from its leaf tasks. Without
   `run_status`, `export` (which runs after any outcome) succeeds, and a failed week would end
   green. The failure test caught this.
@@ -52,9 +59,14 @@ Airflow DB, and runs `airflow dags test pulse_weekly 2026-11-09T06:00:00+00:00`.
 - `catchup=False`: turning the DAG on does not queue every week since 2024-W41.
   `airflow backfill create --from-date … --to-date …` creates one run per interval, one ISO
   week each (tested from the timetable: 2026-10-05 to 2026-11-02 gives W41 to W45).
-- `max_active_runs=1`: weeks share one warehouse and SCD2 history, so they run in order. The
-  project's own `pulse backfill` is faster for many weeks because it finalizes once (#275).
-  An Airflow backfill runs the full DAG for every week.
+- `max_active_runs=1`: weeks share one warehouse and SCD2 history, so one week runs at a
+  time, in order. `pulse_run_id` has `depends_on_past=True` and `wait_for_downstream=True`,
+  so a week starts only after the previous week's run finished cleanly: every stage and
+  `run_status` succeeded or was skipped. A failed week blocks the next one until it is
+  re-run or marked done. The tests check these settings; `dag.test()` does not run a
+  scheduler, so the blocking itself is not exercised here.
+- The project's own `pulse backfill` is faster for many weeks because it finalizes once
+  (#275). An Airflow backfill runs the full DAG for every week.
 - Retries: 2 per task, exponential backoff starting at 5 min (1 s in tests).
   `execution_timeout` is 30 min per task, and `dagrun_timeout` is 2 h per run.
 - SLAs: Airflow 3 removed `sla=` and `sla_miss_callback`. Timeouts are the bound used here.
@@ -78,6 +90,7 @@ Apple M4 Max, local, 2026-11-11. ISO week 2026-W45.
 `labs/airflow/run_week.sh`:
 
 ```
+{"stage": "allocate", "week": "2026-W45", "run_id": "manual-2026-W45-airflow-1"}
 {"stage": "generate", ..., "status": "SUCCESS", "message": "2026-W45: generated with 209 recorded defects."}
 {"stage": "ingest", ..., "status": "SUCCESS", "rows_out": 49262, ...}
 {"stage": "dbt_build", ..., "status": "WARN", "rows_out": 529, "message": "529 dbt nodes; 1 warned: dq025_portfolio_holder_at_another_branch.4e261280ed."}
@@ -85,7 +98,7 @@ Apple M4 Max, local, 2026-11-11. ISO week 2026-W45.
 {"stage": "narrate", ..., "status": "WARN", "rows_out": 23, "message": "No model backend configured: wrote 23 template narratives."}
 {"stage": "export", ..., "status": "SUCCESS", "rows_out": 9, "message": "Exported 9 files for 2026-W45."}
 DagRun Finished: dag_id=pulse_weekly, logical_date=2026-11-09 06:00:00+00:00, ... state=success
-wall time: 18.6 s (airflow dags test, incl. CLI start-up)
+wall time: 17.9 s (airflow dags test, incl. CLI start-up)
 ```
 
 Stage durations from `run_log.json`: generate 0.8 s, ingest 2.3 s, dbt_build 9.6 s,
@@ -93,21 +106,26 @@ checks 0.1 s, narrate 0.05 s. That is about 12.8 s of stage work. The other ~6 s
 start-up, task scheduling and one `uv run` process per task. WARN is a stage outcome the
 runner reports. Airflow treats it as success.
 
-`uv run --project labs/airflow pytest labs/airflow -s` (12 passed in 38.6 s):
+`uv run --project labs/airflow pytest labs/airflow -s` (16 passed in 66.5 s):
 
 ```
-manual__2026-11-09T06:00:00+00:00: success in 16.3 s
-  checks, dbt_build, export, generate, ingest, narrate   success  try 1
+manual__2026-11-09T06:00:00+00:00: success in 16.1 s
+  pulse_run_id and the six stages                        success  try 1
   run_status                                             skipped
-manual__2026-11-09T06:00:00+00:00: failed in 19.0 s     (PULSE_FORCE_FAIL=checks)
+manual__2026-11-09T06:00:00+00:00: failed in 17.7 s     (PULSE_FORCE_FAIL=checks)
   checks     failed           try 3
   narrate    upstream_failed  try 0
   export     success          try 1     publishes run_log.json only
   run_status failed           try 1
+manual__2026-11-09T06:00:00+00:00: failed in 17.6 s     (re-run test: fail first ...)
+manual__2026-11-09T06:00:00+00:00: success in 10.5 s    (... then re-run the week clean)
 ```
 
 The failure test also asserts that `run_log.json` holds `checks` attempts 1, 2 and 3 as
-FAILED, no `narrate` row, and no new data manifest. The integrity test reads the runner's
+FAILED, no `narrate` row, and no new data manifest. The re-run test fails a week, then
+runs it again clean on the same data dir: the Airflow run succeeds, `run_log.json` leads
+with `manual-2026-W45-airflow-2` (WARN, from the DQ warnings) above `-airflow-1` (FAILED),
+and the manifest and narratives are written. The integrity test reads the runner's
 `execution_order(WEEKLY_STAGES)` from the root environment and fails if the task order,
 upstream sets or `always` → `all_done` mapping drift from it.
 
@@ -121,4 +139,6 @@ upstream sets or `always` → `all_done` mapping drift from it.
   Airflow.
 - Small synthetic world (60 advisors, 1,500 clients, one week). This is not employer-scale,
   production or regulated experience.
+- A task killed by `execution_timeout` can leave its `run_log` row in RUNNING: the stage
+  process may never write its end row. Airflow still marks the task failed and retries it.
 - Not part of `make check` or CI. The root project does not depend on Airflow.

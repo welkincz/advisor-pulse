@@ -51,9 +51,8 @@ def iso_week_for(interval_start: datetime) -> str:
     return f"{year}-W{week:02d}"
 
 
-def pulse_run_id(airflow_run_type: str, week: str) -> str:
-    """Stable per week and run type, so a re-run upserts the same run_log rows."""
-    return f"{RUN_TYPES.get(airflow_run_type, 'MANUAL').lower()}-{week}-airflow"
+# The first task: allocates this DagRun's pulse run id, which every stage then uses.
+ALLOCATE = "pulse_run_id"
 
 
 def _retry_delay() -> timedelta:
@@ -69,30 +68,53 @@ def _stage_env() -> dict[str, str]:
     return env
 
 
-def run_stage(stage: str, **context: Any) -> dict[str, Any]:
-    ti = context["ti"]
-    dag_run = context["dag_run"]
-    week = iso_week_for(context["data_interval_start"])
-    airflow_type = str(getattr(dag_run.run_type, "value", dag_run.run_type))
-    run_type = RUN_TYPES.get(airflow_type, "MANUAL")
+def parse_summary(stage: str, proc: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+    """The last stdout line that parses as a JSON object. A crash can print other lines after
+    it, or none at all; then the error names the return code and the end of stderr."""
+    for line in reversed(proc.stdout.strip().splitlines()):
+        try:
+            doc = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(doc, dict):
+            return doc
+    tail = "\n".join(proc.stderr.strip().splitlines()[-20:])
+    raise RuntimeError(f"{stage} crashed (exit {proc.returncode}) with no JSON summary:\n{tail}")
+
+
+def _call(stage: str, week: str, run_type: str, *extra: str) -> dict[str, Any]:
     uv = shutil.which("uv") or "uv"
     cmd = [
         uv, "run", "--project", str(REPO_ROOT), "--frozen", "--quiet",
-        "python", str(STAGE_SCRIPT), stage,
-        "--week", week,
-        "--run-id", pulse_run_id(airflow_type, week),
-        "--run-type", run_type,
-        "--attempt", str(ti.try_number),
+        "python", str(STAGE_SCRIPT), stage, "--week", week, "--run-type", run_type, *extra,
     ]  # fmt: skip
     proc = subprocess.run(
         cmd, cwd=REPO_ROOT, env=_stage_env(), capture_output=True, text=True, check=False
     )
     print(proc.stdout + proc.stderr)
-    lines = proc.stdout.strip().splitlines()
-    summary: dict[str, Any] = json.loads(lines[-1]) if lines else {}
+    summary = parse_summary(stage, proc)
     if proc.returncode != 0:
         raise RuntimeError(f"{stage} {summary.get('status', 'crashed')}: {summary.get('message')}")
     return summary
+
+
+def _week_and_type(context: dict[str, Any]) -> tuple[str, str]:
+    airflow_type = str(getattr(context["dag_run"].run_type, "value", context["dag_run"].run_type))
+    return iso_week_for(context["data_interval_start"]), RUN_TYPES.get(airflow_type, "MANUAL")
+
+
+def allocate_run_id(**context: Any) -> str:
+    """A new pulse run id for each DagRun (``manual-2026-W45-airflow-2``). Retries and cleared
+    tasks inside one DagRun reuse it through XCom; a new DagRun for the same week gets the
+    next number, so its stages are not outranked by an earlier failed run's attempts."""
+    week, run_type = _week_and_type(context)
+    return str(_call("allocate", week, run_type)["run_id"])
+
+
+def run_stage(stage: str, run_id: str, **context: Any) -> dict[str, Any]:
+    week, run_type = _week_and_type(context)
+    try_number = str(context["ti"].try_number)
+    return _call(stage, week, run_type, "--run-id", run_id, "--attempt", try_number)
 
 
 def fail_run(**context: Any) -> None:
@@ -107,7 +129,7 @@ with DAG(
     schedule=CronDataIntervalTimetable("0 6 * * 1", timezone="UTC"),
     start_date=pendulum.datetime(2024, 10, 7, 6, tz="UTC"),  # first reported week, 2024-W41
     catchup=False,
-    max_active_runs=1,  # weeks share one warehouse and SCD2 history: strictly in order
+    max_active_runs=1,  # weeks share one warehouse and SCD2 history: one at a time
     dagrun_timeout=timedelta(hours=2),
     default_args={
         "owner": "advisor-pulse",
@@ -119,10 +141,17 @@ with DAG(
     },
     tags=["advisor-pulse", "lab"],
 ) as dag:
-    tasks = {}
+    # depends_on_past + wait_for_downstream on the first task: a week starts only after the
+    # previous week's pulse_run_id task and all of its direct downstream tasks (every stage
+    # and run_status) succeeded or were skipped. A failed week therefore blocks the next one
+    # until it is re-run or marked done.
+    run_id = task(task_id=ALLOCATE, depends_on_past=True, wait_for_downstream=True)(
+        allocate_run_id
+    )()
+    tasks = {ALLOCATE: run_id}
     for name, _deps in STAGES:
         rule = "all_done" if name in ALWAYS else "all_success"
-        tasks[name] = task(task_id=name, trigger_rule=rule)(run_stage)(stage=name)
+        tasks[name] = task(task_id=name, trigger_rule=rule)(run_stage)(stage=name, run_id=run_id)
     for name, deps in STAGES:
         for dep in deps:
             tasks[dep] >> tasks[name]

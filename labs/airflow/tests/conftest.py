@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,6 +14,7 @@ import pytest
 
 LAB = Path(__file__).resolve().parents[1]
 _HOME = Path(tempfile.mkdtemp(prefix="pulse-airflow-home-"))
+atexit.register(shutil.rmtree, _HOME, ignore_errors=True)
 os.environ.update(
     {
         "AIRFLOW_HOME": str(_HOME),
