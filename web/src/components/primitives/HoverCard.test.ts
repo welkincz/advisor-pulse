@@ -16,4 +16,12 @@ describe('placeCard', () => {
     expect(placeCard({ top: 300, bottom: 320, left: 0, width: 40 }, card, 375).left).toBe(16)
     expect(placeCard({ top: 300, bottom: 320, left: 340, width: 30 }, card, 375).left).toBe(159)
   })
+
+  it('opens below when asked, and flips above only when there is no room below', () => {
+    const anchor = { top: 300, bottom: 320, left: 400, width: 100 }
+    expect(placeCard(anchor, card, 1200, 'below', 800)).toEqual({ left: 350, top: 328, below: true })
+    expect(placeCard(anchor, card, 1200, 'below', 420)).toEqual({ left: 350, top: 192, below: false })
+    // No room either side: below, as the default does.
+    expect(placeCard({ top: 60, bottom: 80, left: 400, width: 100 }, card, 1200, 'below', 150).below).toBe(true)
+  })
 })

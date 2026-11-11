@@ -39,9 +39,17 @@ const CLOSE_DELAY = 120
 
 export interface Placement { left: number; top: number; below: boolean }
 
-/** Above the trigger when the card fits there, else below; centred on it, inside a 16 px gutter. */
-export function placeCard(anchor: { top: number; bottom: number; left: number; width: number }, card: { width: number; height: number }, viewportWidth: number): Placement {
-  const below = anchor.top - card.height - GAP < GUTTER
+export type Side = 'above' | 'below'
+
+/**
+ * Above the trigger when the card fits there, else below; centred on it, inside a 16 px gutter.
+ * `prefer: 'below'` reverses that, for a trigger whose card would cover the figure it explains,
+ * and flips above only when the card does not fit below `viewportHeight`.
+ */
+export function placeCard(anchor: { top: number; bottom: number; left: number; width: number }, card: { width: number; height: number }, viewportWidth: number, prefer: Side = 'above', viewportHeight = Infinity): Placement {
+  const fitsAbove = anchor.top - card.height - GAP >= GUTTER
+  const fitsBelow = anchor.bottom + GAP + card.height <= viewportHeight - GUTTER
+  const below = prefer === 'below' ? fitsBelow || !fitsAbove : !fitsAbove
   const left = Math.max(GUTTER, Math.min(viewportWidth - GUTTER - card.width, anchor.left + anchor.width / 2 - card.width / 2))
   return { left, top: below ? anchor.bottom + GAP : anchor.top - card.height - GAP, below }
 }
@@ -78,11 +86,13 @@ interface TriggerProps {
  *
  * Pass a function as children to put `aria-describedby` on the focusable element inside.
  */
-export function Explain({ card, children, block = false, className }: {
+export function Explain({ card, children, block = false, className, prefer = 'above' }: {
   card: CardContent | (() => CardContent)
   children: ReactNode | ((props: TriggerProps) => ReactNode)
   block?: boolean
   className?: string
+  /** Which side of the trigger the card opens on when both fit. */
+  prefer?: Side
 }) {
   const id = useId()
   const anchor = useRef<HTMLElement>(null)
@@ -101,8 +111,8 @@ export function Explain({ card, children, block = false, className }: {
   const measure = useCallback(() => {
     if (!anchor.current || !panel.current) return
     const p = panel.current.getBoundingClientRect()
-    setPlace(placeCard(anchor.current.getBoundingClientRect(), p, window.innerWidth))
-  }, [])
+    setPlace(placeCard(anchor.current.getBoundingClientRect(), p, window.innerWidth, prefer, window.innerHeight))
+  }, [prefer])
   useLayoutEffect(() => { if (open) measure() }, [open, measure])
 
   useEffect(() => {
@@ -184,8 +194,8 @@ export function FloatingCard({ anchor, card, id }: { anchor: Element; card: Card
 }
 
 /** A word the reader may not know, underlined with dots; hover, focus or a tap explains it. */
-export function Term({ title, text, children }: { title: string; text: ReactNode; children?: ReactNode }) {
-  return <Explain card={{ title, what: text }}>
+export function Term({ title, text, children, prefer }: { title: string; text: ReactNode; children?: ReactNode; prefer?: Side }) {
+  return <Explain card={{ title, what: text }} prefer={prefer}>
     {(props) => <span className="term" tabIndex={0} {...props}>{children ?? title}</span>}
   </Explain>
 }
