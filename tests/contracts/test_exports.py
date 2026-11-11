@@ -36,7 +36,8 @@ PORTFOLIO = "portfolio_clients portfolio_contacted_12m portfolio_contacted_rate_
         (
             OrgWeekly,
             f"iso_week_id level node_id node_name parent_id active_advisors {MEASURES} "
-            f"activities_per_advisor show_rate conversion_rate call_to_appt_rate {PORTFOLIO}",
+            f"activities_per_advisor show_rate conversion_rate call_to_appt_rate {PORTFOLIO} "
+            "stale_9m_share stale_9m_rise_13w",
         ),
         (
             WeeklyReport,
@@ -76,7 +77,14 @@ def _org(**changes: Any) -> dict[str, Any]:
 def test_rates_are_fractions() -> None:
     OrgWeekly.model_validate(_org())
     OrgWeekly.model_validate(_org(show_rate=None))
-    for bad in [{"show_rate": 1.2}, {"portfolio_contacted_rate_12m": -0.1}, {"calls_out": -1}]:
+    OrgWeekly.model_validate(_org(stale_9m_share=0.124, stale_9m_rise_13w=-0.011))
+    for bad in [
+        {"show_rate": 1.2},
+        {"portfolio_contacted_rate_12m": -0.1},
+        {"calls_out": -1},
+        {"stale_9m_share": 1.2},
+        {"stale_9m_rise_13w": -1.5},
+    ]:
         with pytest.raises(ValidationError):
             OrgWeekly.model_validate(_org(**bad))
 

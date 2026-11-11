@@ -58,6 +58,40 @@ leveled as (
         case grouping_id when 7 then 'NATIONAL' when 3 then 'REGION' when 1 then 'DISTRICT' else 'BRANCH' end as level,
         case grouping_id when 7 then 'CA' when 3 then region_code when 1 then district_code else branch_id end as node_id
     from rolled
+),
+
+-- A secondary indicator at branch level only (PLAN.md §7, ADR 0009): the share of the
+-- book with no contact in 9+ months, and its rise over 13 reported weeks. Those clients
+-- leave the 12-month window within 3 months unless someone calls. It is not a forecast.
+-- scripts/leading_indicator.py scores the same definition; keep the two in step.
+reported_weeks as (
+    select iso_week_id, row_number() over (order by iso_week_id) as week_index
+    from {{ ref('int_contact_window') }}
+    where is_reported and is_window_complete
+),
+
+stale_book as (
+    select
+        contact.iso_week_id,
+        reported_weeks.week_index,
+        contact.transit_branch_id as branch_id,
+        avg(case when contact.last_contact_date is null
+                   or contact.last_contact_date <= cast(contact.week_end - interval 9 month as date)
+            then 1.0 else 0.0 end) as stale_9m_share
+    from {{ ref('int_client_contact_12m') }} as contact
+    inner join reported_weeks using (iso_week_id)
+    group by contact.iso_week_id, reported_weeks.week_index, contact.transit_branch_id
+),
+
+stale as (
+    select
+        now.iso_week_id,
+        now.branch_id,
+        now.stale_9m_share,
+        now.stale_9m_share - past.stale_9m_share as stale_9m_rise_13w
+    from stale_book as now
+    left join stale_book as past
+        on past.branch_id = now.branch_id and past.week_index = now.week_index - 13
 )
 
 select
@@ -84,7 +118,13 @@ select
     cast(leveled.portfolio_contacted_12m as bigint) as portfolio_contacted_12m,
     case when contact_window.is_window_complete then
         round(leveled.portfolio_contacted_12m / nullif(leveled.portfolio_clients, 0), 4)
-    end as portfolio_contacted_rate_12m
+    end as portfolio_contacted_rate_12m,
+    round(stale.stale_9m_share, 4) as stale_9m_share,
+    round(stale.stale_9m_rise_13w, 4) as stale_9m_rise_13w
 from leveled
 left join nodes on nodes.level = leveled.level and nodes.node_id = leveled.node_id
-inner join {{ ref('int_contact_window') }} as contact_window using (iso_week_id)
+left join stale
+    on leveled.level = 'BRANCH'
+    and stale.iso_week_id = leveled.iso_week_id
+    and stale.branch_id = leveled.branch_id
+inner join {{ ref('int_contact_window') }} as contact_window on contact_window.iso_week_id = leveled.iso_week_id
