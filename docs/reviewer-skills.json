@@ -98,7 +98,7 @@
      "limit": "Local Iceberg lab on 55 fixture rows: idempotent weekly partition overwrite, schema evolution, time travel and DuckDB read-back, with a SQLite catalog, one writer and no object store. Streaming (Kafka/Flink) is deliberately excluded from this weekly batch design.", "gap_issue": 325},
     {"name": "Scala/Java/Go systems work", "tags": ["scala", "java", "go"], "strength": "missing",
      "evidence": [],
-     "limit": "No direct implementation in these languages.", "gap_issue": 326},
+     "limit": "Deliberately excluded ([decision](scope/326-scala-java-go.md)): the project is a Python and SQL batch with a TypeScript site; no Scala, Java or Go implementation. A separate lab would be the honest test.", "gap_issue": 326},
     {"name": "Security and regulated governance", "tags": ["security", "access_controls", "governance"], "strength": "weak",
      "evidence": ["web/public/_headers#L7", "web/tests/csp-check.mjs#L1", "src/pulse/state/store.py#L40", "src/pulse/narrative/client.py#L155", "src/pulse/state/lock.py#L1", "AGENTS.md#L8", "src/pulse/runner/alert.py#L25", "tests/runner/test_alert.py#L183"],
      "limit": "A site-wide Content-Security-Policy checked in CI against DuckDB-WASM, secrets read only from environment variables, a synthetic-only data rule, and a conditional-write lock on shared state. Cloudflare Access gated the site until the owner made it public on purpose (#255); no Access policy lives in this repository. Operational alerting: a rejected model credential opens a named alert instead of failing silently, and the alert closes when a run recovers. No regulated IAM, PII controls, row-level security or audit sign-off.", "gap_issue": 327},
