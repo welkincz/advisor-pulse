@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -19,6 +20,11 @@ CLAUDE_CODE = "claude-code"
 # The Pro subscription has the tighter Opus limit; Sonnet keeps a weekly run well inside it.
 CLAUDE_CODE_MODEL = "claude-sonnet-5-5"
 CLI_TIMEOUT = 300.0
+CREDENTIAL_REJECTED = re.compile(r"authenticat|oauth token|api key|not logged in", re.IGNORECASE)
+
+
+class AuthenticationError(ValueError):
+    """The model backend rejected its credential; every call fails until someone renews it."""
 
 
 class NarrativeClient(Protocol):
@@ -132,14 +138,18 @@ class ClaudeCodeClient:
             result = json.loads(proc.stdout)
         except json.JSONDecodeError:
             detail = (proc.stderr or proc.stdout).strip()[:200]
-            raise ValueError(f"claude CLI exited {proc.returncode}: {detail}") from None
+            raise _cli_error(f"claude CLI exited {proc.returncode}: {detail}") from None
         if result.get("is_error") or proc.returncode != 0:
             detail = str(result.get("result") or result.get("subtype"))[:200]
-            raise ValueError(f"claude CLI failed: {detail}")
+            raise _cli_error(f"claude CLI failed: {detail}")
         parsed = result.get("structured_output")
         if not isinstance(parsed, dict):
             raise ValueError("claude CLI returned no structured output.")
         return parsed
+
+
+def _cli_error(message: str) -> ValueError:
+    return (AuthenticationError if CREDENTIAL_REJECTED.search(message) else ValueError)(message)
 
 
 def client_from_env(env: Mapping[str, str] = os.environ) -> NarrativeClient | None:
