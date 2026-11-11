@@ -48,3 +48,40 @@ Sources are the warehouse tables in `raw`, `meta` and `quarantine`. `models/sour
 - Generic tests that are not built in live in `macros/tests/` (`iso_week_id_format`,
   `expression_is_true`). Pass their arguments under `arguments:`.
 - `tests/assert_date_macros.sql` pins the date macros on DST and ISO-year edge cases.
+
+## Incremental models (#304)
+
+A weekly run keeps history and rebuilds only recent weeks of `fct_activity` and of the
+nine `replace_from` models (`macros/weekly_incremental.sql`: the client book, the 12-month
+contact window, KPI events and the weekly and quarterly marts).
+
+- **Rebuild floor:** the earlier of four weeks before the newest week a table holds, and
+  the earliest day that any raw row loaded since its last runner build takes effect:
+  activity, booking or schedule date, CLNT update, HR and portfolio assignment, advisor
+  termination, and a portfolio master's first assignment. A branch master row (name,
+  district, closure) applies to every week, so it rebuilds all of history. A past-range
+  backfill, history extended earlier, or a row later than the lookback rebuilds from its
+  own week. `tests/assert_late_rows_within_lookback.sql` warns when an activity row is
+  that late.
+- **Changing a model needs no manual step.** The runner's `dbt_build` stamps each
+  incremental table with a fingerprint of its definition and of everything upstream (SQL,
+  config, declared columns, project macros, `dbt_project.yml`, and the dbt-core,
+  dbt-duckdb and DuckDB versions). On the next run a table whose stamp differs is dropped
+  first, so dbt rebuilds it, and everything downstream of it, from all history
+  (`src/pulse/runner/refresh.py`). The first run after a deploy therefore costs one full
+  build of these nine. Description-only edits change nothing. dbt's own macros and source
+  definitions are covered only through the versions and the staging models that read them.
+- **`fct_activity` is the exception** (`auto_full_refresh=false`, #275): a full rebuild
+  restates old facts with current client attributes, so it never happens on its own. When
+  its fingerprint changes, the stage warns in `run_log` on every run until someone runs a
+  full refresh. A table without a stamp (built before #304) is adopted as it is.
+- **Forcing a full rebuild:** `pulse run --full-refresh`, or the weekly workflow's
+  `full_refresh` input; both set `PULSE_DBT_FULL_REFRESH=1` for that run. A `--rebuild`
+  backfill starts from an empty warehouse, so it builds everything in full too.
+- A plain `dbt build` outside the runner never drops a table for a changed definition. On a
+  table the runner stamped it uses the stamp's floor; on one it never stamped (a copy of
+  the CI warehouse, a lab) nothing says which rows are new, so it rebuilds from the start.
+  Use `--full-refresh` there after changing a model.
+- `on_schema_change='fail'` stays: a changed column list changes the fingerprint, so the
+  table is rebuilt before dbt compares schemas. A mismatch that still reaches dbt is
+  unexpected and should stop the run.

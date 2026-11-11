@@ -155,6 +155,9 @@ unit_tests:
       BR-B's stock is its W46 value (not zero), and the district adds BR-A at W47 to BR-B at W46.
       FY26-Q1 (Nov to Jan) has 13 Sundays, so three weeks reported is a quarter to date.
     model: mart_org_quarterly
+    overrides:
+      macros:
+        is_incremental: false  # the full build; tests/dbt covers the incremental one
     given:
       - input: ref('dim_date')
         rows:

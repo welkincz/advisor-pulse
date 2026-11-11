@@ -4,6 +4,9 @@
 -- portfolio's holder on the week-end date; a portfolio the master lacks (DQ014) has no
 -- owner and stays out of the lead KPI. Versions come from every loaded CLNT row: staging
 -- keeps only the latest, which would hide a mid-period reassignment or move.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+{{ config(materialized='incremental', incremental_strategy='replace_from', on_schema_change='fail') }}
+
 with renamed as (
     select
         "CLNT_ID" as client_id,
@@ -60,6 +63,9 @@ weeks as (
             cast(max(week_end) as timestamp) + interval 23 hour + interval 59 minute
         ) as as_of_ts
     from {{ ref('dim_date') }}
+    {% if is_incremental() %}
+    where iso_week_id >= {{ incremental_floor() }}
+    {% endif %}
     group by iso_week_id
 ),
 

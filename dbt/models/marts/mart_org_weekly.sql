@@ -2,6 +2,14 @@
 -- int_kpi_events: national, region, district and branch. Counts are summed, distinct
 -- clients are counted at each level, and every ratio is computed after the roll-up from
 -- its summed numerator and denominator, never by averaging child ratios.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+-- depends_on: {{ ref('dim_date') }}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    reported_weeks_only=true,
+) }}
 with events as (
     select
         events.*,
@@ -9,6 +17,7 @@ with events as (
         org.region_code
     from {{ ref('int_kpi_events') }} as events
     inner join {{ ref('dim_org') }} as org on org.branch_id = events.branch_id
+    {% if is_incremental() %}where events.iso_week_id >= {{ incremental_floor() }}{% endif %}
 ),
 
 rolled as (
@@ -80,6 +89,19 @@ stale_book as (
             then 1.0 else 0.0 end) as stale_9m_share
     from {{ ref('int_client_contact_12m') }} as contact
     inner join reported_weeks using (iso_week_id)
+    {% if is_incremental() %}
+    -- The rebuilt weeks and the 13 reported weeks before them, for the rise.
+    where reported_weeks.week_index >= coalesce((
+        select min(week_index) from reported_weeks where iso_week_id >= {{ incremental_floor() }}
+    ), 1000000) - 13
+        and contact.iso_week_id >= coalesce((
+            select min(iso_week_id) from reported_weeks
+            where week_index >= coalesce((
+                select min(week_index) from reported_weeks
+                where iso_week_id >= {{ incremental_floor() }}
+            ), 1000000) - 13
+        ), '')
+    {% endif %}
     group by contact.iso_week_id, reported_weeks.week_index, contact.transit_branch_id
 ),
 

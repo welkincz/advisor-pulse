@@ -11,7 +11,12 @@ ROOT = Path(__file__).parents[2]
 def _sql(path: str) -> str:
     # Render the actual model and date macros; no second copy of the roster logic.
     template = (ROOT / "dbt/macros/dates.sql").read_text() + (ROOT / path).read_text()
-    return Environment().from_string(template).render(ref=lambda name: name)
+    # The full build: config() is dbt's, and is_incremental() is false outside an incremental run.
+    return (
+        Environment()
+        .from_string(template)
+        .render(ref=lambda name: name, config=lambda **_: "", is_incremental=lambda: False)
+    )
 
 
 def test_partial_week_employment_gets_one_zero_activity_row_and_one_denominator() -> None:

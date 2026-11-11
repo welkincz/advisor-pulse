@@ -2,8 +2,17 @@
 -- a non-manager employment range overlaps the week. Activity by any branch counts toward
 -- the advisor; activity with an unknown advisor (DQ012) is excluded here and credited to
 -- its branch in mart_org_weekly.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+-- depends_on: {{ ref('dim_date') }}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    reported_weeks_only=true,
+) }}
 with events as (
     select * from {{ ref('int_kpi_events') }}
+    {% if is_incremental() %}where iso_week_id >= {{ incremental_floor() }}{% endif %}
 ),
 
 roster as (

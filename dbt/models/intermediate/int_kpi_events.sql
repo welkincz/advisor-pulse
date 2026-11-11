@@ -16,6 +16,13 @@
 -- Activity with no advisor history on that date (DQ012) stays at its logged branch.
 -- Only reported weeks (int_contact_window) get rows: a warm-up year feeds the 12-month
 -- window through int_client_contact_12m, not through these events.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    reported_weeks_only=true,
+) }}
 with activity as (
     select * from {{ ref('int_activity_enriched') }}
 ),
@@ -34,6 +41,7 @@ weeks as (
     where iso_week_id between (select min(iso_week_id) from activity)
         and (select max(iso_week_id) from activity)
         and iso_week_id in (select iso_week_id from {{ ref('int_contact_window') }} where is_reported)
+        {% if is_incremental() %}and iso_week_id >= {{ incremental_floor() }}{% endif %}
     group by iso_week_id
 ),
 

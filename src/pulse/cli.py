@@ -98,9 +98,22 @@ def run(
     run_type: Annotated[
         RunType, typer.Option("--run-type", help="Recorded in run_log.", case_sensitive=False)
     ] = RunType.MANUAL,
+    full_refresh: Annotated[
+        bool,
+        typer.Option(
+            "--full-refresh",
+            help="Rebuild every incremental dbt model from all history, not only recent weeks.",
+        ),
+    ] = False,
 ) -> None:
     """Run the full weekly pipeline for one week (default: the last complete week)."""
+    import os
+
     from pulse.runner.command import run_week
+    from pulse.runner.stages import FULL_REFRESH_ENV
+
+    if full_refresh:
+        os.environ[FULL_REFRESH_ENV] = "1"
 
     try:
         code = run_week(

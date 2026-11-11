@@ -9,11 +9,23 @@
 --     a branch that misses the final week keeps its portfolios;
 --   ratios are rebuilt from summed parts. Activities per advisor is activities over
 --     advisor-weeks: the average weekly rate across the quarter.
+-- Incremental (#304): a weekly run rebuilds the quarters that hold its last weeks only
+-- (macros/weekly_incremental.sql).
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    replace_key='fiscal_quarter_id',
+    reported_weeks_only=true,
+) }}
 with week_quarter as (
     select distinct
         dim_date.iso_week_id,
         dim_date.week_fiscal_quarter_id as fiscal_quarter_id
     from {{ ref('dim_date') }} as dim_date
+    {% if is_incremental() %}
+    where dim_date.week_fiscal_quarter_id >= {{ incremental_floor() }}
+    {% endif %}
 ),
 
 quarters as (

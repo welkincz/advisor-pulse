@@ -189,6 +189,47 @@ Narrate is not a normal figure here: the model credential was rejected, so all 2
 
 **Comparing timings.** Every weekly and backfill run writes `runner_profile.json` into its artifact, and every CI python and dbt job prints the same fields: CPU model and count, `nproc`, runner image, Python, dbt-core, dbt-duckdb and DuckDB versions, threads and the commit (#336). Compare stage times only when the profiles match. #335 found a 49% dbt slowdown that came from the runner, not the code; to check a code change, rerun both commits on one machine.
 
+### Incremental weekly models (#304)
+
+Before this change every weekly `dbt build` rebuilt two years of client × week history. Now the 12-month contact window and the weekly marts are incremental, and a run keeps older weeks (`dbt/macros/weekly_incremental.sql`; the rules are in `dbt/README.md`). The quarterly mart rebuilds whole quarters.
+
+- **Incremental models:** `int_client_book_weekly`, `int_client_contact_12m`, `int_kpi_events`, `mart_org_weekly`, `mart_advisor_weekly`, `mart_portfolio_weekly`, `mart_geo_weekly`, `mart_weekly_report` and `mart_org_quarterly`. The marts keep `contract: {enforced: true}`.
+- **Rebuild floor:** the earlier of 4 weeks before the newest week a table holds, and the earliest day any raw row loaded since the runner last built it takes effect, master rows included (a branch row reaches all of history). Late rows arrive at most 3 weeks late, and a booking is made at most a week before the visit. A past-range backfill or history extended earlier rebuilds from its own week.
+- **Changed definitions:** the runner stamps each incremental table with a fingerprint of its definition and everything upstream. A table whose fingerprint changed is rebuilt from all history on the next run, along with everything downstream of it. `fct_activity` is the exception (#275): it only warns until `pulse run --full-refresh` (the weekly workflow's `full_refresh` input), which rebuilds all of them.
+
+**Local measurement (Apple M4 Max, not Actions), 2026-11-11.** Full-size state: `backfill --from 2024-W41 --to 2026-W44 --rebuild`, default seed and scale, no R2, templates only. Then one weekly run of 2026-W45 from a copy of that state, once with `main` and once with this change. The second state was first built once by the new runner on 2026-W44: its unstamped tables were rebuilt in full, as the first production run after deploy will be (36.3 s).
+
+| | `main` `229dd7e` | `main` `c83e25c` | Incremental |
+|---|---:|---:|---:|
+| `dbt_build` stage (run log) | 41.7 s | 36.9 s | 13.7 s |
+| dbt elapsed (`run_results.json`) | 37.2 s | 32.9 s | 10.2 s |
+| Sum of model times | 53.2 s | 44.9 s | 7.4 s |
+| Sum of test times | 26.9 s | 23.1 s | 23.9 s |
+| Whole weekly run, no R2 | 51.9 s | 52.4 s | 23.2 s |
+
+The incremental column is on top of `c83e25c`, which adds the stale-book columns of #364; `mart_org_weekly` reads 13 reported weeks before its floor for them (0.26 s). The stage includes a `dbt parse` (for the fingerprints) before the build. The two `main` columns are separate trials on the same machine; the gap between them is mostly run-to-run noise, not code. A second trial of the final incremental code gave 15.3 s for `dbt_build`, with all 22 tables again equal to `main`.
+
+The ten slowest models of the `main` weekly build, in seconds (dbt runs four at a time), against the first incremental measurement:
+
+| Model | `main` | Incremental |
+|---|---:|---:|
+| `int_client_book_weekly` | 17.43 | 0.54 |
+| `mart_org_quarterly` | 6.91 | 0.22 |
+| `mart_advisor_weekly` | 6.76 | 0.10 |
+| `mart_geo_weekly` | 6.72 | 0.19 |
+| `int_client_contact_12m` | 2.70 | 0.38 |
+| `mart_portfolio_weekly` | 2.52 | 0.15 |
+| `int_kpi_events` | 2.08 | 1.49 |
+| `fct_activity` | 2.08 | 1.77 |
+| `mart_org_weekly` | 1.60 | 0.16 |
+| `mart_weekly_report` | 1.06 | 0.08 |
+
+- **Same tables:** after the incremental W45 run, all 22 intermediate and mart tables match `main` (`c83e25c`) row for row (count and an order-free row hash). A second run of the same week changes none of them. `pulse run --full-refresh` gives the same nine incremental tables; only `fct_activity` differs, the owner-approved exception noted in its model (#275).
+- **What is left:** tests are now most of the build. About 20 of them read `stg_activity`, a view that deduplicates 2.3 million rows each time, and three read the 25-million-row client book.
+- **Proof in CI:** `tests/dbt/test_weekly_incremental.py` builds the fixtures through W39 with the runner's dbt stage, loads W40 (late rows, client changes), and requires every incremental model to equal a full refresh and a rerun to change nothing. It also covers: the stamp catching the late rows with no lookback at all; plain dbt with no lookback failing the comparison; a changed fingerprint rebuilding only that model; `fct_activity` warning and keeping its history instead; late portfolio and branch master rows; plain dbt rebuilding unstamped tables in full; the stale-book rise with a year of backdated history; a week no longer reported rebuilding the mart from the start.
+- **Benchmark in CI:** the `dbt weekly benchmark` job (`scripts/bench_weekly_dbt.py`) builds a 40% world (360 advisors, 60,000 clients, warm-up year plus 2026-W33 to W40), loads W41 and times the weekly build, best of three. It divides the models' time by a fixed DuckDB workload timed on the same runner and compares the ratio with `tests/benchmark/weekly_dbt_baseline.json` (+20% budget). The baseline is one Actions sample, [run 43062304740](https://github.com/welkincz/advisor-pulse/actions/runs/43062304740): model time 18.2 s for a full build and 10.4 s for a weekly one, calibration 0.525 s, ratio 19.7. The next run gave 20.4. Until the baseline is a median of several Actions runs, an over-budget result only warns.
+- [ ] On Actions: compare the first weekly run's `dbt_build` with the 83.0 s of run 41520054553; that first run includes the one-off full rebuild. The 60 s weekly and 10 min rebuild targets are not met until an Actions run shows them.
+
 ## Export sizes (site after 2026-W43)
 
 From the built site in the artifact of run 40364746899; the bytes match `manifest.json`.

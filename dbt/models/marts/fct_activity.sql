@@ -4,7 +4,10 @@
 -- arrive up to four weeks late land in their original week. A full refresh reapplies
 -- current client attributes to older facts too; incremental replay can retain their
 -- earlier FSA/client match outside the lookback (owner-approved backfill exception, #275).
+-- So a changed definition does not restate it on its own (#304): the runner warns, and
+-- only `pulse run --full-refresh` or a `--rebuild` backfill restates history.
 {{ config(
+    auto_full_refresh=false,
     materialized='incremental',
     incremental_strategy='delete+insert',
     unique_key='activity_id',

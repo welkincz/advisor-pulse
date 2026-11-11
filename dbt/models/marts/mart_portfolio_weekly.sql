@@ -2,8 +2,17 @@
 -- portfolio_weekly.parquet (last 26 weeks). Each portfolio is shown under its holder at
 -- week end and its transit; holder_branch_id is where that holder works that day, so a
 -- portfolio whose holder sits elsewhere (DQ025) is visible, and tested, here.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+-- depends_on: {{ ref('dim_date') }}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    reported_weeks_only=true,
+) }}
 with clients as (
     select * from {{ ref('int_client_contact_12m') }}
+    {% if is_incremental() %}where iso_week_id >= {{ incremental_floor() }}{% endif %}
 ),
 
 portfolios as (

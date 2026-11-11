@@ -104,7 +104,12 @@ unit_tests:
       only 7 prior weeks it stays UP; counting the current week in the baseline would
       wrongly make it ANOMALY. KPIs with no value are FLAT.
     model: mart_weekly_report
+    overrides:
+      macros:
+        is_incremental: false  # the full build; tests/dbt covers the incremental one
     given:
+      - input: ref('int_contact_window')  # read only by an incremental run
+        rows: []
       - input: ref('mart_org_weekly')
         rows:
           - {iso_week_id: '2026-W01', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 100, appointments_booked: 50}
@@ -227,7 +232,12 @@ unit_tests:
       fifth of a point, so it stays FLAT; a level rule would call it ANOMALY. W11 drops 1.4 points in
       a week, far outside its usual weekly move, so ANOMALY. Every other KPI is FLAT.
     model: mart_weekly_report
+    overrides:
+      macros:
+        is_incremental: false  # the full build; tests/dbt covers the incremental one
     given:
+      - input: ref('int_contact_window')  # read only by an incremental run
+        rows: []
       - input: ref('mart_org_weekly')
         rows:
           - {iso_week_id: '2026-W01', level: NATIONAL, node_id: CA, node_name: Canada, portfolio_contacted_rate_12m: 0.8340}
@@ -373,7 +383,12 @@ unit_tests:
       adjusted, so the same 20% fall is ANOMALY, and so is NO_SHOW_RATE. Every other KPI
       is FLAT.
     model: mart_weekly_report
+    overrides:
+      macros:
+        is_incremental: false  # the full build; tests/dbt covers the incremental one
     given:
+      - input: ref('int_contact_window')  # read only by an incremental run
+        rows: []
       - input: ref('mart_org_weekly')
         rows:
           - {iso_week_id: '2026-W01', level: NATIONAL, node_id: CA, node_name: Canada, calls_out: 100, show_rate: 0.8}

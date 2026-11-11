@@ -428,7 +428,7 @@ def test_every_run_records_the_same_runner_profile() -> None:
         assert upload["if"] == "always()"
         assert "data/artifacts/runner_profile.json" in upload["with"]["path"]
     ci = load("ci.yml")["jobs"]
-    for job in ("python", "dbt"):
+    for job in ("python", "dbt", "dbt-bench"):
         runs = [step.get("run", "") for step in ci[job]["steps"]]
         assert "uv run python scripts/runner_profile.py" in runs
 
@@ -452,6 +452,34 @@ def test_benchmark_backfill_has_no_shared_state_or_deployment() -> None:
         assert env[key].endswith(" || '' }}")
     for name in ("Build backfilled site", "Continue in a new run", "Deploy to Cloudflare Pages"):
         assert "inputs.benchmark_only != true" in steps[name]["if"]
+
+
+def test_ci_benchmarks_the_weekly_dbt_build_against_its_baseline() -> None:
+    """#304's outside judge: a dbt change runs the scaled benchmark; over budget it warns."""
+    ci = load("ci.yml")["jobs"]
+    bench = ci["dbt-bench"]
+    assert bench["if"] == ci["dbt"]["if"]
+    runs = [step.get("run", "") for step in bench["steps"]]
+    assert any(r.startswith("uv run python scripts/bench_weekly_dbt.py") for r in runs)
+    bench_step = next(s for s in bench["steps"] if s.get("id") == "bench")
+    assert bench_step["continue-on-error"] == "true"  # advisory until a multi-run baseline
+    warn = next(s for s in bench["steps"] if s.get("name") == "Warn when over budget")
+    assert warn["if"] == "steps.bench.outcome == 'failure'" and "::warning" in warn["run"]
+    assert "--record" not in " ".join(runs)
+    filters = ci["changes"]["steps"][1]["with"]["filters"]
+    assert "scripts/bench_weekly_dbt.py" in filters
+    assert "tests/benchmark/**" in filters
+
+
+def test_weekly_can_rebuild_incremental_models_in_full() -> None:
+    """A manual weekly run can full-refresh every incremental model (#304); the cron cannot."""
+    workflow = load("weekly.yml")
+    full = workflow["on"]["workflow_dispatch"]["inputs"]["full_refresh"]
+    assert full["type"] == "boolean" and full["default"] == "false"
+    step = next(
+        s for s in workflow["jobs"]["run"]["steps"] if "uv run pulse run" in s.get("run", "")
+    )
+    assert step["env"]["PULSE_DBT_FULL_REFRESH"] == "${{ inputs.full_refresh && '1' || '' }}"
 
 
 def _doctor() -> dict:

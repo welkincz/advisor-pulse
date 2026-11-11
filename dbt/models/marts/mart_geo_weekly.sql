@@ -2,10 +2,18 @@
 -- export keeps the last 13 weeks). Clients are the active book at week end, placed by the
 -- FSA on that week's client version and the district of their home branch. The portfolio
 -- columns are the lead KPI's parts (int_client_contact_12m) for the same clients.
+-- Incremental (#304): a weekly run rebuilds the last weeks only (macros/weekly_incremental.sql).
+{{ config(
+    materialized='incremental',
+    incremental_strategy='replace_from',
+    on_schema_change='fail',
+    reported_weeks_only=true,
+) }}
 with weeks as (
     select dim_date.iso_week_id, max(dim_date.week_end) as week_end
     from {{ ref('dim_date') }} as dim_date
     where dim_date.iso_week_id in (select iso_week_id from {{ ref('mart_org_weekly') }})
+    {% if is_incremental() %}and dim_date.iso_week_id >= {{ incremental_floor() }}{% endif %}
     group by dim_date.iso_week_id
 ),
 
