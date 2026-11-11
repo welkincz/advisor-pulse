@@ -30,7 +30,8 @@ function LikelyRange({ counts }: { counts: ContactCounts | null }) {
   if (!counts || !range) return null
   const small = range.high - range.low > TOO_WIDE
   const text = `With ${counts.clients.toLocaleString('en-CA')} clients, chance alone could put this rate anywhere in ${formatRange(range)} (a 95% interval).${small ? ' Too wide to compare with other books.' : ''}`
-  return <Term title="Likely range" text={text}>{small ? 'Too few clients to read' : `likely ${formatRange(range)}`}</Term>
+  // Below the trigger, so the card never covers the rate it explains.
+  return <Term title="Likely range" text={text} prefer="below">{small ? 'Too few clients to read' : `likely ${formatRange(range)}`}</Term>
 }
 
 /** For one advisor, "per advisor" is just their own count. */
