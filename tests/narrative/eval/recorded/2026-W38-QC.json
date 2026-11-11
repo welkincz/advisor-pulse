@@ -1,0 +1,49 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1",
+     "F19"
+    ],
+    "text": "Portfolio contacted (12 months) held steady at 87.5%, ranking 3 among 10 peers, with Western Quebec highest of the three districts at 89.2%."
+   },
+   {
+    "fact_ids": [
+     "F6",
+     "F10"
+    ],
+    "text": "Show rate fell 2.5% to 93.4% this week, while the no-show rate rose 56.1% to 6.62%."
+   },
+   {
+    "fact_ids": [
+     "F13",
+     "F17",
+     "F21"
+    ],
+    "text": "Greater Montr\u00e9al's show rate fell 6.0% to 91.3%, the lowest of the three districts, while Western Quebec's rose to 98.6%."
+   },
+   {
+    "fact_ids": [
+     "F7",
+     "F2"
+    ],
+    "text": "Appointment conversion fell 15.2% to 20.2% this week, and activities per advisor rose 10.4% to 18.0."
+   }
+  ],
+  "headline": "Quebec's portfolio contacted (12 months) held steady this week at 87.5%.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F13",
+     "F17",
+     "F21"
+    ],
+    "node_id": "MTL",
+    "reason": "Show rate fell 6.0% to 91.3%, flagged this week and below the other two districts."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}

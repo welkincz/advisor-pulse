@@ -92,6 +92,22 @@ class OrgWeekly(Contract):
     portfolio_contacted_rate_12m: Rate | None = Field(
         default=None, description="The lead KPI; null before 12 months of history."
     )
+    stale_9m_share: Rate | None = Field(
+        default=None,
+        description=(
+            "Branch rows only: share of the portfolio clients with no contact in 9+ months. "
+            "A secondary indicator, not a forecast; null when the lead KPI is."
+        ),
+    )
+    stale_9m_rise_13w: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description=(
+            "Branch rows only: stale_9m_share minus its value 13 reported weeks earlier, "
+            "as a fraction (0.011 = 1.1 points). Null without that earlier week."
+        ),
+    )
 
 
 class OrgQuarterly(Contract):

@@ -1,11 +1,14 @@
-"""Export reference data to dbt seeds.
+"""Export reference data and the business calendar to dbt seeds.
 
 python -m pulse.seeds          # write dbt/seeds/*.csv
 python -m pulse.seeds --check  # exit 1 if the committed CSVs are stale
 
 ``make seeds`` is the entry point. The org seed is one row per branch in
 ``reference/org.yaml``. Province letters are the Canada Post map in
-``pulse.reference``. Boundary codes are the FSAs in the shipped StatCan layer.
+``pulse.reference``. Boundary codes are the FSAs in the shipped StatCan layer. The
+business week seed is ``pulse.business_calendar.week_factor`` for every ISO week that
+``dim_date`` covers by default, so the report's anomaly rule uses the same calendar as the
+generator and DQ031.
 """
 
 from __future__ import annotations
@@ -15,9 +18,11 @@ import csv
 import io
 import json
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from pulse.business_calendar import week_factor
 from pulse.contracts.enums import Province
 from pulse.reference import FSA_PROVINCE, org
 
@@ -51,6 +56,9 @@ ORG_BRANCH_COLUMNS = (
 )
 FSA_PROVINCE_COLUMNS = ("fsa_first_letter", "province_code", "province_name")
 FSA_BOUNDARY_COLUMNS = ("fsa_code",)
+BUSINESS_WEEK_COLUMNS = ("iso_week_id", "week_factor")
+# dim_date's default range (dbt vars dim_date_start and dim_date_end).
+DIM_DATE_START, DIM_DATE_END = date(2023, 1, 1), date(2027, 12, 31)
 
 
 def _csv(columns: tuple[str, ...], rows: list[dict[str, str]]) -> str:
@@ -105,6 +113,21 @@ def boundary_codes(path: Path = BOUNDARY_PATH) -> list[str]:
     return sorted(codes)
 
 
+def business_week_rows(
+    start: date = DIM_DATE_START, end: date = DIM_DATE_END
+) -> list[dict[str, str]]:
+    """One row per ISO week touching ``start``..``end``, with the calendar's expected
+    volume relative to an ordinary week. ``repr`` keeps the float exact."""
+    monday = start - timedelta(days=start.weekday())
+    rows = []
+    while monday <= end:
+        iso = monday.isocalendar()
+        week = f"{iso.year}-W{iso.week:02d}"
+        rows.append({"iso_week_id": week, "week_factor": repr(week_factor(week))})
+        monday += timedelta(weeks=1)
+    return rows
+
+
 def render_seeds() -> dict[str, str]:
     """CSV text for each seed file, keyed by file name."""
     return {
@@ -113,6 +136,7 @@ def render_seeds() -> dict[str, str]:
         "fsa_boundary.csv": _csv(
             FSA_BOUNDARY_COLUMNS, [{"fsa_code": code} for code in boundary_codes()]
         ),
+        "business_week.csv": _csv(BUSINESS_WEEK_COLUMNS, business_week_rows()),
     }
 
 

@@ -1,0 +1,64 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "Portfolio contacted (12 months) held steady at 87.2% this week, ranking second among its three peers."
+   },
+   {
+    "fact_ids": [
+     "F6",
+     "F10"
+    ],
+    "text": "Show rate fell 6.0% to 91.3% while no-show rate reached 8.7%, and both rank third among the three peers."
+   },
+   {
+    "fact_ids": [
+     "F33",
+     "F53"
+    ],
+    "text": "Rosemont's show rate fell 23.1% to 76.9%, and Longueuil's fell 8.1% to 88.9%."
+   },
+   {
+    "fact_ids": [
+     "F43"
+    ],
+    "text": "Laval Chomedey's portfolio contacted rose 0.6% to 80.2%, still ranking 14th of 14 branches."
+   },
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Activities per advisor rose 8.4% to 17.7 this week, ranking third among the three peers."
+   }
+  ],
+  "headline": "Portfolio contacted (12 months) held steady this week at 87.2% for Greater Montr\u00e9al.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F33"
+    ],
+    "node_id": "BR-0506",
+    "reason": "Show rate fell 23.1% to 76.9% this week."
+   },
+   {
+    "fact_ids": [
+     "F43"
+    ],
+    "node_id": "BR-0509",
+    "reason": "Portfolio contacted of 80.2% ranks 14th of 14 branches."
+   },
+   {
+    "fact_ids": [
+     "F53"
+    ],
+    "node_id": "BR-0511",
+    "reason": "Show rate fell 8.1% to 88.9% this week."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}
