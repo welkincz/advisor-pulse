@@ -163,7 +163,9 @@ jobs:
     needs: changes
     # The outside judge for #304: a weekly dbt build on a scaled world, within 20% of the
     # committed baseline (tests/benchmark/weekly_dbt_baseline.json), normalized by a fixed
-    # DuckDB workload timed on the same runner. About two minutes; same gate as dbt.
+    # DuckDB workload timed on the same runner. About three minutes; same gate as dbt.
+    # Advisory until the baseline is the median of several Actions runs: one sample (its
+    # trials spread 8%) leaves too little headroom to block a merge on.
     if: needs.changes.outputs.dbt == 'true' && needs.changes.outputs.dbt_ready == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -182,7 +184,13 @@ jobs:
         run: uv run python scripts/runner_profile.py
 
       - name: Weekly dbt build within budget (scaled world)
+        id: bench
+        continue-on-error: true
         run: uv run python scripts/bench_weekly_dbt.py --out data/bench/weekly_dbt.json
+
+      - name: Warn when over budget
+        if: steps.bench.outcome == 'failure'
+        run: echo "::warning title=dbt weekly benchmark::Over the 20% budget, or the benchmark failed (see the step above). Advisory until the baseline is a multi-run median."
 
       - name: Upload benchmark result
         if: always()

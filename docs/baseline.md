@@ -191,22 +191,23 @@ Narrate is not a normal figure here: the model credential was rejected, so all 2
 
 ### Incremental weekly models (#304)
 
-Before this change every weekly `dbt build` rebuilt two years of client × week history. Now the 12-month contact window and the weekly marts are incremental: a run rebuilds the last 4 weeks before the newest one it holds, plus the new week, and keeps the rest (`dbt/macros/weekly_incremental.sql`). The quarterly mart rebuilds the quarters those weeks fall in.
+Before this change every weekly `dbt build` rebuilt two years of client × week history. Now the 12-month contact window and the weekly marts are incremental, and a run keeps older weeks (`dbt/macros/weekly_incremental.sql`; the rules are in `dbt/README.md`). The quarterly mart rebuilds whole quarters.
 
 - **Incremental models:** `int_client_book_weekly`, `int_client_contact_12m`, `int_kpi_events`, `mart_org_weekly`, `mart_advisor_weekly`, `mart_portfolio_weekly`, `mart_geo_weekly`, `mart_weekly_report` and `mart_org_quarterly`. The marts keep `contract: {enforced: true}`.
-- **Why 4 weeks:** late rows arrive at most 3 weeks late, and a booking counts in the week it was made, at most a week before the visit. Client, portfolio and HR changes take effect from their own date. `fct_activity` uses the same 28 days.
+- **Rebuild floor:** the earlier of 4 weeks before the newest week a table holds, and the earliest day of any raw row loaded since the runner last built it. Late rows arrive at most 3 weeks late, and a booking is made at most a week before the visit. A past-range backfill or history extended earlier rebuilds from its own week.
+- **Changed definitions:** the runner stamps each incremental table with a fingerprint of its definition and everything upstream. A table whose fingerprint changed is rebuilt from all history on the next run, along with everything downstream of it. `pulse run --full-refresh` (the weekly workflow's `full_refresh` input) rebuilds all of them.
 
-**Local measurement (Apple M4 Max, not Actions), 2026-11-11.** Full-size state: `backfill --from 2024-W41 --to 2026-W44 --rebuild`, default seed and scale, no R2, templates only. Then one weekly run of 2026-W45 from a copy of that state, once with `main` (`229dd7e`) and once with this change:
+**Local measurement (Apple M4 Max, not Actions), 2026-11-11.** Full-size state: `backfill --from 2024-W41 --to 2026-W44 --rebuild`, default seed and scale, no R2, templates only. Then one weekly run of 2026-W45 from a copy of that state, once with `main` (`229dd7e`) and once with this change. The second state was first built once by the new runner on 2026-W44: its unstamped tables were rebuilt in full, in 42.3 s, as the first production run after deploy will be.
 
 | | `main` | Incremental |
 |---|---:|---:|
-| `dbt_build` stage (run log) | 41.7 s | 14.3 s |
-| dbt elapsed (`run_results.json`) | 37.2 s | 10.5 s |
-| Sum of model times | 53.2 s | 7.7 s |
-| Sum of test times | 26.9 s | 24.7 s |
-| Whole weekly run, no R2 | 51.9 s | 24.6 s |
+| `dbt_build` stage (run log) | 41.7 s | 15.1 s |
+| dbt elapsed (`run_results.json`) | 37.2 s | 11.7 s |
+| Sum of model times | 53.2 s | 8.7 s |
+| Sum of test times | 26.9 s | 25.1 s |
+| Whole weekly run, no R2 | 51.9 s | 24.8 s |
 
-The ten slowest models of the `main` weekly build, in seconds (dbt runs four at a time):
+The stage includes a `dbt parse` (for the fingerprints) before the build. The ten slowest models of the `main` weekly build, in seconds (dbt runs four at a time), against the first incremental measurement:
 
 | Model | `main` | Incremental |
 |---|---:|---:|
@@ -221,11 +222,11 @@ The ten slowest models of the `main` weekly build, in seconds (dbt runs four at 
 | `mart_org_weekly` | 1.60 | 0.16 |
 | `mart_weekly_report` | 1.06 | 0.08 |
 
-- **Same tables:** after the incremental W45 run, all 22 intermediate and mart tables match the `main` full build row for row (count and an order-free row hash). A second run of the same week changes none of them. A `--full-refresh` gives the same nine incremental tables; only `fct_activity` differs, the owner-approved exception noted in its model (#275).
+- **Same tables:** after the incremental W45 run, all 22 intermediate and mart tables match the `main` full build row for row (count and an order-free row hash). A second run of the same week changes none of them. `pulse run --full-refresh` gives the same nine incremental tables; only `fct_activity` differs, the owner-approved exception noted in its model (#275).
 - **What is left:** tests are now most of the build. About 20 of them read `stg_activity`, a view that deduplicates 2.3 million rows each time, and three read the 25-million-row client book.
-- **Proof in CI:** `tests/dbt/test_weekly_incremental.py` builds the fixtures through W39, loads the W40 extract with its late rows, and requires every model with the `replace_from` strategy to equal a full refresh, a rerun to change nothing, and the delete to start at a week. With no lookback, the same check fails.
-- **Budget in CI:** the `dbt weekly benchmark` job (`scripts/bench_weekly_dbt.py`) builds a 40% world (360 advisors, 60,000 clients, warm-up year plus 2026-W33 to W40), loads W41 and times the weekly build, best of three. It divides the models' time by a fixed DuckDB workload timed on the same runner, and fails when that ratio is more than 20% above `tests/benchmark/weekly_dbt_baseline.json`. The baseline comes from Actions [run 43062304740](https://github.com/welkincz/advisor-pulse/actions/runs/43062304740) (job 2 min 47 s): a full build sums 18.2 s of model time, a weekly one 10.4 s (best of 10.4, 11.0 and 11.2), and the calibration takes 0.525 s, a ratio of 19.7. On the M4 Max the same job takes about 70 s and gives 18.1.
-- [ ] On Actions: compare the first weekly run's `dbt_build` with the 83.0 s of run 41520054553. The 60 s weekly and 10 min rebuild targets are not met until an Actions run shows them.
+- **Proof in CI:** `tests/dbt/test_weekly_incremental.py` builds the fixtures through W39 with the runner's dbt stage, loads W40 (late rows, client changes), and requires every incremental model to equal a full refresh and a rerun to change nothing. It also covers: the stamp catching the late rows with no lookback at all; plain dbt with no lookback failing the comparison; a changed fingerprint rebuilding only that model; a week no longer reported rebuilding the mart from the start.
+- **Benchmark in CI:** the `dbt weekly benchmark` job (`scripts/bench_weekly_dbt.py`) builds a 40% world (360 advisors, 60,000 clients, warm-up year plus 2026-W33 to W40), loads W41 and times the weekly build, best of three. It divides the models' time by a fixed DuckDB workload timed on the same runner and compares the ratio with `tests/benchmark/weekly_dbt_baseline.json` (+20% budget). The baseline is one Actions sample, [run 43062304740](https://github.com/welkincz/advisor-pulse/actions/runs/43062304740): model time 18.2 s for a full build and 10.4 s for a weekly one, calibration 0.525 s, ratio 19.7. The next run gave 20.4. Until the baseline is a median of several Actions runs, an over-budget result only warns.
+- [ ] On Actions: compare the first weekly run's `dbt_build` with the 83.0 s of run 41520054553; that first run includes the one-off full rebuild. The 60 s weekly and 10 min rebuild targets are not met until an Actions run shows them.
 
 ## Export sizes (site after 2026-W43)
 

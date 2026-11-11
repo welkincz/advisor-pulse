@@ -9,13 +9,16 @@
     The macro is called inside a conditional, so each model names what it reads with a
     `-- depends_on:` line (dim_date, and int_contact_window with reported_weeks_only).
 
-    incremental_floor() is the first key the run rebuilds:
+    incremental_floor() is the first key the run rebuilds, the earlier of:
       * the latest week already in the model, less `weekly_lookback_weeks` (4 by default,
-        the 28 days fct_activity uses). Rows arrive up to 3 weeks late, a booking counts
-        in the week it was made (at most a week before the visit), and client, portfolio
-        and HR changes take effect on their own date, so no source change reaches further
-        back. A run that loads nothing new rebuilds the same weeks and gives the same table;
-      * '' (everything) when the model is empty, or when `reported_weeks_only` and its
+        the 28 days fct_activity uses). Rows arrive up to 3 weeks late and a booking counts
+        in the week it was made, at most a week before the visit. A run that loads nothing
+        new rebuilds the same weeks and gives the same table;
+      * the earliest day that any raw row loaded since the model's last stamped build
+        takes effect (activity, booking or schedule date, CLNT update, HR and portfolio
+        assignment). So a past-range backfill or a row later than the lookback rebuilds
+        from its own week. assert_late_rows_within_lookback warns when that happens;
+    or '' (everything) when the model is empty, or when `reported_weeks_only` and its
         first week is no longer reported: a history without the warm-up year starts its
         report later once it reaches a full year (int_contact_window).
     Config `replace_key` names the key (default iso_week_id); with fiscal_quarter_id the
@@ -36,10 +39,46 @@
             from {{ this }}
         ),
 
+        -- The runner stamps each incremental table after a build with the newest raw
+        -- `_loaded_at` that build saw (pulse.runner.refresh). Rows loaded since then may
+        -- touch any week: a past-range backfill, history extended earlier, a row later
+        -- than the lookback. Without a stamp (plain `dbt build`) only the lookback applies.
+        stamp as (
+            select try_cast(json_extract_string(comment, '$.loaded_through') as timestamptz)
+                as loaded_through
+            from duckdb_tables()
+            where database_name = current_database()
+                and schema_name = '{{ this.schema }}'
+                and table_name = '{{ this.identifier }}'
+        ),
+
+        new_rows as (
+            select {{ toronto_date('least(' ~ '"ACTIVITY_TS", coalesce("CREATED_TS", "ACTIVITY_TS"), coalesce("SCHEDULED_TS", "ACTIVITY_TS"))') }} as day
+            from raw.snowflake__activity
+            where _loaded_at > (select loaded_through from stamp)
+            union all
+            select {{ toronto_date('"LAST_UPD_TS"') }}
+            from raw.teradata__clnt
+            where _loaded_at > (select loaded_through from stamp)
+            union all
+            select "EFF_DT" from raw.teradata__advsr_asgn
+            where _loaded_at > (select loaded_through from stamp)
+            union all
+            select "EFF_DT" from raw.teradata__prtf_asgn
+            where _loaded_at > (select loaded_through from stamp)
+        ),
+
         floor_week as (
-            select strftime(min(dim_date.week_start) - {{ 7 * lookback }}, '%G-W%V') as iso_week_id
+            select strftime(
+                least(
+                    min(dim_date.week_start) - {{ 7 * lookback }},
+                    coalesce((select min(day) from new_rows), date '9999-12-31')
+                ),
+                '%G-W%V'
+            ) as iso_week_id
             from {{ ref('dim_date') }} as dim_date
             inner join horizon on dim_date.iso_week_id = horizon.last_week
+            having count(*) > 0
         )
 
         select

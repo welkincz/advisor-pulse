@@ -21,6 +21,7 @@ import duckdb
 from pulse.contracts.defects import DefectManifest
 from pulse.contracts.enums import StageStatus
 from pulse.contracts.exports import EXPORT_TABLE_CONTRACTS, NarrativeFile
+from pulse.runner import refresh
 from pulse.runner.stage import StageContext, StageResult
 from pulse.warehouse import WAREHOUSE_FILE, connect, init_warehouse
 
@@ -48,15 +49,20 @@ def _has_table(con: duckdb.DuckDBPyConnection, schema: str, table: str) -> bool:
 # ── dbt_build ───────────────────────────────────────────────────────────────
 
 DbtCommand = Callable[[StageContext, Path], Sequence[str]]
+# Returns the manifest path, or None when there is none (the refresh check is then skipped).
+DbtParse = Callable[[StageContext, Path], Path | None]
+# Set to 1 (pulse run --full-refresh, weekly.yml's full_refresh input) to rebuild every
+# incremental model in full this run.
+FULL_REFRESH_ENV = "PULSE_DBT_FULL_REFRESH"
 
 
-def dbt_command(ctx: StageContext, target_path: Path) -> list[str]:
+def _dbt(verb: str, target_path: Path) -> list[str]:
     return [
         sys.executable,
         "-m",
         "dbt.cli.main",
         "--no-use-colors",
-        "build",
+        verb,
         "--project-dir",
         str(DBT_DIR),
         "--profiles-dir",
@@ -66,6 +72,27 @@ def dbt_command(ctx: StageContext, target_path: Path) -> list[str]:
         "--target-path",
         str(target_path.resolve()),
     ]
+
+
+def full_refresh_requested() -> bool:
+    return os.environ.get(FULL_REFRESH_ENV, "").strip().lower() in {"1", "true", "yes"}
+
+
+def dbt_command(ctx: StageContext, target_path: Path) -> list[str]:
+    return _dbt("build", target_path) + (["--full-refresh"] if full_refresh_requested() else [])
+
+
+def dbt_parse(ctx: StageContext, target_path: Path) -> Path | None:
+    """``dbt parse`` into the build's target path; the build then parses partially."""
+    env = {**os.environ, "PULSE_DATA_DIR": str(ctx.data_dir.resolve())}
+    proc = subprocess.run(
+        _dbt("parse", target_path), cwd=REPO_ROOT, env=env, capture_output=True, text=True
+    )
+    manifest = target_path / "manifest.json"
+    if proc.returncode != 0 or not manifest.exists():
+        tail = (proc.stdout + proc.stderr).strip().splitlines()[-3:]
+        raise RuntimeError(f"dbt parse exited {proc.returncode}: {' | '.join(tail)}")
+    return manifest
 
 
 @dataclass(frozen=True)
@@ -89,17 +116,42 @@ def _names(ids: Sequence[str], limit: int = 5) -> str:
     return ", ".join(short[:limit]) + more
 
 
-def dbt_build(ctx: StageContext, command: DbtCommand = dbt_command) -> StageResult:
-    """``dbt build --target dev`` against this run's warehouse. dbt warnings make it WARN."""
+def dbt_build(
+    ctx: StageContext, command: DbtCommand = dbt_command, parse: DbtParse = dbt_parse
+) -> StageResult:
+    """``dbt build --target dev`` against this run's warehouse. dbt warnings make it WARN.
+
+    Incremental tables built from another definition are dropped first, so dbt rebuilds
+    them in full, and every incremental table that built is stamped afterwards
+    (``pulse.runner.refresh``). ``PULSE_DBT_FULL_REFRESH=1`` rebuilds all of them.
+    """
     target_path = ctx.data_dir / DBT_TARGET_DIR
     results_file = target_path / "run_results.json"
     results_file.unlink(missing_ok=True)
+    try:
+        manifest_file = parse(ctx, target_path)
+    except RuntimeError as exc:
+        return StageResult(StageStatus.FAILED, message=str(exc))
+    models = (
+        refresh.incremental_models(
+            json.loads(manifest_file.read_text(encoding="utf-8")), DBT_DIR / "dbt_project.yml"
+        )
+        if manifest_file
+        else []
+    )
     # The dev profile reads the warehouse at $PULSE_DATA_DIR; dbt also needs it to exist.
     con = connect(ctx.data_dir / WAREHOUSE_FILE)
     try:
         init_warehouse(con)
+        through = refresh.loaded_through(con)
+        rebuilt = [] if full_refresh_requested() else refresh.stale(con, models)
+        refresh.drop(con, rebuilt)
     finally:
         con.close()
+    if rebuilt:
+        log.info(
+            "Full refresh of changed incremental models: %s", ", ".join(m.name for m in rebuilt)
+        )
     env = {**os.environ, "PULSE_DATA_DIR": str(ctx.data_dir.resolve())}
     proc = subprocess.run(
         list(command(ctx, target_path)),
@@ -116,20 +168,36 @@ def dbt_build(ctx: StageContext, command: DbtCommand = dbt_command) -> StageResu
             message=f"dbt build exited {proc.returncode} before running nodes: {' | '.join(tail)}",
         )
     outcome = read_run_results(results_file)
+    built = {
+        r["unique_id"]
+        for r in json.loads(results_file.read_text(encoding="utf-8"))["results"]
+        if r["status"] == "success"
+    }
+    con = connect(ctx.data_dir / WAREHOUSE_FILE)
+    try:
+        refresh.stamp(con, [m for m in models if m.unique_id in built], through)
+    finally:
+        con.close()
+    note = ""
+    if full_refresh_requested():
+        note = " Full refresh requested."
+    elif rebuilt:
+        note = f" Rebuilt in full after a definition change: {_names([m.name for m in rebuilt])}."
     if outcome.failed or proc.returncode != 0:
         return StageResult(
             StageStatus.FAILED,
             rows_out=outcome.total,
-            message=f"dbt build failed: {_names(outcome.failed) or f'exit {proc.returncode}'}.",
+            message=f"dbt build failed: {_names(outcome.failed) or f'exit {proc.returncode}'}."
+            + note,
         )
     if outcome.warned:
         return StageResult(
             StageStatus.WARN,
             rows_out=outcome.total,
             message=f"{outcome.total} dbt nodes; {len(outcome.warned)} warned: "
-            f"{_names(outcome.warned)}.",
+            f"{_names(outcome.warned)}." + note,
         )
-    return StageResult(rows_out=outcome.total, message=f"{outcome.total} dbt nodes passed.")
+    return StageResult(rows_out=outcome.total, message=f"{outcome.total} dbt nodes passed." + note)
 
 
 # ── checks ──────────────────────────────────────────────────────────────────

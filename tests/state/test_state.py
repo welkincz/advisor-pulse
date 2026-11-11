@@ -789,7 +789,7 @@ def _warehouse_with_a_rebuilt_table(path: Path) -> None:
     con.execute("create table marts.keep as select range as id from range(10)")
     con.execute("create view marts.keep_view as select id + 1 as next_id from marts.keep")
     con.execute(
-        "create table intermediate.int_kpi_events as select range as id from range(2000000)"
+        "create table intermediate.int_activity_enriched as select range as id from range(2000000)"
     )
     con.execute("create table intermediate.int_incremental as select range as id from range(5)")
     con.close()
@@ -802,11 +802,11 @@ def test_slim_warehouse_keeps_everything_but_what_dbt_rebuilds(tmp_path: Path) -
     con = connect(path)
     tables = con.execute(
         "select schema_name, table_name from duckdb_tables() "
-        "where table_name <> 'int_kpi_events' order by 1, 2"
+        "where table_name <> 'int_activity_enriched' order by 1, 2"
     ).fetchall()
     con.close()
 
-    slim_warehouse(path, {"int_kpi_events"})
+    slim_warehouse(path, {"int_activity_enriched"})
 
     assert path.stat().st_size < before
     assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
@@ -823,7 +823,7 @@ def test_a_failed_slim_leaves_the_warehouse_and_no_partial_file(tmp_path: Path) 
     path = tmp_path / WAREHOUSE_FILE
     path.write_bytes(b"not a database")
     with pytest.raises(duckdb.Error):
-        slim_warehouse(path, {"int_kpi_events"})
+        slim_warehouse(path, {"int_activity_enriched"})
     assert path.read_bytes() == b"not a database"
     assert sorted(p.name for p in tmp_path.iterdir()) == [WAREHOUSE_FILE]
 
@@ -885,7 +885,7 @@ def _dbt_project(root: Path, sql: dict[str, str], yml: str = "") -> Path:
 def test_the_repo_models_are_read_without_a_manifest(tmp_path: Path) -> None:
     models = {p.stem for p in (DBT_DIR / "models" / "intermediate").glob("*.sql")}
     rebuilt = rebuilt_tables(tmp_path)
-    assert "int_kpi_events" in rebuilt and rebuilt <= models
+    assert "int_activity_enriched" in rebuilt and rebuilt <= models
 
 
 def test_an_incremental_model_is_never_dropped(tmp_path: Path) -> None:

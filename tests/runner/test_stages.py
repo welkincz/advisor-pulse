@@ -80,6 +80,11 @@ def fake_dbt(results: list[dict[str, str]], exit_code: int) -> stages.DbtCommand
 # ── dbt_build ───────────────────────────────────────────────────────────────
 
 
+def no_parse(ctx: StageContext, target_path: Path) -> None:
+    """With a dbt stand-in there is no manifest, so the refresh check is skipped."""
+    return None
+
+
 @pytest.mark.integration
 def test_dbt_build_on_fixtures_passes(tmp_path: Path) -> None:
     sys.path.insert(0, str(Path(__file__).parents[2] / "scripts"))
@@ -105,11 +110,13 @@ def test_failing_dbt_test_fails_the_stage_and_blocks_downstream(tmp_path: Path) 
         ],
         exit_code=1,
     )
-    result = stages.dbt_build(ctx(tmp_path), command=bad)
+    result = stages.dbt_build(ctx(tmp_path), command=bad, parse=no_parse)
     assert result.status is StageStatus.FAILED
     assert result.message == "dbt build failed: unique_stg_activity_activity_id."
 
-    statuses = run(tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=bad)))
+    statuses = run(
+        tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=bad, parse=no_parse))
+    )
     assert statuses["dbt_build"] is StageStatus.FAILED
     assert statuses["checks"] is StageStatus.SKIPPED
     assert statuses["export"] is StageStatus.WARN  # always: run_log.json only
@@ -128,7 +135,7 @@ def test_dbt_warnings_make_the_stage_warn(tmp_path: Path) -> None:
         ],
         exit_code=0,
     )
-    result = stages.dbt_build(ctx(tmp_path), command=warn)
+    result = stages.dbt_build(ctx(tmp_path), command=warn, parse=no_parse)
     assert result.status is StageStatus.WARN
     assert "1 warned: relationships_stg_activity_client_id" in (result.message or "")
 
@@ -137,7 +144,7 @@ def test_dbt_crash_before_any_node_fails_with_its_output(tmp_path: Path) -> None
     def crash(ctx: StageContext, target_path: Path) -> list[str]:
         return [sys.executable, "-c", "import sys; print('Profile not found'); sys.exit(2)"]
 
-    result = stages.dbt_build(ctx(tmp_path), command=crash)
+    result = stages.dbt_build(ctx(tmp_path), command=crash, parse=no_parse)
     assert result.status is StageStatus.FAILED
     assert "exited 2" in (result.message or "") and "Profile not found" in (result.message or "")
 
@@ -147,7 +154,9 @@ def test_dbt_crash_before_any_node_fails_with_its_output(tmp_path: Path) -> None
 
 def test_checks_and_export_skip_until_marts_exist(tmp_path: Path) -> None:
     ok = fake_dbt([], exit_code=0)
-    statuses = run(tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=ok)))
+    statuses = run(
+        tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=ok, parse=no_parse))
+    )
     assert statuses["checks"] is StageStatus.SKIPPED
     assert statuses["export"] is StageStatus.SKIPPED
     assert not stages.export_dir().exists()
@@ -180,7 +189,9 @@ def _org_mart(data_dir: Path) -> None:
 def test_fail_check_fails_the_stage_and_blocks_export_data(tmp_path: Path) -> None:
     _org_mart(tmp_path)
     ok = fake_dbt([], exit_code=0)
-    statuses = run(tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=ok)))
+    statuses = run(
+        tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=ok, parse=no_parse))
+    )
     # Nothing in raw: DQ030 freshness has no activity date and FAILs.
     assert statuses["checks"] is StageStatus.FAILED
     assert statuses["export"] is StageStatus.WARN
@@ -227,7 +238,9 @@ def test_export_keeps_this_run_after_a_cold_rebuild(tmp_path: Path) -> None:
     finally:
         con.close()
     ok = fake_dbt([], exit_code=0)
-    statuses = run(tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=ok)))
+    statuses = run(
+        tmp_path, pipeline(dbt_build=lambda c: stages.dbt_build(c, command=ok, parse=no_parse))
+    )
     assert statuses["export"] is StageStatus.WARN  # checks fail on empty raw; log still ships
     runs = json.loads((stages.export_dir() / "run_log.json").read_text())["runs"]
     assert runs[0]["run_id"] == f"manual-{WEEK}-1"
