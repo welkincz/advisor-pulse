@@ -98,7 +98,7 @@
      "limit": "Outside this weekly batch design; assess in a separate synthetic lab.", "gap_issue": 325},
     {"name": "Scala/Java/Go systems work", "tags": ["scala", "java", "go"], "strength": "missing",
      "evidence": [],
-     "limit": "No direct implementation in these languages.", "gap_issue": 326},
+     "limit": "Deliberately excluded ([decision](scope/326-scala-java-go.md)): the project is a single-language Python and SQL batch with a TypeScript site; no Scala, Java or Go implementation. A separate lab would be the honest test.", "gap_issue": 326},
     {"name": "Security and regulated governance", "tags": ["security", "access_controls", "governance"], "strength": "weak",
      "evidence": ["src/pulse/state/lock.py#L1", "AGENTS.md#L1"],
      "limit": "Synthetic-only controls and environment secrets; no proof of regulated IAM, PII controls or audit sign-off.", "gap_issue": 327},
