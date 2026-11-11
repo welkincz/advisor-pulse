@@ -77,7 +77,7 @@
      "limit": "A case study and ADRs that state each decision with its cost, a role section on how the work was split and reviewed, owner-decision ADRs 0007–0009 that give a recommendation, what was declined and who decided, and a weekly note written from cited figures and labelled as AI-generated or as a template fallback. The readers are reviewers of a synthetic project: no external stakeholder sign-off, adoption or feedback evidence.", "gap_issue": 318},
     {"name": "Cloud platform and IaC", "tags": ["aws", "azure", "gcp", "terraform", "cloudformation", "adf", "glue", "athena"], "strength": "weak",
      "evidence": ["src/pulse/state/sync.py#L1", ".github/workflows/weekly.yml#L1"],
-     "limit": "R2/Pages are implemented; AWS/Azure/GCP platform operations and IaC are not.", "gap_issue": 319},
+     "limit": "Deliberately excluded ([decision](scope/319-cloud-iac.md)): state in Cloudflare R2 and deploys to Pages from Actions are implemented; AWS/Azure/GCP operations and IaC would need cloud accounts (often paid beyond free tiers) and are not demonstrated. A separate lab would be the honest test.", "gap_issue": 319},
     {"name": "Managed cloud warehouses", "tags": ["snowflake", "bigquery", "redshift", "warehouse"], "strength": "missing",
      "evidence": [],
      "limit": "The Snowflake-labelled source is local Parquet; DuckDB does not prove Snowflake/BigQuery/Redshift operations.", "gap_issue": 320},
