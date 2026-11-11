@@ -420,6 +420,8 @@ Attribution: an activity is credited to the advisor's **branch as of the activit
 
 **Flags (`mart_weekly_report.flag`).** `ANOMALY` when a measure is more than **3** standard deviations from the 13 weeks before it (at least 8 of them non-null). `PRTF_CONTACT_12M` is a smooth rolling rate, so for it the week's move has to be unusual instead: more than 2 standard deviations from the 13 moves before it, and at least **0.2 points**. Otherwise `UP` or `DOWN` when the week moved 1% or more, else `FLAT`. `UP` and `DOWN` describe the week and are not alerts. The thresholds were 2 standard deviations and half a point until the backtest against the generator's ground truth (#300, ADR 0006) tuned them on one seed and confirmed them on another; `make backtest` reruns it.
 
+**Likely range (`PRTF_CONTACT_12M`).** The site shows the lead KPI with its 95% Wilson interval, computed in the browser from the exported numerator and denominator ("Likely 82.1–86.2%, from 1,216 clients"). When the interval is wider than 15 points the book is too small to read, and the site says so. Ranks, "what moved" and flags use the raw rate; there is no shrunk rate. See ADR 0008.
+
 ---
 
 ## 8. Data-quality rules

@@ -1,6 +1,6 @@
 # ADR 0008 — Honest rates for small portfolios: intervals yes, shrinkage no
 
-- Status: Proposed. Nothing ships until the owner decides.
+- Status: Accepted, Wilson interval only (owner decision, 2026-11-11). No shrinkage, no new mart columns.
 - Date: 2026-11-05
 - Issue: #301
 
@@ -33,7 +33,17 @@
 - **Do ship the Wilson interval, with no contract change.** The exports already hold the numerator and denominator at advisor, portfolio and org level, so the site can compute the interval where it is shown. A hover card would read "84.2%, likely 83.1–85.3%".
 - **Revisit if books get small.** Rerun the evaluation first.
 
-The issue's acceptance asks for new mart columns and shrunk rankings. This recommendation drops them, so it is the owner's decision. The hover-card work waits for it, and #301 stays open until then.
+The issue's acceptance asked for new mart columns and shrunk rankings. The owner accepted this recommendation on 2026-11-11, which replaces that acceptance.
+
+## What shipped
+
+- `web/src/data/interval.ts` computes the 95% Wilson interval (z = 1.96, as the evaluation) from `portfolio_contacted_12m` and `portfolio_clients`, which `org_weekly` and `advisor_weekly` already export.
+- The lead KPI's hover card on the overview and on every region, district and branch page opens with "Likely 82.1–86.2%, from 1,216 clients." An advisor's contacted-rate tile carries "likely 81.0–95.6%" underneath, explained on hover or focus.
+- Rankings, "what moved" and the anomaly rule stay on the raw rate.
+
+### Too small to read
+
+A book is too small to read when its interval is wider than **15 points**. In the 2026-W45 export the middle half of advisors spans about 12 points (83.7% to 95.4%), so a wider range cannot even place a book in a quartile. The card then says, for example, "Too few clients (74) to read: likely 54.9–76.0%." It is a width, not a client count, because a book is easier to read near 100% than near 50%: in that export the smallest book (58 of 64 clients, likely 81.0–95.6%) is readable, while 12 of 778 advisors with 69 to 130 clients are not. No branch, district or region comes close (the smallest branch has 1,065 clients). The threshold is the constant `TOO_WIDE`; if books get smaller, rerun the evaluation before changing it.
 
 ## Limits
 

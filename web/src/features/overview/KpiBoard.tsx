@@ -1,5 +1,5 @@
 import { Delta, Explain, Sparkline } from '../../components/primitives'
-import { KPI_LABELS, KPI_PLAIN, formatKpi, happened } from '../../data'
+import { type ContactCounts, KPI_LABELS, KPI_PLAIN, LEAD_KPI, formatKpi, happened, rangeLine } from '../../data'
 import { settledWeeks } from '../../data/usual'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { AnimatedKpiValue } from '../../motion/AnimatedKpiValue'
@@ -52,11 +52,19 @@ export function boardGroups(rows: Map<KpiCode, BoardRow>, only?: readonly KpiCod
   return KPI_GROUPS.map((g) => ({ title: g.title, codes: g.codes.filter((c) => (!only || only.includes(c)) && !empty(c)) })).filter((g) => g.codes.length)
 }
 
+/** The lead KPI's card opens with its likely range (ADR 0008), once its counts have loaded. */
+export function cardLines(code: KpiCode, row: BoardRow | undefined, counts: ContactCounts | null | undefined, better: 'higher' | 'lower' | 'neither'): string[] {
+  const range = code === LEAD_KPI && row?.value != null ? rangeLine(counts) : null
+  const lines = row ? happened({ code, value: row.value, wow: row.wow, usual: row.usual, flag: row.flag, better }) : []
+  return range ? [range, ...lines] : lines
+}
+
 /**
  * Every measure for the week, each a row with its 26-week trend. A row is also the switch
- * for the chart above: choosing it plots that measure there.
+ * for the chart above: choosing it plots that measure there. `counts` are the node's lead-KPI
+ * numerator and denominator for the week, for its likely range.
  */
-export function KpiBoard({ rows, selected, onSelect, only }: { rows: Map<KpiCode, BoardRow>; selected: KpiCode; onSelect: (code: KpiCode) => void; only?: readonly KpiCode[] }) {
+export function KpiBoard({ rows, selected, onSelect, only, counts }: { rows: Map<KpiCode, BoardRow>; selected: KpiCode; onSelect: (code: KpiCode) => void; only?: readonly KpiCode[]; counts?: ContactCounts | null }) {
   const groups = boardGroups(rows, only)
   return <div className="board">
     {groups.map((group) => <section key={group.title} className="board-group" aria-labelledby={`board-${group.title}`}>
@@ -69,7 +77,7 @@ export function KpiBoard({ rows, selected, onSelect, only }: { rows: Map<KpiCode
             title: KPI_LABELS[code],
             value: formatKpi(code, row?.value),
             what: KPI_PLAIN[code],
-            happened: row ? happened({ code, value: row.value, wow: row.wow, usual: row.usual, flag: row.flag, better }) : [],
+            happened: cardLines(code, row, counts, better),
             hint: code === selected ? 'Plotted in the chart above.' : 'Click to plot it in the chart above.',
           })
           return <li key={code} data-kpi={code}><Explain block card={card}>{(described) =>
