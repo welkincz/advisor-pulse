@@ -43,8 +43,9 @@ class FakeGitHub:
         self.created += 1
         return 7
 
-    def update_issue(self, number: int, body: str) -> None:
+    def update_issue(self, number: int, title: str, body: str) -> None:
         assert number == 7 and self.issue is not None
+        self.issue["title"] = title
         self.issue["body"] = body
         self.updated += 1
 
@@ -93,6 +94,8 @@ def test_first_failure_opens_one_labelled_issue_with_failed_stage_and_check() ->
     assert "| checks | FAILED |" in body
     assert "| DQ030 | FAIL |" in body
     assert RUN_URL in body
+    assert github.issue["title"] == alert.TITLE
+    assert body.startswith("## Weekly pipeline failure")
     assert payloads and payloads[0]["status"] == "FAILED"
 
 
@@ -189,6 +192,9 @@ def test_rejected_model_credential_opens_the_alert_and_recovery_closes_it() -> N
     assert github.issue is not None
     body = str(github.issue["body"])
     assert "| Stage | narrate | MODEL CREDENTIAL REJECTED |" in body
+    assert github.issue["title"] == alert.CREDENTIAL_TITLE
+    assert body.startswith("## Weekly report published with template narratives")
+    assert "fail" not in f"{github.issue['title']} {body}".lower()
     assert SECRET not in str(github.issue)
     assert payloads[0]["status"] == "WARN"
 
@@ -355,3 +361,18 @@ def test_optional_webhook_error_is_nonfatal(
     monkeypatch.setenv("ALERT_WEBHOOK_URL", "https://example.test/hook")
     alert.main()
     assert github.created == 1
+
+
+def test_one_open_alert_takes_the_title_of_its_latest_cause() -> None:
+    github = FakeGitHub()
+    rejected = f"27 of 27 narratives fell back to the template ({alert.CREDENTIAL_REASON})."
+    sync_alert(_run_log(failed=True), github, RUN_URL)
+
+    sync_alert(_narrate_warned(rejected), github, RUN_URL)
+    assert github.issue is not None and github.created == 1
+    assert github.issue["title"] == alert.CREDENTIAL_TITLE
+    assert "Weekly pipeline failure" not in str(github.issue["body"])
+
+    sync_alert(_run_log(failed=True, week="2026-W41"), github, RUN_URL)
+    assert github.issue["title"] == alert.TITLE
+    assert str(github.issue["body"]).startswith("## Weekly pipeline failure")
