@@ -3,7 +3,7 @@ import { TrendChart } from '../../components/charts/TrendChart'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useReducedMotion } from '../../app/useReducedMotion'
 import { Breadcrumb, Delta, Explain, Section, SeriesCsvButton, SeriesTable, Stat, StatGroup, Term, WeekStepper } from '../../components/primitives'
-import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, happened, useAdvisorWeekly, useChildReportHistory, useManifest, useNodeNames, useWeeklyReportHistory } from '../../data'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, type ContactCounts, TERMS, TOO_WIDE, contactCounts, defaultLead, formatKpi, formatRange, happened, wilson, useAdvisorWeekly, useChildReportHistory, useManifest, useNodeNames, useOrgWeekly, useWeeklyReportHistory } from '../../data'
 import type { KpiCode, WeeklyReport } from '../../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../../data/usual'
 import { AnimatedKpiValue } from '../../motion/AnimatedKpiValue'
@@ -19,7 +19,20 @@ import { type DrillPath, LEVEL_LABEL, crumbs, drillPath, resolveWeek, weekQuery 
 import { navigateWithTransition } from './transition'
 import './drill.css'
 
-interface Tile { code: KpiCode; value: number | null; wow: number | null; anomaly: boolean }
+interface Tile { code: KpiCode; value: number | null; wow: number | null; anomaly: boolean; footer?: React.ReactNode }
+
+/**
+ * Under an advisor's contacted rate: its likely range, or that the book is too small to read
+ * (ADR 0008). Focus or hover explains it.
+ */
+function LikelyRange({ counts }: { counts: ContactCounts | null }) {
+  const range = counts && wilson(counts.contacted, counts.clients)
+  if (!counts || !range) return null
+  const small = range.high - range.low > TOO_WIDE
+  const text = `With ${counts.clients.toLocaleString('en-CA')} clients, chance alone could put this rate anywhere in ${formatRange(range)} (a 95% interval).${small ? ' Too wide to compare with other books.' : ''}`
+  // Below the trigger, so the card never covers the rate it explains.
+  return <Term title="Likely range" text={text} prefer="below">{small ? 'Too few clients to read' : `likely ${formatRange(range)}`}</Term>
+}
 
 /** For one advisor, "per advisor" is just their own count. */
 const advisorLabel = (code: KpiCode) => (code === 'ACT_PER_ADV' ? 'Activities completed' : KPI_LABELS[code])
@@ -30,7 +43,7 @@ function better(code: KpiCode) {
 
 function Tiles({ tiles, label, name = (code: KpiCode) => KPI_LABELS[code] }: { tiles: Tile[]; label: string; name?: (code: KpiCode) => string }) {
   return <StatGroup label={label}>
-    {tiles.map((t, index) => <Stat key={t.code} data-kpi={t.code} label={name(t.code)} value={<AnimatedKpiValue code={t.code} value={t.value} />} emphasis={index === 0}>
+    {tiles.map((t, index) => <Stat key={t.code} data-kpi={t.code} label={name(t.code)} value={<AnimatedKpiValue code={t.code} value={t.value} />} emphasis={index === 0} footer={t.footer}>
       <Delta value={t.wow} better={better(t.code)} />
       {t.wow != null && <span> WoW</span>}
       {t.anomaly && <span className="kpi-anomaly">Anomaly</span>}
@@ -68,6 +81,7 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, lead, ch
   const parentId = path.orgIds.length > 1 ? path.orgIds.at(-2)! : 'CA'
   const history = useWeeklyReportHistory(path.nodeId, weeks)
   const parent = useWeeklyReportHistory(parentId, weeks)
+  const org = useOrgWeekly(path.nodeId, [week])
   const childWeeks = weeks.slice(Math.max(0, weeks.indexOf(week) - CHILD_WEEKS + 1), weeks.indexOf(week) + 1)
   const children = useChildReportHistory(path.childSegment && path.childSegment !== 'a' ? path.nodeId : '', path.childSegment && path.childSegment !== 'a' ? childWeeks : [])
   const all = useMemo<WeeklyReport[]>(() => (history.status === 'ready' ? history.data : []), [history])
@@ -130,7 +144,7 @@ function OrgReport({ path, week, weeks, name, parentName, setKpi, code, lead, ch
       <SeriesTable rows={series} code={code} week={week} settled={settled} label={`${KPI_LABELS[code]}, ${name}, by week`} />
     </section>
     <Section id="kpis" title={`${name}, week ${week}`} lede="Hover or focus a measure for what it means; click to plot it." revealOrder={0}>
-      {history.status === 'loading' && !rows.size ? <p aria-busy="true">Loading the KPIs…</p> : <KpiBoard rows={rows} selected={code} onSelect={setKpi} only={ORG_KPIS} />}
+      {history.status === 'loading' && !rows.size ? <p aria-busy="true">Loading the KPIs…</p> : <KpiBoard rows={rows} selected={code} onSelect={setKpi} only={ORG_KPIS} counts={contactCounts(org.status === 'ready' ? org.data[0] : null)} />}
     </Section>
     {childLabel && path.childSegment !== 'a' && <Section id="children" title={`${childLabel} in ${name}`} lede={`${KPI_LABELS[code]}, last ${childWeeks.length} weeks, best first. The dashed line is ${name}.`}>
       {children.status === 'loading' && <p aria-busy="true">Loading the {childLabel.toLowerCase()}…</p>}
@@ -169,7 +183,8 @@ function AdvisorKpis({ name, week, weeks, branchId, advisorId, code, lead, setKp
     const value = advisorValue(kpi, current)
     const before = prior ? advisorValue(kpi, prior) : null
     const wow = value !== null && before ? Math.round(((value - before) / before) * 10000) / 10000 : null
-    return { code: kpi, value, wow, anomaly: false }
+    const footer = kpi === 'PRTF_CONTACT_12M' && value !== null ? <LikelyRange counts={contactCounts(current)} /> : undefined
+    return { code: kpi, value, wow, anomaly: false, footer }
   })
   const lede = measuresSentence(tiles, lead, advisorLabel)
   last.current = { advisorId, tiles, lede }

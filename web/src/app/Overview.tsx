@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TrendChart } from '../components/charts/TrendChart'
 import { Delta, Explain, Section, SeriesCsvButton, SeriesTable, Term, WeekStepper } from '../components/primitives'
-import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, defaultLead, formatKpi, happened, leadFor, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
+import { DataNotice, KPI_LABELS, KPI_PLAIN, TERMS, contactCounts, defaultLead, formatKpi, happened, leadFor, useChildReportHistory, useLevelKpiHistory, useManifest, useOrgWeekly, usePulseData, useWeeklyReportHistory } from '../data'
 import type { Manifest } from '../data/generated/manifest'
 import type { KpiCode, WeeklyReport } from '../data/generated/weekly_report'
 import { WARM_UP_WEEKS, settledWeeks } from '../data/usual'
@@ -134,7 +134,7 @@ function Briefing({ manifest }: { manifest: Manifest }) {
         <h2 id="measures-title">Every measure</h2>
         <p className="section-lede">Hover or focus a measure for what it means; click to plot it.</p>
       </header>
-      <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} />
+      <KpiBoard rows={rows} selected={code} onSelect={(c) => set('kpi', c)} counts={contactCounts(org.status === 'ready' ? org.data[0] : null)} />
     </section>
 
     {/* The week in depth, for the measure plotted above. */}
