@@ -1,10 +1,10 @@
 # When a weekly or backfill run on main fails, Claude Code diagnoses it and proposes the fix (#307).
 #
-# The agent reads untrusted logs, so it is treated as able to run any code. It runs as its own
-# unprivileged user, on a copy of main without .git, with no GitHub token and no sudo, and
-# nothing in its job saves a cache. Fixed steps decide what leaves the runner
+# The agent reads untrusted logs, so it is treated as able to run any code. It runs in a
+# locked-down container, on a copy of main without .git, with no GitHub token, and nothing in
+# its job saves a cache. Fixed steps decide what leaves the runner
 # (docs/pipeline-doctor.md, threat model):
-#   diagnose  Collects the evidence, runs the agent as user `doctor`, then packages its edits
+#   diagnose  Collects the evidence, runs the agent in a container, then packages its edits
 #             as a diff. Token: contents and actions read.
 #   report    Posts the sanitised report on the alert:pipeline issue. issues: write.
 #   propose   Checks the diff with main's guard before applying it, pushes
@@ -28,6 +28,8 @@ concurrency:
 
 env:
   CLAUDE_CODE_VERSION: 2.1.322
+  # node:22.21.1-bookworm (not -slim: uv needs its CA certificates to fetch a dbt wheel)
+  DOCTOR_IMAGE: node@sha256:b84d52cd45bfe261096ccbf886955d431b8b9ed01b72eaef588e8886bda09e78
 
 jobs:
   diagnose:
@@ -83,28 +85,38 @@ jobs:
           failing="$(jq -r '[.jobs[] | select(.conclusion == "failure") | .name] | sort | join(", ")' "$EVIDENCE/run.json")"
           echo "failing_jobs=${failing//[^A-Za-z0-9 ,._()-]/}" >> "$GITHUB_OUTPUT"
 
-      # The agent gets its own uid: it cannot sudo, cannot read the runner's processes
-      # (their environment or memory, where the Actions runtime token lives) and cannot read
-      # /home/runner. It works on a copy of main without .git.
-      - name: Prepare the unprivileged agent user
+      # The agent runs in a container: a non-root uid, a read-only root filesystem, no
+      # capabilities, no privilege escalation, a process limit, and only its own work folders
+      # mounted. It cannot reach the runner's files, processes, PATH or Docker socket, and it
+      # holds no GitHub token. Network stays on for the Claude API; cloud metadata is blocked.
+      - name: Prepare the agent container
         run: |
-          sudo useradd --create-home --shell /bin/bash doctor
-          sudo chmod 700 /home/runner
-          sudo mkdir -p /home/doctor/repo /home/doctor/out
-          sudo rsync -a --exclude=.git ./ /home/doctor/repo/
-          sudo cp -r "$RUNNER_TEMP/doctor/evidence" /home/doctor/evidence
+          W="$RUNNER_TEMP/doctor/work"
+          mkdir -p "$W/repo" "$W/home" "$W/out" "$W/bin"
+          rsync -a --exclude=.git ./ "$W/repo/"
+          cp -r "$RUNNER_TEMP/doctor/evidence" "$W/evidence"
+          install -m 755 "$(command -v uv)" "$W/bin/uv"
           cp .github/doctor-prompt.md "$RUNNER_TEMP/doctor/prompt.md"
-          sudo chown -R doctor:doctor /home/doctor
-          if sudo -u doctor sudo -n true 2>/dev/null; then
-            echo "::error::the doctor user can sudo"; exit 1
-          fi
+          sudo iptables -I DOCKER-USER -d 169.254.169.254 -j DROP
+          sudo iptables -I DOCKER-USER -d 168.63.129.16 -j DROP
+          docker pull -q "$DOCTOR_IMAGE"
 
-      - name: Install Claude Code and the project for the agent user
+      # Same container settings, with no secret: install the pinned Claude Code and the
+      # project's dependencies into the agent's own folders.
+      - name: Install Claude Code and the project in the container
         run: |
-          sudo -u doctor -H -- env PATH="$(dirname "$(command -v uv)"):/usr/local/bin:/usr/bin:/bin" \
-            CLAUDE_CODE_VERSION="$CLAUDE_CODE_VERSION" bash -euo pipefail -c '
+          W="$RUNNER_TEMP/doctor/work"
+          docker run --rm --name doctor-prep \
+            --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp:rw,exec,size=1g \
+            --cap-drop=ALL --security-opt no-new-privileges --pids-limit 512 --memory 6g \
+            -v "$W/repo:/work/repo" -v "$W/home:/work/home" -v "$W/bin:/work/bin:ro" \
+            -e HOME=/work/home -e PATH=/work/home/.npm-global/bin:/work/bin:/usr/local/bin:/usr/bin:/bin \
+            -e CLAUDE_CODE_VERSION -e DISABLE_AUTOUPDATER=1 -w /work/repo "$DOCTOR_IMAGE" bash -euo pipefail -c '
+              node --version
+              node -e "process.exit(Number(process.versions.node.split(\".\")[0]) >= 22 ? 0 : 1)"
               npm install --global --prefix "$HOME/.npm-global" "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
-              cd "$HOME/repo" && uv sync --frozen'
+              claude --version
+              uv sync --frozen'
 
       - name: Diagnose and propose
         timeout-minutes: 20
@@ -114,55 +126,71 @@ jobs:
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           FAILED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          W="$RUNNER_TEMP/doctor/work"
           {
             printf 'REPO: %s\nFAILED RUN: %s\nFAILED COMMIT: %s\n' "$REPO" "$RUN_URL" "$FAILED_SHA"
-            printf 'EVIDENCE: /home/doctor/evidence\nOUTPUT: /home/doctor/out\n\n'
+            printf 'EVIDENCE: /work/evidence\nOUTPUT: /work/out\n\n'
             cat "$RUNNER_TEMP/doctor/prompt.md"
-          } | sudo -u doctor -H --preserve-env=CLAUDE_CODE_OAUTH_TOKEN -- \
-            env PATH="/home/doctor/.npm-global/bin:$(dirname "$(command -v uv)"):/usr/local/bin:/usr/bin:/bin" \
-            CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 UV_NO_SYNC=1 \
-            bash -c 'cd "$HOME/repo" && exec claude -p --max-turns 40 \
-              --add-dir /home/doctor/evidence /home/doctor/out \
-              --allowedTools "Read,Glob,Grep,Edit(src/**),Edit(tests/**),Edit(dbt/**),Edit(scripts/**),Edit(//home/doctor/out/**),Bash(uv run pytest:*),Bash(uv run ruff:*),Bash(uv run mypy:*)" \
-              --disallowedTools "Edit(.github/**),Edit(src/pulse/contracts/**),Read(//proc/**),Read(//etc/**),Bash(git:*),Bash(gh:*),Bash(curl:*),WebFetch,WebSearch"'
+          } | docker run --rm -i --name doctor-agent \
+            --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp:rw,exec,size=1g \
+            --cap-drop=ALL --security-opt no-new-privileges --pids-limit 512 --memory 6g \
+            -v "$W/repo:/work/repo" -v "$W/home:/work/home" -v "$W/out:/work/out" \
+            -v "$W/evidence:/work/evidence:ro" -v "$W/bin:/work/bin:ro" \
+            -e CLAUDE_CODE_OAUTH_TOKEN -e HOME=/work/home \
+            -e PATH=/work/home/.npm-global/bin:/work/bin:/usr/local/bin:/usr/bin:/bin \
+            -e DISABLE_AUTOUPDATER=1 -e CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 -e UV_NO_SYNC=1 \
+            -w /work/repo "$DOCTOR_IMAGE" \
+            claude -p --max-turns 40 \
+              --add-dir /work/evidence /work/out \
+              --allowedTools "Read,Glob,Grep,Edit(src/**),Edit(tests/**),Edit(dbt/**),Edit(scripts/**),Edit(//work/out/**),Bash(uv run pytest:*),Bash(uv run ruff:*),Bash(uv run mypy:*)" \
+              --disallowedTools "Edit(.github/**),Edit(src/pulse/contracts/**),Read(//proc/**),Read(//etc/**),Bash(git:*),Bash(gh:*),Bash(curl:*),WebFetch,WebSearch"
 
-      # Nothing the agent started may outlive its step.
-      - name: Stop the agent user
+      # Nothing the agent started may outlive its step: remove the containers, then confirm.
+      - name: Stop the agent
+        id: stop
         if: always()
         run: |
-          sudo pkill -KILL -u doctor || true
-          for _ in 1 2 3 4 5; do pgrep -u doctor > /dev/null || exit 0; sleep 1; done
-          echo "::error::processes of the doctor user survived"; exit 1
+          docker rm -f doctor-agent doctor-prep > /dev/null 2>&1 || true
+          if [ -n "$(docker ps -aq --filter name=^doctor-)" ]; then
+            echo "::error::a doctor container survived"; exit 1
+          fi
 
-      # Fixed step: bring back the agent's edits (no .git, no links followed), commit them all
-      # so the guard sees every path, and save one diff. Hooks are off.
+      # Fixed step, also after the agent failed or ran out of turns, once it is stopped: bring
+      # back its edits (no .git, links copied as links, no special files), commit them all so
+      # the guard sees every path, and save one diff of at most 1 MB.
       - name: Package the proposed fix
         id: package
+        if: always() && steps.evidence.outcome == 'success' && steps.stop.outcome == 'success'
         env:
           BASE: ${{ steps.evidence.outputs.base }}
         run: |
+          W="$RUNNER_TEMP/doctor/work"
           out="$RUNNER_TEMP/doctor/out"
-          # The agent owned these folders; refuse if it swapped one for a link elsewhere.
-          for d in /home/doctor/repo /home/doctor/out; do
-            if sudo test -L "$d" || [ "$(sudo realpath "$d")" != "$d" ]; then
+          for d in "$W/repo" "$W/out"; do
+            if [ -L "$d" ] || [ "$(realpath "$d")" != "$d" ]; then
               echo "::error::$d is no longer a plain folder"; exit 1
             fi
           done
-          sudo rsync -a --no-devices --no-specials --delete --chown="$(id -un):$(id -gn)" --exclude=.git --exclude=.venv \
-            --exclude=__pycache__ --exclude=.pytest_cache --exclude=.mypy_cache --exclude=.ruff_cache \
-            /home/doctor/repo/ ./
           for f in report.md pr-body.md commit-message.txt; do
-            src="/home/doctor/out/$f"
-            if sudo test -f "$src" && ! sudo test -L "$src"; then
-              sudo cat "$src" | head -c 200000 > "$out/$f"
+            if [ -f "$W/out/$f" ] && [ ! -L "$W/out/$f" ]; then
+              head -c 200000 "$W/out/$f" > "$out/$f"
             fi
           done
+          rsync -a --no-devices --no-specials --delete --exclude=.git --exclude=.venv \
+            --exclude=__pycache__ --exclude=.pytest_cache --exclude=.mypy_cache --exclude=.ruff_cache \
+            "$W/repo/" ./
           git add -A
           if git diff --cached --quiet "$BASE"; then
             echo "fix=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git diff --cached --binary --no-renames "$BASE" > "$out/fix.diff"
+          if [ "$(stat -c %s "$out/fix.diff")" -gt 1000000 ]; then
+            rm "$out/fix.diff"
+            printf '\n\n_The proposed patch was larger than 1 MB and was dropped._\n' >> "$out/report.md"
+            echo "fix=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "fix=true" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -187,7 +215,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ needs.diagnose.outputs.base || 'refs/heads/main' }}
+          ref: refs/heads/main
           sparse-checkout: scripts/pipeline_fix_guard.py
           sparse-checkout-cone-mode: false
           persist-credentials: false
@@ -245,9 +273,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # The guard runs from main's copy, taken before the patch is even downloaded.
+      # The guard runs from main's copy, taken before the patch is even downloaded, and the
+      # base the patch applies to must be a commit of main.
       - name: Keep main's guard
-        run: cp scripts/pipeline_fix_guard.py "$RUNNER_TEMP/guard.py"
+        env:
+          BASE: ${{ needs.diagnose.outputs.base }}
+        run: |
+          if [[ ! "$BASE" =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$BASE" refs/remotes/origin/main; then
+            echo "::error::base $BASE is not a commit of main"; exit 1
+          fi
+          git show refs/remotes/origin/main:scripts/pipeline_fix_guard.py > "$RUNNER_TEMP/guard.py"
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:

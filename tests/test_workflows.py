@@ -538,22 +538,68 @@ def test_doctor_saves_no_cache_and_secret_jobs_restore_none() -> None:
         assert "actions/cache" not in (WORKFLOWS / name).read_text(), name
 
 
-def test_doctor_agent_runs_as_an_unprivileged_user_without_a_github_token() -> None:
+def _docker_runs() -> dict[str, str]:
+    steps = _doctor_steps("diagnose")
+    runs = {}
+    for step in ("Install Claude Code and the project in the container", "Diagnose and propose"):
+        run = " ".join(steps[step]["run"].split())
+        runs[step] = run[run.index("docker run") :]
+    return runs
+
+
+def test_doctor_agent_runs_in_a_locked_down_container_without_a_github_token() -> None:
+    doctor = _doctor()
+    assert re.fullmatch(r"node@sha256:[0-9a-f]{64}", doctor["env"]["DOCTOR_IMAGE"])
+    assert re.fullmatch(r"\d+\.\d+\.\d+", doctor["env"]["CLAUDE_CODE_VERSION"])
     steps = _doctor_steps("diagnose")
     assert steps["actions/checkout"]["with"]["persist-credentials"] == "false"
-    prepare = steps["Prepare the unprivileged agent user"]["run"]
-    assert "useradd --create-home --shell /bin/bash doctor" in prepare
-    assert "chmod 700 /home/runner" in prepare
-    assert "--exclude=.git" in prepare
-    assert "sudo -u doctor sudo -n true" in prepare
+    for name, run in _docker_runs().items():
+        for flag in (
+            "--rm",
+            '--user "$(id -u):$(id -g)"',
+            "--read-only",
+            "--tmpfs /tmp:",
+            "--cap-drop=ALL",
+            "--security-opt no-new-privileges",
+            "--pids-limit 512",
+            "-e DISABLE_AUTOUPDATER=1",
+            '"$DOCTOR_IMAGE"',
+        ):
+            assert flag in run, (name, flag)
+        for banned in (
+            "--privileged",
+            "docker.sock",
+            "--network host",
+            "--cap-add",
+            "/home/runner",
+        ):
+            assert banned not in run, (name, banned)
+        mounts = re.findall(r'-v "\$W/(\w+):(/work/\w+)(:ro)?"', run)
+        writable = {target for _, target, ro in mounts if not ro}
+        assert writable <= {"/work/repo", "/work/home", "/work/out"}, name
+        assert ("evidence", "/work/evidence", ":ro") in mounts or name.startswith("Install")
     agent = steps["Diagnose and propose"]
     assert set(agent["env"]) == {"CLAUDE_CODE_OAUTH_TOKEN", "REPO", "RUN_URL", "FAILED_SHA"}
-    run = _agent_run()
-    assert "sudo -u doctor -H --preserve-env=CLAUDE_CODE_OAUTH_TOKEN --" in run
+    run = _docker_runs()["Diagnose and propose"]
+    # The secret is passed by name only, so it never appears in the command line.
+    assert "-e CLAUDE_CODE_OAUTH_TOKEN " in run
     assert "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1" in run
-    assert "GH_TOKEN" not in run and "GITHUB_TOKEN" not in run and "github.token" not in run
-    stop = steps["Stop the agent user"]
-    assert stop["if"] == "always()" and "pkill -KILL -u doctor" in stop["run"]
+    for token in ("GH_TOKEN", "GITHUB_TOKEN", "github.token"):
+        assert token not in run
+    install = _docker_runs()["Install Claude Code and the project in the container"]
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in install and "node --version" in install
+    assert ">= 22" in install
+    prepare = steps["Prepare the agent container"]["run"]
+    assert "--exclude=.git" in prepare
+    assert "169.254.169.254" in prepare
+    stop = steps["Stop the agent"]
+    assert stop["if"] == "always()" and stop["id"] == "stop"
+    assert "docker rm -f doctor-agent doctor-prep" in stop["run"]
+    # No step after the agent runs sudo, so nothing it could plant on PATH is executed as root.
+    order = _step_order("diagnose")
+    after = order[order.index("Diagnose and propose") :]
+    for name in after:
+        assert "sudo" not in str(steps[name].get("run", "")), name
 
 
 def test_doctor_agent_cannot_push_comment_or_leave_its_paths() -> None:
@@ -565,7 +611,7 @@ def test_doctor_agent_cannot_push_comment_or_leave_its_paths() -> None:
     assert "Edit" not in allowed
     edits = {t for t in allowed if t.startswith("Edit(")}
     assert edits == {f"Edit({p}/**)" for p in ("src", "tests", "dbt", "scripts")} | {
-        "Edit(//home/doctor/out/**)"
+        "Edit(//work/out/**)"
     }
     denied = _agent_tools("--disallowedTools")
     for rule in ("Edit(.github/**)", "Bash(git:*)", "Bash(gh:*)", "Read(//proc/**)", "WebFetch"):
@@ -584,16 +630,21 @@ def test_doctor_diagnose_steps_run_in_a_safe_order() -> None:
         "actions/checkout",
         "astral-sh/setup-uv",
         "Collect the failed run's evidence",
-        "Prepare the unprivileged agent user",
-        "Install Claude Code and the project for the agent user",
+        "Prepare the agent container",
+        "Install Claude Code and the project in the container",
         "Diagnose and propose",
-        "Stop the agent user",
+        "Stop the agent",
         "Package the proposed fix",
         "actions/upload-artifact",
     ]
-    package = _doctor_steps("diagnose")["Package the proposed fix"]["run"]
+    package_step = _doctor_steps("diagnose")["Package the proposed fix"]
+    # Collected also when the agent failed or ran out of turns, but only once it is stopped.
+    assert package_step["if"] == (
+        "always() && steps.evidence.outcome == 'success' && steps.stop.outcome == 'success'"
+    )
+    package = package_step["run"]
     assert "realpath" in package and "--no-specials" in package and "--exclude=.git" in package
-    assert "--no-renames" in package
+    assert "--no-renames" in package and "-gt 1000000" in package
 
 
 def test_doctor_checks_the_patch_before_applying_and_pushes_only_after() -> None:
@@ -609,7 +660,12 @@ def test_doctor_checks_the_patch_before_applying_and_pushes_only_after() -> None
     assert steps["actions/checkout"]["with"]["persist-credentials"] == "false"
     assert "GH_TOKEN" not in _doctor()["jobs"]["propose"]["env"]
     keep = steps["Keep main's guard"]["run"]
-    assert 'cp scripts/pipeline_fix_guard.py "$RUNNER_TEMP/guard.py"' in keep
+    assert 'git merge-base --is-ancestor "$BASE" refs/remotes/origin/main' in keep
+    assert "^[0-9a-f]{40}$" in keep
+    assert (
+        'git show refs/remotes/origin/main:scripts/pipeline_fix_guard.py > "$RUNNER_TEMP/guard.py"'
+        in keep
+    )
     apply = steps["Check and apply the patch"]["run"]
     order = [
         'guard.py" branch "$RUN_ID" "$RUN_ATTEMPT"',
@@ -634,9 +690,9 @@ def test_doctor_sanitises_agent_text_and_owns_the_marker() -> None:
     post = _doctor_steps("report")["Post the diagnosis on the alert issue"]["run"]
     assert "python3 -I scripts/pipeline_fix_guard.py secrets" in post
     assert "python3 -I scripts/pipeline_fix_guard.py sanitize" in post
-    assert _doctor_steps("report")["actions/checkout"]["with"]["sparse-checkout"] == (
-        "scripts/pipeline_fix_guard.py"
-    )
+    checkout = _doctor_steps("report")["actions/checkout"]["with"]
+    assert checkout["sparse-checkout"] == "scripts/pipeline_fix_guard.py"
+    assert checkout["ref"] == "refs/heads/main"
     push = _doctor_steps("propose")["Push the fix branch and open a draft PR"]["run"]
     assert push.index('echo "$MARKER"') < push.index("sanitize")
     skip = _doctor_steps("propose")["Skip when a fix for this failure is already open"]["run"]
