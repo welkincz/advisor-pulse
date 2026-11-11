@@ -1,5 +1,6 @@
 -- One row per calendar day, with ISO weeks and the fiscal calendar (FY starts 1 November). The range covers the warm-up year, the history and the reporting
--- horizon; override with --vars '{dim_date_start: ..., dim_date_end: ...}'.
+-- horizon; override with --vars '{dim_date_start: ..., dim_date_end: ...}'. week_factor comes
+-- from the business_week seed (`make seeds`), which covers the default range only.
 with days as (
     select cast(day as date) as date_day
     from range(
@@ -27,5 +28,8 @@ select
     {{ fiscal_quarter_start('date_day') }} as fiscal_quarter_start,
     cast({{ fiscal_quarter_start('date_day') }} + interval 3 month - interval 1 day as date) as fiscal_quarter_end,
     -- The quarter a weekly figure is reported in: the one that holds the week's Sunday.
-    {{ fiscal_quarter_id(iso_week_start('date_day') ~ " + interval 6 day") }} as week_fiscal_quarter_id
+    {{ fiscal_quarter_id(iso_week_start('date_day') ~ " + interval 6 day") }} as week_fiscal_quarter_id,
+    business_week.week_factor
 from days
+left join {{ ref('business_week') }} as business_week
+    on business_week.iso_week_id = {{ iso_week_id('days.date_day') }}
