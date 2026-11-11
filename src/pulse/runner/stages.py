@@ -123,7 +123,9 @@ def dbt_build(
 
     Incremental tables built from another definition are dropped first, so dbt rebuilds
     them in full, and every incremental table that built is stamped afterwards
-    (``pulse.runner.refresh``). ``PULSE_DBT_FULL_REFRESH=1`` rebuilds all of them.
+    (``pulse.runner.refresh``). A model configured ``auto_full_refresh=false``
+    (fct_activity) is not rebuilt: the stage warns until a full refresh restates it.
+    ``PULSE_DBT_FULL_REFRESH=1`` rebuilds all of them.
     """
     target_path = ctx.data_dir / DBT_TARGET_DIR
     results_file = target_path / "run_results.json"
@@ -144,7 +146,8 @@ def dbt_build(
     try:
         init_warehouse(con)
         through = refresh.loaded_through(con)
-        rebuilt = [] if full_refresh_requested() else refresh.stale(con, models)
+        todo = refresh.Plan([], []) if full_refresh_requested() else refresh.plan(con, models)
+        rebuilt, outdated = todo.rebuild, todo.outdated
         refresh.drop(con, rebuilt)
     finally:
         con.close()
@@ -175,7 +178,10 @@ def dbt_build(
     }
     con = connect(ctx.data_dir / WAREHOUSE_FILE)
     try:
-        refresh.stamp(con, [m for m in models if m.unique_id in built], through)
+        # An outdated table keeps its old stamp, so the warning repeats until a full refresh.
+        refresh.stamp(
+            con, [m for m in models if m.unique_id in built and m not in outdated], through
+        )
     finally:
         con.close()
     note = ""
@@ -183,6 +189,12 @@ def dbt_build(
         note = " Full refresh requested."
     elif rebuilt:
         note = f" Rebuilt in full after a definition change: {_names([m.name for m in rebuilt])}."
+    if outdated:
+        names = _names([m.name for m in outdated])
+        note += (
+            f" Definition changed but history kept: {names}. Restate it with"
+            " `pulse run --full-refresh` (weekly workflow input full_refresh)."
+        )
     if outcome.failed or proc.returncode != 0:
         return StageResult(
             StageStatus.FAILED,
@@ -196,6 +208,12 @@ def dbt_build(
             rows_out=outcome.total,
             message=f"{outcome.total} dbt nodes; {len(outcome.warned)} warned: "
             f"{_names(outcome.warned)}." + note,
+        )
+    if outdated:
+        return StageResult(
+            StageStatus.WARN,
+            rows_out=outcome.total,
+            message=f"{outcome.total} dbt nodes passed." + note,
         )
     return StageResult(rows_out=outcome.total, message=f"{outcome.total} dbt nodes passed." + note)
 

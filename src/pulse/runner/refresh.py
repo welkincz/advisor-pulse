@@ -7,8 +7,9 @@ and restore with the table itself):
 
 - ``fingerprint``: a hash of the model's definition and of everything it is built from:
   the SQL, config and declared columns of the model and of every model and seed upstream,
-  the project macros they use (and the incremental strategy's macro), and
-  ``dbt_project.yml``. Descriptions are left out, so a docs edit refreshes nothing.
+  the project macros they use (and the incremental strategy's macro), ``dbt_project.yml``
+  and the dbt-core, dbt-duckdb and DuckDB versions. Descriptions are left out, so a docs
+  edit refreshes nothing.
 - ``loaded_through``: the newest raw ``_loaded_at`` when the build began. The models'
   rebuild floor reaches back to the earliest week of any row loaded after it
   (``dbt/macros/weekly_incremental.sql``).
@@ -17,6 +18,11 @@ Before the build, a table whose stamp is missing or names another fingerprint is
 so dbt builds it in full; anything downstream that reads it has that model upstream and so
 a changed fingerprint too. After the build, each incremental model that succeeded is
 stamped again.
+
+A model configured ``auto_full_refresh=false`` (``fct_activity``, whose full rebuild restates
+old facts with current client attributes, #275) is never dropped: a changed fingerprint
+keeps its old stamp and makes the stage warn until a full refresh, and a table without a
+stamp is adopted as it is.
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ import hashlib
 import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
@@ -36,9 +43,17 @@ STAMP_KEY = "pulse_fingerprint"
 WATERMARK_TABLES = (
     "raw.snowflake__activity",
     "raw.teradata__clnt",
+    "raw.teradata__advsr",
     "raw.teradata__advsr_asgn",
+    "raw.teradata__brnch",
+    "raw.teradata__prtf",
     "raw.teradata__prtf_asgn",
 )
+# A version change can change what a materialization writes, so it changes the fingerprint.
+VERSIONED = ("dbt-core", "dbt-duckdb", "duckdb")
+# Config that keeps a model out of the automatic rebuild (fct_activity, #275): a changed
+# definition only warns, and history is restated by --full-refresh or a --rebuild backfill.
+AUTO_REFRESH = "auto_full_refresh"
 
 
 @dataclass(frozen=True)
@@ -47,6 +62,7 @@ class Incremental:
     schema: str
     name: str
     fingerprint: str
+    auto_refresh: bool = True
 
 
 def _ancestors(nodes: Mapping[str, Any], start: str) -> set[str]:
@@ -86,6 +102,7 @@ def incremental_models(manifest: Mapping[str, Any], project_file: Path) -> list[
     """Every incremental model in the manifest, with its definition fingerprint."""
     nodes, macros = manifest["nodes"], manifest["macros"]
     project = hashlib.sha256(project_file.read_bytes()).hexdigest()
+    versions = {package: metadata.version(package) for package in VERSIONED}
     found = []
     for uid, node in sorted(nodes.items()):
         config = node.get("config") or {}
@@ -96,15 +113,24 @@ def incremental_models(manifest: Mapping[str, Any], project_file: Path) -> list[
             m for member in members for m in nodes[member].get("depends_on", {}).get("macros", [])
         }
         if strategy := config.get("incremental_strategy"):
+            # A project strategy such as replace_from; dbt's own (delete+insert) is not a
+            # project macro, so the name is not found and drops out in _macros.
             used.add(f"macro.{PACKAGE}.get_incremental_{strategy}_sql")
         payload = {
             "project": project,
+            "versions": versions,
             "nodes": [_node_part(nodes[member]) for member in members],
             "macros": sorted((m, macros[m]["macro_sql"]) for m in _macros(macros, used)),
         }
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode())
         found.append(
-            Incremental(uid, node["schema"], node.get("alias") or node["name"], digest.hexdigest())
+            Incremental(
+                uid,
+                node["schema"],
+                node.get("alias") or node["name"],
+                digest.hexdigest(),
+                auto_refresh=config.get(AUTO_REFRESH, True) is not False,
+            )
         )
     return found
 
@@ -124,15 +150,31 @@ def read_stamps(con: duckdb.DuckDBPyConnection) -> dict[tuple[str, str], str | N
     return stamps
 
 
-def stale(con: duckdb.DuckDBPyConnection, models: Iterable[Incremental]) -> list[Incremental]:
-    """Existing tables built from another definition, or never stamped. A table that does
-    not exist is left out: dbt builds it in full anyway."""
+@dataclass(frozen=True)
+class Plan:
+    """What the build must do about definitions: tables to drop, so dbt rebuilds them in
+    full, and tables whose definition changed but that keep their history (``auto_full_
+    refresh=false``): the run warns, and they keep their old stamp until a full refresh."""
+
+    rebuild: list[Incremental]
+    outdated: list[Incremental]
+
+
+def plan(con: duckdb.DuckDBPyConnection, models: Iterable[Incremental]) -> Plan:
+    """Compare each existing table's stamp with its model's fingerprint. A table that does
+    not exist is left out: dbt builds it in full anyway. An unstamped table of a model that
+    keeps its history is adopted as it is, so the first run after this change restates
+    nothing it did not restate before."""
     stamps = read_stamps(con)
-    return [
-        m
-        for m in models
-        if (m.schema, m.name) in stamps and stamps[(m.schema, m.name)] != m.fingerprint
-    ]
+    rebuild, outdated = [], []
+    for m in models:
+        if (m.schema, m.name) not in stamps or stamps[(m.schema, m.name)] == m.fingerprint:
+            continue
+        if m.auto_refresh:
+            rebuild.append(m)
+        elif stamps[(m.schema, m.name)] is not None:
+            outdated.append(m)
+    return Plan(rebuild, outdated)
 
 
 def drop(con: duckdb.DuckDBPyConnection, models: Iterable[Incremental]) -> None:
@@ -158,4 +200,5 @@ def stamp(
         if (m.schema, m.name) not in existing:
             continue
         comment = json.dumps({STAMP_KEY: m.fingerprint, "loaded_through": through})
-        con.execute(f'comment on table "{m.schema}"."{m.name}" is \'{comment}\'')
+        literal = comment.replace("'", "''")  # COMMENT ON takes no bound parameters
+        con.execute(f'comment on table "{m.schema}"."{m.name}" is \'{literal}\'')

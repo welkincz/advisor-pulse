@@ -15,6 +15,7 @@ with another definition, or holding a week no longer reported, is rebuilt in ful
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -338,3 +339,157 @@ def test_fingerprint_follows_a_model_and_everything_downstream_of_it(
     macro["macro_sql"] += " "
     moved = {m.name: m.fingerprint for m in refresh.incremental_models(manifest, project)}
     assert {n for n in moved if moved[n] != after[n]} == changed  # not fct_activity
+
+
+# ── Master rows, fct_activity's own rule and the stale-book context (re-review) ──
+
+# Loaded after the W40 build's stamp (the W40 ingest ran at 2026-10-05 03:30 UTC).
+_LATER = "timestamptz '2026-10-06 03:30:00+00'"
+
+
+def _late_master_rows(data_dir: Path) -> None:
+    """A portfolio master row that moves an existing portfolio to another transit branch,
+    and a branch renamed: current-state rows that apply to weeks long before the floor."""
+    _execute(
+        data_dir,
+        f"""
+        insert into raw.teradata__prtf
+        select * replace (
+            (select min("BRNCH_ID") from raw.teradata__brnch where "BRNCH_ID" <> p."BRNCH_ID")
+                as "BRNCH_ID",
+            {_LATER} as "LAST_UPD_TS",
+            {_LATER} as _loaded_at
+        )
+        from raw.teradata__prtf as p
+        where "PRTF_ID" = (
+            select min("PRTF_ID") from raw.teradata__prtf_asgn
+            where "EFF_DT" = (select min("EFF_DT") from raw.teradata__prtf_asgn)
+        );
+        insert into raw.teradata__brnch
+        select * replace (
+            "BRNCH_NM" || ' (renamed)' as "BRNCH_NM",
+            {_LATER} as "LAST_UPD_TS",
+            {_LATER} as _loaded_at
+        )
+        from raw.teradata__brnch
+        where "BRNCH_ID" = (select min("BRNCH_ID") from raw.teradata__brnch);
+        """,
+    )
+
+
+def test_late_master_rows_rebuild_the_weeks_they_change(
+    built_through_w39: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_dir = _with_w40(built_through_w39, tmp_path)
+    _build(data_dir)
+    models = _incremental(data_dir)
+
+    _late_master_rows(data_dir)
+    _build(data_dir)
+    floors = _floors(data_dir)
+    assert floors["mart_org_weekly"] == "1900-W01"  # a branch row reaches all of history
+    assert floors["mart_org_quarterly"] == ""
+    assert floors["int_client_book_weekly"] == "1900-W01"
+    incremental = _hashes(data_dir, models)
+
+    _full_refresh(data_dir, monkeypatch)
+    assert _hashes(data_dir, models) == incremental
+
+
+def test_a_late_portfolio_master_reaches_back_to_its_first_assignment(
+    built_through_w39: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_dir = _with_w40(built_through_w39, tmp_path)
+    _build(data_dir)
+    models = _incremental(data_dir)
+    _late_master_rows(data_dir)
+    _execute(data_dir, f"delete from raw.teradata__brnch where _loaded_at = {_LATER}")
+
+    _build(data_dir)
+    con = connect(data_dir / WAREHOUSE_FILE, read_only=True)
+    try:
+        (first,) = con.execute(
+            "select strftime(min(\"EFF_DT\"), '%G-W%V') from raw.teradata__prtf_asgn"
+        ).fetchone()  # type: ignore[misc]
+    finally:
+        con.close()
+    assert _floors(data_dir)["int_client_book_weekly"] == first < "2026-W35"
+    incremental = _hashes(data_dir, models)
+
+    _full_refresh(data_dir, monkeypatch)
+    assert _hashes(data_dir, models) == incremental
+
+
+def test_fct_activity_warns_on_a_changed_definition_and_keeps_its_history(
+    built_through_w39: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """fct_activity's owner-approved rule (#275): a changed definition is not restated by
+    itself. The stage warns every run until a full refresh; an unstamped table is adopted."""
+    data_dir = _with_w40(built_through_w39, tmp_path)
+    _build(data_dir)
+    old = json.dumps({refresh.STAMP_KEY: "an older definition", "loaded_through": None})
+    _execute(data_dir, f"comment on table marts.fct_activity is '{old}'")
+
+    def fct_run() -> str:
+        (path,) = (data_dir / stages.DBT_TARGET_DIR / "run").rglob("fct_activity.sql")
+        return path.read_text().lower()
+
+    for _ in range(2):  # it keeps warning: the old stamp stays
+        result = _build(data_dir)
+        assert result.status is StageStatus.WARN
+        assert "Definition changed but history kept: fct_activity." in (result.message or "")
+        assert "pulse run --full-refresh" in (result.message or "")
+        assert "delete from" in fct_run()  # incremental, not rebuilt
+    con = connect(data_dir / WAREHOUSE_FILE, read_only=True)
+    try:
+        assert refresh.read_stamps(con)[("marts", "fct_activity")] == "an older definition"
+    finally:
+        con.close()
+
+    _full_refresh(data_dir, monkeypatch)
+    after = _build(data_dir)
+    assert after.status is StageStatus.SUCCESS, after.message
+
+    _execute(data_dir, "comment on table marts.fct_activity is null")  # built before #304
+    adopted = _build(data_dir)
+    assert adopted.status is StageStatus.SUCCESS, adopted.message
+    assert "delete from" in fct_run()
+
+
+_spec = importlib.util.spec_from_file_location(
+    "stale_book_backdate", ROOT / "tests" / "integration" / "test_stale_book.py"
+)
+assert _spec and _spec.loader
+_stale_book = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_stale_book)
+
+
+def test_the_stale_book_rise_is_the_same_when_rebuilt_from_its_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With a year of backdated calls (as in test_stale_book.py) every week has a full
+    window and a 13-week rise. The incremental run reads only 13 reported weeks before its
+    floor for that rise, and must still equal a full refresh."""
+    data_dir = tmp_path / "data"
+    _load(data_dir, W39)
+    _execute(data_dir, _stale_book._BACKDATE)
+    _build(data_dir)
+    _load(data_dir, W40)
+    _build(data_dir)
+    models = _incremental(data_dir)
+    floor = _floors(data_dir)["mart_org_weekly"]
+    assert floor and floor > "2026-W14"
+    con = connect(data_dir / WAREHOUSE_FILE, read_only=True)
+    try:
+        rises = con.execute(
+            "select count(*) from marts.mart_org_weekly"
+            " where level = 'BRANCH' and iso_week_id >= ? and stale_9m_rise_13w <> 0",
+            [floor],
+        ).fetchone()
+    finally:
+        con.close()
+    assert rises and rises[0] > 10, "no non-zero rise in the rebuilt weeks"
+    incremental = _hashes(data_dir, models)
+
+    _full_refresh(data_dir, monkeypatch)
+    assert _hashes(data_dir, models) == incremental

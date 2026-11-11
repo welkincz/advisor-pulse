@@ -16,7 +16,8 @@
         new rebuilds the same weeks and gives the same table;
       * the earliest day that any raw row loaded since the model's last stamped build
         takes effect (activity, booking or schedule date, CLNT update, HR and portfolio
-        assignment). So a past-range backfill or a row later than the lookback rebuilds
+        assignment, advisor termination, a portfolio master's first assignment; a branch
+        master row reaches all of history). So a past-range backfill or a row later than the lookback rebuilds
         from its own week. assert_late_rows_within_lookback warns when that happens;
     or '' (everything) when the model is empty, or when `reported_weeks_only` and its
         first week is no longer reported: a history without the warm-up year starts its
@@ -65,6 +66,25 @@
             where _loaded_at > (select loaded_through from stamp)
             union all
             select "EFF_DT" from raw.teradata__prtf_asgn
+            where _loaded_at > (select loaded_through from stamp)
+            union all
+            -- Masters hold current state. A late termination counts from its date; a
+            -- portfolio master row from its earliest assignment, which the inner join in
+            -- int_portfolio_history dropped until now; a branch row (name, district,
+            -- closure) applies to every week, so it rebuilds all of history.
+            select least("TERM_DT", {{ toronto_date('"LAST_UPD_TS"') }})
+            from raw.teradata__advsr
+            where _loaded_at > (select loaded_through from stamp)
+            union all
+            select least(
+                master."OPEN_DT",
+                (select min(asgn."EFF_DT") from raw.teradata__prtf_asgn as asgn
+                 where asgn."PRTF_ID" = master."PRTF_ID")
+            )
+            from raw.teradata__prtf as master
+            where master._loaded_at > (select loaded_through from stamp)
+            union all
+            select date '1900-01-01' from raw.teradata__brnch
             where _loaded_at > (select loaded_through from stamp)
         ),
 

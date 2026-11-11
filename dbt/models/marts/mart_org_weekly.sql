@@ -89,6 +89,19 @@ stale_book as (
             then 1.0 else 0.0 end) as stale_9m_share
     from {{ ref('int_client_contact_12m') }} as contact
     inner join reported_weeks using (iso_week_id)
+    {% if is_incremental() %}
+    -- The rebuilt weeks and the 13 reported weeks before them, for the rise.
+    where reported_weeks.week_index >= coalesce((
+        select min(week_index) from reported_weeks where iso_week_id >= {{ incremental_floor() }}
+    ), 1000000) - 13
+        and contact.iso_week_id >= coalesce((
+            select min(iso_week_id) from reported_weeks
+            where week_index >= coalesce((
+                select min(week_index) from reported_weeks
+                where iso_week_id >= {{ incremental_floor() }}
+            ), 1000000) - 13
+        ), '')
+    {% endif %}
     group by contact.iso_week_id, reported_weeks.week_index, contact.transit_branch_id
 ),
 
