@@ -1,4 +1,4 @@
-# Local only, no secrets. Paths resolve from labs/semantic-layer (run.py sets them).
+# Local only, no secrets. Paths resolve from labs/semantic-layer (parity.py sets them).
 semantic_layer_lab:
   target: lab
   outputs:

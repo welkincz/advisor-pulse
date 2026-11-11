@@ -1,6 +1,7 @@
 version: 2
 
-# PLAN.md §7 KPIs. Codes in labels match the KPI table.
+# Five PLAN.md §7 KPIs (PRTF_CONTACT_12M, ACT_PER_ADV, SHOW_RATE, CALLS_OUT,
+# CLIENTS_CONTACTED) and their parts. Codes in labels match the KPI table.
 metrics:
   # Lead KPI: PRTF_CONTACT_12M. Null (no row) for weeks without a full 12-month window.
   - name: portfolio_contacted_rate_12m

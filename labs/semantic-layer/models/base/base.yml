@@ -5,7 +5,7 @@ models:
     description: KPI events from int_kpi_events with week_start and the 12-month window guard.
     columns:
       - name: kpi_event_id
-        description: Surrogate key for the event (row number, stable for a given build).
+        description: Surrogate key for the event (row number over every column, so the same on every build).
         data_tests: [unique, not_null]
       - name: branch_id
         description: Branch the event is credited to (PLAN.md §7 attribution).

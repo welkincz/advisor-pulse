@@ -26,10 +26,11 @@ project, `dbt/dbt_project.yml` and `make check` do not depend on it.
 | `profiles.yml` | Attaches the main fixture warehouse (`data/ci/warehouse.duckdb`) **read-only** as `pulse`; the lab writes only to its own `target/semantic_lab.duckdb` |
 | `models/base/` | `sem_kpi_events` (one row per `int_kpi_events` event, with the week's Monday and the 12-month window flag), `sem_org` (branch → district → region from `dim_org`), and a daily time spine from `dim_date` |
 | `models/semantic/semantic_models.yml` | Entities `kpi_event` and `branch`; time dimension `week_start`; additive measures, plus `count_distinct` for clients contacted |
-| `models/semantic/metrics.yml` | The lead KPI `PRTF_CONTACT_12M` (ratio, filtered to weeks with a full 12-month window), `ACT_PER_ADV`, `SHOW_RATE`, `CALLS_OUT`, `CLIENTS_CONTACTED`, and the parts behind them (11 metrics) |
+| `models/semantic/metrics.yml` | Five §7 KPIs: the lead KPI `PRTF_CONTACT_12M` (ratio, filtered to weeks with a full 12-month window), `ACT_PER_ADV`, `SHOW_RATE`, `CALLS_OUT`, `CLIENTS_CONTACTED`, and the parts behind them (11 metrics) |
 | `parity.py` | Builds the lab, runs one `mf query` per level (national, region, district, branch × ISO week) and compares every value with `mart_org_weekly` at the mart's rounding |
 | `models/secure/secure_kpi_events.sql`, `seeds/viewer_scope.csv` | Row-level access **illustration** (below) |
 | `tests/test_parity.py` | Parity, three wrong-definition tests, and the row-level illustration |
+| `tests/test_full_window.py` | Parity on a backdated copy of the fixture warehouse, where the lead KPI's rate is non-null |
 
 Ratios are metrics over summed numerators and denominators, so MetricFlow rebuilds them at
 each grain rather than averaging child ratios, the same rule as the mart's `GROUPING SETS`.
@@ -54,8 +55,21 @@ total wall time: 8.20s
 PARITY OK: every MetricFlow value equals mart_org_weekly
 ```
 
-`pytest labs/semantic-layer/tests`: `5 passed in 42.83s` (each wrong-definition test
-copies the project, rebuilds it and reruns all four queries).
+`pytest labs/semantic-layer/tests`: `6 passed in 42.70s` (each wrong-definition test
+copies the project, rebuilds it and reruns all four queries; the full-window test also
+rebuilds the main project's mart in a scratch copy).
+
+## The lead KPI with full windows
+
+The fixtures hold four weeks of activity, so no week has a full 12-month window and the
+published `portfolio_contacted_rate_12m` is null. `tests/test_full_window.py` copies the
+fixture warehouse to a temporary directory, adds 60 completed calls spread back to
+January 2025 (the approach of `tests/integration/test_stale_book.py` in #302), rebuilds
+`+mart_org_weekly` with the main project's dbt, and runs the same parity check. Every week
+from 2026-W01 to 2026-W40 then has a full window: 480 mart rows, 476 with a non-null lead
+rate, 5,280 cells compared, and every MetricFlow value equals the mart at its 4-dp
+rounding. Pointing the rate's numerator at `activities_completed` on that copy gives 448
+mismatches, so the check does see the ratio.
 
 ## Failure tests
 
@@ -109,11 +123,10 @@ tables; there are no users, grants, identity provider or audit trail.
 - **No Power BI, DAX, Tableau or other BI tool.** No BI semantic model, no deployed BI
   permissions, no dbt Cloud Semantic Layer API or JDBC endpoint. Queries run through the
   local `mf` CLI only.
-- **The lead KPI's published rate is null on the fixtures.** The fixtures hold less than
-  12 months of history, so the mart and MetricFlow both return null for
-  `portfolio_contacted_rate_12m` in all four weeks. Parity for the lead KPI is shown on its
-  numerator and denominator (exact at every level) and by the window-filter failure test;
-  the non-null ratio path is exercised by `show_rate` and `activities_per_advisor`.
+- **The lead KPI's non-null rate is checked on backdated data, not on a real year.** On
+  the fixtures the rate is null in all four weeks. The full-window test compares non-null
+  rates on a copy with 60 calls moved back in time, which is synthetic history, not a
+  generated year of activity.
 - `CLIENTS_CONTACTED` and `PRTF_CONTACT_12M` are checked by ISO week only. Monthly or
   quarterly roll-ups from MetricFlow were not compared with `mart_org_quarterly`.
 - Fixture scale only: 48 mart rows, 528 compared cells. Not run on a full weekly build.
