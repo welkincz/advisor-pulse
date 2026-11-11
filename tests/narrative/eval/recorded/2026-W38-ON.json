@@ -1,0 +1,67 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "Portfolio contacted (12 months) held steady at 86.5%, ranking 4 among 10 peers."
+   },
+   {
+    "fact_ids": [
+     "F15",
+     "F19"
+    ],
+    "text": "Among Ontario's children, GTA leads portfolio contacted at 86.9%, while Northern Ontario is lowest at 84.8%."
+   },
+   {
+    "fact_ids": [
+     "F8",
+     "F3"
+    ],
+    "text": "Clients contacted rose 9.8% to 4,580 this week, and outbound calls rose 8.0% to 3,150."
+   },
+   {
+    "fact_ids": [
+     "F6",
+     "F10"
+    ],
+    "text": "Show rate fell 2.7% to 94.6%, and the no-show rate stands at 5.4%."
+   },
+   {
+    "fact_ids": [
+     "F7",
+     "F18"
+    ],
+    "text": "Appointment conversion fell 13.9% to 24.0%, with GTA lowest of its four peers at 21.5%."
+   }
+  ],
+  "headline": "Ontario's Portfolio contacted (12 months) held steady this week at 86.5%.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F18"
+    ],
+    "node_id": "GTA",
+    "reason": "Ranks 4 of 4 on appointment conversion at 21.5%, down 20.0% this week."
+   },
+   {
+    "fact_ids": [
+     "F19"
+    ],
+    "node_id": "NON",
+    "reason": "Ranks 4 of 4 on portfolio contacted at 84.8%."
+   },
+   {
+    "fact_ids": [
+     "F24",
+     "F25"
+    ],
+    "node_id": "SWO",
+    "reason": "Ranks 4 of 4 on activities per advisor (17.4) and on show rate (94.3%)."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}

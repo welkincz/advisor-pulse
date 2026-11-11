@@ -1,4 +1,4 @@
-"""Open, update, and resolve the one GitHub issue for a failed weekly run."""
+"""Open, update, and resolve the one GitHub issue for a failed or degraded weekly run."""
 
 from __future__ import annotations
 
@@ -21,9 +21,16 @@ if TYPE_CHECKING:
 
 LABEL = "alert:pipeline"
 TITLE = "[Pipeline alert] Weekly report failed"
+# The report published (WARN), so the alert must not read as a failed run.
+CREDENTIAL_TITLE = (
+    "[Pipeline alert] Weekly report published with template narratives: model credential rejected"
+)
 Webhook = Callable[[dict[str, str]], None]
 # This allowlist keeps arbitrary run-log text out of a public issue. Keep it in
 # sync with the weekly DAG; the test below verifies the names against that DAG.
+# Must match the name of pulse.narrative.client.AuthenticationError. This script runs
+# without project dependencies, so a test checks the two stay in step.
+CREDENTIAL_REASON = "API error: AuthenticationError"
 STAGE_NAMES = frozenset(
     {
         "restore_state",
@@ -43,7 +50,7 @@ class GitHubIssues(Protocol):
     def ensure_label(self) -> None: ...
     def open_alert(self) -> int | None: ...
     def create_issue(self, title: str, body: str) -> int: ...
-    def update_issue(self, number: int, body: str) -> None: ...
+    def update_issue(self, number: int, title: str, body: str) -> None: ...
     def comment_issue(self, number: int, body: str) -> None: ...
     def close_issue(self, number: int) -> None: ...
 
@@ -103,14 +110,25 @@ class RestGitHubIssues:
         issue = self._request("POST", "/issues", {"title": title, "body": body, "labels": [LABEL]})
         return int(issue["number"])
 
-    def update_issue(self, number: int, body: str) -> None:
-        self._request("PATCH", f"/issues/{number}", {"body": body})
+    def update_issue(self, number: int, title: str, body: str) -> None:
+        self._request("PATCH", f"/issues/{number}", {"title": title, "body": body})
 
     def comment_issue(self, number: int, body: str) -> None:
         self._request("POST", f"/issues/{number}/comments", {"body": body})
 
     def close_issue(self, number: int) -> None:
         self._request("PATCH", f"/issues/{number}", {"state": "closed"})
+
+
+def _credential_rejected(run: RunSummary | None) -> bool:
+    """The report still publishes, but every model narrative falls back until someone acts."""
+    if run is None:
+        return False
+    narrate = [s for s in run.stages if s.stage == "narrate"]
+    if not narrate:
+        return False
+    latest = max(narrate, key=lambda stage: stage.attempt)
+    return latest.status == "WARN" and CREDENTIAL_REASON in (latest.message or "")
 
 
 def _failed_rows(run: RunSummary | None, *, workflow_failed: bool) -> list[str]:
@@ -130,16 +148,28 @@ def _failed_rows(run: RunSummary | None, *, workflow_failed: bool) -> list[str]:
                     check.check_id if re.fullmatch(r"DQ\d{3}", check.check_id) else "unknown check"
                 )
                 rows.append(f"| Check | {check_id} | FAIL |")
+        if _credential_rejected(run):
+            rows.append("| Stage | narrate | MODEL CREDENTIAL REJECTED |")
     if len(rows) == 2 and workflow_failed:
         rows.append("| Workflow | setup or post-run step | FAILED |")
     return rows
 
 
-def _body(run: RunSummary | None, run_url: str, *, workflow_failed: bool) -> str:
+def _body(run: RunSummary | None, run_url: str, *, workflow_failed: bool, failed: bool) -> str:
     week = _week(run)
+    heading = (
+        ["## Weekly pipeline failure"]
+        if failed
+        else [
+            "## Weekly report published with template narratives",
+            "",
+            "The weekly report published with status WARN. The model credential was rejected, "
+            "so every narrative fell back to its template until the credential is renewed.",
+        ]
+    )
     return "\n".join(
         [
-            "## Weekly pipeline failure",
+            *heading,
             "",
             f"Week: {week}",
             f"[GitHub Actions run]({run_url})",
@@ -163,15 +193,16 @@ def sync_alert(
     if run is None and not workflow_failed:
         return
     failed = workflow_failed or (run is not None and run.status == "FAILED")
-    if failed:
+    if failed or _credential_rejected(run):
         github.ensure_label()
-        body = _body(run, run_url, workflow_failed=workflow_failed)
+        body = _body(run, run_url, workflow_failed=workflow_failed, failed=failed)
+        title = TITLE if failed else CREDENTIAL_TITLE
         number = github.open_alert()
         if number is None:
-            github.create_issue(TITLE, body)
+            github.create_issue(title, body)
         else:
-            github.update_issue(number, body)
-        status = "FAILED"
+            github.update_issue(number, title, body)
+        status = "FAILED" if failed else "WARN"
     elif run is not None and run.status in {"SUCCESS", "WARN"}:
         number = github.open_alert()
         if number is None:
