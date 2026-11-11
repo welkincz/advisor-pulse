@@ -563,6 +563,7 @@ def test_doctor_agent_runs_in_a_locked_down_container_without_a_github_token() -
             "--security-opt no-new-privileges",
             "--pids-limit 512",
             "-e DISABLE_AUTOUPDATER=1",
+            '-v "$W/passwd:/etc/passwd:ro"',
             '"$DOCTOR_IMAGE"',
         ):
             assert flag in run, (name, flag)
@@ -592,9 +593,18 @@ def test_doctor_agent_runs_in_a_locked_down_container_without_a_github_token() -
     prepare = steps["Prepare the agent container"]["run"]
     assert "--exclude=.git" in prepare
     assert "169.254.169.254" in prepare
+    assert "sudo iptables -I INPUT -i docker0 -j DROP" in prepare
+    # 168.63.129.16 is also the runner's DNS resolver, so only non-DNS traffic is dropped.
+    assert "-d 168.63.129.16 -j DROP" not in prepare
     stop = steps["Stop the agent"]
     assert stop["if"] == "always()" and stop["id"] == "stop"
     assert "docker rm -f doctor-agent doctor-prep" in stop["run"]
+    # Fails closed: an error listing containers stops the job before anything reads the output.
+    assert 'left="$(docker ps -aq --filter name=^doctor-)" || {' in stop["run"]
+    assert 'if [ -n "$left" ]' in stop["run"]
+    assert doctor["jobs"]["diagnose"]["timeout-minutes"] == "40"
+    assert steps["Install Claude Code and the project in the container"]["timeout-minutes"] == "8"
+    assert steps["Diagnose and propose"]["timeout-minutes"] == "20"
     # No step after the agent runs sudo, so nothing it could plant on PATH is executed as root.
     order = _step_order("diagnose")
     after = order[order.index("Diagnose and propose") :]
@@ -645,6 +655,14 @@ def test_doctor_diagnose_steps_run_in_a_safe_order() -> None:
     package = package_step["run"]
     assert "realpath" in package and "--no-specials" in package and "--exclude=.git" in package
     assert "--no-renames" in package and "-gt 1000000" in package
+    assert package_step["env"]["GIT_LFS_SKIP_SMUDGE"] == "1"
+    assert "filter.lfs.process= " in package and "filter.lfs.clean= " in package
+    git_calls = [
+        line.strip()
+        for line in package.splitlines()
+        if line.strip().startswith(("git ", "if git "))
+    ]
+    assert git_calls and all('"${nolfs[@]}"' in line for line in git_calls)
 
 
 def test_doctor_checks_the_patch_before_applying_and_pushes_only_after() -> None:
