@@ -185,7 +185,13 @@ jobs:
 
       - name: Install Playwright browser
         working-directory: web
-        run: pnpm exec playwright install --with-deps chromium
+        # The runner image already has the browser's libraries; --with-deps only adds
+        # fonts. If the Ubuntu mirrors are unreachable, install the browser alone.
+        run: |
+          timeout 240 pnpm exec playwright install --with-deps chromium || {
+            echo "::warning::apt mirrors unreachable; installing Chromium without system deps"
+            pnpm exec playwright install chromium
+          }
 
       - name: Web check
         run: make web-check

@@ -1,0 +1,65 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "Portfolio contacted (12 months) held steady at 86.8% this week, ranking 2 among 4 peers."
+   },
+   {
+    "fact_ids": [
+     "F42"
+    ],
+    "text": "Peterborough Branch appointment conversion rose 150.9% to 54.5%, the highest of the 10 branches this week."
+   },
+   {
+    "fact_ids": [
+     "F2",
+     "F8"
+    ],
+    "text": "Activities per advisor rose 11.7% to 17.8, while clients contacted rose 14.9% to 971."
+   },
+   {
+    "fact_ids": [
+     "F10",
+     "F6"
+    ],
+    "text": "The no-show rate rose 131.1% to 5.1%, and the show rate fell 3.0% to 94.9%."
+   },
+   {
+    "fact_ids": [
+     "F11",
+     "F35"
+    ],
+    "text": "Among branches, ByWard Market leads portfolio contacted at 93.2%, while Belleville is lowest at 76.5%."
+   }
+  ],
+  "headline": "Portfolio contacted (12 months) held steady this week at 86.8% in Eastern Ontario.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F42"
+    ],
+    "node_id": "BR-0208",
+    "reason": "Flagged this week: appointment conversion changed 150.9% to 54.5%."
+   },
+   {
+    "fact_ids": [
+     "F35"
+    ],
+    "node_id": "BR-0207",
+    "reason": "Lowest portfolio contacted of the 10 branches at 76.5%."
+   },
+   {
+    "fact_ids": [
+     "F19"
+    ],
+    "node_id": "BR-0203",
+    "reason": "Portfolio contacted fell 0.4% to 81.9%, ranking 9 of 10 branches."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}

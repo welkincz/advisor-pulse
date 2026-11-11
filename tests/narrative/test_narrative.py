@@ -67,15 +67,27 @@ class FakeClient:
             raise self.error
         if self.answer is not None:
             return self.answer
-        # A grounded answer: state F1's value, as the prompt asks.
-        first = json.loads(user.split("Facts:\n", 1)[1].splitlines()[0])[0]
+        # A grounded answer: state F1's value and each flagged fact, as the prompt asks.
+        facts = json.loads(user.split("Facts:\n", 1)[1].splitlines()[0])
+        first = facts[0]
         value = fmt(KpiCode(first["kpi_code"]), first["value"])
+        label = KPI_LABELS[KpiCode(first["kpi_code"])]
+        node = user.split("Node: ", 1)[1].split(" ", 1)[0]
+        flagged = user.split("Flagged this week: ", 1)[1].split(".", 1)[0]
+        ids = [] if flagged == "none" else flagged.split(", ")
+        rows = {f["fact_id"]: f for f in facts}
         return {
-            "headline": "Weekly activity summary.",
+            "headline": f"{label} is in this week's report.",
             "bullets": [
-                {"text": f"{KPI_LABELS[KpiCode(first['kpi_code'])]} {value}.", "fact_ids": ["F1"]}
+                {"text": f"{label} was {value} this week.", "fact_ids": ["F1"]},
+                {"text": "The rest of the week is in the report.", "fact_ids": ["F1"]},
+                *({"text": "This one was flagged.", "fact_ids": [i]} for i in ids),
             ],
-            "watchlist": [],
+            "watchlist": [
+                {"node_id": n, "reason": "It has a flagged row.", "fact_ids": [i]}
+                for i in ids
+                if (n := rows[i]["node_id"]) != node
+            ],
         }
 
 
@@ -208,7 +220,7 @@ def test_cache_key_covers_prompt_model_and_facts(report: list[WeeklyReport]) -> 
     base = cache_key("claude-opus-5-5", on)
     assert base == cache_key("claude-opus-5-5", build_facts(report, "ON", WEEK))
     assert base != cache_key("claude-sonnet-5-5", on)
-    assert PROMPT_VERSION == "narrative-v4"
+    assert PROMPT_VERSION == "narrative-v5"
     assert base != cache_key("claude-opus-5-5", on, prompt_version="narrative-v1")
     assert base != cache_key("claude-opus-5-5", qc)
 
@@ -284,11 +296,15 @@ def test_stage_reads_the_mart_and_export_picks_up_the_file(tmp_path: Path) -> No
     client = FakeClient()
     result = narrate(ctx(tmp_path), client_factory=lambda: client)
     assert result.status is StageStatus.SUCCESS, result.message
-    assert result.message == "5 narratives validated (0 from cache)."
+    assert result.message == (
+        "5 narratives validated (0 from cache). Grader: 5 of 5 narratives pass."
+    )
     assert len(client.calls) == 5
 
     again = narrate(ctx(tmp_path), client_factory=lambda: client)
-    assert again.message == "5 narratives validated (5 from cache)."
+    assert again.message == (
+        "5 narratives validated (5 from cache). Grader: 5 of 5 narratives pass."
+    )
     assert len(client.calls) == 5
 
     published = load_narratives(tmp_path)  # what the export stage reads
@@ -532,3 +548,60 @@ def test_history_refresh_does_not_preempt_a_new_latest_model(tmp_path):
     client = FakeClient()
     narrate(ctx(tmp_path), client_factory=lambda: client)
     assert len(client.calls) == 5
+
+
+def test_the_run_log_carries_the_grade_and_a_low_score_warns(tmp_path: Path) -> None:
+    _warehouse_with_report(tmp_path)
+    assert "Grader: 5 of 5 narratives pass." in (
+        narrate(ctx(tmp_path), client_factory=FakeClient).message or ""
+    )
+
+    class Ungraded(FakeClient):
+        def complete(self, user: str) -> dict[str, Any]:
+            answer = super().complete(user)
+            return {**answer, "headline": "Weekly activity summary."}
+
+    other = tmp_path / "other"
+    _warehouse_with_report(other)
+    result = narrate(ctx(other), client_factory=Ungraded)
+    assert result.status is StageStatus.WARN
+    assert "Grader: 0 of 5 narratives pass." in (result.message or "")
+
+
+def test_kept_narratives_whose_facts_moved_are_kept_and_not_graded(tmp_path, report):
+    class PartialClient(FakeClient):
+        def complete(self, user):
+            if user.startswith("Node: QC "):
+                raise TimeoutError("QC unavailable")
+            return super().complete(user)
+
+    write_narratives(report, WEEK, tmp_path, PartialClient(), ctx(tmp_path))
+    # Late rows empty every kept node: building its facts now would raise.
+    emptied = [
+        r if "QC" in (r.node_id, r.parent_id) else r.model_copy(update={"value": None})
+        for r in report
+    ]
+    with pytest.raises(ValueError, match="no non-null KPI values"):
+        build_facts(emptied, "ON", WEEK)
+    client = FakeClient()
+    result = write_narratives(emptied, WEEK, tmp_path, client, ctx(tmp_path))
+    assert [c.split(" ", 2)[1] for c in client.calls] == ["QC"]
+    assert result.status is StageStatus.SUCCESS
+    assert "Grader: 1 of 1 narratives pass." in (result.message or "")
+
+
+def test_a_kept_narrative_is_graded_only_while_its_facts_hold(tmp_path, report):
+    write_narratives(report, WEEK, tmp_path, FakeClient(), ctx(tmp_path))
+    again = write_narratives(report, WEEK, tmp_path, FakeClient(), ctx(tmp_path))
+    assert "Grader: 5 of 5 narratives pass." in (again.message or "")
+    # A late row moves one of ON's facts: ON stays kept but is no longer graded.
+    late = [
+        r.model_copy(update={"value": r.value + 1})
+        if (r.iso_week_id, r.node_id) == (WEEK, "ON") and r.value is not None
+        else r
+        for r in report
+    ]
+    client = FakeClient()
+    moved = write_narratives(late, WEEK, tmp_path, client, ctx(tmp_path))
+    assert client.calls == []
+    assert "Grader: 4 of 4 narratives pass." in (moved.message or "")

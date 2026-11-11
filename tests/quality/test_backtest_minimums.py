@@ -4,7 +4,7 @@ Builds a default-scale warehouse over a shorter window that still holds both sto
 (2026-W14 to 2026-W42, plus the 52-week warm-up the first week loads), then scores the
 flags against the ground truth. The minimums sit a little under what the shipped
 thresholds reach here, so a later change to the rules cannot silently make detection
-worse. About 35 minutes on a laptop.
+worse. About 3 minutes on an Apple M4 Max.
 """
 
 from __future__ import annotations
@@ -25,11 +25,13 @@ pytestmark = [pytest.mark.integration, pytest.mark.slow]
 FIRST, LAST = "2026-W14", "2026-W42"
 
 # (rule, level): minimum recall, maximum median lag in weeks, maximum false alarms per 100
-# node-weeks.
+# node-weeks. Measured with the calendar-adjusted ANOMALY rule (ADR 0007), seed 20261013:
+# district 2/2, lag 1, 12.58; branch 16/17 (0.941), lag 2.5, 14.53; PRTF_MOVE 17/27
+# (0.63), lag 38, 4.07.
 MINIMUMS = {
-    ("ANOMALY", "DISTRICT"): (1.0, 2, 25.0),
-    ("ANOMALY", "BRANCH"): (0.9, 3, 25.0),
-    ("PRTF_MOVE", "BRANCH"): (0.6, 40, 10.0),
+    ("ANOMALY", "DISTRICT"): (1.0, 2, 15.0),
+    ("ANOMALY", "BRANCH"): (0.9, 3, 17.0),
+    ("PRTF_MOVE", "BRANCH"): (0.6, 40, 5.0),
 }
 
 
