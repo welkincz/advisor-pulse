@@ -48,26 +48,26 @@ explicit repartition by `client_id` before the as-of window.
   `portfolio_contacted_12m` must match exactly; the unrounded rate and the published
   `portfolio_contacted_rate_12m` must agree within 1e-9 (null must match null).
 
-Fixtures hold four weeks of activity, so no week has a full 12-month window and dbt
-publishes the rate as null. The published-rate check therefore only proves the null gate
-agrees; the unrounded-rate check covers the arithmetic.
+Fixtures hold four weeks of activity, so no week has a full window and dbt publishes the
+rate as null. `tests/test_full_window.py` backdates contacts on a scratch copy so the
+published rate, its gate and the first reported week meet real values (see Failure tests).
 
 ## Measured run
 
 Apple M4 Max, local, warm `uv` cache. Output of
-`uv run --project labs/pyspark-parity python labs/pyspark-parity/parity.py` (third of three runs):
+`uv run --project labs/pyspark-parity python labs/pyspark-parity/parity.py` (one run after the review fixes):
 
 ```text
 inputs: raw_client=221, stg_activity=610, stg_portfolio=14, stg_portfolio_assignment=15, dim_activity_type=4, dim_date=1826
 spark 4.0.1, local[4], shuffle partitions 4
 client-weeks: spark=4549 dbt=4549
-branch-weeks: spark=24 dbt=24
-wall time: export 0.03s, spark start 2.02s, compute 4.33s, compare 0.37s, total 6.75s
+branch-weeks: spark=24 dbt=24 (published rates: 0)
+wall time: export 0.03s, spark start 2.17s, compute 3.86s, compare 0.34s, total 6.40s
 PARITY OK
 ```
 
-Across three runs the total was 6.75–8.19 s (`time` reported 7.0–8.6 s for the whole
-command). On a few thousand rows that is JVM start-up and scheduling overhead, not a
+Across four runs the total was 6.40–8.19 s (`time` reported 7.0–8.6 s for the whole
+command on the first three). On a few thousand rows that is JVM start-up and scheduling overhead, not a
 performance result, and it is not a speed comparison with DuckDB.
 
 ## Failure tests
@@ -79,15 +79,25 @@ expects parity to fail:
   `STAT_CD = 'C'`. Example output: 23 mismatches, including
   `branch-week (2026-W40, BR-0102): spark=(42, 38, 0.9047619047619048, None) dbt=(43, 39, 0.9069767441860465, None)`.
 - `test_parity_fails_when_one_contact_is_cancelled`: one completed contact, the client's
-  latest that week, becomes `CANCELLED`; the client-week rows for that client no longer match.
+  latest as of 2026-W40, becomes `CANCELLED`; the client-week rows for that client no longer match.
 
 ```text
+labs/pyspark-parity/tests/test_full_window.py::test_parity_holds_with_published_rates PASSED
 labs/pyspark-parity/tests/test_parity.py::test_parity_holds_on_fixtures PASSED
 labs/pyspark-parity/tests/test_parity.py::test_parity_fails_when_one_client_row_goes_inactive PASSED
 labs/pyspark-parity/tests/test_parity.py::test_parity_fails_when_one_contact_is_cancelled PASSED
 labs/pyspark-parity/tests/test_parity.py::test_rate_tolerance_is_tight PASSED
-4 passed in 10.96s
+5 passed in 15.28s
 ```
+
+`tests/test_full_window.py` covers what the fixtures cannot. It copies the CI warehouse to
+a temp dir, adds 60 completed calls spread from 2025-02-01 (the approach of the
+stale-book test in #364), reruns `dbt run --select +mart_org_weekly` on the
+copy with the root venv, and checks parity there. The window is first complete in
+2026-W05, so book weeks W01–W04 exist but are not reported, and the published rate is
+non-null (and differs from the unrounded rate) on many branch-weeks. Removing the 4-dp
+rounding or the first-reported-week rule from `parity.py` makes it fail. It skips when the
+root venv (`make setup`) is missing.
 
 ## Limits
 
@@ -101,5 +111,5 @@ labs/pyspark-parity/tests/test_parity.py::test_rate_tolerance_is_tight PASSED
 - **One KPI, not the pipeline.** Only the portfolio columns of the BRANCH rows are rebuilt.
   The other mart columns, the region/district/national roll-ups and the weekly runner stay in dbt.
 - **Fixture scale.** 221 raw client rows and 610 activities; the rate itself is null on
-  fixtures (see Parity rule).
+  fixtures, and non-null only in the backdated copy (60 added contacts).
 - **Not in CI.** The lab runs by hand; the main CI does not install Java or PySpark.

@@ -71,7 +71,7 @@ def test_parity_fails_when_one_contact_is_cancelled(inputs: dict[str, DataFrame]
     activity = inputs["stg_activity"]
     contact_types = inputs["dim_activity_type"].where("counts_as_contact").select("activity_type")
     contact_12m, _ = parity.run(inputs)
-    # A client's latest contact that week, on a date no other contact of theirs shares.
+    # A client's latest contact as of 2026-W40, on a date no other contact of theirs shares.
     counted = contact_12m.where("iso_week_id = '2026-W40' and contacted_12m").select(
         "client_id", F.col("last_contact_date").alias("activity_date")
     )

@@ -298,6 +298,8 @@ def branch_weekly(inputs: dict[str, DataFrame], contact_12m: DataFrame) -> DataF
 class Parity:
     client_weeks: int = 0
     branch_weeks: int = 0
+    # dbt branch-weeks with a non-null published (window-complete, 4-dp) rate.
+    published_rates: int = 0
     mismatches: list[str] = field(default_factory=list)
 
     @property
@@ -339,6 +341,7 @@ def compare(contact_12m: DataFrame, branch: DataFrame, warehouse: Path = WAREHOU
     result.branch_weeks = len(dbt_branch)
     for week, node, clients, contacted, rate, published in dbt_branch:
         row = spark_branch.pop((week, node), None)
+        result.published_rates += published is not None
         got = (
             (0, 0, None, None)
             if row is None
@@ -384,9 +387,15 @@ def main() -> int:
     finished = time.perf_counter()
 
     print("inputs:", ", ".join(f"{name}={n}" for name, n in counts.items()))
-    print(f"spark {spark.version}, local[4], shuffle partitions {SHUFFLE_PARTITIONS}")
+    print(
+        f"spark {spark.version}, {spark.sparkContext.master}, "
+        f"shuffle partitions {SHUFFLE_PARTITIONS}"
+    )
     print(f"client-weeks: spark={contact_12m.count()} dbt={parity.client_weeks}")
-    print(f"branch-weeks: spark={branch_rows} dbt={parity.branch_weeks}")
+    print(
+        f"branch-weeks: spark={branch_rows} dbt={parity.branch_weeks}"
+        f" (published rates: {parity.published_rates})"
+    )
     print(
         f"wall time: export {exported - started:.2f}s, spark start {session - exported:.2f}s, "
         f"compute {computed - session:.2f}s, compare {finished - computed:.2f}s, "
