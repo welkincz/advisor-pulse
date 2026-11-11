@@ -100,8 +100,8 @@
      "evidence": [],
      "limit": "No direct implementation in these languages.", "gap_issue": 326},
     {"name": "Security and regulated governance", "tags": ["security", "access_controls", "governance"], "strength": "weak",
-     "evidence": ["src/pulse/state/lock.py#L1", "AGENTS.md#L1"],
-     "limit": "Synthetic-only controls and environment secrets; no proof of regulated IAM, PII controls or audit sign-off.", "gap_issue": 327},
+     "evidence": ["web/public/_headers#L7", "web/tests/csp-check.mjs#L1", "src/pulse/state/store.py#L40", "src/pulse/narrative/client.py#L155", "src/pulse/state/lock.py#L1", "AGENTS.md#L8", "src/pulse/runner/alert.py#L25", "tests/runner/test_alert.py#L183"],
+     "limit": "A site-wide Content-Security-Policy checked in CI against DuckDB-WASM, secrets read only from environment variables, a synthetic-only data rule, and a conditional-write lock on shared state. Cloudflare Access gated the site until the owner made it public on purpose (#255); no Access policy lives in this repository. Operational alerting: a rejected model credential opens a named alert instead of failing silently, and the alert closes when a run recovers. No regulated IAM, PII controls, row-level security or audit sign-off.", "gap_issue": 327},
     {"name": "Performance and cost at scale", "tags": ["performance", "cost", "statistical_analysis"], "strength": "weak",
      "evidence": ["docs/baseline.md#L1"],
      "limit": "Measured batch benchmark at about 2.2M activities; no TB/distributed or provider-cost proof.", "gap_issue": 275}
