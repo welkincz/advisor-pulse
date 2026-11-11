@@ -25,7 +25,7 @@ The source data never arrives clean:
 
 The project rebuilds that situation on synthetic data and solves it the way I would want it solved at work. Loads are incremental and idempotent. History is explicit. Every check ties back to a known ground truth.
 
-The lead question is what share of active clients in each portfolio heard from an advisor in the last 12 months. Nationally it rises gradually, from 82.9% in the first reported week to 86.5% in 2026-W43. The useful exceptions are in the detail: some branches and advisors lose ground while the nation improves. The report helps a manager find them; it does not claim that contact alone measures client outcomes.
+The lead question is what share of active clients in each portfolio heard from an advisor in the last 12 months. Nationally it rises gradually, from 82.9% in the first reported week to 86.5% in 2026-W43. A handed-over portfolio keeps its clients' contact history. The useful exceptions are in the detail: some branches and advisors lose ground while the nation improves. The report helps a manager find them; it does not claim that contact alone measures client outcomes.
 
 ## Architecture
 

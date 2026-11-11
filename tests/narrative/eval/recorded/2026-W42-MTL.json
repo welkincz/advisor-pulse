@@ -1,0 +1,63 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "Portfolio contacted (12 months) held steady at 87.2% this week, ranking 2 of 3 among peer districts."
+   },
+   {
+    "fact_ids": [
+     "F8"
+    ],
+    "text": "Clients contacted fell 10.6% to 1,135 this week, down from 1,270 the prior week."
+   },
+   {
+    "fact_ids": [
+     "F2",
+     "F7"
+    ],
+    "text": "Activities per advisor fell 11.1% to 16.1, and appointment conversion fell 14.4% to 19.1%."
+   },
+   {
+    "fact_ids": [
+     "F23"
+    ],
+    "text": "Westmount Branch portfolio contacted (12 months) was 90.1% this week, down 0.5% from the prior week."
+   },
+   {
+    "fact_ids": [
+     "F11"
+    ],
+    "text": "Ville-Marie Branch has the lowest portfolio contacted (12 months) of the 14 branches at 79.6%."
+   }
+  ],
+  "headline": "Portfolio contacted (12 months) held steady this week at 87.2% for Greater Montr\u00e9al.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F23"
+    ],
+    "node_id": "BR-0504",
+    "reason": "Flagged: portfolio contacted (12 months) was 90.1%, down 0.5% this week."
+   },
+   {
+    "fact_ids": [
+     "F11"
+    ],
+    "node_id": "BR-0501",
+    "reason": "Ranks 14 of 14 branches on portfolio contacted (12 months) at 79.6%."
+   },
+   {
+    "fact_ids": [
+     "F32"
+    ],
+    "node_id": "BR-0506",
+    "reason": "Ranks 14 of 14 on activities per advisor at 14.5, down 26.9% this week."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}

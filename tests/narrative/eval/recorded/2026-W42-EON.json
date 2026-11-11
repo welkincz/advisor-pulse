@@ -1,0 +1,62 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "Portfolio contacted (12 months) rose 0.1% to 86.9% this week, and the district ranks 2 among its 4 peers."
+   },
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Activities per advisor fell 6.0% to 16.8 this week, the highest among the district's 4 peers."
+   },
+   {
+    "fact_ids": [
+     "F25"
+    ],
+    "text": "Orl\u00e9ans Branch show rate fell 25.0% to 75.0% this week, a flagged drop that ranks 7 of 10 branches."
+   },
+   {
+    "fact_ids": [
+     "F43"
+    ],
+    "text": "Cornwall Branch portfolio contacted (12 months) rose 0.8% to 90.4%, a flagged result that ranks 2 of 10 branches."
+   },
+   {
+    "fact_ids": [
+     "F35"
+    ],
+    "text": "Belleville Branch has the lowest portfolio contacted (12 months) of the 10 branches at 76.3%."
+   }
+  ],
+  "headline": "Portfolio contacted (12 months) rose 0.1% this week to 86.9% in Eastern Ontario.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F25"
+    ],
+    "node_id": "BR-0204",
+    "reason": "Flagged show rate of 75.0%, down 25.0% this week."
+   },
+   {
+    "fact_ids": [
+     "F43"
+    ],
+    "node_id": "BR-0209",
+    "reason": "Flagged portfolio contacted (12 months) fact, 90.4%, up 0.8% this week."
+   },
+   {
+    "fact_ids": [
+     "F35"
+    ],
+    "node_id": "BR-0207",
+    "reason": "Lowest portfolio contacted (12 months) among the 10 branches at 76.3%."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}

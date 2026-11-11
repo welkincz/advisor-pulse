@@ -14,8 +14,15 @@ from pulse.contracts.enums import StageStatus
 from pulse.contracts.exports import NarrativeFile, WeeklyReport
 from pulse.export.web import NARRATIVE_WINDOW_WEEKS
 from pulse.narrative.client import NarrativeClient, client_from_env
-from pulse.narrative.facts import HISTORY_WEEKS, build_facts, narrated_nodes, weeks_back
+from pulse.narrative.facts import (
+    HISTORY_WEEKS,
+    NodeFacts,
+    build_facts,
+    narrated_nodes,
+    weeks_back,
+)
 from pulse.narrative.generate import Outcome, ResponseCache, narrate_node
+from pulse.narrative.grade import below_floor, grade, summarize
 from pulse.runner.stage import StageContext, StageResult
 from pulse.warehouse import WAREHOUSE_FILE, connect
 
@@ -72,16 +79,23 @@ def write_narratives(
         if row.iso_week_id == week:
             children[row.parent_id].append(row)
     cache = ResponseCache(out_dir / CACHE_DIR)
-    outcomes = [
-        Outcome(retained[node_id], cached=True)
-        if node_id in retained
-        else narrate_node(
-            build_facts(own[node_id] + children[node_id], node_id, week),
-            None if templates_only else client,
-            cache,
-        )
-        for node_id, _ in nodes
-    ]
+    facts: dict[str, NodeFacts] = {}
+    outcomes: list[Outcome] = []
+    for node_id, _ in nodes:
+        if node_id not in retained:
+            facts[node_id] = build_facts(own[node_id] + children[node_id], node_id, week)
+            outcomes.append(narrate_node(facts[node_id], None if templates_only else client, cache))
+            continue
+        outcomes.append(Outcome(retained[node_id], cached=True))
+        # A kept narrative is graded only against the facts it was written from. Late rows can
+        # shift fact IDs and values, and then the rebuilt facts are not what the model saw;
+        # rows that no longer build facts at all must not fail a node that is simply kept.
+        try:
+            rebuilt = build_facts(own[node_id] + children[node_id], node_id, week)
+        except ValueError:
+            continue
+        if list(rebuilt.facts) == retained[node_id].facts_used:
+            facts[node_id] = rebuilt
     narratives = [o.narrative for o in outcomes]
     narratives.extend(
         n for key, n in retained.items() if key not in {x.node_id for x in narratives}
@@ -119,15 +133,30 @@ def write_narratives(
             rows_out=total,
             message=f"No model backend configured: wrote {total} template narratives.",
         )
+    # A kept narrative whose facts have moved since it was written is left ungraded (above).
+    grades = [
+        grade(o.narrative, facts[o.narrative.node_id])
+        for o in outcomes
+        if o.narrative.node_id in facts and not o.narrative.fallback
+    ]
+    graded = f" {summarize(grades)}" if grades else ""
     if fell_back:
         reasons = sorted({o.reason or "unknown" for o in fell_back})
         return StageResult(
             StageStatus.WARN,
             rows_out=total,
             message=f"{len(fell_back)} of {total} narratives fell back to the template "
-            f"({'; '.join(reasons)}).",
+            f"({'; '.join(reasons)}).{graded}",
         )
-    return StageResult(rows_out=total, message=f"{total} narratives validated ({hits} from cache).")
+    if below_floor(grades):
+        return StageResult(
+            StageStatus.WARN,
+            rows_out=total,
+            message=f"{total} narratives validated, but the grader marks too few.{graded}",
+        )
+    return StageResult(
+        rows_out=total, message=f"{total} narratives validated ({hits} from cache).{graded}"
+    )
 
 
 def narrate(ctx: StageContext, client_factory: ClientFactory = client_from_env) -> StageResult:
