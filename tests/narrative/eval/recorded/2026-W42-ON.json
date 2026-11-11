@@ -1,0 +1,58 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "Portfolio contacted (12 months) held steady at 86.5% this week, ranking 4th among 10 peers."
+   },
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Activities per advisor fell 9.5% to 16.1 this week, ranking 7th among 10 peers."
+   },
+   {
+    "fact_ids": [
+     "F8",
+     "F3"
+    ],
+    "text": "Clients contacted fell 9.6% to 4,165 and calls out fell 7.8% to 2,953, with both ranking 1st among 10 peers."
+   },
+   {
+    "fact_ids": [
+     "F7"
+    ],
+    "text": "Appointment conversion rose 23.6% to 29.2% this week, ranking 5th among 10 peers."
+   },
+   {
+    "fact_ids": [
+     "F19",
+     "F21"
+    ],
+    "text": "Northern Ontario ranked last of four child nodes on portfolio contacted at 85.1% and on show rate at 92.1%."
+   }
+  ],
+  "headline": "Portfolio contacted (12 months) held steady for Ontario this week.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F19",
+     "F21"
+    ],
+    "node_id": "NON",
+    "reason": "Ranked 4th of 4 on portfolio contacted (85.1%) and show rate (92.1%, down 6.6%)."
+   },
+   {
+    "fact_ids": [
+     "F24"
+    ],
+    "node_id": "SWO",
+    "reason": "Ranked 4th of 4 on activities per advisor at 15.8, down 11.4% this week."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}

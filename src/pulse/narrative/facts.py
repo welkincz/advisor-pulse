@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from pulse.contracts.enums import KpiCode, OrgLevel
+from pulse.contracts.enums import KpiCode, OrgLevel, ReportFlag
 from pulse.contracts.exports import NarrativeFact, WeeklyReport
 
 HEADLINE_KPI = KpiCode.PRTF_CONTACT_12M
@@ -37,6 +37,7 @@ class NodeFacts:
     children: dict[str, str]  # child node_id -> name
     facts: tuple[NarrativeFact, ...]
     headline_kpi: KpiCode = HEADLINE_KPI
+    anomalies: tuple[str, ...] = ()  # fact IDs of this week's rows the report flags ANOMALY
 
     def by_id(self) -> dict[str, NarrativeFact]:
         return {f.fact_id: f for f in self.facts}
@@ -74,6 +75,7 @@ def build_facts(report: Sequence[WeeklyReport], node_id: str, week: str) -> Node
     children = {r.node_id: r.node_name for r in current if r.parent_id == node_id}
 
     facts: list[NarrativeFact] = []
+    anomalies: list[str] = []
 
     def add(row: WeeklyReport | None) -> None:
         if row is None or row.value is None:
@@ -92,6 +94,8 @@ def build_facts(report: Sequence[WeeklyReport], node_id: str, week: str) -> Node
                 peer_count=row.peer_count,
             )
         )
+        if row.flag is ReportFlag.ANOMALY and row.iso_week_id == week:
+            anomalies.append(facts[-1].fact_id)
 
     for kpi in KpiCode:
         add(rows.get((week, node_id, kpi)))
@@ -107,4 +111,13 @@ def build_facts(report: Sequence[WeeklyReport], node_id: str, week: str) -> Node
 
     if not facts:
         raise ValueError(f"{node_id} has no non-null KPI values for {week}")
-    return NodeFacts(node_id, node.node_name, node.level, week, children, tuple(facts), headline)
+    return NodeFacts(
+        node_id,
+        node.node_name,
+        node.level,
+        week,
+        children,
+        tuple(facts),
+        headline,
+        tuple(anomalies),
+    )

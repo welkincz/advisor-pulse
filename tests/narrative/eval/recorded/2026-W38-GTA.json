@@ -1,0 +1,62 @@
+{
+ "answer": {
+  "bullets": [
+   {
+    "fact_ids": [
+     "F1"
+    ],
+    "text": "GTA portfolio contacted (12 months) was 86.9% this week, down 0.1% from the prior week."
+   },
+   {
+    "fact_ids": [
+     "F35"
+    ],
+    "text": "BR-0107 (The Annex Branch) portfolio contacted (12 months) was 90.9%, down 0.5% from the prior week, ranking 7 of 22 branches."
+   },
+   {
+    "fact_ids": [
+     "F47"
+    ],
+    "text": "BR-0110 (Don Mills Branch) portfolio contacted (12 months) was 90.3%, down 0.5% from the prior week, ranking 9 of 22 branches."
+   },
+   {
+    "fact_ids": [
+     "F2"
+    ],
+    "text": "Activities per advisor rose 7.6% to 17.6 this week, third among the 4 peers."
+   },
+   {
+    "fact_ids": [
+     "F7"
+    ],
+    "text": "Appointment conversion fell 20.0% to 21.5% this week, fourth among the 4 peers."
+   }
+  ],
+  "headline": "Portfolio contacted (12 months) was 86.9% this week, down 0.1% from the prior week.",
+  "watchlist": [
+   {
+    "fact_ids": [
+     "F35"
+    ],
+    "node_id": "BR-0107",
+    "reason": "Flagged this week: portfolio contacted (12 months) was 90.9%, down 0.5%."
+   },
+   {
+    "fact_ids": [
+     "F47"
+    ],
+    "node_id": "BR-0110",
+    "reason": "Flagged this week: portfolio contacted (12 months) was 90.3%, down 0.5%."
+   },
+   {
+    "fact_ids": [
+     "F71"
+    ],
+    "node_id": "BR-0116",
+    "reason": "Lowest portfolio contacted (12 months) among branches at 70.5%, ranking 22 of 22."
+   }
+  ]
+ },
+ "model": "claude-sonnet-5-5",
+ "source": "model"
+}

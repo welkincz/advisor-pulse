@@ -28,6 +28,21 @@ models:
       - expression_is_true:
           arguments:
             expression: "(level = 'NATIONAL') = (parent_id is null)"
+      - expression_is_true:
+          arguments:
+            expression: "level = 'BRANCH' or (stale_9m_share is null and stale_9m_rise_13w is null)"
+      - expression_is_true:
+          arguments:
+            expression: "stale_9m_share is null or stale_9m_share between 0 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "stale_9m_rise_13w is null or stale_9m_rise_13w between -1 and 1"
+      - expression_is_true:
+          arguments:
+            expression: "stale_9m_rise_13w is null or stale_9m_share is not null"
+      - expression_is_true:
+          arguments:
+            expression: "(stale_9m_share is null) = (portfolio_contacted_rate_12m is null) or level <> 'BRANCH'"
     columns:
       - name: iso_week_id
         description: ISO week, YYYY-Www.
@@ -113,4 +128,10 @@ models:
         data_tests: [not_null]
       - name: portfolio_contacted_rate_12m
         description: "PRTF_CONTACT_12M, the lead KPI = portfolio_contacted_12m ÷ portfolio_clients, 4 decimals. Null when there are no portfolio clients or the week has less than 12 months of activity history (int_contact_window)."
+        data_type: double
+      - name: stale_9m_share
+        description: "Secondary indicator, branch rows only (ADR 0009): share of the branch's portfolio clients (the PRTF_CONTACT_12M denominator) with no completed contact in (week_end − 9 months, week_end], 4 decimals. They leave the 12-month window within 3 months unless contacted. Not a forecast. Null at other levels and whenever the lead KPI is null."
+        data_type: double
+      - name: stale_9m_rise_13w
+        description: "stale_9m_share minus the branch's value 13 reported weeks earlier, computed before rounding, 4 decimals (0.011 = 1.1 points). Positive means more of the book is close to leaving the window. Null at other levels and when the branch has no row 13 reported weeks earlier."
         data_type: double
