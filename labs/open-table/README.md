@@ -17,7 +17,7 @@ uv run --project labs/open-table pytest labs/open-table -q               # tests
 | Append per ISO week | Identity partition on `iso_week_id`; one `write_week` call per week |
 | Idempotent re-run | `dynamic_partition_overwrite` replaces the week's partition: delete and append commit together in one metadata update, so a re-run never duplicates rows |
 | Schema evolution | `update_schema().add_column("loaded_by_run", string)`; older rows read back as null |
-| Time travel | `scan(snapshot_id=...)` returns the pre-evolution snapshot with the old 17 columns |
+| Time travel | `scan(snapshot_id=...)` on the snapshot before the re-run and schema change returns the old 17 columns |
 | Read with DuckDB | DuckDB's `iceberg` extension, `iceberg_scan(<current metadata.json>)` |
 
 ## Why Iceberg, not Delta
@@ -37,9 +37,12 @@ Parquet with a log.
 - Failure: writing a frame whose `activities_completed` is a string is rejected and no snapshot
   is created.
 - Time travel to the snapshot before evolution returns the old rows and schema.
-- The full demo reads back 55 rows through DuckDB.
+- The full demo reads back 55 rows through DuckDB. This one test needs network the first time,
+  to download DuckDB's `iceberg` extension. Offline with an empty extension cache, it **skips**
+  and gives the reason. A separate test checks that an unreachable extension repository produces
+  that skip reason.
 
-Replacing `dynamic_partition_overwrite` with a plain `append` fails four of the seven tests,
+Replacing `dynamic_partition_overwrite` with a plain `append` fails four of the eight tests,
 which is the duplicate-row bug the overwrite exists to prevent.
 
 ## Measured run

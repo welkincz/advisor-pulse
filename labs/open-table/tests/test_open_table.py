@@ -6,6 +6,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import duckdb
 import pyarrow as pa
 import pyarrow.compute as pc
 import pytest
@@ -106,7 +107,34 @@ def test_time_travel_returns_the_snapshot_before_evolution(table: Table, source:
     assert ot.content_hash(then) == ot.content_hash(w40)
 
 
+def iceberg_unavailable(
+    repository: str | None = None, extension_dir: Path | None = None
+) -> str | None:
+    """Why DuckDB's iceberg extension cannot load here, or None when it can.
+
+    The first INSTALL downloads the extension, so an offline machine with an empty extension
+    cache cannot run the read-back. That is an environment limit, not a lab failure.
+    """
+    con = duckdb.connect()
+    if extension_dir is not None:
+        con.execute(f"SET extension_directory = '{extension_dir}'")
+    source = f" FROM '{repository}'" if repository else ""
+    try:
+        con.sql(f"INSTALL iceberg{source}; LOAD iceberg;")
+    except duckdb.IOException as exc:
+        first = str(exc).splitlines()[0]
+        return f"DuckDB iceberg extension not cached and cannot be downloaded (offline?): {first}"
+    return None
+
+
+def test_an_unreachable_extension_repository_gives_a_skip_reason(tmp_path: Path) -> None:
+    reason = iceberg_unavailable("http://127.0.0.1:9", tmp_path / "ext")
+    assert reason is not None and "iceberg" in reason
+
+
 def test_the_demo_reads_back_through_duckdb(tmp_path: Path) -> None:
+    if reason := iceberg_unavailable():
+        pytest.skip(reason)
     result = ot.run(tmp_path / "wh")
     assert result["rows_after_appends"] == result["rows_after_rerun"] == 55
     assert result["hash_after_appends"] == result["hash_after_rerun"]
