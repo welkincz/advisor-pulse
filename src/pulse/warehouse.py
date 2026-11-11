@@ -7,7 +7,7 @@ a contract change shows up as a DDL change and is caught by the DESCRIBE test.
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator, Sequence
+from collections.abc import Collection, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +28,8 @@ from pulse.contracts.raw import (
 )
 
 SCHEMAS = ("raw", "meta", "quarantine")
+# Persist may drop this schema's plain tables; see pulse.state.rebuilt for which ones.
+DBT_REBUILT_SCHEMA = "intermediate"
 WAREHOUSE_FILE = "warehouse.duckdb"
 
 
@@ -171,3 +173,41 @@ def insert_contracts(
         con.execute(f"INSERT INTO {table} ({names}) SELECT {names} FROM _insert_batch")
     finally:
         con.unregister("_insert_batch")
+
+
+def _quoted(path: Path) -> str:
+    return str(path).replace("'", "''")
+
+
+def slim_warehouse(path: Path, rebuilt: Collection[str]) -> None:
+    """Rewrite the file without what dbt rebuilds on every run, so R2 holds less (#304).
+
+    The intermediate tables are about three quarters of the file, and ``dbt build`` replaces
+    them before anything reads them. Only the ``rebuilt`` tables of that schema are dropped
+    (``pulse.state.rebuilt`` leaves out incremental models, whose tables carry state); raw
+    rows, marts, quarantine, the run log and any other table stay.
+    Atomic: a failure leaves the original in place.
+    """
+    slim = path.with_name(path.name + ".slim")
+    slim.unlink(missing_ok=True)
+    con = duckdb.connect()
+    try:
+        con.execute(f"attach '{_quoted(path)}' as source_db (read_only)")
+        con.execute(f"attach '{_quoted(slim)}' as slim_db")
+        con.execute("copy from database source_db to slim_db (schema)")
+        tables = con.execute(
+            "select schema_name, table_name from duckdb_tables() where database_name = 'slim_db'"
+        ).fetchall()
+        for schema, table in tables:
+            name = f'"{schema}"."{table}"'
+            if schema == DBT_REBUILT_SCHEMA and table in rebuilt:
+                con.execute(f"drop table slim_db.{name}")
+            else:
+                con.execute(f"insert into slim_db.{name} select * from source_db.{name}")
+        con.execute("detach slim_db")
+        con.execute("detach source_db")
+        slim.replace(path)
+        path.with_name(path.name + ".wal").unlink(missing_ok=True)
+    finally:
+        con.close()
+        slim.unlink(missing_ok=True)
