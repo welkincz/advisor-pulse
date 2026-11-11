@@ -48,6 +48,9 @@ LOWER_IS_BETTER = frozenset({KpiCode.NO_SHOW_RATE, KpiCode.LATE_RATE, KpiCode.QU
 BATCH_RATE_KPIS = frozenset({KpiCode.LATE_RATE, KpiCode.QUAR_RATE})
 AVERAGE_KPIS = frozenset({KpiCode.ACT_PER_ADV, KpiCode.AVG_MEET_MIN})
 
+# The prompt's cap on watchlist items; the grader's action rule reads it too (grade.py).
+MAX_WATCHLIST = 3
+
 SYSTEM = """\
 You write the weekly activity summary for one node (region or district) of Maplecrest Bank, \
 a fictional bank. The data is synthetic and comes from a weekly batch report.

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from pulse.contracts.exports import NodeNarrative
 from pulse.narrative.facts import NodeFacts
-from pulse.narrative.prompt import KPI_LABELS
+from pulse.narrative.prompt import KPI_LABELS, MAX_WATCHLIST
 from pulse.narrative.validate import BANNED, validate
 
 RULES = (
@@ -108,10 +108,17 @@ def _one_claim(narrative: NodeNarrative, node: NodeFacts) -> bool:
 
 
 def _action(narrative: NodeNarrative, node: NodeFacts) -> bool:
-    """A child flagged this week is on the watchlist, so the reader knows where to look."""
+    """Children flagged this week are on the watchlist, so the reader knows where to look.
+
+    The prompt caps the watchlist at ``MAX_WATCHLIST``, so the rule asks for
+    ``min(len(flagged), MAX_WATCHLIST)`` flagged children on it, not all of them. The prompt
+    names no order among flagged children, so when there are more than the cap any of them
+    count: requiring a particular few would fail answers that follow every stated rule.
+    """
     by_id = node.by_id()
     flagged = {by_id[f].node_id for f in node.anomalies if f in by_id} & set(node.children)
-    return flagged <= {w.node_id for w in narrative.watchlist}
+    watched = flagged & {w.node_id for w in narrative.watchlist}
+    return len(watched) >= min(len(flagged), MAX_WATCHLIST)
 
 
 def grade(narrative: NodeNarrative, node: NodeFacts) -> Grade:

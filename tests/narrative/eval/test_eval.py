@@ -42,7 +42,7 @@ def test_recorded_answer_gets_the_expected_verdict(case: object) -> None:
 def test_offline_eval_prints_a_pass_rate_table(capsys: pytest.CaptureFixture[str]) -> None:
     assert run_eval.main([]) == 0
     out = capsys.readouterr().out
-    assert "pass rate" in out and "9/10" in out
+    assert "pass rate" in out and "10/10" in out
 
 
 @pytest.mark.parametrize(

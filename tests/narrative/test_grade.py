@@ -10,6 +10,7 @@ from pulse.contracts.enums import KpiCode, OrgLevel
 from pulse.contracts.exports import NarrativeBullet, NarrativeFact, NodeNarrative, WatchItem
 from pulse.narrative.facts import NodeFacts
 from pulse.narrative.grade import below_floor, grade, reading_grade, summarize
+from pulse.narrative.prompt import MAX_WATCHLIST, SYSTEM
 
 WEEK = "2026-W42"
 
@@ -147,6 +148,51 @@ def test_a_flagged_child_on_the_watchlist_passes_the_action_rule() -> None:
         watchlist=[WatchItem(node_id="BR-1", reason="Show rate was 80.0%.", fact_ids=["F5"])],
     )
     assert grade(narrative, replace(NODE, anomalies=("F5",))).failed == ()
+
+
+# Four flagged children: one more than the prompt lets the watchlist hold.
+CROWDED = replace(
+    NODE,
+    children={f"BR-{i}": f"Branch {i}" for i in range(1, 5)},
+    facts=(
+        *NODE.facts[:4],
+        *(_fact(f"F{i + 4}", f"BR-{i}", KpiCode.SHOW_RATE, 0.8, -0.1) for i in range(1, 5)),
+    ),
+    anomalies=("F5", "F6", "F7", "F8"),
+)
+
+
+def _watching(*children: int) -> NodeNarrative:
+    return _good(
+        facts_used=list(CROWDED.facts),
+        bullets=[
+            *_bullets(),
+            NarrativeBullet(
+                text="Four branches had a flagged show rate of 80.0%.",
+                fact_ids=["F5", "F6", "F7", "F8"],
+            ),
+        ],
+        watchlist=[
+            WatchItem(node_id=f"BR-{i}", reason="Show rate was 80.0%.", fact_ids=[f"F{i + 4}"])
+            for i in children
+        ],
+    )
+
+
+def test_the_prompt_states_the_watchlist_cap_the_grader_uses() -> None:
+    assert f"watchlist: 0 to {MAX_WATCHLIST} child nodes" in SYSTEM
+
+
+@pytest.mark.parametrize("children", [(1, 2, 3), (4, 2, 1), (2, 3, 4)])
+def test_a_full_watchlist_passes_when_more_children_are_flagged_than_fit(
+    children: tuple[int, ...],
+) -> None:
+    assert len(children) == MAX_WATCHLIST
+    assert "action" not in grade(_watching(*children), CROWDED).failed
+
+
+def test_a_short_watchlist_fails_when_more_children_are_flagged_than_fit() -> None:
+    assert "action" in grade(_watching(1, 2), CROWDED).failed
 
 
 def test_a_flag_that_is_cited_passes_the_anomalies_rule() -> None:

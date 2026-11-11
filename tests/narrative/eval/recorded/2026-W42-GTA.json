@@ -61,8 +61,6 @@
    }
   ]
  },
- "expected_pass": false,
  "model": "claude-sonnet-5-5",
- "note": "The model's first answer leaves a flagged child off the watchlist; the grader's action rule catches it.",
  "source": "model"
 }
